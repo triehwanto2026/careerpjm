@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
 import Swal from "sweetalert2";
-import { VALID_CREDENTIALS } from "@/data/questions";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [activationCode, setActivationCode] = useState("");
@@ -27,16 +27,22 @@ const Index = () => {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    const { data, error } = await supabase
+      .from("activation_codes")
+      .select("*")
+      .eq("code", activationCode.trim())
+      .eq("password", password.trim())
+      .eq("is_used", false)
+      .maybeSingle();
 
-    if (
-      activationCode === VALID_CREDENTIALS.activationCode &&
-      password === VALID_CREDENTIALS.password
-    ) {
+    if (data && !error) {
+      // Mark code as used
+      await supabase.from("activation_codes").update({ is_used: true }).eq("id", data.id);
+
       Swal.fire({
         icon: "success",
         title: "Akses Diberikan",
-        text: "Selamat datang! Anda akan diarahkan ke halaman tes.",
+        text: `Selamat datang, ${data.candidate_name}! Anda akan diarahkan ke halaman tes.`,
         background: "hsl(220, 18%, 10%)",
         color: "hsl(210, 20%, 92%)",
         confirmButtonColor: "hsl(174, 72%, 46%)",
@@ -44,6 +50,12 @@ const Index = () => {
         showConfirmButton: false,
       }).then(() => {
         sessionStorage.setItem("psytest_auth", "true");
+        sessionStorage.setItem("psytest_candidate", JSON.stringify({
+          name: data.candidate_name,
+          email: data.candidate_email,
+          position: data.position,
+          codeId: data.id,
+        }));
         navigate("/test");
       });
     } else {
@@ -51,7 +63,7 @@ const Index = () => {
       Swal.fire({
         icon: "error",
         title: "Akses Ditolak",
-        text: "Kode aktivasi atau password salah. Silakan coba lagi.",
+        text: "Kode aktivasi atau password salah, atau sudah digunakan.",
         background: "hsl(220, 18%, 10%)",
         color: "hsl(210, 20%, 92%)",
         confirmButtonColor: "hsl(174, 72%, 46%)",
