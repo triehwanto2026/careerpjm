@@ -106,7 +106,7 @@ const Dashboard = () => {
                 <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5">
                   <div>
                     <p className="text-sm font-medium text-foreground">{r.candidateName}</p>
-                    <p className="text-xs text-muted-foreground">Skor: {r.score}%</p>
+                    <p className="text-xs text-muted-foreground">{r.testName} — Skor: {r.score}%</p>
                   </div>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
