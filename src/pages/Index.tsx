@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
 import Swal from "sweetalert2";
-import { VALID_CREDENTIALS } from "@/data/questions";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [activationCode, setActivationCode] = useState("");
