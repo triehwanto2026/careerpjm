@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       activation_codes: {
         Row: {
+          assigned_tests: string[] | null
           candidate_email: string
           candidate_name: string
           code: string
@@ -28,6 +29,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_tests?: string[] | null
           candidate_email: string
           candidate_name: string
           code: string
@@ -40,6 +42,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_tests?: string[] | null
           candidate_email?: string
           candidate_name?: string
           code?: string
