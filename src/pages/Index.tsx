@@ -47,6 +47,7 @@ const Index = () => {
           email: data.candidate_email,
           position: data.position,
           codeId: data.id,
+          assignedTests: data.assigned_tests || [],
         }));
         navigate("/test");
       });
