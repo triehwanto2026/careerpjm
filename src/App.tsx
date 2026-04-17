@@ -12,6 +12,7 @@ import ActivationCodes from "./pages/admin/ActivationCodes";
 import TestInstruments from "./pages/admin/TestInstruments";
 import Candidates from "./pages/admin/Candidates";
 import Results from "./pages/admin/Results";
+import QuestionBuilder from "./pages/admin/QuestionBuilder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/admin/dashboard" element={<Dashboard />} />
             <Route path="/admin/activation-codes" element={<ActivationCodes />} />
             <Route path="/admin/test-instruments" element={<TestInstruments />} />
+            <Route path="/admin/test-instruments/:instrumentId/questions" element={<QuestionBuilder />} />
             <Route path="/admin/candidates" element={<Candidates />} />
             <Route path="/admin/results" element={<Results />} />
             <Route path="*" element={<NotFound />} />

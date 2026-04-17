@@ -210,6 +210,100 @@ export type Database = {
         }
         Relationships: []
       }
+      test_question_options: {
+        Row: {
+          category_target: string | null
+          created_at: string
+          display_order: number
+          id: string
+          is_correct: boolean | null
+          option_label: string
+          option_text: string
+          option_text_en: string | null
+          question_id: string
+          score_value: number
+        }
+        Insert: {
+          category_target?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_correct?: boolean | null
+          option_label: string
+          option_text: string
+          option_text_en?: string | null
+          question_id: string
+          score_value?: number
+        }
+        Update: {
+          category_target?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_correct?: boolean | null
+          option_label?: string
+          option_text?: string
+          option_text_en?: string | null
+          question_id?: string
+          score_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "test_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_questions: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          instrument_id: string
+          question_number: number
+          question_text: string
+          question_text_en: string | null
+          question_type: string
+          scoring_rule: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          instrument_id: string
+          question_number?: number
+          question_text: string
+          question_text_en?: string | null
+          question_type?: string
+          scoring_rule?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          instrument_id?: string
+          question_number?: number
+          question_text?: string
+          question_text_en?: string | null
+          question_type?: string
+          scoring_rule?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_questions_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "test_instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_results: {
         Row: {
           answered_questions: number

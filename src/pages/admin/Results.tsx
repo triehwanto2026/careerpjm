@@ -57,28 +57,179 @@ const Results = () => {
   );
 
   const handlePrint = () => {
-    if (!printRef.current || !selectedResult) return;
-    const printContent = printRef.current.innerHTML;
+    if (!selectedResult) return;
+    const r = selectedResult;
+    const profile = r.candidate_profile as Record<string, string> | null;
+    const cats = r.categories as Record<string, number>;
+    const catEntries = Object.entries(cats);
+    const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
+    const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
+    const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
+
+    const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
+    <style>
+      @page { size: A4; margin: 16mm 14mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; font-size: 11pt; line-height: 1.5; }
+
+      .header { border-bottom: 3px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+      .header-left h1 { font-size: 18pt; color: #0f172a; margin-bottom: 2px; letter-spacing: -0.3px; }
+      .header-left p { font-size: 9pt; color: #64748b; }
+      .header-right { text-align: right; }
+      .header-right .doc-id { font-size: 8pt; color: #64748b; font-family: 'Courier New', monospace; }
+      .header-right .doc-date { font-size: 9pt; color: #475569; margin-top: 2px; }
+
+      .badge-status { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 9pt; font-weight: 700; letter-spacing: 0.5px; color: #fff; background: ${statusColor}; }
+
+      .section { margin-bottom: 18px; page-break-inside: avoid; }
+      .section-title { font-size: 11pt; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+
+      .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
+      .profile-row { display: flex; padding: 4px 0; border-bottom: 1px dashed #f1f5f9; font-size: 10pt; }
+      .profile-row .label { color: #64748b; min-width: 110px; font-weight: 500; }
+      .profile-row .value { color: #0f172a; font-weight: 600; flex: 1; }
+
+      .score-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
+      .score-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 6px; padding: 12px; text-align: center; }
+      .score-card .label { font-size: 8pt; color: #0f766e; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+      .score-card .value { font-size: 22pt; font-weight: 800; color: #0f172a; line-height: 1.1; margin-top: 4px; }
+      .score-card .sub { font-size: 9pt; color: #64748b; }
+
+      table.dim-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+      table.dim-table th { background: #f8fafc; color: #475569; font-weight: 600; text-align: left; padding: 8px 10px; border: 1px solid #e2e8f0; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.3px; }
+      table.dim-table td { padding: 7px 10px; border: 1px solid #e2e8f0; }
+      table.dim-table tr:nth-child(even) td { background: #fafafa; }
+      .bar-container { background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; }
+      .bar-fill { height: 100%; border-radius: 4px; background: #0f766e; }
+
+      .interpretation { background: #fefce8; border-left: 4px solid #eab308; padding: 12px 14px; border-radius: 0 6px 6px 0; font-size: 10pt; line-height: 1.7; color: #422006; }
+
+      table.answer-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+      table.answer-table th { background: #0f172a; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3px; }
+      table.answer-table td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+      table.answer-table tr:nth-child(even) td { background: #f8fafc; }
+      .ans-num { font-weight: 700; color: #0f766e; width: 32px; text-align: center; }
+      .ans-q-en { color: #94a3b8; font-style: italic; font-size: 8pt; margin-top: 2px; }
+      .ans-pill { display: inline-block; background: #0f766e; color: #fff; padding: 2px 8px; border-radius: 3px; font-weight: 600; font-size: 8.5pt; }
+      .ans-correct { background: #059669; }
+      .ans-wrong { background: #dc2626; }
+      .ans-cat { color: #64748b; font-size: 8.5pt; }
+
+      .signature-area { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; page-break-inside: avoid; }
+      .sig-box { text-align: center; font-size: 9pt; }
+      .sig-box .role { color: #64748b; margin-bottom: 60px; }
+      .sig-box .name { border-top: 1px solid #1f2937; padding-top: 4px; font-weight: 600; }
+
+      .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
+
+      .page-break { page-break-before: always; }
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
+    </style></head><body>
+
+    <div class="header">
+      <div class="header-left">
+        <h1>Laporan Hasil Tes Psikologi</h1>
+        <p>Sistem Asesmen Rekrutmen — Konfidensial</p>
+      </div>
+      <div class="header-right">
+        <span class="badge-status">${statusLabel}</span>
+        <div class="doc-id">REF: ${r.id.substring(0, 8).toUpperCase()}</div>
+        <div class="doc-date">${new Date(r.completed_at).toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Profil Kandidat</div>
+      <div class="profile-grid">
+        <div class="profile-row"><span class="label">Nama Lengkap</span><span class="value">${r.candidate_name}</span></div>
+        <div class="profile-row"><span class="label">Posisi Dilamar</span><span class="value">${r.position || "-"}</span></div>
+        <div class="profile-row"><span class="label">Email</span><span class="value">${profile?.email || "-"}</span></div>
+        <div class="profile-row"><span class="label">No. Telepon</span><span class="value">${profile?.phone || "-"}</span></div>
+        <div class="profile-row"><span class="label">Tanggal Lahir</span><span class="value">${profile?.birthDate || "-"}</span></div>
+        <div class="profile-row"><span class="label">Pendidikan</span><span class="value">${profile?.education || "-"}</span></div>
+        <div class="profile-row"><span class="label">Jenis Kelamin</span><span class="value">${profile?.gender || "-"}</span></div>
+        <div class="profile-row"><span class="label">Tanggal Tes</span><span class="value">${new Date(r.completed_at).toLocaleDateString("id-ID", { dateStyle: "long" } as any)}</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Ringkasan Hasil — ${r.test_name}</div>
+      <div class="score-cards">
+        <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
+        <div class="score-card"><div class="label">Skor Akhir</div><div class="value">${r.score}<span style="font-size:14pt;color:#64748b;">%</span></div></div>
+        <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Profil Dimensi & Skor</div>
+      <table class="dim-table">
+        <thead><tr><th style="width:35%">Dimensi / Aspek</th><th style="width:15%">Skor</th><th>Indikator Visual</th></tr></thead>
+        <tbody>
+          ${catEntries.map(([dim, val]) => {
+            const pct = (val / maxVal) * 100;
+            return `<tr>
+              <td><strong>${dim}</strong></td>
+              <td>${val}${r.test_name === "PAPIKOSTIK" ? "/9" : "%"}</td>
+              <td><div class="bar-container"><div class="bar-fill" style="width:${pct}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    ${r.interpretation ? `
+    <div class="section">
+      <div class="section-title">Interpretasi Psikolog</div>
+      <div class="interpretation">${r.interpretation}</div>
+    </div>` : ""}
+
+    <div class="section page-break">
+      <div class="section-title">Lembar Jawaban Kandidat (${answers.length} Soal)</div>
+      ${answers.length === 0 ? '<p style="color:#94a3b8;font-style:italic;padding:12px 0;">Belum ada data jawaban tersimpan.</p>' : `
+      <table class="answer-table">
+        <thead><tr><th style="width:36px;">No</th><th>Pertanyaan</th><th style="width:160px;">Jawaban</th><th style="width:120px;">Kategori</th></tr></thead>
+        <tbody>
+          ${answers.map(a => `
+            <tr>
+              <td class="ans-num">${a.question_number}</td>
+              <td>
+                <div>${a.question_text}</div>
+                ${a.question_text_en ? `<div class="ans-q-en">${a.question_text_en}</div>` : ""}
+              </td>
+              <td><span class="ans-pill ${a.is_correct === true ? 'ans-correct' : a.is_correct === false ? 'ans-wrong' : ''}">${a.selected_answer_label ? a.selected_answer_label + ". " : ""}${a.selected_answer}</span></td>
+              <td class="ans-cat">${a.category || "-"}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`}
+    </div>
+
+    <div class="signature-area">
+      <div class="sig-box">
+        <div class="role">Kandidat</div>
+        <div class="name">${r.candidate_name}</div>
+      </div>
+      <div class="sig-box">
+        <div class="role">Psikolog Penilai</div>
+        <div class="name">________________________</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Dokumen ini dihasilkan secara otomatis oleh PsyTest Recruitment Platform — Bersifat Konfidensial.<br/>
+      Dicetak pada: ${new Date().toLocaleString("id-ID")}
+    </div>
+
+    </body></html>`;
+
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Hasil Tes - ${selectedResult.candidate_name}</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Segoe UI', sans-serif; padding: 32px; color: #1a1a1a; background: #fff; font-size: 13px; }
-      .print-header { text-align: center; margin-bottom: 24px; border-bottom: 2px solid #1a1a1a; padding-bottom: 16px; }
-      .print-header h1 { font-size: 20px; } .print-header p { font-size: 12px; color: #666; margin-top: 4px; }
-      .section { margin-bottom: 16px; } .section h2 { font-size: 15px; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-      table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; }
-      th { background: #f5f5f5; font-weight: 600; }
-      .interpretation { padding: 12px; background: #f9f9f9; border-radius: 6px; line-height: 1.6; }
-      .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #999; }
-      @media print { body { padding: 16px; } }
-    </style></head><body>${printContent}
-    <div class="footer">Dicetak pada: ${new Date().toLocaleString("id-ID")} — Sistem Tes Psikologi Rekrutmen</div>
-    </body></html>`);
+    win.document.write(html);
     win.document.close();
-    win.print();
+    win.focus();
+    setTimeout(() => win.print(), 300);
   };
 
   const handleExport = () => {

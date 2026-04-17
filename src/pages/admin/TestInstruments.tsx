@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +71,7 @@ const extractForm = () => {
 };
 
 const TestInstruments = () => {
+  const navigate = useNavigate();
   const [instruments, setInstruments] = useState<InstrumentRow[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,6 +178,12 @@ const TestInstruments = () => {
                 <p><span className="text-foreground/70">Scoring:</span> {t.scoring_method}</p>
                 <p><span className="text-foreground/70">Audiens:</span> {t.target_audience}</p>
               </div>
+              <button
+                onClick={() => navigate(`/admin/test-instruments/${t.id}/questions`)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-semibold hover:bg-primary/20 transition-colors"
+              >
+                <ListChecks className="h-3.5 w-3.5" /> Kelola Bank Soal
+              </button>
             </div>
           ))}
         </div>
