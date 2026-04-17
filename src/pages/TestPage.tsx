@@ -98,6 +98,17 @@ const TestPage = () => {
     setLoading(false);
   };
 
+  const handleTimeUp = useCallback(() => {
+    if (!submitted) {
+      Swal.fire({
+        icon: "warning", title: "Waktu Habis!",
+        text: "Waktu pengerjaan telah berakhir. Jawaban Anda akan disimpan otomatis.",
+        ...SWAL_THEME, allowOutsideClick: false,
+      }).then(() => completeSubmission());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submitted, answers, instruments]);
+
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Memuat tes...</div>;
   if (instruments.length === 0) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Tidak ada tes tersedia.</div>;
 
@@ -132,16 +143,6 @@ const TestPage = () => {
   };
 
   const isLastQuestion = currentTestIdx === instruments.length - 1 && currentQIdx === (currentTest?.questions.length || 1) - 1;
-
-  const handleTimeUp = useCallback(() => {
-    if (!submitted) {
-      Swal.fire({
-        icon: "warning", title: "Waktu Habis!",
-        text: "Waktu pengerjaan telah berakhir. Jawaban Anda akan disimpan otomatis.",
-        ...SWAL_THEME, allowOutsideClick: false,
-      }).then(() => completeSubmission());
-    }
-  }, [submitted, answers, instruments]);
 
   const handleSubmit = async () => {
     if (totalAnsweredAll < totalAllQuestions) {
