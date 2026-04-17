@@ -176,16 +176,31 @@ const TestInstruments = () => {
   useEffect(() => { load(); }, []);
 
   const handleAdd = async () => {
-    const { value } = await Swal.fire({ title: "Tambah Alat Tes", html: buildFormHtml(), ...SWAL_THEME, confirmButtonText: "Simpan", showCancelButton: true, cancelButtonText: "Batal", width: 560, preConfirm: extractForm });
+    const { value } = await Swal.fire({
+      title: "Tambah Alat Tes Psikologi", html: buildFormHtml(), ...SWAL_THEME,
+      confirmButtonText: "Simpan", showCancelButton: true, cancelButtonText: "Batal",
+      width: 640, preConfirm: extractForm,
+      didOpen: () => attachTemplateHandler(),
+    });
     if (value) {
-      await supabase.from("test_instruments").insert(value);
+      const { data } = await supabase.from("test_instruments").insert(value).select("id").single();
       await load();
+      if (data?.id) {
+        const r = await Swal.fire({ icon: "success", title: "Tersimpan!",
+          text: "Lanjut ke Bank Soal untuk menambah pertanyaan & opsi jawaban?",
+          showCancelButton: true, confirmButtonText: "Ya, Kelola Soal", cancelButtonText: "Nanti", ...SWAL_THEME });
+        if (r.isConfirmed) navigate(`/admin/test-instruments/${data.id}/questions`);
+      }
     }
   };
 
   const handleEdit = async (t: InstrumentRow) => {
     setOpenMenu(null);
-    const { value } = await Swal.fire({ title: "Edit Alat Tes", html: buildFormHtml(t), ...SWAL_THEME, confirmButtonText: "Simpan Perubahan", showCancelButton: true, cancelButtonText: "Batal", width: 560, preConfirm: extractForm });
+    const { value } = await Swal.fire({
+      title: "Edit Alat Tes", html: buildFormHtml(t), ...SWAL_THEME,
+      confirmButtonText: "Simpan Perubahan", showCancelButton: true, cancelButtonText: "Batal",
+      width: 640, preConfirm: extractForm,
+    });
     if (value) {
       await supabase.from("test_instruments").update(value).eq("id", t.id);
       await load();
