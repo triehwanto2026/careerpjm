@@ -11,10 +11,51 @@ const SWAL_THEME = {
   confirmButtonColor: "hsl(174, 72%, 46%)",
 };
 
-const categories = ["Personality", "Cognitive", "Work Personality", "Work Aptitude"];
+const categories = [
+  "Personality", "Cognitive", "Work Personality", "Work Aptitude",
+  "Intelligence", "Aptitude", "Temperament", "Behavioral",
+];
+
 const scoringMethods = [
-  "Ipsative (forced-choice)", "Norm-referenced (IQ scale)", "Typological (16 types)",
-  "Forced-choice (20 scales, 0-9)", "Performance curve analysis", "Percentage per temperament", "Likert Scale", "Other",
+  { value: "ipsative", label: "Ipsative (Forced-Choice) — DISC, Personality Plus" },
+  { value: "correct_only", label: "Correct/Incorrect (IQ, Aptitude) — CFIT, IST" },
+  { value: "typological", label: "Typological (Categorical) — MBTI 16 Types" },
+  { value: "papi_scales", label: "PAPI 20 Scales (0-9 scoring)" },
+  { value: "speed_accuracy", label: "Speed-Accuracy Curve — Kraepelin" },
+  { value: "percent_temperament", label: "Percentage per Temperament" },
+  { value: "likert_sum", label: "Likert Scale Sum" },
+  { value: "weighted", label: "Weighted Score Per Dimension" },
+];
+
+const TEMPLATES = [
+  { name: "DISC", name_en: "DISC Assessment", category: "Personality", scoring_method: "ipsative",
+    target_audience: "Karyawan & Calon Karyawan", norm_reference: "Marston (1928), revisi DISC modern",
+    question_count: 28, duration_minutes: 15,
+    description: "Mengukur 4 dimensi perilaku: Dominance, Influence, Steadiness, Compliance." },
+  { name: "MBTI", name_en: "Myers-Briggs Type Indicator", category: "Personality", scoring_method: "typological",
+    target_audience: "Dewasa muda, profesional", norm_reference: "Myers & Briggs (1962)",
+    question_count: 20, duration_minutes: 15,
+    description: "Mengklasifikasi kepribadian ke 16 tipe berdasar 4 dikotomi: E/I, S/N, T/F, J/P." },
+  { name: "CFIT", name_en: "Culture Fair Intelligence Test", category: "Intelligence", scoring_method: "correct_only",
+    target_audience: "Usia 8-65 tahun", norm_reference: "Cattell (1949), IPAT",
+    question_count: 30, duration_minutes: 30,
+    description: "Mengukur intelegensi umum (g-factor) bebas budaya melalui penalaran non-verbal." },
+  { name: "IST", name_en: "Intelligence Structure Test", category: "Intelligence", scoring_method: "correct_only",
+    target_audience: "Usia 13-60 tahun", norm_reference: "Amthauer (1953), IST 2000-R",
+    question_count: 30, duration_minutes: 60,
+    description: "Mengukur 9 dimensi kecerdasan: SE, WA, AN, GE, RA, ZR, FA, WU, ME." },
+  { name: "PAPIKOSTIK", name_en: "PAPI Kostick Inventory", category: "Work Personality", scoring_method: "papi_scales",
+    target_audience: "Pelamar kerja, manajemen", norm_reference: "Dr. Max Kostick (1960)",
+    question_count: 30, duration_minutes: 25,
+    description: "Mengukur 20 aspek kepribadian kerja melalui 90 pasangan pernyataan ipsative." },
+  { name: "Kraepelin", name_en: "Kraepelin Test", category: "Work Aptitude", scoring_method: "speed_accuracy",
+    target_audience: "Pekerja klerikal, operator", norm_reference: "Emil Kraepelin (1895)",
+    question_count: 30, duration_minutes: 10,
+    description: "Mengukur kecepatan, ketelitian, daya tahan, dan stabilitas dalam pekerjaan rutin." },
+  { name: "Personality Plus", name_en: "Four Temperaments", category: "Temperament", scoring_method: "percent_temperament",
+    target_audience: "Umum, remaja & dewasa", norm_reference: "Florence Littauer (1992)",
+    question_count: 40, duration_minutes: 20,
+    description: "Mengidentifikasi temperamen dominan: Sanguinis, Koleris, Melankolis, Plegmatis." },
 ];
 
 interface InstrumentRow {
@@ -24,37 +65,86 @@ interface InstrumentRow {
 }
 
 const buildFormHtml = (t?: InstrumentRow) => `
-  <div style="text-align:left;font-size:13px;max-height:65vh;overflow-y:auto;padding-right:8px;">
-    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Nama Alat Tes (ID)</label>
-    <input id="swal-name" class="swal2-input" value="${t?.name || ""}" style="margin:0 0 10px;width:100%">
-    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Name (EN)</label>
-    <input id="swal-nameEn" class="swal2-input" value="${t?.name_en || ""}" style="margin:0 0 10px;width:100%">
-    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Deskripsi</label>
-    <textarea id="swal-desc" class="swal2-textarea" style="margin:0 0 10px;width:100%;min-height:60px">${t?.description || ""}</textarea>
-    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Kategori</label>
-    <select id="swal-cat" class="swal2-select" style="margin:0 0 10px;width:100%">
-      ${categories.map(c => `<option value="${c}" ${t?.category === c ? "selected" : ""}>${c}</option>`).join("")}
-    </select>
-    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Metode Scoring</label>
-    <select id="swal-scoring" class="swal2-select" style="margin:0 0 10px;width:100%">
-      ${scoringMethods.map(s => `<option value="${s}" ${t?.scoring_method === s ? "selected" : ""}>${s}</option>`).join("")}
-    </select>
+  <div style="text-align:left;font-size:13px;max-height:70vh;overflow-y:auto;padding-right:8px;">
+    ${!t ? `
+    <div style="margin-bottom:14px;padding:10px;background:hsla(174,72%,46%,0.08);border:1px solid hsla(174,72%,46%,0.25);border-radius:8px">
+      <label style="display:block;margin-bottom:5px;color:hsl(174,72%,60%);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">⚡ Template Cepat</label>
+      <select id="swal-template" class="swal2-select" style="margin:0;width:100%">
+        <option value="">— Pilih untuk auto-isi form —</option>
+        ${TEMPLATES.map((tpl, i) => `<option value="${i}">${tpl.name} — ${tpl.name_en}</option>`).join("")}
+      </select>
+    </div>` : ""}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Nama Alat Tes (ID) <span style="color:#f87171">*</span></label>
+        <input id="swal-name" class="swal2-input" value="${t?.name || ""}" placeholder="cth. Tes DISC" style="margin:0;width:100%">
+      </div>
+      <div>
+        <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Name (EN)</label>
+        <input id="swal-nameEn" class="swal2-input" value="${t?.name_en || ""}" placeholder="e.g. DISC Assessment" style="margin:0;width:100%">
+      </div>
+    </div>
+
+    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Deskripsi & Tujuan Tes</label>
+    <textarea id="swal-desc" class="swal2-textarea" placeholder="Jelaskan apa yang diukur, untuk apa hasilnya, dan instruksi singkat..." style="margin:0 0 10px;width:100%;min-height:70px">${t?.description || ""}</textarea>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Kategori</label>
+        <select id="swal-cat" class="swal2-select" style="margin:0;width:100%">
+          ${categories.map(c => `<option value="${c}" ${t?.category === c ? "selected" : ""}>${c}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Metode Scoring</label>
+        <select id="swal-scoring" class="swal2-select" style="margin:0;width:100%">
+          ${scoringMethods.map(s => `<option value="${s.value}" ${t?.scoring_method === s.value ? "selected" : ""}>${s.label}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+
     <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Target Audiens</label>
-    <input id="swal-target" class="swal2-input" value="${t?.target_audience || ""}" style="margin:0 0 10px;width:100%">
-    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Referensi / Norma</label>
-    <input id="swal-norm" class="swal2-input" value="${t?.norm_reference || ""}" style="margin:0 0 10px;width:100%">
-    <div style="display:flex;gap:12px">
-      <div style="flex:1">
+    <input id="swal-target" class="swal2-input" value="${t?.target_audience || ""}" placeholder="cth. Karyawan, Pelamar kerja, Usia 18-50" style="margin:0 0 10px;width:100%">
+
+    <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Referensi Norma / Author</label>
+    <input id="swal-norm" class="swal2-input" value="${t?.norm_reference || ""}" placeholder="cth. Marston (1928), Norma Indonesia HIMPSI" style="margin:0 0 10px;width:100%">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+      <div>
         <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Jumlah Soal</label>
-        <input id="swal-count" type="number" class="swal2-input" value="${t?.question_count || 10}" style="margin:0;width:100%">
+        <input id="swal-count" type="number" min="1" class="swal2-input" value="${t?.question_count || 10}" style="margin:0;width:100%">
       </div>
-      <div style="flex:1">
+      <div>
         <label style="display:block;margin-bottom:3px;color:hsl(210,20%,75%);font-weight:600">Durasi (menit)</label>
-        <input id="swal-dur" type="number" class="swal2-input" value="${t?.duration_minutes || 30}" style="margin:0;width:100%">
+        <input id="swal-dur" type="number" min="1" class="swal2-input" value="${t?.duration_minutes || 30}" style="margin:0;width:100%">
       </div>
+    </div>
+
+    <div style="margin-top:10px;padding:8px 10px;background:hsla(0,0%,100%,0.04);border-radius:6px;font-size:11px;color:hsl(210,20%,65%);line-height:1.5">
+      💡 Setelah disimpan, klik <b>"Kelola Bank Soal"</b> pada kartu untuk menambah soal & opsi jawaban dengan dimensi (D/I/S/C, E/I, dll) dan bobot skor.
     </div>
   </div>
 `;
+
+const attachTemplateHandler = () => {
+  const sel = document.getElementById("swal-template") as HTMLSelectElement | null;
+  if (!sel) return;
+  sel.onchange = () => {
+    const idx = parseInt(sel.value);
+    if (isNaN(idx)) return;
+    const tpl = TEMPLATES[idx];
+    (document.getElementById("swal-name") as HTMLInputElement).value = tpl.name;
+    (document.getElementById("swal-nameEn") as HTMLInputElement).value = tpl.name_en;
+    (document.getElementById("swal-desc") as HTMLTextAreaElement).value = tpl.description;
+    (document.getElementById("swal-cat") as HTMLSelectElement).value = tpl.category;
+    (document.getElementById("swal-scoring") as HTMLSelectElement).value = tpl.scoring_method;
+    (document.getElementById("swal-target") as HTMLInputElement).value = tpl.target_audience;
+    (document.getElementById("swal-norm") as HTMLInputElement).value = tpl.norm_reference;
+    (document.getElementById("swal-count") as HTMLInputElement).value = String(tpl.question_count);
+    (document.getElementById("swal-dur") as HTMLInputElement).value = String(tpl.duration_minutes);
+  };
+};
 
 const extractForm = () => {
   const name = (document.getElementById("swal-name") as HTMLInputElement).value.trim();
@@ -67,6 +157,7 @@ const extractForm = () => {
   const question_count = parseInt((document.getElementById("swal-count") as HTMLInputElement).value);
   const duration_minutes = parseInt((document.getElementById("swal-dur") as HTMLInputElement).value);
   if (!name) { Swal.showValidationMessage("Nama alat tes wajib diisi"); return; }
+  if (!description) { Swal.showValidationMessage("Deskripsi wajib diisi"); return; }
   return { name, name_en: name_en || name, description, category, scoring_method, target_audience, norm_reference, question_count: question_count || 10, duration_minutes: duration_minutes || 30 };
 };
 
@@ -85,16 +176,31 @@ const TestInstruments = () => {
   useEffect(() => { load(); }, []);
 
   const handleAdd = async () => {
-    const { value } = await Swal.fire({ title: "Tambah Alat Tes", html: buildFormHtml(), ...SWAL_THEME, confirmButtonText: "Simpan", showCancelButton: true, cancelButtonText: "Batal", width: 560, preConfirm: extractForm });
+    const { value } = await Swal.fire({
+      title: "Tambah Alat Tes Psikologi", html: buildFormHtml(), ...SWAL_THEME,
+      confirmButtonText: "Simpan", showCancelButton: true, cancelButtonText: "Batal",
+      width: 640, preConfirm: extractForm,
+      didOpen: () => attachTemplateHandler(),
+    });
     if (value) {
-      await supabase.from("test_instruments").insert(value);
+      const { data } = await supabase.from("test_instruments").insert(value).select("id").single();
       await load();
+      if (data?.id) {
+        const r = await Swal.fire({ icon: "success", title: "Tersimpan!",
+          text: "Lanjut ke Bank Soal untuk menambah pertanyaan & opsi jawaban?",
+          showCancelButton: true, confirmButtonText: "Ya, Kelola Soal", cancelButtonText: "Nanti", ...SWAL_THEME });
+        if (r.isConfirmed) navigate(`/admin/test-instruments/${data.id}/questions`);
+      }
     }
   };
 
   const handleEdit = async (t: InstrumentRow) => {
     setOpenMenu(null);
-    const { value } = await Swal.fire({ title: "Edit Alat Tes", html: buildFormHtml(t), ...SWAL_THEME, confirmButtonText: "Simpan Perubahan", showCancelButton: true, cancelButtonText: "Batal", width: 560, preConfirm: extractForm });
+    const { value } = await Swal.fire({
+      title: "Edit Alat Tes", html: buildFormHtml(t), ...SWAL_THEME,
+      confirmButtonText: "Simpan Perubahan", showCancelButton: true, cancelButtonText: "Batal",
+      width: 640, preConfirm: extractForm,
+    });
     if (value) {
       await supabase.from("test_instruments").update(value).eq("id", t.id);
       await load();
