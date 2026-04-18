@@ -247,7 +247,51 @@ const Results = () => {
     const cats = r.categories as Record<string, number>;
     const data = Object.entries(cats).map(([name, value]) => ({ name, value }));
 
-    if (r.test_name === "DISC" || r.test_name === "Kraepelin") {
+    // DISC: render 3 graphs (Mask/Core/Mirror) — based on D/I/S/C dimension scores
+    if (r.test_name.toUpperCase().includes("DISC")) {
+      const dims = ["D", "I", "S", "C"];
+      const series = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
+      // Mask = M only (positive), Core = L only inverted, Mirror = M+L net
+      const mask = dims.map(d => ({ name: d, value: Math.max(0, Number(cats[d] || 0)) }));
+      const core = dims.map(d => ({ name: d, value: Math.max(0, -Number(cats[d] || 0)) }));
+      const mirror = series;
+      const jobMatch: Record<string, string> = {
+        D: "Manager, Entrepreneur, Sales Director, Director, CEO",
+        I: "Sales, Public Relations, Marketing, Trainer, Public Speaker",
+        S: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist",
+        C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer"
+      };
+      const dominant = dims.reduce((a, b) => Number(cats[a] || 0) > Number(cats[b] || 0) ? a : b);
+      const renderMini = (title: string, d: any[], color: string) => (
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={d}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+              <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+              <YAxis tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
+              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+              <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      );
+      return (
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            {renderMini("Mask — Public Self (M)", mask, "#10b981")}
+            {renderMini("Core — Private Self (L)", core, "#f59e0b")}
+            {renderMini("Mirror — Perceived Self (Net)", mirror, "#ec4899")}
+          </div>
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <p className="text-sm font-semibold text-primary mb-1">Dimensi Dominan: {dominant}</p>
+            <p className="text-xs text-foreground/80"><span className="font-semibold">Pekerjaan yang sesuai:</span> {jobMatch[dominant]}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (r.test_name === "Kraepelin" || r.test_name.includes("Kraepelin")) {
       return (
         <ResponsiveContainer width="100%" height={280}>
           <RadarChart data={data}>
