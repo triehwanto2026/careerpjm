@@ -373,6 +373,38 @@ const TestPage = () => {
                 <div className="space-y-3">
                   {currentQuestion.options.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic">Belum ada pilihan jawaban untuk soal ini.</p>
+                  ) : currentQuestion.question_type === "disc_pair" ? (
+                    <div>
+                      <div className="mb-3 grid grid-cols-[1fr_60px_60px] gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        <span>Pernyataan</span>
+                        <span className="text-center text-emerald-500">PALING (M)</span>
+                        <span className="text-center text-amber-500">TIDAK (L)</span>
+                      </div>
+                      {(() => {
+                        const parts: Record<string, string> = { M: "", L: "" };
+                        ((currentAns as string) || "").split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+                        return currentQuestion.options.map(opt => {
+                          const isM = parts.M === opt.id;
+                          const isL = parts.L === opt.id;
+                          return (
+                            <div key={opt.id} className={`grid grid-cols-[1fr_60px_60px] items-center gap-2 rounded-lg border p-3 mb-2 transition-all ${isM ? "border-emerald-500/60 bg-emerald-500/5" : isL ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-card hover:bg-muted/40"}`}>
+                              <div>
+                                <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
+                                {showEnglish && opt.option_text_en && <span className="block text-xs text-muted-foreground italic mt-0.5">{opt.option_text_en}</span>}
+                              </div>
+                              <button onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "M", opt.id)}
+                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isM ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>
+                                {isM ? "✓" : ""}
+                              </button>
+                              <button onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "L", opt.id)}
+                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isL ? "border-amber-500 bg-amber-500 text-white" : "border-border hover:border-amber-500/60"}`}>
+                                {isL ? "✓" : ""}
+                              </button>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
                   ) : currentQuestion.options.map(opt => {
                     const isSelected = currentAns === opt.id;
                     return (
