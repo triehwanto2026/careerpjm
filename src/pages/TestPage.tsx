@@ -204,6 +204,16 @@ const TestPage = () => {
 
       instAnswers.forEach(({ q, optId }) => {
         if (!optId) return;
+        // DISC dual-pick format: "M:<id>|L:<id>"
+        if (q.question_type === "disc_pair" && optId.includes("|")) {
+          const parts: Record<string, string> = { M: "", L: "" };
+          optId.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+          const mOpt = q.options.find(o => o.id === parts.M);
+          const lOpt = q.options.find(o => o.id === parts.L);
+          if (mOpt?.category_target) cats[mOpt.category_target] = (cats[mOpt.category_target] || 0) + 1;
+          if (lOpt?.category_target) cats[lOpt.category_target] = (cats[lOpt.category_target] || 0) - 1;
+          return;
+        }
         const opt = q.options.find(o => o.id === optId);
         if (!opt) return;
         totalScore += Number(opt.score_value || 0);
