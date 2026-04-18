@@ -123,6 +123,19 @@ const TestPage = () => {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
+  // DISC dual-pick: store as "M:<optId>|L:<optId>"
+  const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
+    const key = `${instrumentId}:${questionId}`;
+    const current = (answers[key] as string) || "";
+    const parts: Record<string, string> = { M: "", L: "" };
+    current.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+    parts[kind] = optId;
+    // Prevent same option being M and L
+    if (parts.M && parts.L && parts.M === parts.L) parts[kind === "M" ? "L" : "M"] = "";
+    const newVal = `M:${parts.M}|L:${parts.L}`;
+    setAnswers(prev => ({ ...prev, [key]: newVal }));
+  };
+
   const handleNext = () => {
     if (!currentTest) return;
     if (currentQIdx < currentTest.questions.length - 1) {
