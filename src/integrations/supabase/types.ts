@@ -261,6 +261,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          group_number: number | null
           id: string
           instrument_id: string
           question_number: number
@@ -268,11 +269,14 @@ export type Database = {
           question_text_en: string | null
           question_type: string
           scoring_rule: string | null
+          subtest_code: string | null
+          time_limit_minutes: number | null
           updated_at: string
         }
         Insert: {
           category?: string | null
           created_at?: string
+          group_number?: number | null
           id?: string
           instrument_id: string
           question_number?: number
@@ -280,11 +284,14 @@ export type Database = {
           question_text_en?: string | null
           question_type?: string
           scoring_rule?: string | null
+          subtest_code?: string | null
+          time_limit_minutes?: number | null
           updated_at?: string
         }
         Update: {
           category?: string | null
           created_at?: string
+          group_number?: number | null
           id?: string
           instrument_id?: string
           question_number?: number
@@ -292,6 +299,8 @@ export type Database = {
           question_text_en?: string | null
           question_type?: string
           scoring_rule?: string | null
+          subtest_code?: string | null
+          time_limit_minutes?: number | null
           updated_at?: string
         }
         Relationships: [

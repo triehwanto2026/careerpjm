@@ -123,6 +123,19 @@ const TestPage = () => {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
+  // DISC dual-pick: store as "M:<optId>|L:<optId>"
+  const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
+    const key = `${instrumentId}:${questionId}`;
+    const current = (answers[key] as string) || "";
+    const parts: Record<string, string> = { M: "", L: "" };
+    current.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+    parts[kind] = optId;
+    // Prevent same option being M and L
+    if (parts.M && parts.L && parts.M === parts.L) parts[kind === "M" ? "L" : "M"] = "";
+    const newVal = `M:${parts.M}|L:${parts.L}`;
+    setAnswers(prev => ({ ...prev, [key]: newVal }));
+  };
+
   const handleNext = () => {
     if (!currentTest) return;
     if (currentQIdx < currentTest.questions.length - 1) {
@@ -191,6 +204,16 @@ const TestPage = () => {
 
       instAnswers.forEach(({ q, optId }) => {
         if (!optId) return;
+        // DISC dual-pick format: "M:<id>|L:<id>"
+        if (q.question_type === "disc_pair" && optId.includes("|")) {
+          const parts: Record<string, string> = { M: "", L: "" };
+          optId.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+          const mOpt = q.options.find(o => o.id === parts.M);
+          const lOpt = q.options.find(o => o.id === parts.L);
+          if (mOpt?.category_target) cats[mOpt.category_target] = (cats[mOpt.category_target] || 0) + 1;
+          if (lOpt?.category_target) cats[lOpt.category_target] = (cats[lOpt.category_target] || 0) - 1;
+          return;
+        }
         const opt = q.options.find(o => o.id === optId);
         if (!opt) return;
         totalScore += Number(opt.score_value || 0);
@@ -360,6 +383,38 @@ const TestPage = () => {
                 <div className="space-y-3">
                   {currentQuestion.options.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic">Belum ada pilihan jawaban untuk soal ini.</p>
+                  ) : currentQuestion.question_type === "disc_pair" ? (
+                    <div>
+                      <div className="mb-3 grid grid-cols-[1fr_60px_60px] gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        <span>Pernyataan</span>
+                        <span className="text-center text-emerald-500">PALING (M)</span>
+                        <span className="text-center text-amber-500">TIDAK (L)</span>
+                      </div>
+                      {(() => {
+                        const parts: Record<string, string> = { M: "", L: "" };
+                        ((currentAns as string) || "").split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+                        return currentQuestion.options.map(opt => {
+                          const isM = parts.M === opt.id;
+                          const isL = parts.L === opt.id;
+                          return (
+                            <div key={opt.id} className={`grid grid-cols-[1fr_60px_60px] items-center gap-2 rounded-lg border p-3 mb-2 transition-all ${isM ? "border-emerald-500/60 bg-emerald-500/5" : isL ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-card hover:bg-muted/40"}`}>
+                              <div>
+                                <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
+                                {showEnglish && opt.option_text_en && <span className="block text-xs text-muted-foreground italic mt-0.5">{opt.option_text_en}</span>}
+                              </div>
+                              <button onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "M", opt.id)}
+                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isM ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>
+                                {isM ? "✓" : ""}
+                              </button>
+                              <button onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "L", opt.id)}
+                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isL ? "border-amber-500 bg-amber-500 text-white" : "border-border hover:border-amber-500/60"}`}>
+                                {isL ? "✓" : ""}
+                              </button>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
                   ) : currentQuestion.options.map(opt => {
                     const isSelected = currentAns === opt.id;
                     return (
