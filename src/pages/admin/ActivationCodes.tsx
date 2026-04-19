@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Copy, Search, Pencil } from "lucide-react";
+import { Plus, Trash2, Copy, Search, Pencil, X } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,42 +10,50 @@ const SWAL_THEME = () => ({
   confirmButtonColor: "hsl(174, 72%, 46%)",
 });
 
-interface InstrumentOption {
-  id: string;
-  name: string;
+interface InstrumentOption { id: string; name: string; }
+interface CandidateOption {
+  id: string; name: string; email: string; phone: string; position: string; photo_url: string | null;
 }
-
 interface CodeRow {
-  id: string;
-  code: string;
-  password: string;
-  candidate_name: string;
-  candidate_email: string;
-  position: string;
-  is_used: boolean;
-  expires_at: string | null;
-  created_at: string;
+  id: string; code: string; password: string;
+  candidate_name: string; candidate_email: string; position: string;
+  is_used: boolean; expires_at: string | null; created_at: string;
   assigned_tests: string[] | null;
 }
+
+interface FormState {
+  id?: string;
+  candidate_id: string; // empty string = manual
+  name: string; email: string; position: string;
+  expires_at: string;
+  assigned_tests: string[];
+}
+
+const emptyForm: FormState = { candidate_id: "", name: "", email: "", position: "", expires_at: "", assigned_tests: [] };
 
 const ActivationCodes = () => {
   const [codes, setCodes] = useState<CodeRow[]>([]);
   const [instruments, setInstruments] = useState<InstrumentOption[]>([]);
+  const [candidatesList, setCandidatesList] = useState<CandidateOption[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [saving, setSaving] = useState(false);
 
-  const loadCodes = async () => {
-    const { data } = await supabase.from("activation_codes").select("*").order("created_at", { ascending: false });
-    setCodes((data as CodeRow[]) || []);
+  const loadAll = async () => {
+    const [{ data: c }, { data: i }, { data: cand }] = await Promise.all([
+      supabase.from("activation_codes").select("*").order("created_at", { ascending: false }),
+      supabase.from("test_instruments").select("id, name").eq("is_active", true).order("name"),
+      supabase.from("candidates").select("id, name, email, phone, position, photo_url").order("name"),
+    ]);
+    setCodes((c as CodeRow[]) || []);
+    setInstruments((i as InstrumentOption[]) || []);
+    setCandidatesList((cand as CandidateOption[]) || []);
     setLoading(false);
   };
 
-  const loadInstruments = async () => {
-    const { data } = await supabase.from("test_instruments").select("id, name").eq("is_active", true);
-    setInstruments(data || []);
-  };
-
-  useEffect(() => { loadCodes(); loadInstruments(); }, []);
+  useEffect(() => { loadAll(); }, []);
 
   const filtered = codes.filter(
     (c) => c.code.toLowerCase().includes(search.toLowerCase()) || c.candidate_name.toLowerCase().includes(search.toLowerCase())
@@ -56,144 +64,74 @@ const ActivationCodes = () => {
     return "PSY" + Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   };
 
-  const buildTestCheckboxes = (selected: string[] = []) => {
-    return instruments.map(t =>
-      `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:hsl(var(--foreground))">
-        <input type="checkbox" class="swal-test-cb" value="${t.id}" ${selected.includes(t.id) ? "checked" : ""} style="accent-color:hsl(174,72%,46%);width:16px;height:16px;">
-        ${t.name}
-      </label>`
-    ).join("");
-  };
-
-  const getSelectedTests = () => {
-    return Array.from(document.querySelectorAll<HTMLInputElement>('.swal-test-cb:checked')).map(cb => cb.value);
-  };
-
-  const handleAdd = async () => {
-    const { value } = await Swal.fire({
-      title: "Tambah Kode Aktivasi",
-      html: `
-        <div style="text-align:left;font-size:14px;max-height:65vh;overflow-y:auto;">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Nama Kandidat</label>
-          <input id="swal-name" class="swal2-input" placeholder="Nama lengkap" style="margin:0 0 12px;width:100%">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Email</label>
-          <input id="swal-email" class="swal2-input" placeholder="email@example.com" style="margin:0 0 12px;width:100%">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Posisi</label>
-          <input id="swal-position" class="swal2-input" placeholder="Posisi yang dilamar" style="margin:0 0 12px;width:100%">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Berlaku Hingga</label>
-          <input id="swal-expires" type="date" class="swal2-input" style="margin:0 0 16px;width:100%">
-          <label style="display:block;margin-bottom:6px;color:hsl(var(--muted-foreground));font-weight:600">Pilih Tes yang Dikerjakan</label>
-          <div style="border:1px solid hsl(var(--border));border-radius:8px;padding:10px;max-height:200px;overflow-y:auto;">
-            ${buildTestCheckboxes()}
-          </div>
-        </div>
-      `,
-      ...SWAL_THEME(),
-      confirmButtonText: "Buat Kode",
-      showCancelButton: true,
-      cancelButtonText: "Batal",
-      width: 520,
-      preConfirm: () => {
-        const name = (document.getElementById("swal-name") as HTMLInputElement).value.trim();
-        const email = (document.getElementById("swal-email") as HTMLInputElement).value.trim();
-        const position = (document.getElementById("swal-position") as HTMLInputElement).value.trim();
-        const expires = (document.getElementById("swal-expires") as HTMLInputElement).value;
-        const tests = getSelectedTests();
-        if (!name || !email || !position) { Swal.showValidationMessage("Nama, email, dan posisi wajib diisi"); return; }
-        if (tests.length === 0) { Swal.showValidationMessage("Pilih minimal 1 tes"); return; }
-        return { name, email, position, expires, tests };
-      },
+  const openAdd = () => { setForm(emptyForm); setShowForm(true); };
+  const openEdit = (c: CodeRow) => {
+    const matchedCand = candidatesList.find(x => x.email === c.candidate_email);
+    setForm({
+      id: c.id, candidate_id: matchedCand?.id || "",
+      name: c.candidate_name, email: c.candidate_email, position: c.position,
+      expires_at: c.expires_at?.split("T")[0] || "",
+      assigned_tests: c.assigned_tests || [],
     });
+    setShowForm(true);
+  };
 
-    if (value) {
+  const onPickCandidate = (id: string) => {
+    if (!id) { setForm(f => ({ ...f, candidate_id: "" })); return; }
+    const c = candidatesList.find(x => x.id === id);
+    if (!c) return;
+    setForm(f => ({ ...f, candidate_id: id, name: c.name, email: c.email, position: c.position || f.position }));
+  };
+
+  const toggleTest = (id: string) => {
+    setForm(f => ({ ...f, assigned_tests: f.assigned_tests.includes(id) ? f.assigned_tests.filter(t => t !== id) : [...f.assigned_tests, id] }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.position.trim()) {
+      Swal.fire({ icon: "warning", title: "Lengkapi data", text: "Nama, email, dan posisi wajib diisi.", ...SWAL_THEME() }); return;
+    }
+    if (form.assigned_tests.length === 0) {
+      Swal.fire({ icon: "warning", title: "Pilih tes", text: "Pilih minimal 1 alat tes.", ...SWAL_THEME() }); return;
+    }
+    setSaving(true);
+    if (form.id) {
+      const { error } = await supabase.from("activation_codes").update({
+        candidate_name: form.name, candidate_email: form.email, position: form.position,
+        expires_at: form.expires_at || null, assigned_tests: form.assigned_tests,
+      } as any).eq("id", form.id);
+      setSaving(false);
+      if (error) { Swal.fire({ icon: "error", title: "Gagal", text: error.message, ...SWAL_THEME() }); return; }
+      setShowForm(false); await loadAll();
+      Swal.fire({ icon: "success", title: "Berhasil diperbarui", timer: 1400, showConfirmButton: false, ...SWAL_THEME() });
+    } else {
       const newCode = generateCode();
       const newPassword = "pwd" + Math.random().toString(36).substring(2, 8);
       const { error } = await supabase.from("activation_codes").insert({
-        code: newCode,
-        password: newPassword,
-        candidate_name: value.name,
-        candidate_email: value.email,
-        position: value.position,
-        expires_at: value.expires || null,
-        assigned_tests: value.tests,
+        code: newCode, password: newPassword,
+        candidate_name: form.name, candidate_email: form.email, position: form.position,
+        expires_at: form.expires_at || null, assigned_tests: form.assigned_tests,
       } as any);
+      setSaving(false);
       if (error) { Swal.fire({ icon: "error", title: "Gagal", text: error.message, ...SWAL_THEME() }); return; }
-      await loadCodes();
+      setShowForm(false); await loadAll();
       Swal.fire({
         icon: "success", title: "Kode Berhasil Dibuat",
-        html: `<p style="font-size:14px">Kode: <b>${newCode}</b><br/>Password: <b>${newPassword}</b></p>`,
+        html: `<div style="font-size:14px;line-height:1.8"><p>Kode: <b style="color:hsl(174,72%,46%);font-family:monospace;letter-spacing:2px">${newCode}</b></p><p>Password: <b style="font-family:monospace">${newPassword}</b></p><p style="font-size:12px;color:#888;margin-top:8px">Berikan kode & password ini kepada kandidat.</p></div>`,
         ...SWAL_THEME(),
       });
     }
   };
 
-  const handleEdit = async (c: CodeRow) => {
-    const { value } = await Swal.fire({
-      title: "Edit Kode Aktivasi",
-      html: `
-        <div style="text-align:left;font-size:14px;max-height:65vh;overflow-y:auto;">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Nama Kandidat</label>
-          <input id="swal-name" class="swal2-input" value="${c.candidate_name}" style="margin:0 0 12px;width:100%">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Email</label>
-          <input id="swal-email" class="swal2-input" value="${c.candidate_email}" style="margin:0 0 12px;width:100%">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Posisi</label>
-          <input id="swal-position" class="swal2-input" value="${c.position}" style="margin:0 0 12px;width:100%">
-          <label style="display:block;margin-bottom:4px;color:hsl(var(--muted-foreground));font-weight:600">Berlaku Hingga</label>
-          <input id="swal-expires" type="date" class="swal2-input" value="${c.expires_at?.split('T')[0] || ''}" style="margin:0 0 16px;width:100%">
-          <label style="display:block;margin-bottom:6px;color:hsl(var(--muted-foreground));font-weight:600">Pilih Tes yang Dikerjakan</label>
-          <div style="border:1px solid hsl(var(--border));border-radius:8px;padding:10px;max-height:200px;overflow-y:auto;">
-            ${buildTestCheckboxes(c.assigned_tests || [])}
-          </div>
-        </div>
-      `,
-      ...SWAL_THEME(),
-      confirmButtonText: "Simpan",
-      showCancelButton: true,
-      cancelButtonText: "Batal",
-      width: 520,
-      preConfirm: () => {
-        const name = (document.getElementById("swal-name") as HTMLInputElement).value.trim();
-        const email = (document.getElementById("swal-email") as HTMLInputElement).value.trim();
-        const position = (document.getElementById("swal-position") as HTMLInputElement).value.trim();
-        const expires = (document.getElementById("swal-expires") as HTMLInputElement).value;
-        const tests = getSelectedTests();
-        if (!name || !email || !position) { Swal.showValidationMessage("Semua field wajib diisi"); return; }
-        return { name, email, position, expires, tests };
-      },
-    });
-
-    if (value) {
-      await supabase.from("activation_codes").update({
-        candidate_name: value.name,
-        candidate_email: value.email,
-        position: value.position,
-        expires_at: value.expires || null,
-        assigned_tests: value.tests,
-      } as any).eq("id", c.id);
-      await loadCodes();
-    }
-  };
-
   const handleDelete = async (id: string) => {
-    const r = await Swal.fire({
-      icon: "warning", title: "Hapus Kode?", text: "Kode aktivasi ini akan dihapus permanen.",
-      showCancelButton: true, confirmButtonText: "Ya, Hapus", cancelButtonText: "Batal",
-      ...SWAL_THEME(), confirmButtonColor: "hsl(0, 72%, 51%)",
-    });
-    if (r.isConfirmed) {
-      await supabase.from("activation_codes").delete().eq("id", id);
-      await loadCodes();
-    }
+    const r = await Swal.fire({ icon: "warning", title: "Hapus Kode?", text: "Kode aktivasi ini akan dihapus permanen.", showCancelButton: true, confirmButtonText: "Ya, Hapus", cancelButtonText: "Batal", ...SWAL_THEME(), confirmButtonColor: "hsl(0, 72%, 51%)" });
+    if (r.isConfirmed) { await supabase.from("activation_codes").delete().eq("id", id); await loadAll(); }
   };
 
   const copyCode = (code: string, password: string) => {
     navigator.clipboard.writeText(`Kode: ${code}\nPassword: ${password}`);
     Swal.fire({ icon: "success", title: "Disalin!", timer: 1000, showConfirmButton: false, ...SWAL_THEME() });
-  };
-
-  const getTestNames = (testIds: string[] | null) => {
-    if (!testIds || testIds.length === 0) return "-";
-    return testIds.map(id => instruments.find(t => t.id === id)?.name || id).join(", ");
   };
 
   return (
@@ -204,15 +142,17 @@ const ActivationCodes = () => {
             <h1 className="text-xl font-bold text-foreground">Kode Aktivasi</h1>
             <p className="text-sm text-muted-foreground">Kelola kode akses untuk kandidat</p>
           </div>
-          <button onClick={handleAdd} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
+          <button onClick={openAdd} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
             <Plus className="h-4 w-4" /> Tambah Kode
           </button>
         </div>
+
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input type="text" placeholder="Cari kode atau nama..." value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
         </div>
+
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead>
@@ -237,7 +177,7 @@ const ActivationCodes = () => {
                     <p className="text-xs text-muted-foreground">{c.candidate_email}</p>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{c.position}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell max-w-[200px]">
+                  <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell max-w-[220px]">
                     <div className="flex flex-wrap gap-1">
                       {(c.assigned_tests || []).map(tid => {
                         const name = instruments.find(t => t.id === tid)?.name || tid.substring(0, 8);
@@ -254,15 +194,9 @@ const ActivationCodes = () => {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => handleEdit(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Edit">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => copyCode(c.code, c.password)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Salin">
-                        <Copy className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDelete(c.id)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <button onClick={() => openEdit(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Edit"><Pencil className="h-4 w-4" /></button>
+                      <button onClick={() => copyCode(c.code, c.password)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Salin"><Copy className="h-4 w-4" /></button>
+                      <button onClick={() => handleDelete(c.id)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -274,8 +208,75 @@ const ActivationCodes = () => {
           </table>
         </div>
       </div>
+
+      {/* Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowForm(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}
+            className="glass relative w-full max-w-2xl rounded-2xl glow-border max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-6 py-4">
+              <h2 className="text-lg font-bold text-foreground">{form.id ? "Edit Kode Aktivasi" : "Tambah Kode Aktivasi"}</h2>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-5 w-5" /></button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {!form.id && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+                  <label className="text-xs font-semibold text-primary uppercase tracking-wider">Pilih dari Data Kandidat</label>
+                  <select value={form.candidate_id} onChange={(e) => onPickCandidate(e.target.value)} className={input}>
+                    <option value="">— Isi manual —</option>
+                    {candidatesList.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.email}){c.position ? ` · ${c.position}` : ""}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">Memilih kandidat akan mengisi otomatis nama, email, dan posisi. Anda masih bisa mengubahnya.</p>
+                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Nama Kandidat *"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} placeholder="Nama lengkap" /></Field>
+                <Field label="Email *"><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={input} placeholder="email@example.com" /></Field>
+                <div className="sm:col-span-2"><Field label="Posisi Dilamar *"><input required value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} className={input} placeholder="Software Engineer" /></Field></div>
+                <Field label="Berlaku Hingga"><input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} className={input} /></Field>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pilih Alat Tes ({form.assigned_tests.length} dipilih)</label>
+                <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-64 overflow-y-auto space-y-1.5">
+                  {instruments.length === 0 ? <p className="text-xs text-muted-foreground italic">Belum ada alat tes aktif.</p> :
+                    instruments.map(t => {
+                      const checked = form.assigned_tests.includes(t.id);
+                      return (
+                        <label key={t.id} className={`flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors ${checked ? "bg-primary/10 border border-primary/30" : "border border-transparent hover:bg-muted"}`}>
+                          <input type="checkbox" checked={checked} onChange={() => toggleTest(t.id)}
+                            className="h-4 w-4 rounded border-border accent-primary" />
+                          <span className="text-sm text-foreground">{t.name}</span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-border bg-card/95 backdrop-blur-xl px-6 py-3">
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Batal</button>
+              <button type="submit" disabled={saving} className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50 glow-primary">
+                {saving ? "Menyimpan..." : (form.id ? "Simpan" : "Buat Kode")}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </AdminLayout>
   );
 };
+
+const input = "w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <label className="block space-y-1.5">
+    <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+    {children}
+  </label>
+);
 
 export default ActivationCodes;
