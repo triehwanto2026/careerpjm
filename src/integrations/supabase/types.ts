@@ -216,6 +216,7 @@ export type Database = {
           created_at: string
           display_order: number
           id: string
+          image_url: string | null
           is_correct: boolean | null
           option_label: string
           option_text: string
@@ -228,6 +229,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           id?: string
+          image_url?: string | null
           is_correct?: boolean | null
           option_label: string
           option_text: string
@@ -240,6 +242,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           id?: string
+          image_url?: string | null
           is_correct?: boolean | null
           option_label?: string
           option_text?: string
@@ -263,6 +266,7 @@ export type Database = {
           created_at: string
           group_number: number | null
           id: string
+          image_url: string | null
           instrument_id: string
           question_number: number
           question_text: string
@@ -278,6 +282,7 @@ export type Database = {
           created_at?: string
           group_number?: number | null
           id?: string
+          image_url?: string | null
           instrument_id: string
           question_number?: number
           question_text: string
@@ -293,6 +298,7 @@ export type Database = {
           created_at?: string
           group_number?: number | null
           id?: string
+          image_url?: string | null
           instrument_id?: string
           question_number?: number
           question_text?: string
