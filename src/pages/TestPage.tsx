@@ -1,68 +1,50 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Languages, ChevronLeft, ChevronRight, Send, LogOut, ShieldCheck } from "lucide-react";
+import { Languages, ChevronLeft, ChevronRight, Send, LogOut, ShieldCheck, Clock } from "lucide-react";
 import Swal from "sweetalert2";
 import TestTimer from "@/components/TestTimer";
-import WebcamPreview from "@/components/WebcamPreview";
+import WebcamPreview, { WebcamHandle } from "@/components/WebcamPreview";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadDataUrlAsPhoto } from "@/lib/photoUpload";
 
 interface DbOption {
-  id: string;
-  question_id: string;
-  option_label: string;
-  option_text: string;
-  option_text_en: string | null;
-  score_value: number;
-  category_target: string | null;
-  is_correct: boolean | null;
-  display_order: number;
+  id: string; question_id: string; option_label: string; option_text: string; option_text_en: string | null;
+  score_value: number; category_target: string | null; is_correct: boolean | null; display_order: number;
+  image_url?: string | null;
 }
-
 interface DbQuestion {
-  id: string;
-  instrument_id: string;
-  question_number: number;
-  question_text: string;
-  question_text_en: string | null;
-  category: string | null;
-  question_type: string;
-  scoring_rule: string;
+  id: string; instrument_id: string; question_number: number; question_text: string; question_text_en: string | null;
+  category: string | null; question_type: string; scoring_rule: string;
+  subtest_code?: string | null; time_limit_minutes?: number | null; image_url?: string | null;
   options: DbOption[];
 }
-
 interface DbInstrument {
-  id: string;
-  name: string;
-  name_en: string;
-  duration_minutes: number;
-  scoring_method: string;
+  id: string; name: string; name_en: string; duration_minutes: number; scoring_method: string;
   questions: DbQuestion[];
 }
 
-const SWAL_THEME = {
-  background: "hsl(var(--card))",
-  color: "hsl(var(--foreground))",
-  confirmButtonColor: "hsl(174, 72%, 46%)",
-};
+const SWAL_THEME = { background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)" };
 
 const TestPage = () => {
   const navigate = useNavigate();
+  const webcamRef = useRef<WebcamHandle>(null);
   const [instruments, setInstruments] = useState<DbInstrument[]>([]);
   const [currentTestIdx, setCurrentTestIdx] = useState(0);
   const [currentQIdx, setCurrentQIdx] = useState(0);
-  // answers: key = `${instrumentId}:${questionId}` => option id (or array for multi)
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [showEnglish, setShowEnglish] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
+  // For IST strict subtest navigation
+  const [completedSubtests, setCompletedSubtests] = useState<Set<string>>(new Set());
+  const [currentSubtest, setCurrentSubtest] = useState<string | null>(null);
+  const [subtestStartedAt, setSubtestStartedAt] = useState<number>(Date.now());
 
   useEffect(() => {
-    if (sessionStorage.getItem("psytest_auth") !== "true") {
-      navigate("/", { replace: true });
-      return;
-    }
+    if (sessionStorage.getItem("psytest_auth") !== "true") { navigate("/", { replace: true }); return; }
     loadAssignedTests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAssignedTests = async () => {
@@ -71,40 +53,40 @@ const TestPage = () => {
     const cand = JSON.parse(candRaw);
     const ids: string[] = cand.assignedTests || [];
     if (ids.length === 0) {
-      Swal.fire({ icon: "warning", title: "Tidak Ada Tes", text: "Belum ada tes yang ditugaskan kepada Anda.", ...SWAL_THEME }).then(() => navigate("/", { replace: true }));
+      Swal.fire({ icon: "warning", title: "Tidak Ada Tes", text: "Belum ada tes yang ditugaskan.", ...SWAL_THEME }).then(() => navigate("/", { replace: true }));
       return;
     }
     const { data: insts } = await supabase.from("test_instruments").select("id, name, name_en, duration_minutes, scoring_method").in("id", ids);
     if (!insts || insts.length === 0) { setLoading(false); return; }
-
     const { data: qs } = await supabase.from("test_questions").select("*").in("instrument_id", ids).order("question_number");
     const qIds = (qs || []).map((q: any) => q.id);
     const { data: opts } = qIds.length ? await supabase.from("test_question_options").select("*").in("question_id", qIds).order("display_order") : { data: [] };
-
     const optsByQ: Record<string, DbOption[]> = {};
     (opts as DbOption[] || []).forEach(o => { (optsByQ[o.question_id] ||= []).push(o); });
-
     const qsByInst: Record<string, DbQuestion[]> = {};
-    (qs as any[] || []).forEach(q => {
-      (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] });
-    });
-
-    const ordered: DbInstrument[] = ids
-      .map(id => insts.find((i: any) => i.id === id))
-      .filter(Boolean)
+    (qs as any[] || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] }); });
+    const ordered: DbInstrument[] = ids.map(id => insts.find((i: any) => i.id === id)).filter(Boolean)
       .map((i: any) => ({ ...i, questions: qsByInst[i.id] || [] }));
-
     setInstruments(ordered);
     setLoading(false);
   };
 
+  const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
+  const currentTest = instruments[currentTestIdx];
+  const currentQuestion = currentTest?.questions[currentQIdx];
+
+  // Track current IST subtest when question changes
+  useEffect(() => {
+    if (isIST(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
+      setCurrentSubtest(currentQuestion.subtest_code);
+      setSubtestStartedAt(Date.now());
+    }
+  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest]);
+
   const handleTimeUp = useCallback(() => {
     if (!submitted) {
-      Swal.fire({
-        icon: "warning", title: "Waktu Habis!",
-        text: "Waktu pengerjaan telah berakhir. Jawaban Anda akan disimpan otomatis.",
-        ...SWAL_THEME, allowOutsideClick: false,
-      }).then(() => completeSubmission());
+      Swal.fire({ icon: "warning", title: "Waktu Habis!", text: "Jawaban Anda akan disimpan otomatis.", ...SWAL_THEME, allowOutsideClick: false })
+        .then(() => completeSubmission());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, answers, instruments]);
@@ -112,46 +94,84 @@ const TestPage = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Memuat tes...</div>;
   if (instruments.length === 0) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Tidak ada tes tersedia.</div>;
 
-  const currentTest = instruments[currentTestIdx];
-  const currentQuestion = currentTest?.questions[currentQIdx];
   const totalAllQuestions = instruments.reduce((sum, t) => sum + t.questions.length, 0);
   const totalAnsweredAll = Object.keys(answers).length;
   const progress = totalAllQuestions > 0 ? (totalAnsweredAll / totalAllQuestions) * 100 : 0;
 
-  const handleAnswer = (instrumentId: string, questionId: string, value: string) => {
-    const key = `${instrumentId}:${questionId}`;
-    setAnswers(prev => ({ ...prev, [key]: value }));
-  };
+  // Subtest info for IST strict mode
+  const subtestQuestions = isIST(currentTest) && currentSubtest
+    ? currentTest.questions.filter(q => q.subtest_code === currentSubtest) : [];
+  const subtestTimeLimit = subtestQuestions[0]?.time_limit_minutes || 6;
+  const elapsedSec = Math.floor((Date.now() - subtestStartedAt) / 1000);
+  const remainingSec = Math.max(0, subtestTimeLimit * 60 - elapsedSec);
 
-  // DISC dual-pick: store as "M:<optId>|L:<optId>"
+  const handleAnswer = (instrumentId: string, questionId: string, value: string) => {
+    setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: value }));
+  };
   const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
     const key = `${instrumentId}:${questionId}`;
     const current = (answers[key] as string) || "";
     const parts: Record<string, string> = { M: "", L: "" };
     current.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
     parts[kind] = optId;
-    // Prevent same option being M and L
     if (parts.M && parts.L && parts.M === parts.L) parts[kind === "M" ? "L" : "M"] = "";
-    const newVal = `M:${parts.M}|L:${parts.L}`;
-    setAnswers(prev => ({ ...prev, [key]: newVal }));
+    setAnswers(prev => ({ ...prev, [key]: `M:${parts.M}|L:${parts.L}` }));
+  };
+
+  // Strict IST: when finishing a subtest, mark as completed and move to next subtest (cannot return)
+  const finishCurrentSubtest = () => {
+    if (!isIST(currentTest) || !currentSubtest) return false;
+    const newSet = new Set(completedSubtests); newSet.add(currentSubtest);
+    setCompletedSubtests(newSet);
+    // Find first question of next subtest
+    const allQs = currentTest.questions;
+    const lastIdxOfThis = allQs.map((q, i) => ({ q, i })).filter(x => x.q.subtest_code === currentSubtest).slice(-1)[0]?.i ?? -1;
+    if (lastIdxOfThis >= 0 && lastIdxOfThis < allQs.length - 1) {
+      setCurrentQIdx(lastIdxOfThis + 1);
+      return true;
+    }
+    return false;
+  };
+
+  // Check time-up for current IST subtest
+  useEffect(() => {
+    if (!isIST(currentTest) || !currentSubtest || submitted) return;
+    if (remainingSec <= 0) {
+      Swal.fire({ icon: "info", title: `Waktu Subtes ${currentSubtest} Habis`, text: "Otomatis pindah ke subtes berikutnya.", timer: 1800, showConfirmButton: false, ...SWAL_THEME });
+      const moved = finishCurrentSubtest();
+      if (!moved) handleNextTest();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainingSec, currentSubtest]);
+
+  const handleNextTest = () => {
+    if (currentTestIdx < instruments.length - 1) { setCurrentTestIdx(currentTestIdx + 1); setCurrentQIdx(0); setCompletedSubtests(new Set()); setCurrentSubtest(null); }
   };
 
   const handleNext = () => {
     if (!currentTest) return;
-    if (currentQIdx < currentTest.questions.length - 1) {
-      setCurrentQIdx(currentQIdx + 1);
-    } else if (currentTestIdx < instruments.length - 1) {
-      setCurrentTestIdx(currentTestIdx + 1);
-      setCurrentQIdx(0);
+    // IST strict: if next question belongs to a different subtest, treat as auto-advance
+    if (isIST(currentTest) && currentQuestion?.subtest_code) {
+      const nextQ = currentTest.questions[currentQIdx + 1];
+      if (nextQ && nextQ.subtest_code !== currentQuestion.subtest_code) {
+        const newSet = new Set(completedSubtests); newSet.add(currentQuestion.subtest_code);
+        setCompletedSubtests(newSet);
+      }
     }
+    if (currentQIdx < currentTest.questions.length - 1) setCurrentQIdx(currentQIdx + 1);
+    else if (currentTestIdx < instruments.length - 1) handleNextTest();
   };
 
   const handlePrev = () => {
+    // IST strict: cannot go back to a completed subtest, and cannot go back across subtest
+    if (isIST(currentTest) && currentQuestion?.subtest_code) {
+      const prevQ = currentTest.questions[currentQIdx - 1];
+      if (!prevQ || prevQ.subtest_code !== currentQuestion.subtest_code) return; // block
+    }
     if (currentQIdx > 0) setCurrentQIdx(currentQIdx - 1);
     else if (currentTestIdx > 0) {
-      const prevTest = instruments[currentTestIdx - 1];
-      setCurrentTestIdx(currentTestIdx - 1);
-      setCurrentQIdx(prevTest.questions.length - 1);
+      const prev = instruments[currentTestIdx - 1];
+      setCurrentTestIdx(currentTestIdx - 1); setCurrentQIdx(prev.questions.length - 1);
     }
   };
 
@@ -159,16 +179,9 @@ const TestPage = () => {
 
   const handleSubmit = async () => {
     if (totalAnsweredAll < totalAllQuestions) {
-      const result = await Swal.fire({
-        icon: "question", title: "Belum Semua Dijawab",
-        html: `Anda baru menjawab <b>${totalAnsweredAll}</b> dari <b>${totalAllQuestions}</b> soal.<br/>Yakin ingin mengirim?`,
-        showCancelButton: true, confirmButtonText: "Ya, Kirim", cancelButtonText: "Kembali",
-        ...SWAL_THEME,
-      });
-      if (result.isConfirmed) await completeSubmission();
-    } else {
-      await completeSubmission();
-    }
+      const r = await Swal.fire({ icon: "question", title: "Belum Semua Dijawab", html: `Dijawab <b>${totalAnsweredAll}</b>/<b>${totalAllQuestions}</b>. Yakin kirim?`, showCancelButton: true, confirmButtonText: "Ya, Kirim", cancelButtonText: "Kembali", ...SWAL_THEME });
+      if (r.isConfirmed) await completeSubmission();
+    } else await completeSubmission();
   };
 
   const completeSubmission = async () => {
@@ -176,35 +189,26 @@ const TestPage = () => {
     const candidateRaw = sessionStorage.getItem("psytest_candidate");
     const candidate = candidateRaw ? JSON.parse(candidateRaw) : null;
 
-    // Ensure candidate exists
-    let candidateId: string | null = null;
-    if (candidate) {
-      const { data: existing } = await supabase.from("candidates").select("id").eq("email", candidate.email).maybeSingle();
-      if (existing) {
-        candidateId = existing.id;
-        await supabase.from("candidates").update({ status: "completed" } as any).eq("id", candidateId);
-      } else {
-        const { data: newCand } = await supabase.from("candidates").insert({
-          name: candidate.name, email: candidate.email, position: candidate.position,
-          status: "completed", activation_code_id: candidate.codeId,
-        }).select("id").single();
-        candidateId = newCand?.id || null;
-      }
-    }
+    // Auto-capture webcam snap
+    let snapUrl: string | null = null;
+    const dataUrl = webcamRef.current?.capture();
+    if (dataUrl) snapUrl = await uploadDataUrlAsPhoto(dataUrl, `snap-${candidate?.email || "anon"}`);
 
-    // For each instrument, compute score and save result + answers
+    let candidateId: string | null = candidate?.id || null;
+    if (candidate && !candidateId) {
+      const { data: existing } = await supabase.from("candidates").select("id").eq("email", candidate.email).maybeSingle();
+      candidateId = existing?.id || null;
+    }
+    if (candidateId) await supabase.from("candidates").update({ status: "completed" } as any).eq("id", candidateId);
+
     for (const inst of instruments) {
       const instAnswers = inst.questions.map(q => ({ q, optId: answers[`${inst.id}:${q.id}`] as string | undefined }));
       const answeredCount = instAnswers.filter(a => a.optId).length;
-
-      // Categorize scores by category_target (for DISC, MBTI etc.) and category (dimension)
       const cats: Record<string, number> = {};
-      let correctCount = 0;
-      let totalScore = 0;
+      let correctCount = 0; let totalScore = 0;
 
       instAnswers.forEach(({ q, optId }) => {
         if (!optId) return;
-        // DISC dual-pick format: "M:<id>|L:<id>"
         if (q.question_type === "disc_pair" && optId.includes("|")) {
           const parts: Record<string, string> = { M: "", L: "" };
           optId.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
@@ -222,18 +226,13 @@ const TestPage = () => {
         cats[dim] = (cats[dim] || 0) + Number(opt.score_value || 0);
       });
 
-      // Score = correctness % if scoring_rule includes correct_only, else completion %
       const hasCorrectScoring = inst.questions.some(q => q.scoring_rule === "correct_only" || q.options.some(o => o.is_correct));
       const score = hasCorrectScoring && inst.questions.length > 0
         ? Math.round((correctCount / inst.questions.length) * 100)
         : Math.round((answeredCount / Math.max(inst.questions.length, 1)) * 100);
 
-      // Normalize categories to percentage of max possible per category
       const normalizedCats: Record<string, number> = {};
-      Object.entries(cats).forEach(([k, v]) => {
-        normalizedCats[k] = Math.round(v);
-      });
-
+      Object.entries(cats).forEach(([k, v]) => { normalizedCats[k] = Math.round(v); });
       const status = score >= 70 ? "passed" : score >= 50 ? "review" : "failed";
 
       const { data: resultData } = await supabase.from("test_results").insert({
@@ -241,17 +240,38 @@ const TestPage = () => {
         candidate_name: candidate?.name || "Unknown",
         position: candidate?.position || "",
         test_name: inst.name,
-        score,
-        total_questions: inst.questions.length,
-        answered_questions: answeredCount,
-        categories: normalizedCats,
-        status,
-        interpretation: `Kandidat menjawab ${answeredCount} dari ${inst.questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasarkan profil dimensi."}`,
-        candidate_profile: candidate ? { email: candidate.email, phone: "", birthDate: "", education: "", gender: "" } : null,
-      }).select("id").single();
+        score, total_questions: inst.questions.length, answered_questions: answeredCount,
+        categories: normalizedCats, status,
+        interpretation: `Kandidat menjawab ${answeredCount} dari ${inst.questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasar profil dimensi."}`,
+        candidate_profile: candidate ? {
+          email: candidate.email, phone: candidate.phone || "", birthDate: candidate.birth_date || "",
+          education: candidate.education || "", gender: candidate.gender || "", photo_url: candidate.photo_url || null,
+        } : null,
+        webcam_photo_url: snapUrl,
+      } as any).select("id").single();
 
       if (resultData) {
         const answerRows = instAnswers.filter(a => a.optId).map(({ q, optId }) => {
+          // DISC: format combined "M: <text> | L: <text>" instead of UUIDs
+          if (q.question_type === "disc_pair" && optId!.includes("|")) {
+            const parts: Record<string, string> = { M: "", L: "" };
+            optId!.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+            const mOpt = q.options.find(o => o.id === parts.M);
+            const lOpt = q.options.find(o => o.id === parts.L);
+            const mText = mOpt ? `${mOpt.option_label}. ${mOpt.option_text}` : "-";
+            const lText = lOpt ? `${lOpt.option_label}. ${lOpt.option_text}` : "-";
+            return {
+              test_result_id: resultData.id,
+              question_number: q.question_number,
+              question_text: q.question_text,
+              question_text_en: q.question_text_en,
+              selected_answer: `PALING (M): ${mText}  ·  TIDAK (L): ${lText}`,
+              selected_answer_label: `M:${mOpt?.category_target || "?"} / L:${lOpt?.category_target || "?"}`,
+              category: q.category,
+              is_correct: null,
+              correct_answer: null,
+            };
+          }
           const opt = q.options.find(o => o.id === optId);
           return {
             test_result_id: resultData.id,
@@ -281,26 +301,19 @@ const TestPage = () => {
   };
 
   const handleLogout = () => {
-    Swal.fire({
-      icon: "warning", title: "Keluar dari Tes?",
-      text: "Semua jawaban Anda akan hilang. Yakin ingin keluar?",
-      showCancelButton: true, confirmButtonText: "Ya, Keluar", cancelButtonText: "Batal",
-      ...SWAL_THEME, confirmButtonColor: "hsl(0, 72%, 51%)",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        sessionStorage.removeItem("psytest_auth");
-        sessionStorage.removeItem("psytest_candidate");
-        navigate("/", { replace: true });
-      }
-    });
+    Swal.fire({ icon: "warning", title: "Keluar dari Tes?", text: "Semua jawaban akan hilang.", showCancelButton: true, confirmButtonText: "Ya, Keluar", cancelButtonText: "Batal", ...SWAL_THEME, confirmButtonColor: "hsl(0, 72%, 51%)" })
+      .then((r) => { if (r.isConfirmed) { sessionStorage.clear(); navigate("/", { replace: true }); } });
   };
 
   if (submitted) return null;
-
-  // Total duration = sum of all instrument durations
   const totalDuration = instruments.reduce((sum, t) => sum + (t.duration_minutes || 30), 0);
   const currentAnsKey = currentQuestion ? `${currentTest.id}:${currentQuestion.id}` : "";
   const currentAns = answers[currentAnsKey] as string | undefined;
+
+  // For IST: cannot go back across subtest boundary
+  const prevQ = currentTest?.questions[currentQIdx - 1];
+  const canPrev = !(currentTestIdx === 0 && currentQIdx === 0) &&
+    !(isIST(currentTest) && prevQ && prevQ.subtest_code !== currentQuestion?.subtest_code);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -325,9 +338,17 @@ const TestPage = () => {
         </div>
       </header>
 
+      {/* IST subtest banner */}
+      {isIST(currentTest) && currentSubtest && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-center text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center justify-center gap-2">
+          <Clock className="h-3.5 w-3.5" />
+          Subtes <b>{currentSubtest}</b> · Sisa waktu: {Math.floor(remainingSec / 60)}:{String(remainingSec % 60).padStart(2, "0")} · Tidak bisa kembali ke subtes sebelumnya
+        </div>
+      )}
+
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:flex-row md:p-6">
         <aside className="flex flex-row gap-4 md:w-64 md:flex-col md:gap-5">
-          <div className="w-1/2 md:w-full"><WebcamPreview /></div>
+          <div className="w-1/2 md:w-full"><WebcamPreview ref={webcamRef} /></div>
           <div className="flex flex-1 flex-col gap-4">
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs text-muted-foreground"><span>Progres Total</span><span>{totalAnsweredAll}/{totalAllQuestions}</span></div>
@@ -342,7 +363,7 @@ const TestPage = () => {
                 const ansInThis = t.questions.filter(q => answers[`${t.id}:${q.id}`]).length;
                 const isCurrent = i === currentTestIdx;
                 return (
-                  <button key={t.id} onClick={() => { setCurrentTestIdx(i); setCurrentQIdx(0); }}
+                  <button key={t.id} onClick={() => { setCurrentTestIdx(i); setCurrentQIdx(0); setCompletedSubtests(new Set()); setCurrentSubtest(null); }}
                     className={`w-full text-left rounded-lg border p-2.5 transition-all ${isCurrent ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted"}`}>
                     <p className={`text-xs font-semibold ${isCurrent ? "text-primary" : "text-foreground"}`}>{t.name}</p>
                     <p className="text-[10px] text-muted-foreground">{ansInThis}/{t.questions.length} soal</p>
@@ -351,7 +372,7 @@ const TestPage = () => {
               })}
             </div>
 
-            {currentTest && currentTest.questions.length > 0 && (
+            {currentTest && currentTest.questions.length > 0 && !isIST(currentTest) && (
               <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
                 {currentTest.questions.map((q, i) => (
                   <button key={q.id} onClick={() => setCurrentQIdx(i)}
@@ -372,13 +393,14 @@ const TestPage = () => {
             {currentQuestion ? (
               <div className="animate-fade-in space-y-5">
                 {currentQuestion.category && (
-                  <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                    {currentQuestion.category}
-                  </span>
+                  <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{currentQuestion.category}</span>
                 )}
                 <h3 className="text-lg font-semibold leading-relaxed text-foreground">{currentQuestion.question_text}</h3>
                 {showEnglish && currentQuestion.question_text_en && (
                   <p className="text-sm italic text-muted-foreground">{currentQuestion.question_text_en}</p>
+                )}
+                {currentQuestion.image_url && (
+                  <img src={currentQuestion.image_url} alt="Soal" className="max-h-72 w-auto rounded-lg border border-border bg-white" loading="lazy" />
                 )}
                 <div className="space-y-3">
                   {currentQuestion.options.length === 0 ? (
@@ -402,14 +424,10 @@ const TestPage = () => {
                                 <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
                                 {showEnglish && opt.option_text_en && <span className="block text-xs text-muted-foreground italic mt-0.5">{opt.option_text_en}</span>}
                               </div>
-                              <button onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "M", opt.id)}
-                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isM ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>
-                                {isM ? "✓" : ""}
-                              </button>
-                              <button onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "L", opt.id)}
-                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isL ? "border-amber-500 bg-amber-500 text-white" : "border-border hover:border-amber-500/60"}`}>
-                                {isL ? "✓" : ""}
-                              </button>
+                              <button type="button" onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "M", opt.id)}
+                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isM ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>{isM ? "✓" : ""}</button>
+                              <button type="button" onClick={() => handleDiscPick(currentTest.id, currentQuestion.id, "L", opt.id)}
+                                className={`h-9 w-9 mx-auto rounded-md border-2 font-bold text-sm transition-all ${isL ? "border-amber-500 bg-amber-500 text-white" : "border-border hover:border-amber-500/60"}`}>{isL ? "✓" : ""}</button>
                             </div>
                           );
                         });
@@ -420,14 +438,11 @@ const TestPage = () => {
                     return (
                       <button key={opt.id} onClick={() => handleAnswer(currentTest.id, currentQuestion.id, opt.id)}
                         className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
-                        <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>
-                          {opt.option_label}
-                        </span>
+                        <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{opt.option_label}</span>
                         <div className="flex-1">
+                          {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
                           <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
-                          {showEnglish && opt.option_text_en && (
-                            <span className="block text-xs text-muted-foreground italic mt-0.5">{opt.option_text_en}</span>
-                          )}
+                          {showEnglish && opt.option_text_en && <span className="block text-xs text-muted-foreground italic mt-0.5">{opt.option_text_en}</span>}
                         </div>
                       </button>
                     );
@@ -440,7 +455,7 @@ const TestPage = () => {
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <button onClick={handlePrev} disabled={currentTestIdx === 0 && currentQIdx === 0}
+            <button onClick={handlePrev} disabled={!canPrev}
               className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
               <ChevronLeft className="h-4 w-4" />Sebelumnya
             </button>
