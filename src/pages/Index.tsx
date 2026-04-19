@@ -34,20 +34,35 @@ const Index = () => {
 
     if (data && !error) {
       await supabase.from("activation_codes").update({ is_used: true }).eq("id", data.id);
+      // Find or create candidate
+      const { data: existing } = await supabase.from("candidates").select("id, photo_url, phone, birth_date, education, gender")
+        .eq("email", data.candidate_email).maybeSingle();
+      let candidateId = existing?.id || null;
+      const photoUrl = existing?.photo_url || null;
+      if (!candidateId) {
+        const { data: newCand } = await supabase.from("candidates").insert({
+          name: data.candidate_name, email: data.candidate_email, position: data.position,
+          status: "in_progress", activation_code_id: data.id,
+        } as any).select("id").single();
+        candidateId = newCand?.id || null;
+      } else {
+        await supabase.from("candidates").update({ status: "in_progress", activation_code_id: data.id } as any).eq("id", candidateId);
+      }
 
       Swal.fire({
         icon: "success", title: "Akses Diberikan",
-        text: `Selamat datang, ${data.candidate_name}! Anda akan diarahkan ke halaman tes.`,
+        text: `Selamat datang, ${data.candidate_name}!`,
         background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-        timer: 2000, showConfirmButton: false,
+        timer: 1500, showConfirmButton: false,
       }).then(() => {
         sessionStorage.setItem("psytest_auth", "true");
         sessionStorage.setItem("psytest_candidate", JSON.stringify({
-          name: data.candidate_name,
-          email: data.candidate_email,
-          position: data.position,
-          codeId: data.id,
-          assignedTests: data.assigned_tests || [],
+          id: candidateId,
+          name: data.candidate_name, email: data.candidate_email, position: data.position,
+          codeId: data.id, assignedTests: data.assigned_tests || [],
+          photo_url: photoUrl,
+          phone: existing?.phone || "", birth_date: existing?.birth_date || "",
+          education: existing?.education || "", gender: existing?.gender || "",
         }));
         navigate("/test");
       });
