@@ -335,6 +335,7 @@ export type Database = {
           status: string
           test_name: string
           total_questions: number
+          webcam_photo_url: string | null
         }
         Insert: {
           answered_questions?: number
@@ -351,6 +352,7 @@ export type Database = {
           status?: string
           test_name?: string
           total_questions?: number
+          webcam_photo_url?: string | null
         }
         Update: {
           answered_questions?: number
@@ -367,6 +369,7 @@ export type Database = {
           status?: string
           test_name?: string
           total_questions?: number
+          webcam_photo_url?: string | null
         }
         Relationships: [
           {
