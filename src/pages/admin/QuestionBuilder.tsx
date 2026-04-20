@@ -266,6 +266,8 @@ const QuestionBuilder = () => {
             <input id="o-correct" type="checkbox" style="width:16px;height:16px;accent-color:hsl(174,72%,46%)">
             Tandai sebagai jawaban BENAR (untuk tes kognitif)
           </label>
+          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Gambar Pilihan (opsional — CFIT/IST)</label>
+          <input id="o-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan",
@@ -276,6 +278,7 @@ const QuestionBuilder = () => {
         const label = (document.getElementById("o-label") as HTMLInputElement).value.trim();
         const text = (document.getElementById("o-text") as HTMLInputElement).value.trim();
         if (!label || !text) { Swal.showValidationMessage("Label dan teks pilihan wajib diisi"); return; }
+        const fileInput = document.getElementById("o-image") as HTMLInputElement;
         return {
           option_label: label,
           option_text: text,
@@ -283,14 +286,19 @@ const QuestionBuilder = () => {
           score_value: parseFloat((document.getElementById("o-score") as HTMLInputElement).value) || 0,
           category_target: (document.getElementById("o-cat") as HTMLInputElement).value.trim(),
           is_correct: (document.getElementById("o-correct") as HTMLInputElement).checked,
+          _imageFile: fileInput?.files?.[0] || null,
         };
       },
     });
     if (value) {
+      const { _imageFile, ...payload } = value as any;
+      let image_url: string | null = null;
+      if (_imageFile) image_url = await uploadTestImage(_imageFile, `q${q.question_number}-${payload.option_label}`);
       await supabase.from("test_question_options").insert({
         question_id: q.id,
         display_order: nextOrder,
-        ...value,
+        ...payload,
+        image_url,
       });
       await load();
     }
