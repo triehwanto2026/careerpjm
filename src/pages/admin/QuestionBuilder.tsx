@@ -350,6 +350,13 @@ const QuestionBuilder = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground leading-relaxed">{q.question_text}</p>
                       {q.question_text_en && <p className="text-xs text-muted-foreground italic mt-1">{q.question_text_en}</p>}
+                      {q.image_url && (
+                        <div className="mt-2 inline-flex items-center gap-1 text-[10px] text-primary">
+                          <ImageIcon className="h-3 w-3" />
+                          <a href={q.image_url} target="_blank" rel="noopener noreferrer" className="hover:underline">Lihat gambar soal</a>
+                          <img src={q.image_url} alt="thumb" className="ml-2 h-12 w-auto rounded border border-border bg-card" />
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
                         {q.category && <span className="rounded-md bg-primary/10 text-primary px-2 py-0.5 font-medium">{q.category}</span>}
                         <span className="rounded-md bg-muted text-muted-foreground px-2 py-0.5">{QUESTION_TYPES.find(t => t.value === q.question_type)?.label || q.question_type}</span>
@@ -381,6 +388,7 @@ const QuestionBuilder = () => {
                         {opts.map((o) => (
                           <div key={o.id} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
                             <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-card border border-border text-xs font-bold text-foreground">{o.option_label}</span>
+                            {o.image_url && <img src={o.image_url} alt={o.option_label} className="h-10 w-10 rounded object-cover border border-border bg-card" />}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-foreground truncate">{o.option_text}</p>
                               {o.option_text_en && <p className="text-[10px] text-muted-foreground italic truncate">{o.option_text_en}</p>}
