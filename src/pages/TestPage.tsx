@@ -392,7 +392,8 @@ const TestPage = () => {
       icon: "success", title: "Semua Tes Selesai!",
       html: `Terima kasih telah menyelesaikan ${instruments.length} alat tes.<br/><b>${totalAnsweredAll}/${totalAllQuestions}</b> soal dijawab.`,
       ...SWAL_THEME, confirmButtonText: "Selesai", allowOutsideClick: false,
-    }).then(() => {
+    }).then(async () => {
+      await clearSavedSession();
       sessionStorage.removeItem("psytest_auth");
       sessionStorage.removeItem("psytest_candidate");
       navigate("/", { replace: true });
