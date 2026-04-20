@@ -128,6 +128,8 @@ const QuestionBuilder = () => {
               </select>
             </div>
           </div>
+          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Gambar Soal (opsional — IST/CFIT)</label>
+          <input id="q-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan Soal",
@@ -137,20 +139,26 @@ const QuestionBuilder = () => {
       preConfirm: () => {
         const text = (document.getElementById("q-text") as HTMLTextAreaElement).value.trim();
         if (!text) { Swal.showValidationMessage("Teks soal wajib diisi"); return; }
+        const fileInput = document.getElementById("q-image") as HTMLInputElement;
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
+          _imageFile: fileInput?.files?.[0] || null,
         };
       },
     });
     if (value) {
+      const { _imageFile, ...payload } = value as any;
+      let image_url: string | null = null;
+      if (_imageFile) image_url = await uploadTestImage(_imageFile, `q${nextNum}`);
       await supabase.from("test_questions").insert({
         instrument_id: instrumentId,
         question_number: nextNum,
-        ...value,
+        ...payload,
+        image_url,
       });
       await load();
     }
