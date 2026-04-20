@@ -163,7 +163,7 @@ const TestPage = () => {
       }
     }
     if (currentQIdx < currentTest.questions.length - 1) setCurrentQIdx(currentQIdx + 1);
-    else if (currentTestIdx < instruments.length - 1) handleNextTest();
+    else if (currentTestIdx < instruments.length - 1) handleNextTestSync();
   };
 
   const handlePrev = () => {
