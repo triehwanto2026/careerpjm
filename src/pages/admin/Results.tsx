@@ -206,7 +206,7 @@ const Results = () => {
                 <div>${a.question_text}</div>
                 ${a.question_text_en ? `<div class="ans-q-en">${a.question_text_en}</div>` : ""}
               </td>
-              <td><span class="ans-pill ${a.is_correct === true ? 'ans-correct' : a.is_correct === false ? 'ans-wrong' : ''}">${a.selected_answer_label ? a.selected_answer_label + ". " : ""}${a.selected_answer}</span></td>
+              <td><span class="ans-pill ${a.is_correct === true ? 'ans-correct' : a.is_correct === false ? 'ans-wrong' : ''}">${a.selected_answer && a.selected_answer.includes('PALING') ? a.selected_answer : (a.selected_answer_label ? a.selected_answer_label + '. ' : '') + (a.selected_answer || '')}</span></td>
               <td class="ans-cat">${a.category || "-"}</td>
             </tr>`).join("")}
         </tbody>
@@ -531,7 +531,13 @@ const Results = () => {
                             {a.question_text_en && <p className="text-muted-foreground text-xs italic mt-0.5">{a.question_text_en}</p>}
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="inline-block rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">{a.selected_answer_label || a.selected_answer}</span>
+                            {a.selected_answer && a.selected_answer.includes('PALING') ? (
+                              <span className="inline-block rounded-md bg-primary/10 text-primary px-2 py-1 text-xs font-medium leading-relaxed whitespace-pre-wrap max-w-md">{a.selected_answer}</span>
+                            ) : (
+                              <span className="inline-block rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+                                {a.selected_answer_label ? `${a.selected_answer_label}. ` : ''}{a.selected_answer}
+                              </span>
+                            )}
                           </td>
                           <td className="py-2.5 px-3 text-xs text-muted-foreground">{a.category || "-"}</td>
                         </tr>
