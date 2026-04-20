@@ -82,13 +82,51 @@ const TestPage = () => {
     }
   }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest]);
 
+  // Subtest info for IST strict mode (computed each render — also used by useEffect below)
+  const subtestQuestions = isIST(currentTest) && currentSubtest
+    ? currentTest.questions.filter(q => q.subtest_code === currentSubtest) : [];
+  const subtestTimeLimit = subtestQuestions[0]?.time_limit_minutes || 6;
+  const elapsedSec = Math.floor((Date.now() - subtestStartedAt) / 1000);
+  const remainingSec = Math.max(0, subtestTimeLimit * 60 - elapsedSec);
+
+  const handleNextTest = useCallback(() => {
+    if (currentTestIdx < instruments.length - 1) {
+      setCurrentTestIdx(currentTestIdx + 1); setCurrentQIdx(0);
+      setCompletedSubtests(new Set()); setCurrentSubtest(null);
+    }
+  }, [currentTestIdx, instruments.length]);
+
+  const finishCurrentSubtest = useCallback(() => {
+    if (!isIST(currentTest) || !currentSubtest) return false;
+    const newSet = new Set(completedSubtests); newSet.add(currentSubtest);
+    setCompletedSubtests(newSet);
+    const allQs = currentTest.questions;
+    const lastIdxOfThis = allQs.map((q, i) => ({ q, i })).filter(x => x.q.subtest_code === currentSubtest).slice(-1)[0]?.i ?? -1;
+    if (lastIdxOfThis >= 0 && lastIdxOfThis < allQs.length - 1) {
+      setCurrentQIdx(lastIdxOfThis + 1);
+      return true;
+    }
+    return false;
+  }, [currentTest, currentSubtest, completedSubtests]);
+
+  // Check time-up for current IST subtest
+  useEffect(() => {
+    if (!isIST(currentTest) || !currentSubtest || submitted) return;
+    if (remainingSec <= 0) {
+      Swal.fire({ icon: "info", title: `Waktu Subtes ${currentSubtest} Habis`, text: "Otomatis pindah ke subtes berikutnya.", timer: 1800, showConfirmButton: false, ...SWAL_THEME });
+      const moved = finishCurrentSubtest();
+      if (!moved) handleNextTest();
+    }
+  }, [remainingSec, currentSubtest, currentTest, submitted, finishCurrentSubtest, handleNextTest]);
+
+  const completeSubmissionRef = useRef<() => Promise<void>>(async () => {});
+
   const handleTimeUp = useCallback(() => {
     if (!submitted) {
       Swal.fire({ icon: "warning", title: "Waktu Habis!", text: "Jawaban Anda akan disimpan otomatis.", ...SWAL_THEME, allowOutsideClick: false })
-        .then(() => completeSubmission());
+        .then(() => completeSubmissionRef.current());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted, answers, instruments]);
+  }, [submitted]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Memuat tes...</div>;
   if (instruments.length === 0) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Tidak ada tes tersedia.</div>;
@@ -96,13 +134,6 @@ const TestPage = () => {
   const totalAllQuestions = instruments.reduce((sum, t) => sum + t.questions.length, 0);
   const totalAnsweredAll = Object.keys(answers).length;
   const progress = totalAllQuestions > 0 ? (totalAnsweredAll / totalAllQuestions) * 100 : 0;
-
-  // Subtest info for IST strict mode
-  const subtestQuestions = isIST(currentTest) && currentSubtest
-    ? currentTest.questions.filter(q => q.subtest_code === currentSubtest) : [];
-  const subtestTimeLimit = subtestQuestions[0]?.time_limit_minutes || 6;
-  const elapsedSec = Math.floor((Date.now() - subtestStartedAt) / 1000);
-  const remainingSec = Math.max(0, subtestTimeLimit * 60 - elapsedSec);
 
   const handleAnswer = (instrumentId: string, questionId: string, value: string) => {
     setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: value }));
@@ -117,33 +148,7 @@ const TestPage = () => {
     setAnswers(prev => ({ ...prev, [key]: `M:${parts.M}|L:${parts.L}` }));
   };
 
-  // Strict IST: when finishing a subtest, mark as completed and move to next subtest (cannot return)
-  const finishCurrentSubtest = () => {
-    if (!isIST(currentTest) || !currentSubtest) return false;
-    const newSet = new Set(completedSubtests); newSet.add(currentSubtest);
-    setCompletedSubtests(newSet);
-    // Find first question of next subtest
-    const allQs = currentTest.questions;
-    const lastIdxOfThis = allQs.map((q, i) => ({ q, i })).filter(x => x.q.subtest_code === currentSubtest).slice(-1)[0]?.i ?? -1;
-    if (lastIdxOfThis >= 0 && lastIdxOfThis < allQs.length - 1) {
-      setCurrentQIdx(lastIdxOfThis + 1);
-      return true;
-    }
-    return false;
-  };
-
-  // Check time-up for current IST subtest
-  useEffect(() => {
-    if (!isIST(currentTest) || !currentSubtest || submitted) return;
-    if (remainingSec <= 0) {
-      Swal.fire({ icon: "info", title: `Waktu Subtes ${currentSubtest} Habis`, text: "Otomatis pindah ke subtes berikutnya.", timer: 1800, showConfirmButton: false, ...SWAL_THEME });
-      const moved = finishCurrentSubtest();
-      if (!moved) handleNextTest();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingSec, currentSubtest]);
-
-  const handleNextTest = () => {
+  const handleNextTestSync = () => {
     if (currentTestIdx < instruments.length - 1) { setCurrentTestIdx(currentTestIdx + 1); setCurrentQIdx(0); setCompletedSubtests(new Set()); setCurrentSubtest(null); }
   };
 
