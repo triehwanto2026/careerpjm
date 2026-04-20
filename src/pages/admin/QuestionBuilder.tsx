@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Trash2, ChevronLeft, GripVertical, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+
+/** Upload File ke bucket test-images, kembalikan public URL atau null. */
+const uploadTestImage = async (file: File, hint = "img"): Promise<string | null> => {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${hint}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from("test-images").upload(path, file, { upsert: true, cacheControl: "3600" });
+  if (error) { console.error("Upload err", error); return null; }
+  return supabase.storage.from("test-images").getPublicUrl(path).data.publicUrl;
+};
 
 const SWAL_THEME = () => ({
   background: "hsl(var(--card))",
