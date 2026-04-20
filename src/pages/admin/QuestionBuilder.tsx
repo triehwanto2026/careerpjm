@@ -38,6 +38,7 @@ interface QuestionRow {
   category: string;
   question_type: string;
   scoring_rule: string;
+  image_url: string | null;
 }
 
 interface OptionRow {
@@ -50,6 +51,7 @@ interface OptionRow {
   category_target: string;
   is_correct: boolean;
   display_order: number;
+  image_url: string | null;
 }
 
 const QUESTION_TYPES = [
