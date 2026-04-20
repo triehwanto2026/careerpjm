@@ -43,6 +43,18 @@ const Candidates = () => {
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Detail modal state
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateRow | null>(null);
+
+  // Filter states
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterGender, setFilterGender] = useState<string>("all");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   const load = async () => {
     const { data } = await supabase.from("candidates").select("*").order("created_at", { ascending: false });
     setCandidates((data as CandidateRow[]) || []);
@@ -53,7 +65,23 @@ const Candidates = () => {
 
   const filtered = candidates.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()) || c.position.toLowerCase().includes(search.toLowerCase())
+  ).filter((c) => {
+    if (filterStatus !== "all" && c.status !== filterStatus) return false;
+    if (filterGender !== "all" && c.gender !== filterGender) return false;
+    return true;
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedCandidates = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, filterGender]);
 
   const openAdd = () => { setForm(emptyForm); setShowForm(true); };
   const openEdit = (c: CandidateRow) => {
@@ -99,19 +127,8 @@ const Candidates = () => {
   };
 
   const handleView = (c: CandidateRow) => {
-    Swal.fire({
-      title: c.name,
-      html: `
-        <div style="text-align:left;font-size:13px;line-height:1.8">
-          ${c.photo_url ? `<div style="text-align:center;margin-bottom:12px"><img src="${c.photo_url}" style="width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid hsl(174,72%,46%)"/></div>` : ""}
-          <p><b>Email:</b> ${c.email}</p><p><b>Telepon:</b> ${c.phone || "-"}</p>
-          <p><b>Posisi:</b> ${c.position || "-"}</p><p><b>Tgl Lahir:</b> ${c.birth_date || "-"}</p>
-          <p><b>Pendidikan:</b> ${c.education || "-"}</p><p><b>Gender:</b> ${c.gender || "-"}</p>
-          <p><b>Status:</b> ${statusMap[c.status]?.label || c.status}</p>
-          <p><b>Terdaftar:</b> ${c.created_at?.split("T")[0]}</p>
-        </div>`,
-      ...SWAL_THEME(),
-    });
+    setSelectedCandidate(c);
+    setShowDetailModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -132,10 +149,46 @@ const Candidates = () => {
           </button>
         </div>
 
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input type="text" placeholder="Cari nama, email, posisi..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+        {/* Filters */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input type="text" placeholder="Cari nama, email, posisi..." value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="all">Semua Status</option>
+              <option value="pending">Menunggu</option>
+              <option value="in_progress">Berlangsung</option>
+              <option value="completed">Selesai</option>
+              <option value="expired">Kadaluarsa</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Gender</label>
+            <select value={filterGender} onChange={(e) => setFilterGender(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="all">Semua Gender</option>
+              <option value="Laki-laki">Laki-laki</option>
+              <option value="Perempuan">Perempuan</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[120px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Per Halaman</label>
+            <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-border">
@@ -152,7 +205,7 @@ const Candidates = () => {
             <tbody>
               {loading ? (
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat data...</td></tr>
-              ) : filtered.map((c) => (
+              ) : paginatedCandidates.map((c) => (
                 <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -181,12 +234,64 @@ const Candidates = () => {
                   </td>
                 </tr>
               ))}
-              {!loading && filtered.length === 0 && (
+              {!loading && paginatedCandidates.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">Tidak ada data ditemukan</td></tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {filtered.length > 0 && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filtered.length)} dari {filtered.length} kandidat
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Sebelumnya
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                        currentPage === pageNum
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border bg-card text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Selanjutnya →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Form Modal */}
@@ -242,9 +347,71 @@ const Candidates = () => {
           </form>
         </div>
       )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowDetailModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="glass relative w-full max-w-2xl rounded-2xl glow-border max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-6 py-4">
+              <h2 className="text-lg font-bold text-foreground">Detail Kandidat</h2>
+              <button type="button" onClick={() => setShowDetailModal(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-5 w-5" /></button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Profile Header */}
+              <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-border">
+                {selectedCandidate.photo_url ? (
+                  <img src={selectedCandidate.photo_url} alt={selectedCandidate.name} className="h-32 w-32 rounded-full object-cover border-4 border-primary/30 shadow-lg" />
+                ) : (
+                  <div className="flex h-32 w-32 items-center justify-center rounded-full bg-primary/10 text-primary text-5xl font-bold border-4 border-primary/30 shadow-lg">
+                    {selectedCandidate.name.charAt(0)}
+                  </div>
+                )}
+                <div className="flex-1 text-center sm:text-left">
+                  <h3 className="text-2xl font-bold text-foreground mb-2">{selectedCandidate.name}</h3>
+                  <p className="text-muted-foreground mb-3">{selectedCandidate.position || "Posisi tidak ditentukan"}</p>
+                  <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${statusMap[selectedCandidate.status]?.cls}`}>
+                      {statusMap[selectedCandidate.status]?.label || selectedCandidate.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Information Grid */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <InfoCard label="Email" value={selectedCandidate.email} icon="📧" />
+                <InfoCard label="Telepon" value={selectedCandidate.phone || "-"} icon="📱" />
+                <InfoCard label="Posisi Dilamar" value={selectedCandidate.position || "-"} icon="💼" />
+                <InfoCard label="Gender" value={selectedCandidate.gender || "-"} icon="👤" />
+                <InfoCard label="Tanggal Lahir" value={selectedCandidate.birth_date || "-"} icon="🎂" />
+                <InfoCard label="Pendidikan" value={selectedCandidate.education || "-"} icon="🎓" />
+                <InfoCard label="Status" value={statusMap[selectedCandidate.status]?.label || selectedCandidate.status} icon="📊" />
+                <InfoCard label="Terdaftar Sejak" value={selectedCandidate.created_at?.split("T")[0] || "-"} icon="📅" />
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 flex items-center justify-end border-t border-border bg-card/95 backdrop-blur-xl px-6 py-3">
+              <button onClick={() => setShowDetailModal(false)} className="rounded-lg border border-border bg-card px-5 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };
+
+const InfoCard = ({ label, value, icon }: { label: string; value: string; icon: string }) => (
+  <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
+    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+      <span>{icon}</span>
+      <span>{label}</span>
+    </div>
+    <p className="text-sm font-medium text-foreground">{value}</p>
+  </div>
+);
 
 const input = "w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (

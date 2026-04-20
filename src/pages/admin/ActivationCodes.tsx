@@ -23,10 +23,13 @@ interface CodeRow {
 
 interface FormState {
   id?: string;
+  code?: string;
+  password?: string;
   candidate_id: string; // empty string = manual
   name: string; email: string; position: string;
   expires_at: string;
   assigned_tests: string[];
+  is_used?: boolean;
 }
 
 const emptyForm: FormState = { candidate_id: "", name: "", email: "", position: "", expires_at: "", assigned_tests: [] };
@@ -40,6 +43,14 @@ const ActivationCodes = () => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
+
+  // Filter states
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterTest, setFilterTest] = useState<string>("all");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const loadAll = async () => {
     const [{ data: c }, { data: i }, { data: cand }] = await Promise.all([
@@ -57,7 +68,28 @@ const ActivationCodes = () => {
 
   const filtered = codes.filter(
     (c) => c.code.toLowerCase().includes(search.toLowerCase()) || c.candidate_name.toLowerCase().includes(search.toLowerCase())
+  ).filter((c) => {
+    if (filterStatus !== "all") {
+      if (filterStatus === "used" && !c.is_used) return false;
+      if (filterStatus === "unused" && c.is_used) return false;
+    }
+    if (filterTest !== "all" && c.assigned_tests) {
+      if (!c.assigned_tests.includes(filterTest)) return false;
+    }
+    return true;
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedCodes = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, filterTest]);
 
   const generateCode = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -68,10 +100,14 @@ const ActivationCodes = () => {
   const openEdit = (c: CodeRow) => {
     const matchedCand = candidatesList.find(x => x.email === c.candidate_email);
     setForm({
-      id: c.id, candidate_id: matchedCand?.id || "",
+      id: c.id, 
+      code: c.code,
+      password: c.password,
+      candidate_id: matchedCand?.id || "",
       name: c.candidate_name, email: c.candidate_email, position: c.position,
       expires_at: c.expires_at?.split("T")[0] || "",
       assigned_tests: c.assigned_tests || [],
+      is_used: c.is_used,
     });
     setShowForm(true);
   };
@@ -100,6 +136,7 @@ const ActivationCodes = () => {
       const { error } = await supabase.from("activation_codes").update({
         candidate_name: form.name, candidate_email: form.email, position: form.position,
         expires_at: form.expires_at || null, assigned_tests: form.assigned_tests,
+        is_used: form.is_used,
       } as any).eq("id", form.id);
       setSaving(false);
       if (error) { Swal.fire({ icon: "error", title: "Gagal", text: error.message, ...SWAL_THEME() }); return; }
@@ -147,10 +184,45 @@ const ActivationCodes = () => {
           </button>
         </div>
 
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input type="text" placeholder="Cari kode atau nama..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+        {/* Filters */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input type="text" placeholder="Cari kode atau nama..." value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="all">Semua Status</option>
+              <option value="unused">Aktif</option>
+              <option value="used">Terpakai</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Tes</label>
+            <select value={filterTest} onChange={(e) => setFilterTest(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="all">Semua Tes</option>
+              {instruments.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[120px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Per Halaman</label>
+            <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-border">
@@ -169,7 +241,7 @@ const ActivationCodes = () => {
             <tbody>
               {loading ? (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat data...</td></tr>
-              ) : filtered.map((c) => (
+              ) : paginatedCodes.map((c) => (
                 <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs text-primary">{c.code}</td>
                   <td className="px-4 py-3">
@@ -201,12 +273,64 @@ const ActivationCodes = () => {
                   </td>
                 </tr>
               ))}
-              {!loading && filtered.length === 0 && (
+              {!loading && paginatedCodes.length === 0 && (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">Tidak ada data ditemukan</td></tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {filtered.length > 0 && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filtered.length)} dari {filtered.length} kode
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Sebelumnya
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                        currentPage === pageNum
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border bg-card text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Selanjutnya →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Form Modal */}
@@ -220,6 +344,49 @@ const ActivationCodes = () => {
             </div>
 
             <div className="p-6 space-y-5">
+              {form.id && (
+                <>
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                    <label className="text-xs font-semibold text-primary uppercase tracking-wider">Informasi Kode Aktivasi</label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-[11px] text-muted-foreground">Kode Aktivasi</label>
+                        <div className="flex items-center gap-2">
+                          <input type="text" value={form.code} readOnly className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm font-mono text-primary" />
+                          <button type="button" onClick={() => { form.code && navigator.clipboard.writeText(form.code); Swal.fire({ icon: "success", title: "Disalin!", timer: 1000, showConfirmButton: false, ...SWAL_THEME() }); }} className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Salin">
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-muted-foreground">Password</label>
+                        <div className="flex items-center gap-2">
+                          <input type="text" value={form.password} readOnly className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm font-mono text-primary" />
+                          <button type="button" onClick={() => { form.password && navigator.clipboard.writeText(form.password); Swal.fire({ icon: "success", title: "Disalin!", timer: 1000, showConfirmButton: false, ...SWAL_THEME() }); }} className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Salin">
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {form.is_used && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={!form.is_used}
+                          onChange={(e) => setForm({ ...form, is_used: !e.target.checked })}
+                          className="h-4 w-4 rounded border-border accent-amber-600"
+                        />
+                        <span className="text-xs font-semibold text-amber-800 dark:text-amber-200">Aktifkan Kembali Kode Ini</span>
+                      </label>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300">Centang opsi ini untuk mengizinkan kode aktivasi digunakan kembali oleh kandidat yang sama.</p>
+                    </div>
+                  )}
+                </>
+              )}
+
               {!form.id && (
                 <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
                   <label className="text-xs font-semibold text-primary uppercase tracking-wider">Pilih dari Data Kandidat</label>

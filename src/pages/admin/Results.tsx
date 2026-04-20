@@ -33,6 +33,16 @@ const Results = () => {
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
 
+  // Filter states
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterTest, setFilterTest] = useState<string>("all");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   const load = async () => {
     const { data } = await supabase.from("test_results").select("*").order("completed_at", { ascending: false });
     setResults((data as ResultRow[]) || []);
@@ -55,7 +65,28 @@ const Results = () => {
     (r) => r.candidate_name.toLowerCase().includes(search.toLowerCase()) ||
       r.position.toLowerCase().includes(search.toLowerCase()) ||
       r.test_name.toLowerCase().includes(search.toLowerCase())
+  ).filter((r) => {
+    if (filterStatus !== "all" && r.status !== filterStatus) return false;
+    if (filterTest !== "all" && r.test_name !== filterTest) return false;
+    if (filterDateFrom && r.completed_at && r.completed_at < filterDateFrom) return false;
+    if (filterDateTo && r.completed_at && r.completed_at > filterDateTo + "T23:59:59") return false;
+    return true;
+  });
+
+  // Get unique test names for filter dropdown
+  const uniqueTests = Array.from(new Set(results.map(r => r.test_name))).sort();
+
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedResults = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, filterTest, filterDateFrom, filterDateTo]);
 
   const handlePrint = () => {
     if (!selectedResult) return;
@@ -552,6 +583,26 @@ const Results = () => {
       
       return (
         <div className="space-y-4">
+          {/* Kategori Dominan - Tampil di atas grafik */}
+          <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5 p-4 text-center">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Kategori Dominan DISC</p>
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-3xl font-bold text-primary">{dominant}</span>
+              {secondary && (
+                <>
+                  <span className="text-2xl text-muted-foreground/50">&</span>
+                  <span className="text-2xl font-semibold text-primary/80">{secondary}</span>
+                </>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {dominant === 'D' && 'Dominance - Pemimpin yang tegas dan berorientasi hasil'}
+              {dominant === 'I' && 'Influence - Komunikator yang persuasif dan energik'}
+              {dominant === 'S' && 'Steadiness - Pendukung yang stabil dan sabar'}
+              {dominant === 'C' && 'Conscientiousness - Analitis yang teliti dan akurat'}
+            </p>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-3">
             {renderMini("Mask - Public Self (M)", mask, "#10b981")}
             {renderMini("Core - Private Self (L)", core, "#f59e0b")}
@@ -871,50 +922,182 @@ const Results = () => {
             <Download className="h-4 w-4" /> Export CSV
           </button>
         </div>
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input type="text" placeholder="Cari nama, posisi, atau tes..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+
+        {/* Filters */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input type="text" placeholder="Cari nama, posisi, atau tes..." value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="all">Semua Status</option>
+              <option value="passed">Lulus</option>
+              <option value="review">Review</option>
+              <option value="failed">Gagal</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Tes</label>
+            <select value={filterTest} onChange={(e) => setFilterTest(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="all">Semua Tes</option>
+              {uniqueTests.map(test => (
+                <option key={test} value={test}>{test}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Dari Tanggal</label>
+            <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Sampai Tanggal</label>
+            <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+
+          <div className="flex-1 min-w-[120px]">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Per Halaman</label>
+            <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+
+          <button onClick={() => window.print()} className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+            <Printer className="h-4 w-4" /> Cetak Tabel
+          </button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {loading ? (
-            <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Memuat data...</p>
-          ) : filtered.map((r) => (
-            <div key={r.id} className="glass rounded-xl p-5 glow-border space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">{r.candidate_name}</h3>
-                  <p className="text-xs text-muted-foreground">{r.position}</p>
-                </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  r.status === "passed" ? "bg-emerald-400/10 text-emerald-400" : r.status === "review" ? "bg-amber-400/10 text-amber-400" : "bg-destructive/10 text-destructive"
-                }`}>
-                  {r.status === "passed" ? "Lulus" : r.status === "review" ? "Review" : "Gagal"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">{r.test_name}</span>
-                <span className="text-xs text-muted-foreground">{r.completed_at?.split("T")[0]}</span>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Skor</span><span className="font-semibold text-foreground">{r.score}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div className={`h-full rounded-full transition-all ${r.score >= 75 ? "bg-emerald-400" : r.score >= 50 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${r.score}%` }} />
-                </div>
-              </div>
-              <div className="flex items-center gap-1 border-t border-border pt-3">
-                <button onClick={() => handleSelectResult(r)} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors">
-                  <Eye className="h-3.5 w-3.5" /> Lihat Detail & Grafik
-                </button>
-              </div>
+
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nama Kandidat</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Posisi</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tes</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Skor</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Soal</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tanggal</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat data...</td></tr>
+              ) : paginatedResults.map((r) => (
+                <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-foreground">{r.candidate_name}</p>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{r.position}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+                    <span className="inline-block rounded-md bg-primary/10 text-primary px-2 py-0.5 font-medium">{r.test_name}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground">{r.score}%</span>
+                      <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
+                        <div className={`h-full rounded-full transition-all ${r.score >= 75 ? "bg-emerald-400" : r.score >= 50 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${r.score}%` }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell">
+                    {r.answered_questions}/{r.total_questions}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+                    {r.completed_at?.split("T")[0]}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      r.status === "passed" ? "bg-emerald-400/10 text-emerald-400" : r.status === "review" ? "bg-amber-400/10 text-amber-400" : "bg-destructive/10 text-destructive"
+                    }`}>
+                      {r.status === "passed" ? "Lulus" : r.status === "review" ? "Review" : "Gagal"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleSelectResult(r)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Lihat Detail">
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => { setSelectedResult(r); handlePrint(); }} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Cetak Laporan">
+                        <Printer className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!loading && paginatedResults.length === 0 && (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">Tidak ada data ditemukan</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {filtered.length > 0 && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filtered.length)} dari {filtered.length} hasil
             </div>
-          ))}
-          {!loading && filtered.length === 0 && (
-            <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Tidak ada data ditemukan</p>
-          )}
-        </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Sebelumnya
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                        currentPage === pageNum
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border bg-card text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Selanjutnya →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
