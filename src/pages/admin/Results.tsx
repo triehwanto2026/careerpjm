@@ -67,6 +67,189 @@ const Results = () => {
     const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
     const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
 
+    // Generate DISC charts and interpretation if test is DISC
+    let discChartsHTML = "";
+    let discInterpretation = "";
+    if (r.test_name.toUpperCase().includes("DISC")) {
+      const dims = ["D", "I", "S", "C"];
+      const mask = dims.map(d => ({ name: d, value: Math.max(0, Number(cats[d] || 0)) }));
+      const core = dims.map(d => ({ name: d, value: Math.max(0, -Number(cats[d] || 0)) }));
+      const mirror = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
+      const radarData = dims.map(d => ({ dim: d, value: Number(cats[d] || 0) }));
+      
+      // Get top 2 dominant categories
+      const sortedCats = catEntries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+      const topCategories = sortedCats.slice(0, 2).map(([cat]) => cat);
+      const dominant = topCategories[0];
+      const secondary = topCategories[1];
+      
+      // Generate interpretation based on DISC results
+      const interpretations: Record<string, string> = {
+        'D': `Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.`,
+        'I': `Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.`,
+        'S': `Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.`,
+        'C': `Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.`
+      };
+      
+      const jobMatches: Record<string, string> = {
+        'D': "Manager, Entrepreneur, Sales Director, Director, CEO, Project Leader",
+        'I': "Sales, Public Relations, Marketing, Trainer, Public Speaker, Event Coordinator",
+        'S': "Counselor, Teacher, Nurse, HR, Customer Service, Therapist, Administrator",
+        'C': "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer, Auditor"
+      };
+      
+      discInterpretation = `
+        <div class="section">
+          <div class="section-title">Interpretasi Psikolog - Analisa DISC</div>
+          <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 14px; border-radius: 0 8px 8px 0; font-size: 10pt; line-height: 1.7; color: #422006;">
+            <p style="font-weight: 700; margin-bottom: 8px;">Profil Dominan: ${dominant}${secondary ? ` & ${secondary}` : ''}</p>
+            <p style="margin-bottom: 8px;">${interpretations[dominant] || ''}</p>
+            ${secondary ? `<p style="margin-bottom: 8px;">Kombinasi dengan ${secondary} memberikan keseimbangan antara kekuatan ${dominant} dan stabilitas ${secondary}.</p>` : ''}
+            <p style="margin-top: 12px; font-weight: 600;"><strong>Pekerjaan yang Sesuai:</strong> ${jobMatches[dominant] || 'Berbagai peran profesional'}</p>
+            <p style="margin-top: 8px;"><strong>Rekomendasi:</strong> Kandidat menunjukkan potensi tinggi untuk peran yang sesuai dengan profil ${dominant}. Pertimbangkan untuk penempatan di posisi yang memanfaatkan kekuatan alami ini.</p>
+          </div>
+        </div>`;
+      
+      discChartsHTML = `
+    <div class="section">
+      <div class="section-title">Grafik Profil DISC</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
+          <p style="font-size: 9pt; font-weight: 700; color: #059669; margin-bottom: 8px;">Mask - Public Self</p>
+          <svg width="100%" height="200" viewBox="0 0 200 200" style="margin-bottom: 8px;">
+            <!-- Grid lines for better visibility -->
+            <line x1="20" y1="30" x2="180" y2="30" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="60" x2="180" y2="60" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="90" x2="180" y2="90" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="120" x2="180" y2="120" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="150" x2="180" y2="150" stroke="#e5e7eb" stroke-width="1"/>
+            <!-- Zero line for positive/negative values -->
+            <line x1="20" y1="90" x2="180" y2="90" stroke="#9ca3af" stroke-width="2" stroke-dasharray="5,5"/>
+            <!-- X and Y axis -->
+            <line x1="20" y1="30" x2="20" y2="150" stroke="#374151" stroke-width="2"/>
+            <line x1="20" y1="150" x2="180" y2="150" stroke="#374151" stroke-width="2"/>
+            ${(() => {
+              const points = mask.map((d, i) => {
+                const x = 20 + (i * 50);
+                const maxVal = Math.max(...mask.map(m => Math.abs(m.value)), 1);
+                const normalizedValue = (d.value / maxVal) * 50;
+                const y = 90 - normalizedValue;
+                return { x, y, value: d.value, name: d.name };
+              });
+              // Create curved path using bezier curves
+              let pathD = `M ${points[0].x} ${points[0].y}`;
+              for (let i = 0; i < points.length - 1; i++) {
+                const p0 = points[i];
+                const p1 = points[i + 1];
+                const cp1x = p0.x + (p1.x - p0.x) / 2;
+                const cp1y = p0.y;
+                const cp2x = p0.x + (p1.x - p0.x) / 2;
+                const cp2y = p1.y;
+                pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+              }
+              return `
+                <path d="${pathD}" stroke="#059669" stroke-width="3" fill="none" stroke-linecap="round"/>
+                ${points.map((p, i) => `
+                  <circle cx="${p.x}" cy="${p.y}" r="5" fill="#059669" stroke="#fff" stroke-width="1"/>
+                  <text x="${p.x}" y="170" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">${p.name}</text>
+                  <text x="${15}" y="${p.y + 4}" text-anchor="end" font-size="9" fill="#6b7280">${p.value}</text>
+                `).join('')}
+              `;
+            })()}
+          </svg>
+        </div>
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
+          <p style="font-size: 9pt; font-weight: 700; color: #d97706; margin-bottom: 8px;">Core - Private Self</p>
+          <svg width="100%" height="200" viewBox="0 0 200 200" style="margin-bottom: 8px;">
+            <!-- Grid lines -->
+            <line x1="20" y1="30" x2="180" y2="30" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="60" x2="180" y2="60" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="90" x2="180" y2="90" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="120" x2="180" y2="120" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="150" x2="180" y2="150" stroke="#e5e7eb" stroke-width="1"/>
+            <!-- Zero line for positive/negative values -->
+            <line x1="20" y1="90" x2="180" y2="90" stroke="#9ca3af" stroke-width="2" stroke-dasharray="5,5"/>
+            <!-- X and Y axis -->
+            <line x1="20" y1="30" x2="20" y2="150" stroke="#374151" stroke-width="2"/>
+            <line x1="20" y1="150" x2="180" y2="150" stroke="#374151" stroke-width="2"/>
+            ${(() => {
+              const points = core.map((d, i) => {
+                const x = 20 + (i * 50);
+                const maxVal = Math.max(...core.map(m => Math.abs(m.value)), 1);
+                const normalizedValue = (d.value / maxVal) * 50;
+                const y = 90 - normalizedValue;
+                return { x, y, value: d.value, name: d.name };
+              });
+              // Create curved path using bezier curves
+              let pathD = `M ${points[0].x} ${points[0].y}`;
+              for (let i = 0; i < points.length - 1; i++) {
+                const p0 = points[i];
+                const p1 = points[i + 1];
+                const cp1x = p0.x + (p1.x - p0.x) / 2;
+                const cp1y = p0.y;
+                const cp2x = p0.x + (p1.x - p0.x) / 2;
+                const cp2y = p1.y;
+                pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+              }
+              return `
+                <path d="${pathD}" stroke="#d97706" stroke-width="3" fill="none" stroke-linecap="round"/>
+                ${points.map((p, i) => `
+                  <circle cx="${p.x}" cy="${p.y}" r="5" fill="#d97706" stroke="#fff" stroke-width="1"/>
+                  <text x="${p.x}" y="170" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">${p.name}</text>
+                  <text x="${15}" y="${p.y + 4}" text-anchor="end" font-size="9" fill="#6b7280">${p.value}</text>
+                `).join('')}
+              `;
+            })()}
+          </svg>
+        </div>
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
+          <p style="font-size: 9pt; font-weight: 700; color: #ec4899; margin-bottom: 8px;">Mirror - Perceived Self</p>
+          <svg width="100%" height="200" viewBox="0 0 200 200" style="margin-bottom: 8px;">
+            <!-- Grid lines -->
+            <line x1="20" y1="30" x2="180" y2="30" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="60" x2="180" y2="60" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="90" x2="180" y2="90" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="120" x2="180" y2="120" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="20" y1="150" x2="180" y2="150" stroke="#e5e7eb" stroke-width="1"/>
+            <!-- Zero line for positive/negative values -->
+            <line x1="20" y1="90" x2="180" y2="90" stroke="#9ca3af" stroke-width="2" stroke-dasharray="5,5"/>
+            <!-- X and Y axis -->
+            <line x1="20" y1="30" x2="20" y2="150" stroke="#374151" stroke-width="2"/>
+            <line x1="20" y1="150" x2="180" y2="150" stroke="#374151" stroke-width="2"/>
+            ${(() => {
+              const points = mirror.map((d, i) => {
+                const x = 20 + (i * 50);
+                const maxVal = Math.max(...mirror.map(m => Math.abs(m.value)), 1);
+                const normalizedValue = (d.value / maxVal) * 50;
+                const y = 90 - normalizedValue;
+                return { x, y, value: d.value, name: d.name };
+              });
+              // Create curved path using bezier curves
+              let pathD = `M ${points[0].x} ${points[0].y}`;
+              for (let i = 0; i < points.length - 1; i++) {
+                const p0 = points[i];
+                const p1 = points[i + 1];
+                const cp1x = p0.x + (p1.x - p0.x) / 2;
+                const cp1y = p0.y;
+                const cp2x = p0.x + (p1.x - p0.x) / 2;
+                const cp2y = p1.y;
+                pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+              }
+              return `
+                <path d="${pathD}" stroke="#ec4899" stroke-width="3" fill="none" stroke-linecap="round"/>
+                ${points.map((p, i) => `
+                  <circle cx="${p.x}" cy="${p.y}" r="5" fill="#ec4899" stroke="#fff" stroke-width="1"/>
+                  <text x="${p.x}" y="170" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">${p.name}</text>
+                  <text x="${15}" y="${p.y + 4}" text-anchor="end" font-size="9" fill="#6b7280">${p.value}</text>
+                `).join('')}
+              `;
+            })()}
+          </svg>
+        </div>
+      </div>
+    </div>`;
+    }
+
     const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
     <style>
       @page { size: A4; margin: 16mm 14mm; }
@@ -162,7 +345,7 @@ const Results = () => {
     </div>
 
     <div class="section">
-      <div class="section-title">Ringkasan Hasil — ${r.test_name}</div>
+      <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
       <div class="score-cards">
         <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
         <div class="score-card"><div class="label">Skor Akhir</div><div class="value">${r.score}<span style="font-size:14pt;color:#64748b;">%</span></div></div>
@@ -170,45 +353,109 @@ const Results = () => {
       </div>
     </div>
 
+    ${discChartsHTML}
+
     <div class="section">
       <div class="section-title">Profil Dimensi & Skor</div>
-      <table class="dim-table">
-        <thead><tr><th style="width:35%">Dimensi / Aspek</th><th style="width:15%">Skor</th><th>Indikator Visual</th></tr></thead>
-        <tbody>
-          ${catEntries.map(([dim, val]) => {
-            const pct = (val / maxVal) * 100;
-            return `<tr>
-              <td><strong>${dim}</strong></td>
-              <td>${val}${r.test_name === "PAPIKOSTIK" ? "/9" : "%"}</td>
-              <td><div class="bar-container"><div class="bar-fill" style="width:${pct}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
-            </tr>`;
-          }).join("")}
-        </tbody>
-      </table>
+      ${r.test_name.toUpperCase().includes("DISC") ? 
+        // For DISC, show horizontal bar chart with 0 in center, fixed order D, I, S, C
+        (() => {
+          const dims = ["D", "I", "S", "C"];
+          const sortedCats = catEntries.sort((a, b) => b[1] - a[1]);
+          const top2 = sortedCats.slice(0, 2);
+          return `
+            <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+              <p style="font-size: 10pt; font-weight: 700; color: #0f766e; margin-bottom: 8px;">Kategori Dominan DISC</p>
+              <div style="display: flex; gap: 16px; justify-content: center;">
+                ${top2.map(([cat, val], i) => `
+                  <div style="text-align: center; flex: 1;">
+                    <div style="font-size: 24pt; font-weight: 800; color: #0f766e; margin-bottom: 4px;">${cat}</div>
+                    <div style="font-size: 12pt; color: #475569;">Skor: ${val}</div>
+                    <div style="font-size: 10pt; color: #64748b; margin-top: 2px;">${i === 0 ? 'Dominan Utama' : 'Dominan Sekunder'}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <p style="font-size: 10pt; font-weight: 700; color: #374151; margin-bottom: 12px;">Detail Skor per Dimensi</p>
+              ${dims.map(dim => {
+                const val = Number(cats[dim] || 0);
+                const maxVal = Math.max(...Object.values(cats).map(Math.abs), 1);
+                const barWidth = (Math.abs(val) / maxVal) * 40;
+                const isPositive = val >= 0;
+                return `
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span style="width: 32px; text-align: right; font-weight: 700; color: #374151; font-size: 10pt;">${dim}</span>
+                    <div style="flex: 1; position: relative; height: 32px; display: flex; align-items: center;">
+                      <!-- Zero line -->
+                      <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #9ca3af;"></div>
+                      <!-- Negative bar (left side) -->
+                      ${!isPositive ? `<div style="position: absolute; right: 50%; height: 24px; background: #f87171; border-radius: 4px 0 0 4px; width: ${barWidth}%; margin-right: -1px;"></div>` : ''}
+                      <!-- Positive bar (right side) -->
+                      ${isPositive ? `<div style="position: absolute; left: 50%; height: 24px; background: #34d399; border-radius: 0 4px 4px 0; width: ${barWidth}%; margin-left: 1px;"></div>` : ''}
+                      <!-- Value label -->
+                      <span style="position: absolute; font-size: 9pt; font-weight: 700; ${isPositive ? 'left: 50%; margin-left: 8px; color: #059669;' : 'right: 50%; margin-right: 8px; color: #dc2626;'}">${val}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+              <div style="display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 16px; font-size: 9pt; color: #6b7280;">
+                <span style="display: flex; align-items: center; gap: 4px;"><div style="width: 12px; height: 12px; background: #f87171; border-radius: 2px;"></div> Negatif</span>
+                <div style="width: 1px; height: 16px; background: #d1d5db;"></div>
+                <span style="display: flex; align-items: center; gap: 4px;"><div style="width: 12px; height: 12px; background: #34d399; border-radius: 2px;"></div> Positif</span>
+              </div>
+            </div>
+          `;
+        })()
+      : `
+        <table class="dim-table">
+          <thead><tr><th style="width:35%">Dimensi / Aspek</th><th style="width:15%">Skor</th><th>Indikator Visual</th></tr></thead>
+          <tbody>
+            ${catEntries.map(([dim, val]) => {
+              const pct = (val / maxVal) * 100;
+              return `<tr>
+                <td><strong>${dim}</strong></td>
+                <td>${val}${r.test_name === "PAPIKOSTIK" ? "/9" : "%"}</td>
+                <td><div class="bar-container"><div class="bar-fill" style="width:${pct}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      `}
     </div>
 
-    ${r.interpretation ? `
+    ${discInterpretation}
+
+    ${r.interpretation && !r.test_name.toUpperCase().includes("DISC") ? `
     <div class="section">
       <div class="section-title">Interpretasi Psikolog</div>
       <div class="interpretation">${r.interpretation}</div>
     </div>` : ""}
 
-    <div class="section page-break">
+    <div class="section">
       <div class="section-title">Lembar Jawaban Kandidat (${answers.length} Soal)</div>
       ${answers.length === 0 ? '<p style="color:#94a3b8;font-style:italic;padding:12px 0;">Belum ada data jawaban tersimpan.</p>' : `
       <table class="answer-table">
-        <thead><tr><th style="width:36px;">No</th><th>Pertanyaan</th><th style="width:160px;">Jawaban</th><th style="width:120px;">Kategori</th></tr></thead>
+        <thead><tr><th style="width:36px;">No</th><th>Pertanyaan</th><th style="width:180px;">Jawaban</th><th style="width:120px;">Kategori</th></tr></thead>
         <tbody>
-          ${answers.map(a => `
+          ${answers.map(a => {
+            // Extract DISC categories from answer if it's a DISC test
+            let categoryDisplay = a.category || "-";
+            if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
+              // For DISC, show the actual category from the answer (like D-C, I-S, etc.)
+              categoryDisplay = a.selected_answer_label;
+            }
+            return `
             <tr>
               <td class="ans-num">${a.question_number}</td>
               <td>
                 <div>${a.question_text}</div>
                 ${a.question_text_en ? `<div class="ans-q-en">${a.question_text_en}</div>` : ""}
               </td>
-              <td><span class="ans-pill ${a.is_correct === true ? 'ans-correct' : a.is_correct === false ? 'ans-wrong' : ''}">${a.selected_answer && a.selected_answer.includes('PALING') ? a.selected_answer : (a.selected_answer_label ? a.selected_answer_label + '. ' : '') + (a.selected_answer || '')}</span></td>
-              <td class="ans-cat">${a.category || "-"}</td>
-            </tr>`).join("")}
+              <td><span class="ans-pill ${a.is_correct === true ? 'ans-correct' : a.is_correct === false ? 'ans-wrong' : ''}">${a.selected_answer && a.selected_answer.includes('PALING') ? a.selected_answer : (a.selected_answer_label && !r.test_name.toUpperCase().includes("DISC") ? a.selected_answer_label + '. ' : '') + (a.selected_answer || '')}</span></td>
+              <td class="ans-cat">${categoryDisplay}</td>
+            </tr>`;
+          }).join("")}
         </tbody>
       </table>`}
     </div>
@@ -266,75 +513,82 @@ const Results = () => {
         Core: Math.max(0, -Number(cats[d] || 0)),
         Mirror: Number(cats[d] || 0),
       }));
-      const radarData = dims.map(d => ({ dim: d, value: Math.abs(Number(cats[d] || 0)) }));
+      const radarData = dims.map(d => ({ dim: d, value: Number(cats[d] || 0) }));
       const jobMatch: Record<string, string> = {
         D: "Manager, Entrepreneur, Sales Director, Director, CEO",
         I: "Sales, Public Relations, Marketing, Trainer, Public Speaker",
         S: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist",
         C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer",
       };
-      const dominant = dims.reduce((a, b) => Number(cats[a] || 0) > Number(cats[b] || 0) ? a : b);
+      const oldDominant = dims.reduce((a, b) => Number(cats[a] || 0) > Number(cats[b] || 0) ? a : b);
       const renderMini = (title: string, d: { name: string; value: number }[], color: string) => (
         <div className="rounded-lg border border-border bg-muted/30 p-3">
           <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={d}>
+            <LineChart data={d}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
               <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
               <YAxis tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
               <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-              <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       );
+      
+      // Get top 2 dominant categories for interpretation (use actual values, not absolute)
+      const sortedCats = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+      const topCategories = sortedCats.slice(0, 2).map(([cat]) => cat);
+      const dominant = topCategories[0];
+      const secondary = topCategories[1];
+      
+      // Generate interpretation text
+      const interpretations: Record<string, string> = {
+        'D': `Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.`,
+        'I': `Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.`,
+        'S': `Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.`,
+        'C': `Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.`
+      };
+      
       return (
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
-            {renderMini("Mask — Public Self (M)", mask, "#10b981")}
-            {renderMini("Core — Private Self (L)", core, "#f59e0b")}
-            {renderMini("Mirror — Perceived Self (Net)", mirror, "#ec4899")}
+            {renderMini("Mask - Public Self (M)", mask, "#10b981")}
+            {renderMini("Core - Private Self (L)", core, "#f59e0b")}
+            {renderMini("Mirror - Perceived Self (Net)", mirror, "#ec4899")}
           </div>
 
-          {/* Line chart trend across 3 graphs */}
-          <div className="rounded-lg border border-border bg-muted/30 p-3">
-            <p className="text-xs font-semibold text-foreground mb-2">Tren DISC: Mask vs Core vs Mirror</p>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={lineData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-                <XAxis dataKey="dimensi" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12 }} />
-                <YAxis tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-                <Legend wrapperStyle={{ fontSize: 12, color: "hsl(210,20%,75%)" }} />
-                <Line type="monotone" dataKey="Mask" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="Core" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="Mirror" stroke="#ec4899" strokeWidth={2} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Final Spider/Radar chart */}
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <p className="text-xs font-semibold text-primary mb-2">Profil Final DISC (Spider Chart)</p>
-            <ResponsiveContainer width="100%" height={280}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="hsl(220, 14%, 25%)" />
-                <PolarAngleAxis dataKey="dim" tick={{ fill: "hsl(210,20%,75%)", fontSize: 13, fontWeight: 700 }} />
-                <PolarRadiusAxis angle={30} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
-                <Radar name="Intensitas" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.35} strokeWidth={2.5} />
-                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-
+          {/* Interpretasi Lengkap DISC */}
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <p className="text-sm font-semibold text-primary mb-1">Dimensi Dominan: {dominant}</p>
-            <p className="text-xs text-foreground/80"><span className="font-semibold">Pekerjaan yang sesuai:</span> {jobMatch[dominant]}</p>
+            <p className="text-sm font-semibold text-primary mb-3">Interpretasi Profil DISC</p>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Profil Dominan: {dominant}{secondary ? ` & ${secondary}` : ''}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{interpretations[dominant] || ''}</p>
+                {secondary && (
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+                    Kombinasi dengan {secondary} memberikan keseimbangan antara kekuatan {dominant} dan stabilitas {secondary}.
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Pekerjaan yang Sesuai:</p>
+                <p className="text-xs text-muted-foreground">{jobMatch[dominant]}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Rekomendasi:</p>
+                <p className="text-xs text-muted-foreground">
+                  Kandidat menunjukkan potensi tinggi untuk peran yang sesuai dengan profil {dominant}. 
+                  Pertimbangkan untuk penempatan di posisi yang memanfaatkan kekuatan alami ini.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       );
     }
-
     if (r.test_name === "Kraepelin" || r.test_name.includes("Kraepelin")) {
       return (
         <ResponsiveContainer width="100%" height={280}>
@@ -466,32 +720,79 @@ const Results = () => {
             <div className="glass rounded-xl p-5 glow-border mt-4">
               <h3 className="text-sm font-semibold text-foreground mb-3">Detail Skor per Dimensi</h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dimensi</th>
-                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
-                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {catEntries.map(([dim, val]) => {
-                      const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
-                      const pct = (val / maxVal) * 100;
+                {r.test_name.toUpperCase().includes("DISC") ? (
+                  // DISC: Horizontal bar chart with 0 in center, fixed order D, I, S, C
+                  <div className="space-y-3">
+                    {["D", "I", "S", "C"].map(dim => {
+                      const value = Number(cats[dim] || 0);
+                      const maxVal = Math.max(...Object.values(cats).map(Math.abs), 1);
+                      const barWidth = (Math.abs(value) / maxVal) * 40;
+                      const isPositive = value >= 0;
                       return (
-                        <tr key={dim} className="border-b border-border/50">
-                          <td className="py-2 px-3 text-foreground font-medium">{dim}</td>
-                          <td className="py-2 px-3 text-foreground">{val}{r.test_name === "PAPIKOSTIK" ? "/9" : "%"}</td>
-                          <td className="py-2 px-3 w-40">
-                            <div className="h-2 rounded-full bg-muted overflow-hidden">
-                              <div className={`h-full rounded-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
-                            </div>
-                          </td>
-                        </tr>
+                        <div key={dim} className="flex items-center gap-3">
+                          <span className="w-8 text-right font-medium text-foreground">{dim}</span>
+                          <div className="flex-1 relative h-8 flex items-center">
+                            {/* Zero line */}
+                            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-400"></div>
+                            {/* Negative bar (left side) */}
+                            {!isPositive && (
+                              <div 
+                                className="absolute right-1/2 h-6 bg-red-400 rounded-l"
+                                style={{ width: `${barWidth}%`, marginRight: '-1px' }}
+                              />
+                            )}
+                            {/* Positive bar (right side) */}
+                            {isPositive && (
+                              <div 
+                                className="absolute left-1/2 h-6 bg-emerald-400 rounded-r"
+                                style={{ width: `${barWidth}%`, marginLeft: '1px' }}
+                              />
+                            )}
+                            {/* Value label */}
+                            <span className={`absolute text-xs font-semibold ${
+                              isPositive ? 'left-1/2 ml-2 text-emerald-600' : 'right-1/2 mr-2 text-red-600'
+                            }`}>
+                              {value}
+                            </span>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
+                    <div className="flex items-center justify-center gap-6 mt-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><div className="w-3 h-3 bg-red-400 rounded"></div> Negatif</span>
+                      <div className="w-px h-4 bg-gray-300"></div>
+                      <span className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-400 rounded"></div> Positif</span>
+                    </div>
+                  </div>
+                ) : (
+                  // Other tests: Vertical bar chart
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dimensi</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {catEntries.map(([dim, val]) => {
+                        const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
+                        const pct = (val / maxVal) * 100;
+                        return (
+                          <tr key={dim} className="border-b border-border/50">
+                            <td className="py-2 px-3 text-foreground font-medium">{dim}</td>
+                            <td className="py-2 px-3 text-foreground">{val}{r.test_name === "PAPIKOSTIK" ? "/9" : "%"}</td>
+                            <td className="py-2 px-3 w-40">
+                              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                <div className={`h-full rounded-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
 
@@ -539,7 +840,12 @@ const Results = () => {
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-3 text-xs text-muted-foreground">{a.category || "-"}</td>
+                          <td className="py-2.5 px-3 text-xs text-muted-foreground">
+                            {r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label ? 
+                              a.selected_answer_label : 
+                              (a.category || "-")
+                            }
+                          </td>
                         </tr>
                       ))}
                     </tbody>
