@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, LineChart, Line,
 } from "recharts";
 
 const COLORS = ["#2dd4bf", "#60a5fa", "#f59e0b", "#ef4444", "#a78bfa", "#f472b6", "#34d399", "#fb923c"];
@@ -16,6 +16,7 @@ interface ResultRow {
   score: number; total_questions: number; answered_questions: number;
   categories: Record<string, number>; status: string; interpretation: string | null;
   candidate_profile: Record<string, string> | null; completed_at: string;
+  webcam_photo_url: string | null;
 }
 
 interface AnswerRow {
