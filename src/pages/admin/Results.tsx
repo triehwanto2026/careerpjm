@@ -406,8 +406,12 @@ const Results = () => {
           <div ref={printRef}>
             {/* Profile card */}
             <div className="glass rounded-xl p-6 glow-border space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-primary text-2xl font-bold">{r.candidate_name.charAt(0)}</div>
+              <div className="flex flex-col sm:flex-row items-start gap-4">
+                {profile?.photo_url ? (
+                  <img src={profile.photo_url} alt={r.candidate_name} className="h-24 w-24 sm:h-28 sm:w-28 rounded-lg object-cover border-2 border-primary/40" />
+                ) : (
+                  <div className="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-lg bg-primary/20 text-primary text-3xl font-bold border-2 border-primary/40">{r.candidate_name.charAt(0)}</div>
+                )}
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-foreground">{r.candidate_name}</h2>
                   <p className="text-sm text-muted-foreground">{r.position}</p>
@@ -417,6 +421,12 @@ const Results = () => {
                     {r.status === "passed" ? "Lulus" : r.status === "review" ? "Review" : "Gagal"}
                   </span>
                 </div>
+                {r.webcam_photo_url && (
+                  <div className="text-center">
+                    <img src={r.webcam_photo_url} alt="Verifikasi" className="h-20 w-24 rounded border border-border object-cover" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Verifikasi saat tes</p>
+                  </div>
+                )}
               </div>
               {profile && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs border-t border-border pt-4">
