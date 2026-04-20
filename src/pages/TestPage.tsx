@@ -70,30 +70,6 @@ const TestPage = () => {
     loadAssignedTests();
   }, [navigate, loadAssignedTests]);
 
-  const loadAssignedTests = async () => {
-    const candRaw = sessionStorage.getItem("psytest_candidate");
-    if (!candRaw) { navigate("/", { replace: true }); return; }
-    const cand = JSON.parse(candRaw);
-    const ids: string[] = cand.assignedTests || [];
-    if (ids.length === 0) {
-      Swal.fire({ icon: "warning", title: "Tidak Ada Tes", text: "Belum ada tes yang ditugaskan.", ...SWAL_THEME }).then(() => navigate("/", { replace: true }));
-      return;
-    }
-    const { data: insts } = await supabase.from("test_instruments").select("id, name, name_en, duration_minutes, scoring_method").in("id", ids);
-    if (!insts || insts.length === 0) { setLoading(false); return; }
-    const { data: qs } = await supabase.from("test_questions").select("*").in("instrument_id", ids).order("question_number");
-    const qIds = (qs || []).map((q: any) => q.id);
-    const { data: opts } = qIds.length ? await supabase.from("test_question_options").select("*").in("question_id", qIds).order("display_order") : { data: [] };
-    const optsByQ: Record<string, DbOption[]> = {};
-    (opts as DbOption[] || []).forEach(o => { (optsByQ[o.question_id] ||= []).push(o); });
-    const qsByInst: Record<string, DbQuestion[]> = {};
-    (qs as any[] || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] }); });
-    const ordered: DbInstrument[] = ids.map(id => insts.find((i: any) => i.id === id)).filter(Boolean)
-      .map((i: any) => ({ ...i, questions: qsByInst[i.id] || [] }));
-    setInstruments(ordered);
-    setLoading(false);
-  };
-
   const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
