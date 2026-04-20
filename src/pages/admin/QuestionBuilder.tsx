@@ -189,6 +189,10 @@ const QuestionBuilder = () => {
               </select>
             </div>
           </div>
+          ${q.image_url ? `<div style="margin-top:10px;"><img src="${q.image_url}" style="max-height:100px;border:1px solid #cbd5e1;border-radius:4px;" /></div>` : ""}
+          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Ganti Gambar Soal (opsional)</label>
+          <input id="q-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
+          ${q.image_url ? `<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px"><input id="q-rmimg" type="checkbox" style="width:16px;height:16px;accent-color:hsl(0,72%,51%)">Hapus gambar saat ini</label>` : ""}
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan",
@@ -198,17 +202,25 @@ const QuestionBuilder = () => {
       preConfirm: () => {
         const text = (document.getElementById("q-text") as HTMLTextAreaElement).value.trim();
         if (!text) { Swal.showValidationMessage("Teks soal wajib diisi"); return; }
+        const fileInput = document.getElementById("q-image") as HTMLInputElement;
+        const rmImg = document.getElementById("q-rmimg") as HTMLInputElement | null;
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
+          _imageFile: fileInput?.files?.[0] || null,
+          _removeImage: rmImg?.checked || false,
         };
       },
     });
     if (value) {
-      await supabase.from("test_questions").update(value).eq("id", q.id);
+      const { _imageFile, _removeImage, ...payload } = value as any;
+      const updates: any = { ...payload };
+      if (_imageFile) updates.image_url = await uploadTestImage(_imageFile, `q${q.question_number}`);
+      else if (_removeImage) updates.image_url = null;
+      await supabase.from("test_questions").update(updates).eq("id", q.id);
       await load();
     }
   };
