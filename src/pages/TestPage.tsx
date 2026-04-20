@@ -70,6 +70,101 @@ const TestPage = () => {
     loadAssignedTests();
   }, [navigate, loadAssignedTests]);
 
+  // Resume saved progress (answers + position) once instruments load
+  const [resumed, setResumed] = useState(false);
+  useEffect(() => {
+    if (resumed || instruments.length === 0) return;
+    const candRaw = sessionStorage.getItem("psytest_candidate");
+    if (!candRaw) { setResumed(true); return; }
+    const cand = JSON.parse(candRaw);
+    if (!cand.activationCodeId) { setResumed(true); return; }
+    (async () => {
+      const { data } = await supabase.from("test_sessions").select("*")
+        .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email).maybeSingle();
+      if (data) {
+        setAnswers((data.answers as Record<string, string>) || {});
+        setCurrentTestIdx(data.current_test_idx || 0);
+        setCurrentQIdx(data.current_question_idx || 0);
+        setCompletedSubtests(new Set(data.completed_subtests || []));
+        if (data.seconds_remaining > 0) {
+          // Reconstruct started_at so the timer continues from saved remaining
+          const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
+          const elapsed = totalDur * 60 - data.seconds_remaining;
+          sessionStorage.setItem("psytest_started_at", String(Date.now() - elapsed * 1000));
+        }
+      }
+      setResumed(true);
+    })();
+  }, [instruments, resumed]);
+
+  // Auto-save session every 5s and on key events
+  const saveSessionRef = useRef<() => Promise<void>>(async () => {});
+  saveSessionRef.current = async () => {
+    const candRaw = sessionStorage.getItem("psytest_candidate");
+    if (!candRaw) return;
+    const cand = JSON.parse(candRaw);
+    if (!cand.activationCodeId) return;
+    const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
+    const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const remaining = Math.max(0, totalDur * 60 - elapsed);
+    await supabase.from("test_sessions").upsert({
+      activation_code_id: cand.activationCodeId,
+      candidate_email: cand.email,
+      answers: answers as any,
+      seconds_remaining: remaining,
+      current_test_idx: currentTestIdx,
+      current_question_idx: currentQIdx,
+      completed_subtests: Array.from(completedSubtests),
+      last_active_at: new Date().toISOString(),
+    } as any, { onConflict: "activation_code_id,candidate_email" });
+  };
+
+  useEffect(() => {
+    if (!sessionStorage.getItem("psytest_started_at")) {
+      sessionStorage.setItem("psytest_started_at", String(Date.now()));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (instruments.length === 0 || submitted) return;
+    const id = setInterval(() => { saveSessionRef.current(); }, 5000);
+    return () => clearInterval(id);
+  }, [instruments.length, submitted]);
+
+  // Anti-cheat: tab switch / minimize → save + force logout
+  useEffect(() => {
+    if (instruments.length === 0 || submitted) return;
+    const onHide = async () => {
+      if (document.hidden) {
+        await saveSessionRef.current();
+        sessionStorage.removeItem("psytest_auth");
+        sessionStorage.removeItem("psytest_candidate");
+        sessionStorage.removeItem("psytest_started_at");
+        await Swal.fire({
+          icon: "error", title: "Sesi Berakhir",
+          text: "Anda terdeteksi berpindah tab/minimize. Sesi tes dihentikan. Silakan login ulang dengan kode aktivasi — jawaban dan sisa waktu telah disimpan.",
+          ...SWAL_THEME, allowOutsideClick: false,
+        });
+        navigate("/", { replace: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [instruments.length, submitted, navigate]);
+
+  // Clear session when test completed (called inside completeSubmission)
+  const clearSavedSession = async () => {
+    const candRaw = sessionStorage.getItem("psytest_candidate");
+    if (!candRaw) return;
+    const cand = JSON.parse(candRaw);
+    if (cand.activationCodeId) {
+      await supabase.from("test_sessions").delete()
+        .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email);
+    }
+    sessionStorage.removeItem("psytest_started_at");
+  };
+
   const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
@@ -297,7 +392,8 @@ const TestPage = () => {
       icon: "success", title: "Semua Tes Selesai!",
       html: `Terima kasih telah menyelesaikan ${instruments.length} alat tes.<br/><b>${totalAnsweredAll}/${totalAllQuestions}</b> soal dijawab.`,
       ...SWAL_THEME, confirmButtonText: "Selesai", allowOutsideClick: false,
-    }).then(() => {
+    }).then(async () => {
+      await clearSavedSession();
       sessionStorage.removeItem("psytest_auth");
       sessionStorage.removeItem("psytest_candidate");
       navigate("/", { replace: true });
