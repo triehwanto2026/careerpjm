@@ -381,6 +381,51 @@ export type Database = {
           },
         ]
       }
+      test_sessions: {
+        Row: {
+          activation_code_id: string
+          answers: Json
+          candidate_email: string
+          completed_subtests: string[]
+          created_at: string
+          current_question_idx: number
+          current_test_idx: number
+          id: string
+          last_active_at: string
+          seconds_remaining: number
+          updated_at: string
+          violation_count: number
+        }
+        Insert: {
+          activation_code_id: string
+          answers?: Json
+          candidate_email: string
+          completed_subtests?: string[]
+          created_at?: string
+          current_question_idx?: number
+          current_test_idx?: number
+          id?: string
+          last_active_at?: string
+          seconds_remaining?: number
+          updated_at?: string
+          violation_count?: number
+        }
+        Update: {
+          activation_code_id?: string
+          answers?: Json
+          candidate_email?: string
+          completed_subtests?: string[]
+          created_at?: string
+          current_question_idx?: number
+          current_test_idx?: number
+          id?: string
+          last_active_at?: string
+          seconds_remaining?: number
+          updated_at?: string
+          violation_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
