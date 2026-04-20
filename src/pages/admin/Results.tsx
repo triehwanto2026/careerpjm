@@ -248,22 +248,27 @@ const Results = () => {
     const cats = r.categories as Record<string, number>;
     const data = Object.entries(cats).map(([name, value]) => ({ name, value }));
 
-    // DISC: render 3 graphs (Mask/Core/Mirror) — based on D/I/S/C dimension scores
+    // DISC: render Mask/Core/Mirror as bar charts + final Line chart trend + Radar (Spider)
     if (r.test_name.toUpperCase().includes("DISC")) {
       const dims = ["D", "I", "S", "C"];
-      const series = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
-      // Mask = M only (positive), Core = L only inverted, Mirror = M+L net
       const mask = dims.map(d => ({ name: d, value: Math.max(0, Number(cats[d] || 0)) }));
       const core = dims.map(d => ({ name: d, value: Math.max(0, -Number(cats[d] || 0)) }));
-      const mirror = series;
+      const mirror = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
+      const lineData = dims.map(d => ({
+        dimensi: d,
+        Mask: Math.max(0, Number(cats[d] || 0)),
+        Core: Math.max(0, -Number(cats[d] || 0)),
+        Mirror: Number(cats[d] || 0),
+      }));
+      const radarData = dims.map(d => ({ dim: d, value: Math.abs(Number(cats[d] || 0)) }));
       const jobMatch: Record<string, string> = {
         D: "Manager, Entrepreneur, Sales Director, Director, CEO",
         I: "Sales, Public Relations, Marketing, Trainer, Public Speaker",
         S: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist",
-        C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer"
+        C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer",
       };
       const dominant = dims.reduce((a, b) => Number(cats[a] || 0) > Number(cats[b] || 0) ? a : b);
-      const renderMini = (title: string, d: any[], color: string) => (
+      const renderMini = (title: string, d: { name: string; value: number }[], color: string) => (
         <div className="rounded-lg border border-border bg-muted/30 p-3">
           <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
           <ResponsiveContainer width="100%" height={180}>
@@ -284,6 +289,38 @@ const Results = () => {
             {renderMini("Core — Private Self (L)", core, "#f59e0b")}
             {renderMini("Mirror — Perceived Self (Net)", mirror, "#ec4899")}
           </div>
+
+          {/* Line chart trend across 3 graphs */}
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold text-foreground mb-2">Tren DISC: Mask vs Core vs Mirror</p>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={lineData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+                <XAxis dataKey="dimensi" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12 }} />
+                <YAxis tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: "hsl(210,20%,75%)" }} />
+                <Line type="monotone" dataKey="Mask" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="Core" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="Mirror" stroke="#ec4899" strokeWidth={2} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Final Spider/Radar chart */}
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <p className="text-xs font-semibold text-primary mb-2">Profil Final DISC (Spider Chart)</p>
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="hsl(220, 14%, 25%)" />
+                <PolarAngleAxis dataKey="dim" tick={{ fill: "hsl(210,20%,75%)", fontSize: 13, fontWeight: 700 }} />
+                <PolarRadiusAxis angle={30} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+                <Radar name="Intensitas" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.35} strokeWidth={2.5} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-1">Dimensi Dominan: {dominant}</p>
             <p className="text-xs text-foreground/80"><span className="font-semibold">Pekerjaan yang sesuai:</span> {jobMatch[dominant]}</p>
