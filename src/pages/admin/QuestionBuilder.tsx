@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Trash2, ChevronLeft, GripVertical, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+
+/** Upload File ke bucket test-images, kembalikan public URL atau null. */
+const uploadTestImage = async (file: File, hint = "img"): Promise<string | null> => {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${hint}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from("test-images").upload(path, file, { upsert: true, cacheControl: "3600" });
+  if (error) { console.error("Upload err", error); return null; }
+  return supabase.storage.from("test-images").getPublicUrl(path).data.publicUrl;
+};
 
 const SWAL_THEME = () => ({
   background: "hsl(var(--card))",
@@ -29,6 +38,7 @@ interface QuestionRow {
   category: string;
   question_type: string;
   scoring_rule: string;
+  image_url: string | null;
 }
 
 interface OptionRow {
@@ -41,6 +51,7 @@ interface OptionRow {
   category_target: string;
   is_correct: boolean;
   display_order: number;
+  image_url: string | null;
 }
 
 const QUESTION_TYPES = [
@@ -117,6 +128,8 @@ const QuestionBuilder = () => {
               </select>
             </div>
           </div>
+          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Gambar Soal (opsional — IST/CFIT)</label>
+          <input id="q-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan Soal",
@@ -126,20 +139,26 @@ const QuestionBuilder = () => {
       preConfirm: () => {
         const text = (document.getElementById("q-text") as HTMLTextAreaElement).value.trim();
         if (!text) { Swal.showValidationMessage("Teks soal wajib diisi"); return; }
+        const fileInput = document.getElementById("q-image") as HTMLInputElement;
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
+          _imageFile: fileInput?.files?.[0] || null,
         };
       },
     });
     if (value) {
+      const { _imageFile, ...payload } = value as any;
+      let image_url: string | null = null;
+      if (_imageFile) image_url = await uploadTestImage(_imageFile, `q${nextNum}`);
       await supabase.from("test_questions").insert({
         instrument_id: instrumentId,
         question_number: nextNum,
-        ...value,
+        ...payload,
+        image_url,
       });
       await load();
     }
@@ -170,6 +189,10 @@ const QuestionBuilder = () => {
               </select>
             </div>
           </div>
+          ${q.image_url ? `<div style="margin-top:10px;"><img src="${q.image_url}" style="max-height:100px;border:1px solid #cbd5e1;border-radius:4px;" /></div>` : ""}
+          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Ganti Gambar Soal (opsional)</label>
+          <input id="q-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
+          ${q.image_url ? `<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px"><input id="q-rmimg" type="checkbox" style="width:16px;height:16px;accent-color:hsl(0,72%,51%)">Hapus gambar saat ini</label>` : ""}
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan",
@@ -179,17 +202,25 @@ const QuestionBuilder = () => {
       preConfirm: () => {
         const text = (document.getElementById("q-text") as HTMLTextAreaElement).value.trim();
         if (!text) { Swal.showValidationMessage("Teks soal wajib diisi"); return; }
+        const fileInput = document.getElementById("q-image") as HTMLInputElement;
+        const rmImg = document.getElementById("q-rmimg") as HTMLInputElement | null;
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
+          _imageFile: fileInput?.files?.[0] || null,
+          _removeImage: rmImg?.checked || false,
         };
       },
     });
     if (value) {
-      await supabase.from("test_questions").update(value).eq("id", q.id);
+      const { _imageFile, _removeImage, ...payload } = value as any;
+      const updates: any = { ...payload };
+      if (_imageFile) updates.image_url = await uploadTestImage(_imageFile, `q${q.question_number}`);
+      else if (_removeImage) updates.image_url = null;
+      await supabase.from("test_questions").update(updates).eq("id", q.id);
       await load();
     }
   };
@@ -235,6 +266,8 @@ const QuestionBuilder = () => {
             <input id="o-correct" type="checkbox" style="width:16px;height:16px;accent-color:hsl(174,72%,46%)">
             Tandai sebagai jawaban BENAR (untuk tes kognitif)
           </label>
+          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Gambar Pilihan (opsional — CFIT/IST)</label>
+          <input id="o-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan",
@@ -245,6 +278,7 @@ const QuestionBuilder = () => {
         const label = (document.getElementById("o-label") as HTMLInputElement).value.trim();
         const text = (document.getElementById("o-text") as HTMLInputElement).value.trim();
         if (!label || !text) { Swal.showValidationMessage("Label dan teks pilihan wajib diisi"); return; }
+        const fileInput = document.getElementById("o-image") as HTMLInputElement;
         return {
           option_label: label,
           option_text: text,
@@ -252,14 +286,19 @@ const QuestionBuilder = () => {
           score_value: parseFloat((document.getElementById("o-score") as HTMLInputElement).value) || 0,
           category_target: (document.getElementById("o-cat") as HTMLInputElement).value.trim(),
           is_correct: (document.getElementById("o-correct") as HTMLInputElement).checked,
+          _imageFile: fileInput?.files?.[0] || null,
         };
       },
     });
     if (value) {
+      const { _imageFile, ...payload } = value as any;
+      let image_url: string | null = null;
+      if (_imageFile) image_url = await uploadTestImage(_imageFile, `q${q.question_number}-${payload.option_label}`);
       await supabase.from("test_question_options").insert({
         question_id: q.id,
         display_order: nextOrder,
-        ...value,
+        ...payload,
+        image_url,
       });
       await load();
     }
@@ -311,6 +350,13 @@ const QuestionBuilder = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground leading-relaxed">{q.question_text}</p>
                       {q.question_text_en && <p className="text-xs text-muted-foreground italic mt-1">{q.question_text_en}</p>}
+                      {q.image_url && (
+                        <div className="mt-2 inline-flex items-center gap-1 text-[10px] text-primary">
+                          <ImageIcon className="h-3 w-3" />
+                          <a href={q.image_url} target="_blank" rel="noopener noreferrer" className="hover:underline">Lihat gambar soal</a>
+                          <img src={q.image_url} alt="thumb" className="ml-2 h-12 w-auto rounded border border-border bg-card" />
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
                         {q.category && <span className="rounded-md bg-primary/10 text-primary px-2 py-0.5 font-medium">{q.category}</span>}
                         <span className="rounded-md bg-muted text-muted-foreground px-2 py-0.5">{QUESTION_TYPES.find(t => t.value === q.question_type)?.label || q.question_type}</span>
@@ -342,6 +388,7 @@ const QuestionBuilder = () => {
                         {opts.map((o) => (
                           <div key={o.id} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
                             <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-card border border-border text-xs font-bold text-foreground">{o.option_label}</span>
+                            {o.image_url && <img src={o.image_url} alt={o.option_label} className="h-10 w-10 rounded object-cover border border-border bg-card" />}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-foreground truncate">{o.option_text}</p>
                               {o.option_text_en && <p className="text-[10px] text-muted-foreground italic truncate">{o.option_text_en}</p>}

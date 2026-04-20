@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, LineChart, Line,
 } from "recharts";
 
 const COLORS = ["#2dd4bf", "#60a5fa", "#f59e0b", "#ef4444", "#a78bfa", "#f472b6", "#34d399", "#fb923c"];
@@ -16,6 +16,7 @@ interface ResultRow {
   score: number; total_questions: number; answered_questions: number;
   categories: Record<string, number>; status: string; interpretation: string | null;
   candidate_profile: Record<string, string> | null; completed_at: string;
+  webcam_photo_url: string | null;
 }
 
 interface AnswerRow {
@@ -142,15 +143,21 @@ const Results = () => {
 
     <div class="section">
       <div class="section-title">Profil Kandidat</div>
-      <div class="profile-grid">
-        <div class="profile-row"><span class="label">Nama Lengkap</span><span class="value">${r.candidate_name}</span></div>
-        <div class="profile-row"><span class="label">Posisi Dilamar</span><span class="value">${r.position || "-"}</span></div>
-        <div class="profile-row"><span class="label">Email</span><span class="value">${profile?.email || "-"}</span></div>
-        <div class="profile-row"><span class="label">No. Telepon</span><span class="value">${profile?.phone || "-"}</span></div>
-        <div class="profile-row"><span class="label">Tanggal Lahir</span><span class="value">${profile?.birthDate || "-"}</span></div>
-        <div class="profile-row"><span class="label">Pendidikan</span><span class="value">${profile?.education || "-"}</span></div>
-        <div class="profile-row"><span class="label">Jenis Kelamin</span><span class="value">${profile?.gender || "-"}</span></div>
-        <div class="profile-row"><span class="label">Tanggal Tes</span><span class="value">${new Date(r.completed_at).toLocaleDateString("id-ID", { dateStyle: "long" } as any)}</span></div>
+      <div style="display:flex; gap:18px; align-items:flex-start;">
+        ${profile?.photo_url ? `<img src="${profile.photo_url}" alt="Foto Kandidat" style="width:110px;height:140px;object-fit:cover;border:2px solid #0f766e;border-radius:6px;background:#f1f5f9;" />` : `<div style="width:110px;height:140px;border:2px dashed #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:8.5pt;text-align:center;padding:8px;">Foto tidak tersedia</div>`}
+        <div style="flex:1;">
+          <div class="profile-grid">
+            <div class="profile-row"><span class="label">Nama Lengkap</span><span class="value">${r.candidate_name}</span></div>
+            <div class="profile-row"><span class="label">Posisi Dilamar</span><span class="value">${r.position || "-"}</span></div>
+            <div class="profile-row"><span class="label">Email</span><span class="value">${profile?.email || "-"}</span></div>
+            <div class="profile-row"><span class="label">No. Telepon</span><span class="value">${profile?.phone || "-"}</span></div>
+            <div class="profile-row"><span class="label">Tanggal Lahir</span><span class="value">${profile?.birthDate || "-"}</span></div>
+            <div class="profile-row"><span class="label">Pendidikan</span><span class="value">${profile?.education || "-"}</span></div>
+            <div class="profile-row"><span class="label">Jenis Kelamin</span><span class="value">${profile?.gender || "-"}</span></div>
+            <div class="profile-row"><span class="label">Tanggal Tes</span><span class="value">${new Date(r.completed_at).toLocaleDateString("id-ID", { dateStyle: "long" } as any)}</span></div>
+          </div>
+        </div>
+        ${r.webcam_photo_url ? `<div style="text-align:center;"><img src="${r.webcam_photo_url}" alt="Foto Verifikasi Tes" style="width:110px;height:90px;object-fit:cover;border:1px solid #94a3b8;border-radius:4px;" /><div style="font-size:8pt;color:#64748b;margin-top:4px;">Verifikasi saat tes</div></div>` : ""}
       </div>
     </div>
 
@@ -247,22 +254,27 @@ const Results = () => {
     const cats = r.categories as Record<string, number>;
     const data = Object.entries(cats).map(([name, value]) => ({ name, value }));
 
-    // DISC: render 3 graphs (Mask/Core/Mirror) — based on D/I/S/C dimension scores
+    // DISC: render Mask/Core/Mirror as bar charts + final Line chart trend + Radar (Spider)
     if (r.test_name.toUpperCase().includes("DISC")) {
       const dims = ["D", "I", "S", "C"];
-      const series = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
-      // Mask = M only (positive), Core = L only inverted, Mirror = M+L net
       const mask = dims.map(d => ({ name: d, value: Math.max(0, Number(cats[d] || 0)) }));
       const core = dims.map(d => ({ name: d, value: Math.max(0, -Number(cats[d] || 0)) }));
-      const mirror = series;
+      const mirror = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
+      const lineData = dims.map(d => ({
+        dimensi: d,
+        Mask: Math.max(0, Number(cats[d] || 0)),
+        Core: Math.max(0, -Number(cats[d] || 0)),
+        Mirror: Number(cats[d] || 0),
+      }));
+      const radarData = dims.map(d => ({ dim: d, value: Math.abs(Number(cats[d] || 0)) }));
       const jobMatch: Record<string, string> = {
         D: "Manager, Entrepreneur, Sales Director, Director, CEO",
         I: "Sales, Public Relations, Marketing, Trainer, Public Speaker",
         S: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist",
-        C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer"
+        C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer",
       };
       const dominant = dims.reduce((a, b) => Number(cats[a] || 0) > Number(cats[b] || 0) ? a : b);
-      const renderMini = (title: string, d: any[], color: string) => (
+      const renderMini = (title: string, d: { name: string; value: number }[], color: string) => (
         <div className="rounded-lg border border-border bg-muted/30 p-3">
           <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
           <ResponsiveContainer width="100%" height={180}>
@@ -283,6 +295,38 @@ const Results = () => {
             {renderMini("Core — Private Self (L)", core, "#f59e0b")}
             {renderMini("Mirror — Perceived Self (Net)", mirror, "#ec4899")}
           </div>
+
+          {/* Line chart trend across 3 graphs */}
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold text-foreground mb-2">Tren DISC: Mask vs Core vs Mirror</p>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={lineData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+                <XAxis dataKey="dimensi" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12 }} />
+                <YAxis tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: "hsl(210,20%,75%)" }} />
+                <Line type="monotone" dataKey="Mask" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="Core" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="Mirror" stroke="#ec4899" strokeWidth={2} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Final Spider/Radar chart */}
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <p className="text-xs font-semibold text-primary mb-2">Profil Final DISC (Spider Chart)</p>
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="hsl(220, 14%, 25%)" />
+                <PolarAngleAxis dataKey="dim" tick={{ fill: "hsl(210,20%,75%)", fontSize: 13, fontWeight: 700 }} />
+                <PolarRadiusAxis angle={30} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+                <Radar name="Intensitas" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.35} strokeWidth={2.5} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-1">Dimensi Dominan: {dominant}</p>
             <p className="text-xs text-foreground/80"><span className="font-semibold">Pekerjaan yang sesuai:</span> {jobMatch[dominant]}</p>
@@ -362,8 +406,12 @@ const Results = () => {
           <div ref={printRef}>
             {/* Profile card */}
             <div className="glass rounded-xl p-6 glow-border space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-primary text-2xl font-bold">{r.candidate_name.charAt(0)}</div>
+              <div className="flex flex-col sm:flex-row items-start gap-4">
+                {profile?.photo_url ? (
+                  <img src={profile.photo_url} alt={r.candidate_name} className="h-24 w-24 sm:h-28 sm:w-28 rounded-lg object-cover border-2 border-primary/40" />
+                ) : (
+                  <div className="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-lg bg-primary/20 text-primary text-3xl font-bold border-2 border-primary/40">{r.candidate_name.charAt(0)}</div>
+                )}
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-foreground">{r.candidate_name}</h2>
                   <p className="text-sm text-muted-foreground">{r.position}</p>
@@ -373,6 +421,12 @@ const Results = () => {
                     {r.status === "passed" ? "Lulus" : r.status === "review" ? "Review" : "Gagal"}
                   </span>
                 </div>
+                {r.webcam_photo_url && (
+                  <div className="text-center">
+                    <img src={r.webcam_photo_url} alt="Verifikasi" className="h-20 w-24 rounded border border-border object-cover" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Verifikasi saat tes</p>
+                  </div>
+                )}
               </div>
               {profile && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs border-t border-border pt-4">
