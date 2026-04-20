@@ -303,6 +303,8 @@ const TestPage = () => {
       navigate("/", { replace: true });
     });
   };
+  completeSubmissionRef.current = completeSubmission;
+
 
   const handleLogout = () => {
     Swal.fire({ icon: "warning", title: "Keluar dari Tes?", text: "Semua jawaban akan hilang.", showCancelButton: true, confirmButtonText: "Ya, Keluar", cancelButtonText: "Batal", ...SWAL_THEME, confirmButtonColor: "hsl(0, 72%, 51%)" })
