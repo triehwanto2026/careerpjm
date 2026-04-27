@@ -101,3 +101,286 @@ BEGIN
     UPDATE test_instruments SET question_count = 60, duration_minutes = 60 WHERE id = aptitude_instrument_id;
     RAISE NOTICE '✅ APTITUDE TEST with 60 standard questions added';
 END $$;
+    
+    -- Verbal Aptitude (Questions 1-8)
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 1, 'Pilih sinonim yang paling tepat: "ABUNDAN"', 'Choose the most appropriate synonym: "ABUNDANT"', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Langka', 'Scarce', 0, 'Verbal', false, 0),
+           (question_id, 'B', 'Melimpah', 'Plentiful', 1, 'Verbal', true, 1),
+           (question_id, 'C', 'Sedikit', 'Few', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'Kosong', 'Empty', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 2, 'Jika semua A adalah B, dan beberapa B adalah C, maka...', 'If all A are B, and some B are C, then...', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Semua A adalah C', 'All A are C', 0, 'Verbal', false, 0),
+           (question_id, 'B', 'Beberapa A adalah C', 'Some A are C', 0, 'Verbal', false, 1),
+           (question_id, 'C', 'Tidak dapat ditarik kesimpulan', 'Cannot be concluded', 1, 'Verbal', true, 2),
+           (question_id, 'D', 'Tidak ada A yang C', 'No A are C', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 3, 'Pilih antonim: "OPTIMIS"', 'Choose the antonym: "OPTIMIS"', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Percaya diri', 'Confident', 0, 'Verbal', false, 0),
+           (question_id, 'B', 'Pesimis', 'Pessimistic', 1, 'Verbal', true, 1),
+           (question_id, 'C', 'Bersemangat', 'Enthusiastic', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'Bahagia', 'Happy', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 4, 'Lengkapi kalimat: "Karyawan yang _____ biasanya lebih produktif."', 'Complete the sentence: "Employees who _____ are usually more productive."', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'malas', 'lazy', 0, 'Verbal', false, 0),
+           (question_id, 'B', 'termotivasi', 'motivated', 1, 'Verbal', true, 1),
+           (question_id, 'C', 'bosan', 'bored', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'lelah', 'tired', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 5, 'Pilih kata yang tidak termasuk kelompok: Meja, Kursi, Lemari, ?', 'Choose the word that does not belong to the group: Table, Chair, Cabinet, ?', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Kasur', 'Bed', 1, 'Verbal', true, 0),
+           (question_id, 'B', 'Rak', 'Shelf', 0, 'Verbal', false, 1),
+           (question_id, 'C', 'Laci', 'Drawer', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'Kabinet', 'Cabinet', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 6, 'Analogi: Dokter : Pasien :: ?', 'Analogy: Doctor : Patient :: ?', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Guru : Murid', 'Teacher : Student', 1, 'Verbal', true, 0),
+           (question_id, 'B', 'Polisi : Penjahat', 'Police : Criminal', 0, 'Verbal', false, 1),
+           (question_id, 'C', 'Pilot : Pesawat', 'Pilot : Plane', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'Koki : Restoran', 'Chef : Restaurant', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 7, 'Pilih kata yang paling mirip: "INOVASI"', 'Choose the most similar word: "INNOVATION"', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Tradisi', 'Tradition', 0, 'Verbal', false, 0),
+           (question_id, 'B', 'Kreativitas', 'Creativity', 1, 'Verbal', true, 1),
+           (question_id, 'C', 'Kebiasaan', 'Habit', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'Stagnasi', 'Stagnation', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 8, 'Lengkapi: "Bekerja keras adalah kunci ______"', 'Complete: "Hard work is the key to ______"', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'kegagalan', 'failure', 0, 'Verbal', false, 0),
+           (question_id, 'B', 'kesuksesan', 'success', 1, 'Verbal', true, 1),
+           (question_id, 'C', 'kesedihan', 'sadness', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'kemalasan', 'laziness', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 9, 'Analogi: Buku : Pengetahuan :: ?', 'Analogy: Book : Knowledge :: ?', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Makanan : Lapar', 'Food : Hunger', 0, 'Verbal', false, 0),
+           (question_id, 'B', 'Peta : Arah', 'Map : Direction', 1, 'Verbal', true, 1),
+           (question_id, 'C', 'Air : Haus', 'Water : Thirst', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'Obat : Sakit', 'Medicine : Pain', 0, 'Verbal', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 10, 'Pilih antonim: "KOMPLEKS"', 'Choose the antonym: "COMPLEX"', 'Verbal', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Sederhana', 'Simple', 1, 'Verbal', true, 0),
+           (question_id, 'B', 'Sulit', 'Difficult', 0, 'Verbal', false, 1),
+           (question_id, 'C', 'Rumit', 'Complicated', 0, 'Verbal', false, 2),
+           (question_id, 'D', 'Canggih', 'Advanced', 0, 'Verbal', false, 3);
+    
+    -- Numerical Aptitude (Questions 11-20)
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 11, 'Lanjutkan deret: 2, 6, 18, 54, ...', 'Continue the series: 2, 6, 18, 54, ...', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '108', '108', 0, 'Numerical', false, 0),
+           (question_id, 'B', '162', '162', 1, 'Numerical', true, 1),
+           (question_id, 'C', '160', '160', 0, 'Numerical', false, 2),
+           (question_id, 'D', '150', '150', 0, 'Numerical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 12, 'Sebuah toko menjual barang Rp 100.000 dengan diskon 20%. Berapa harga akhir?', 'A store sells an item for Rp 100.000 with 20% discount. What is the final price?', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Rp 70.000', 'Rp 70,000', 0, 'Numerical', false, 0),
+           (question_id, 'B', 'Rp 80.000', 'Rp 80,000', 1, 'Numerical', true, 1),
+           (question_id, 'C', 'Rp 90.000', 'Rp 90,000', 0, 'Numerical', false, 2),
+           (question_id, 'D', 'Rp 75.000', 'Rp 75,000', 0, 'Numerical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 11, 'Jika 3x = 27, maka x = ?', 'If 3x = 27, then x = ?', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '6', '6', 0, 'Numerical', false, 0),
+           (question_id, 'B', '7', '7', 0, 'Numerical', false, 1),
+           (question_id, 'C', '9', '9', 1, 'Numerical', true, 2),
+           (question_id, 'D', '12', '12', 0, 'Numerical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 12, 'Lanjutkan deret: 1, 4, 9, 16, ...', 'Continue the series: 1, 4, 9, 16, ...', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '20', '20', 0, 'Numerical', false, 0),
+           (question_id, 'B', '24', '24', 0, 'Numerical', false, 1),
+           (question_id, 'C', '25', '25', 1, 'Numerical', true, 2),
+           (question_id, 'D', '30', '30', 0, 'Numerical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 13, 'Berapa 15% dari 200?', 'What is 15% of 200?', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '25', '25', 0, 'Numerical', false, 0),
+           (question_id, 'B', '30', '30', 1, 'Numerical', true, 1),
+           (question_id, 'C', '35', '35', 0, 'Numerical', false, 2),
+           (question_id, 'D', '40', '40', 0, 'Numerical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 14, 'Jika A = 5 dan B = 3, maka A + B × 2 = ?', 'If A = 5 and B = 3, then A + B × 2 = ?', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '11', '11', 1, 'Numerical', true, 0),
+           (question_id, 'B', '16', '16', 0, 'Numerical', false, 1),
+           (question_id, 'C', '13', '13', 0, 'Numerical', false, 2),
+           (question_id, 'D', '8', '8', 0, 'Numerical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 15, 'Lanjutkan deret: 10, 20, 40, 80, ...', 'Continue the series: 10, 20, 40, 80, ...', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '120', '120', 0, 'Numerical', false, 0),
+           (question_id, 'B', '140', '140', 0, 'Numerical', false, 1),
+           (question_id, 'C', '160', '160', 1, 'Numerical', true, 2),
+           (question_id, 'D', '150', '150', 0, 'Numerical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 16, 'Sebuah proyek selesai dalam 12 hari dengan 6 pekerja. Berapa hari dengan 8 pekerja?', 'A project completes in 12 days with 6 workers. How many days with 8 workers?', 'Numerical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '8 hari', '8 days', 0, 'Numerical', false, 0),
+           (question_id, 'B', '9 hari', '9 days', 1, 'Numerical', true, 1),
+           (question_id, 'C', '10 hari', '10 days', 0, 'Numerical', false, 2),
+           (question_id, 'D', '16 hari', '16 days', 0, 'Numerical', false, 3);
+    
+    -- Abstract Reasoning (Questions 17-24)
+    FOR i IN 17..24 LOOP
+        INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+        VALUES (aptitude_instrument_id, i,
+                'Pilih pola yang melengkapi seri visual (Soal ' || i || ')',
+                'Choose the pattern that completes the visual series (Q' || i || ')',
+                'Abstract', 'single_choice', 'correct_only')
+        RETURNING id INTO question_id;
+        
+        INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+        VALUES (question_id, 'A', 'Pola A', 'Pattern A', CASE WHEN (i-17) % 4 = 0 THEN 1 ELSE 0 END, 'Abstract', (i-17) % 4 = 0, 0),
+               (question_id, 'B', 'Pola B', 'Pattern B', CASE WHEN (i-17) % 4 = 1 THEN 1 ELSE 0 END, 'Abstract', (i-17) % 4 = 1, 1),
+               (question_id, 'C', 'Pola C', 'Pattern C', CASE WHEN (i-17) % 4 = 2 THEN 1 ELSE 0 END, 'Abstract', (i-17) % 4 = 2, 2),
+               (question_id, 'D', 'Pola D', 'Pattern D', CASE WHEN (i-17) % 4 = 3 THEN 1 ELSE 0 END, 'Abstract', (i-17) % 4 = 3, 3);
+    END LOOP;
+    
+    -- Mechanical Aptitude (Questions 25-32)
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 25, 'Jika roda A berputar searah jarum jam, roda B akan berputar ke arah mana?', 'If wheel A rotates clockwise, wheel B will rotate in which direction?', 'Mechanical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Searah jarum jam', 'Clockwise', 0, 'Mechanical', false, 0),
+           (question_id, 'B', 'Berlawanan jarum jam', 'Counter-clockwise', 1, 'Mechanical', true, 1),
+           (question_id, 'C', 'Tidak berputar', 'Does not rotate', 0, 'Mechanical', false, 2),
+           (question_id, 'D', 'Tidak dapat ditentukan', 'Cannot determine', 0, 'Mechanical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 26, 'Alat mana yang digunakan untuk mengukur tegangan listrik?', 'Which tool is used to measure electrical voltage?', 'Mechanical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Amperemeter', 'Amperemeter', 0, 'Mechanical', false, 0),
+           (question_id, 'B', 'Voltmeter', 'Voltmeter', 1, 'Mechanical', true, 1),
+           (question_id, 'C', 'Ohmmeter', 'Ohmmeter', 0, 'Mechanical', false, 2),
+           (question_id, 'D', 'Thermometer', 'Thermometer', 0, 'Mechanical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 27, 'Tuas yang lebih panjang akan membuat beban terasa...', 'A longer lever will make the load feel...', 'Mechanical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Lebih berat', 'Heavier', 0, 'Mechanical', false, 0),
+           (question_id, 'B', 'Lebih ringan', 'Lighter', 1, 'Mechanical', true, 1),
+           (question_id, 'C', 'Sama saja', 'The same', 0, 'Mechanical', false, 2),
+           (question_id, 'D', 'Tidak berpengaruh', 'No effect', 0, 'Mechanical', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 28, 'Gear dengan gigi lebih banyak akan berputar...', 'A gear with more teeth will rotate...', 'Mechanical', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Lebih cepat', 'Faster', 0, 'Mechanical', false, 0),
+           (question_id, 'B', 'Lebih lambat', 'Slower', 1, 'Mechanical', true, 1),
+           (question_id, 'C', 'Sama kecepatannya', 'Same speed', 0, 'Mechanical', false, 2),
+           (question_id, 'D', 'Tidak berputar', 'Will not rotate', 0, 'Mechanical', false, 3);
+    
+    FOR i IN 29..32 LOOP
+        INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+        VALUES (aptitude_instrument_id, i,
+                'Pilih jawaban yang benar untuk pertanyaan mekanikal (Soal ' || i || ')',
+                'Choose the correct answer for the mechanical question (Q' || i || ')',
+                'Mechanical', 'single_choice', 'correct_only')
+        RETURNING id INTO question_id;
+        
+        INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+        VALUES (question_id, 'A', 'Opsi A', 'Option A', CASE WHEN (i-29) % 4 = 0 THEN 1 ELSE 0 END, 'Mechanical', (i-29) % 4 = 0, 0),
+               (question_id, 'B', 'Opsi B', 'Option B', CASE WHEN (i-29) % 4 = 1 THEN 1 ELSE 0 END, 'Mechanical', (i-29) % 4 = 1, 1),
+               (question_id, 'C', 'Opsi C', 'Option C', CASE WHEN (i-29) % 4 = 2 THEN 1 ELSE 0 END, 'Mechanical', (i-29) % 4 = 2, 2),
+               (question_id, 'D', 'Opsi D', 'Option D', CASE WHEN (i-29) % 4 = 3 THEN 1 ELSE 0 END, 'Mechanical', (i-29) % 4 = 3, 3);
+    END LOOP;
+    
+    -- Spatial Aptitude (Questions 33-40)
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 33, 'Jika kubus diputar 90 derajat ke kanan, sisi mana yang akan muncul?', 'If a cube is rotated 90 degrees to the right, which side will appear?', 'Spatial', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Sisi kiri', 'Left side', 0, 'Spatial', false, 0),
+           (question_id, 'B', 'Sisi belakang', 'Back side', 1, 'Spatial', true, 1),
+           (question_id, 'C', 'Sisi bawah', 'Bottom side', 0, 'Spatial', false, 2),
+           (question_id, 'D', 'Sisi atas', 'Top side', 0, 'Spatial', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 34, 'Berapa sisi yang dimiliki kubus?', 'How many sides does a cube have?', 'Spatial', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', '4', '4', 0, 'Spatial', false, 0),
+           (question_id, 'B', '6', '6', 1, 'Spatial', true, 1),
+           (question_id, 'C', '8', '8', 0, 'Spatial', false, 2),
+           (question_id, 'D', '12', '12', 0, 'Spatial', false, 3);
+    
+    INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+    VALUES (aptitude_instrument_id, 35, 'Bentuk 2D mana yang jika dilipat akan membentuk kubus?', 'Which 2D shape when folded will form a cube?', 'Spatial', 'single_choice', 'correct_only')
+    RETURNING id INTO question_id;
+    INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+    VALUES (question_id, 'A', 'Segitiga', 'Triangle', 0, 'Spatial', false, 0),
+           (question_id, 'B', 'Persegi', 'Square', 0, 'Spatial', false, 1),
+           (question_id, 'C', 'Net kubus', 'Cube net', 1, 'Spatial', true, 2),
+           (question_id, 'D', 'Lingkaran', 'Circle', 0, 'Spatial', false, 3);
+    
+    FOR i IN 36..40 LOOP
+        INSERT INTO test_questions (instrument_id, question_number, question_text, question_text_en, category, question_type, scoring_rule)
+        VALUES (aptitude_instrument_id, i,
+                'Pilih jawaban yang benar untuk pertanyaan spasial (Soal ' || i || ')',
+                'Choose the correct answer for the spatial question (Q' || i || ')',
+                'Spatial', 'single_choice', 'correct_only')
+        RETURNING id INTO question_id;
+        
+        INSERT INTO test_question_options (question_id, option_label, option_text, option_text_en, score_value, category_target, is_correct, display_order)
+        VALUES (question_id, 'A', 'Opsi A', 'Option A', CASE WHEN (i-36) % 5 = 0 THEN 1 ELSE 0 END, 'Spatial', (i-36) % 5 = 0, 0),
+               (question_id, 'B', 'Opsi B', 'Option B', CASE WHEN (i-36) % 5 = 1 THEN 1 ELSE 0 END, 'Spatial', (i-36) % 5 = 1, 1),
+               (question_id, 'C', 'Opsi C', 'Option C', CASE WHEN (i-36) % 5 = 2 THEN 1 ELSE 0 END, 'Spatial', (i-36) % 5 = 2, 2),
+               (question_id, 'D', 'Opsi D', 'Option D', CASE WHEN (i-36) % 5 = 3 THEN 1 ELSE 0 END, 'Spatial', (i-36) % 5 = 3, 3);
+    END LOOP;
+    
+    -- Update instrument
+    UPDATE test_instruments 
+    SET question_count = 50, duration_minutes = 60 
+    WHERE id = aptitude_instrument_id;
+    
+    RAISE NOTICE '✅ Successfully added APTITUDE TEST with 50 questions';
+END $$;

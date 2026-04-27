@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
-  ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X,
+  ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X, Settings as SettingsIcon,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -12,6 +12,7 @@ const navItems = [
   { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
   { path: "/admin/candidates", label: "Kandidat", icon: Users },
   { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
+  { path: "/admin/settings", label: "Pengaturan", icon: SettingsIcon },
 ];
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {

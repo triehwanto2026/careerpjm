@@ -12,6 +12,7 @@ import ActivationCodes from "./pages/admin/ActivationCodes";
 import TestInstruments from "./pages/admin/TestInstruments";
 import Candidates from "./pages/admin/Candidates";
 import Results from "./pages/admin/Results";
+import Settings from "./pages/admin/Settings";
 import QuestionBuilder from "./pages/admin/QuestionBuilder";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/admin/test-instruments/:instrumentId/questions" element={<QuestionBuilder />} />
             <Route path="/admin/candidates" element={<Candidates />} />
             <Route path="/admin/results" element={<Results />} />
+            <Route path="/admin/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

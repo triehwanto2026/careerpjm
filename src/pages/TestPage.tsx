@@ -72,6 +72,7 @@ const TestPage = () => {
 
   // Resume saved progress (answers + position) once instruments load
   const [resumed, setResumed] = useState(false);
+  
   useEffect(() => {
     if (resumed || instruments.length === 0) return;
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -79,23 +80,53 @@ const TestPage = () => {
     const cand = JSON.parse(candRaw);
     if (!cand.activationCodeId) { setResumed(true); return; }
     (async () => {
-      const { data } = await supabase.from("test_sessions").select("*")
+      const { data: session } = await supabase.from("test_sessions").select("*")
         .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email).maybeSingle();
-      if (data) {
-        setAnswers((data.answers as Record<string, string>) || {});
-        setCurrentTestIdx(data.current_test_idx || 0);
-        setCurrentQIdx(data.current_question_idx || 0);
-        setCompletedSubtests(new Set(data.completed_subtests || []));
-        if (data.seconds_remaining > 0) {
-          // Reconstruct started_at so the timer continues from saved remaining
+      
+      if (session) {
+        // Restore saved progress
+        setAnswers((session.answers as Record<string, string>) || {});
+        setCurrentTestIdx(session.current_test_idx || 0);
+        setCurrentQIdx(session.current_question_idx || 0);
+        setCompletedSubtests(new Set(session.completed_subtests || []));
+        
+        // Check if we have a saved start time in localStorage (persists across logout)
+        const savedStartTime = localStorage.getItem(`psytest_start_${cand.activationCodeId}`);
+        
+        if (savedStartTime) {
+          // Use the saved start time from localStorage
+          const testStartedAt = parseInt(savedStartTime, 10);
           const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
-          const elapsed = totalDur * 60 - data.seconds_remaining;
-          sessionStorage.setItem("psytest_started_at", String(Date.now() - elapsed * 1000));
+          const actualElapsed = Math.floor((Date.now() - testStartedAt) / 1000);
+          const remaining = Math.max(0, totalDur * 60 - actualElapsed);
+          
+          if (remaining <= 0) {
+            sessionStorage.setItem("psytest_should_auto_submit", "true");
+          } else {
+            sessionStorage.setItem("psytest_started_at", String(testStartedAt));
+          }
+        } else {
+          // No saved start time, calculate from seconds_remaining
+          const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
+          const elapsedAtLastSave = totalDur * 60 - session.seconds_remaining;
+          sessionStorage.setItem("psytest_started_at", String(Date.now() - elapsedAtLastSave * 1000));
         }
+      } else {
+        // No saved session - first time taking test
+        const startTime = Date.now();
+        sessionStorage.setItem("psytest_started_at", String(startTime));
+        // Save to localStorage so it persists across logout
+        localStorage.setItem(`psytest_start_${cand.activationCodeId}`, String(startTime));
       }
       setResumed(true);
     })();
   }, [instruments, resumed]);
+
+  useEffect(() => {
+    if (instruments.length === 0 || submitted) return;
+    const id = setInterval(() => { saveSessionRef.current(); }, 5000);
+    return () => clearInterval(id);
+  }, [instruments.length, submitted]);
 
   // Auto-save session every 5s and on key events
   const saveSessionRef = useRef<() => Promise<void>>(async () => {});
@@ -108,6 +139,7 @@ const TestPage = () => {
     const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);
     const remaining = Math.max(0, totalDur * 60 - elapsed);
+    
     await supabase.from("test_sessions").upsert({
       activation_code_id: cand.activationCodeId,
       candidate_email: cand.email,
@@ -121,12 +153,6 @@ const TestPage = () => {
   };
 
   useEffect(() => {
-    if (!sessionStorage.getItem("psytest_started_at")) {
-      sessionStorage.setItem("psytest_started_at", String(Date.now()));
-    }
-  }, []);
-
-  useEffect(() => {
     if (instruments.length === 0 || submitted) return;
     const id = setInterval(() => { saveSessionRef.current(); }, 5000);
     return () => clearInterval(id);
@@ -137,13 +163,14 @@ const TestPage = () => {
     if (instruments.length === 0 || submitted) return;
     const onHide = async () => {
       if (document.hidden) {
+        // Save session before logout to preserve time
         await saveSessionRef.current();
         sessionStorage.removeItem("psytest_auth");
         sessionStorage.removeItem("psytest_candidate");
         sessionStorage.removeItem("psytest_started_at");
         await Swal.fire({
           icon: "error", title: "Sesi Berakhir",
-          text: "Anda terdeteksi berpindah tab/minimize. Sesi tes dihentikan. Silakan login ulang dengan kode aktivasi — jawaban dan sisa waktu telah disimpan.",
+          text: "Anda terdeteksi berpindah tab/minimize. Sesi tes dihentikan. Silakan login ulang dengan kode aktivasi yang sama — jawaban dan sisa waktu telah disimpan.",
           ...SWAL_THEME, allowOutsideClick: false,
         });
         navigate("/", { replace: true });
@@ -161,6 +188,14 @@ const TestPage = () => {
     if (cand.activationCodeId) {
       await supabase.from("test_sessions").delete()
         .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email);
+      // Mark activation code as completed
+      await supabase.from("activation_codes").update({ 
+        status: 'completed',
+        test_completed_at: new Date().toISOString(),
+        is_used: true 
+      } as any).eq("id", cand.activationCodeId);
+      // Clear localStorage for this activation code
+      localStorage.removeItem(`psytest_start_${cand.activationCodeId}`);
     }
     sessionStorage.removeItem("psytest_started_at");
   };
@@ -216,12 +251,38 @@ const TestPage = () => {
 
   const completeSubmissionRef = useRef<() => Promise<void>>(async () => {});
 
-  const handleTimeUp = useCallback(() => {
+  const handleTimeUp = useCallback(async () => {
     if (!submitted) {
-      Swal.fire({ icon: "warning", title: "Waktu Habis!", text: "Jawaban Anda akan disimpan otomatis.", ...SWAL_THEME, allowOutsideClick: false })
-        .then(() => completeSubmissionRef.current());
+      // Auto-submit and mark activation code as completed
+      const candRaw = sessionStorage.getItem("psytest_candidate");
+      if (candRaw) {
+        const cand = JSON.parse(candRaw);
+        if (cand.activationCodeId) {
+          await supabase.from("activation_codes").update({ 
+            status: 'completed',
+            test_completed_at: new Date().toISOString(),
+            auto_submitted: true 
+          } as any).eq("id", cand.activationCodeId);
+        }
+      }
+      
+      await Swal.fire({ 
+        icon: "warning", 
+        title: "Waktu Habis!", 
+        text: "Jawaban Anda akan disimpan otomatis dan tes dianggap selesai.", 
+        ...SWAL_THEME, 
+        allowOutsideClick: false 
+      }).then(() => completeSubmissionRef.current());
     }
   }, [submitted]);
+
+  // Check if auto-submit is needed after resume
+  useEffect(() => {
+    if (sessionStorage.getItem("psytest_should_auto_submit") === "true" && !submitted) {
+      sessionStorage.removeItem("psytest_should_auto_submit");
+      handleTimeUp();
+    }
+  }, [submitted, handleTimeUp]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Memuat tes...</div>;
   if (instruments.length === 0) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Tidak ada tes tersedia.</div>;
@@ -232,6 +293,8 @@ const TestPage = () => {
 
   const handleAnswer = (instrumentId: string, questionId: string, value: string) => {
     setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: value }));
+    // Auto-advance to next question
+    handleNext();
   };
   const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
     const key = `${instrumentId}:${questionId}`;
@@ -537,6 +600,8 @@ const TestPage = () => {
                     </div>
                   ) : currentQuestion.options.map(opt => {
                     const isSelected = currentAns === opt.id;
+                    const definition = (opt as any).option_definition || null;
+                    const definitionEn = (opt as any).option_definition_en || null;
                     return (
                       <button key={opt.id} onClick={() => handleAnswer(currentTest.id, currentQuestion.id, opt.id)}
                         className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
@@ -545,6 +610,8 @@ const TestPage = () => {
                           {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
                           <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
                           {showEnglish && opt.option_text_en && <span className="block text-xs text-muted-foreground italic mt-0.5">{opt.option_text_en}</span>}
+                          {definition && <span className="block text-xs text-muted-foreground mt-1">{definition}</span>}
+                          {showEnglish && definitionEn && <span className="block text-xs text-muted-foreground italic mt-0.5">{definitionEn}</span>}
                         </div>
                       </button>
                     );

@@ -29,51 +29,87 @@ const Index = () => {
       .select("*")
       .eq("code", activationCode.trim())
       .eq("password", password.trim())
-      .eq("is_used", false)
       .maybeSingle();
 
-    if (data && !error) {
-      await supabase.from("activation_codes").update({ is_used: true }).eq("id", data.id);
-      // Find or create candidate
-      const { data: existing } = await supabase.from("candidates").select("id, photo_url, phone, birth_date, education, gender")
-        .eq("email", data.candidate_email).maybeSingle();
-      let candidateId = existing?.id || null;
-      const photoUrl = existing?.photo_url || null;
-      if (!candidateId) {
-        const { data: newCand } = await supabase.from("candidates").insert({
-          name: data.candidate_name, email: data.candidate_email, position: data.position,
-          status: "in_progress", activation_code_id: data.id,
-        } as any).select("id").single();
-        candidateId = newCand?.id || null;
-      } else {
-        await supabase.from("candidates").update({ status: "in_progress", activation_code_id: data.id } as any).eq("id", candidateId);
-      }
-
-      Swal.fire({
-        icon: "success", title: "Akses Diberikan",
-        text: `Selamat datang, ${data.candidate_name}!`,
-        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-        timer: 1500, showConfirmButton: false,
-      }).then(() => {
-        sessionStorage.setItem("psytest_auth", "true");
-        sessionStorage.setItem("psytest_candidate", JSON.stringify({
-          id: candidateId,
-          name: data.candidate_name, email: data.candidate_email, position: data.position,
-          codeId: data.id, assignedTests: data.assigned_tests || [],
-          photo_url: photoUrl,
-          phone: existing?.phone || "", birth_date: existing?.birth_date || "",
-          education: existing?.education || "", gender: existing?.gender || "",
-        }));
-        navigate("/test");
-      });
-    } else {
+    if (error || !data) {
       setLoading(false);
       Swal.fire({
         icon: "error", title: "Akses Ditolak",
-        text: "Kode aktivasi atau password salah, atau sudah digunakan.",
+        text: "Kode aktivasi atau password salah.",
         background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
       });
+      return;
     }
+
+    // Check if code is still valid
+    const now = new Date();
+    const isExpired = data.expires_at && new Date(data.expires_at) < now;
+    const status = (data as any).status || 'active';
+    
+    if (isExpired) {
+      setLoading(false);
+      Swal.fire({
+        icon: "error", title: "Kode Kadaluarsa",
+        text: "Kode aktivasi telah kadaluarsa. Silakan hubungi admin.",
+        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
+      });
+      return;
+    }
+
+    if (status === 'completed') {
+      setLoading(false);
+      Swal.fire({
+        icon: "error", title: "Tes Selesai",
+        text: "Tes untuk kode aktivasi ini sudah selesai. Kode tidak dapat digunakan lagi.",
+        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
+      });
+      return;
+    }
+
+    if (status === 'invalid') {
+      setLoading(false);
+      Swal.fire({
+        icon: "error", title: "Kode Tidak Valid",
+        text: "Kode aktivasi tidak valid. Silakan hubungi admin.",
+        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
+      });
+      return;
+    }
+
+    // Code is valid, proceed with login
+    await supabase.from("activation_codes").update({ status: 'active' } as any).eq("id", data.id);
+    // Find or create candidate
+    const { data: existing } = await supabase.from("candidates").select("id, photo_url, phone, birth_date, education, gender")
+      .eq("email", data.candidate_email).maybeSingle();
+    let candidateId = existing?.id || null;
+    const photoUrl = existing?.photo_url || null;
+    if (!candidateId) {
+      const { data: newCand } = await supabase.from("candidates").insert({
+        name: data.candidate_name, email: data.candidate_email, position: data.position,
+        status: "in_progress", activation_code_id: data.id,
+      } as any).select("id").single();
+      candidateId = newCand?.id || null;
+    } else {
+      await supabase.from("candidates").update({ status: "in_progress", activation_code_id: data.id } as any).eq("id", candidateId);
+    }
+
+    Swal.fire({
+      icon: "success", title: "Akses Diberikan",
+      text: `Selamat datang, ${data.candidate_name}!`,
+      background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
+      timer: 1500, showConfirmButton: false,
+    }).then(() => {
+      sessionStorage.setItem("psytest_auth", "true");
+      sessionStorage.setItem("psytest_candidate", JSON.stringify({
+        id: candidateId,
+        name: data.candidate_name, email: data.candidate_email, position: data.position,
+        activationCodeId: data.id, assignedTests: data.assigned_tests || [],
+        photo_url: photoUrl,
+        phone: existing?.phone || "", birth_date: existing?.birth_date || "",
+        education: existing?.education || "", gender: existing?.gender || "",
+      }));
+      navigate("/test");
+    });
   };
 
   return (

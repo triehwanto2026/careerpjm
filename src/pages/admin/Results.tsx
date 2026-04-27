@@ -53,7 +53,7 @@ const Results = () => {
 
   const loadAnswers = async (resultId: string) => {
     const { data } = await supabase.from("test_answers").select("*").eq("test_result_id", resultId).order("question_number");
-    setAnswers((data as AnswerRow[]) || []);
+    setAnswers((data as any) as AnswerRow[]);
   };
 
   const handleSelectResult = async (r: ResultRow) => {
@@ -653,15 +653,26 @@ const Results = () => {
       );
     }
     if (r.test_name === "Personality Plus") {
+      // Map category codes to full names
+      const categoryNames: Record<string, string> = {
+        'K': 'Koleris',
+        'S': 'Sanguinis',
+        'M': 'Melankolis',
+        'P': 'Plegmatis'
+      };
+      const mappedData = data.map(d => ({
+        name: categoryNames[d.name] || d.name,
+        value: d.value
+      }));
       return (
         <ResponsiveContainer width="100%" height={280}>
-          <PieChart>
-            <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
-              {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
+          <BarChart data={mappedData} margin={{ left: 60, right: 20, top: 10, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+            <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
+            <YAxis domain={[0, 30]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
             <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-            <Legend wrapperStyle={{ fontSize: 12, color: "hsl(210,20%,75%)" }} />
-          </PieChart>
+            <Bar dataKey="value" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       );
     }
@@ -892,10 +903,21 @@ const Results = () => {
                             )}
                           </td>
                           <td className="py-2.5 px-3 text-xs text-muted-foreground">
-                            {r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label ? 
-                              a.selected_answer_label : 
-                              (a.category || "-")
-                            }
+                            {(() => {
+                              const categoryMap: Record<string, string> = {
+                                'K': 'Koleris',
+                                'S': 'Sanguinis',
+                                'M': 'Melankolis',
+                                'P': 'Plegmatis'
+                              };
+                              if (r.test_name === "Personality Plus" && a.category) {
+                                return categoryMap[a.category] || a.category;
+                              }
+                              if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
+                                return a.selected_answer_label;
+                              }
+                              return a.category || "-";
+                            })()}
                           </td>
                         </tr>
                       ))}
