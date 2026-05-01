@@ -164,19 +164,57 @@ const TestPage = () => {
     return () => clearInterval(id);
   }, [instruments.length, submitted]);
 
-  // Anti-cheat: tab switch / minimize → save + force logout
+  // Anti-cheat: tab switch / minimize → save + force logout (waktu TERUS BERJALAN sebagai penalti)
   useEffect(() => {
     if (instruments.length === 0 || submitted) return;
     const onHide = async () => {
       if (document.hidden) {
-        // Save session before logout to preserve time
-        await saveSessionRef.current();
+        const candRaw = sessionStorage.getItem("psytest_candidate");
+        if (!candRaw) return;
+        const cand = JSON.parse(candRaw);
+
+        // Hitung sisa waktu pada saat cheat terdeteksi
+        const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
+        const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        const remainingAtViolation = Math.max(0, totalDur * 60 - elapsed);
+
+        // Simpan + tandai violation. last_active_at = sekarang ⇒ saat login ulang nanti,
+        // selisih (now − last_active_at) akan dipotong dari sisa waktu (penalti).
+        if (cand.activationCodeId) {
+          await supabase.rpc("noop").then(() => {}).catch(() => {});
+          await supabase.from("test_sessions").upsert({
+            activation_code_id: cand.activationCodeId,
+            candidate_email: cand.email,
+            answers: answers as any,
+            seconds_remaining: remainingAtViolation,
+            current_test_idx: currentTestIdx,
+            current_question_idx: currentQIdx,
+            completed_subtests: Array.from(completedSubtests),
+            last_active_at: new Date().toISOString(),
+            last_violation_at: new Date().toISOString(),
+          } as any, { onConflict: "activation_code_id,candidate_email" });
+          // increment violation_count via SQL fallback
+          await supabase.from("test_sessions")
+            .select("violation_count")
+            .eq("activation_code_id", cand.activationCodeId)
+            .eq("candidate_email", cand.email)
+            .maybeSingle()
+            .then(async ({ data }) => {
+              const next = ((data?.violation_count as number) || 0) + 1;
+              await supabase.from("test_sessions")
+                .update({ violation_count: next } as any)
+                .eq("activation_code_id", cand.activationCodeId)
+                .eq("candidate_email", cand.email);
+            });
+        }
+
         sessionStorage.removeItem("psytest_auth");
         sessionStorage.removeItem("psytest_candidate");
         sessionStorage.removeItem("psytest_started_at");
         await Swal.fire({
-          icon: "error", title: "Sesi Berakhir",
-          text: "Anda terdeteksi berpindah tab/minimize. Sesi tes dihentikan. Silakan login ulang dengan kode aktivasi yang sama — jawaban dan sisa waktu telah disimpan.",
+          icon: "error", title: "Sesi Berakhir — Pelanggaran Terdeteksi",
+          html: `Anda berpindah tab/minimize. Sesi tes dihentikan dan jawaban telah disimpan.<br/><br/><b>Catatan:</b> Waktu tes <u>tetap berjalan</u> meskipun Anda logout. Segera login ulang dengan kode aktivasi yang sama untuk melanjutkan.`,
           ...SWAL_THEME, allowOutsideClick: false,
         });
         navigate("/", { replace: true });
@@ -184,7 +222,7 @@ const TestPage = () => {
     };
     document.addEventListener("visibilitychange", onHide);
     return () => document.removeEventListener("visibilitychange", onHide);
-  }, [instruments.length, submitted, navigate]);
+  }, [instruments, submitted, navigate, answers, currentTestIdx, currentQIdx, completedSubtests]);
 
   // Clear session when test completed (called inside completeSubmission)
   const clearSavedSession = async () => {
@@ -192,15 +230,15 @@ const TestPage = () => {
     if (!candRaw) return;
     const cand = JSON.parse(candRaw);
     if (cand.activationCodeId) {
-      await supabase.from("test_sessions").delete()
+      await supabase.from("test_sessions").update({ is_code_deactivated: true } as any)
         .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email);
-      // Mark activation code as completed
-      await supabase.from("activation_codes").update({ 
+      // Mark activation code as completed (kode tidak bisa dipakai lagi)
+      await supabase.from("activation_codes").update({
         status: 'completed',
         test_completed_at: new Date().toISOString(),
-        is_used: true 
+        is_used: true
       } as any).eq("id", cand.activationCodeId);
-      // Clear localStorage for this activation code
+      // Bersihkan localStorage lama (kompatibilitas)
       localStorage.removeItem(`psytest_start_${cand.activationCodeId}`);
     }
     sessionStorage.removeItem("psytest_started_at");
