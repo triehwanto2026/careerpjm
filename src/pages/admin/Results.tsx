@@ -457,11 +457,17 @@ const Results = () => {
 
     ${discInterpretation}
 
-    ${r.interpretation && !r.test_name.toUpperCase().includes("DISC") ? `
+    ${(() => {
+      const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+      const isDISC = r.test_name.toUpperCase().includes("DISC");
+      const text = isPP ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40) : r.interpretation;
+      if (isDISC || !text) return "";
+      return `
     <div class="section">
-      <div class="section-title">Interpretasi Psikolog</div>
-      <div class="interpretation">${r.interpretation}</div>
-    </div>` : ""}
+      <div class="section-title">Interpretasi Psikolog${isPP ? ' — Profil 4 Temperamen' : ''}</div>
+      <div class="interpretation" style="white-space:pre-line;">${text.replace(/</g, '&lt;')}</div>
+    </div>`;
+    })()}
 
     <div class="section">
       <div class="section-title">Lembar Jawaban Kandidat (${answers.length} Soal)</div>
