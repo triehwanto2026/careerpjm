@@ -182,7 +182,6 @@ const TestPage = () => {
         // Simpan + tandai violation. last_active_at = sekarang ⇒ saat login ulang nanti,
         // selisih (now − last_active_at) akan dipotong dari sisa waktu (penalti).
         if (cand.activationCodeId) {
-          await supabase.rpc("noop").then(() => {}).catch(() => {});
           await supabase.from("test_sessions").upsert({
             activation_code_id: cand.activationCodeId,
             candidate_email: cand.email,
