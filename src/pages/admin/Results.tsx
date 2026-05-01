@@ -652,27 +652,24 @@ const Results = () => {
         </ResponsiveContainer>
       );
     }
-    if (r.test_name === "Personality Plus") {
-      // Map category codes to full names
-      const categoryNames: Record<string, string> = {
-        'K': 'Koleris',
-        'S': 'Sanguinis',
-        'M': 'Melankolis',
-        'P': 'Plegmatis'
-      };
-      const mappedData = data.map(d => ({
-        name: categoryNames[d.name] || d.name,
-        value: d.value
-      }));
+    if (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) {
+      // Map kode → nama temperamen lengkap
+      const categoryNames: Record<string, string> = { 'K': 'Koleris', 'S': 'Sanguinis', 'M': 'Melankolis', 'P': 'Plegmatis' };
+      const order = ['Sanguinis', 'Koleris', 'Melankolis', 'Plegmatis'];
+      const valueByName: Record<string, number> = {};
+      data.forEach(d => { valueByName[categoryNames[d.name] || d.name] = d.value; });
+      const mappedData = order.map(n => ({ name: n, value: valueByName[n] || 0 }));
+      // Skala Y maksimum = total soal / 4 (asumsi terdistribusi merata di 4 temperamen)
+      const yMax = Math.max(10, Math.ceil((r.total_questions || 40) / 4));
       return (
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={mappedData} margin={{ left: 60, right: 20, top: 10, bottom: 10 }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={mappedData} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-            <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
-            <YAxis domain={[0, 30]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+            <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12, fontWeight: 600 }} />
+            <YAxis domain={[0, yMax]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Skor', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
             <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-            <Bar dataKey="value" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 6, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+          </LineChart>
         </ResponsiveContainer>
       );
     }
