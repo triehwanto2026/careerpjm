@@ -17,6 +17,7 @@ export type Database = {
       activation_codes: {
         Row: {
           assigned_tests: string[] | null
+          auto_submitted: boolean
           candidate_email: string
           candidate_name: string
           code: string
@@ -26,10 +27,14 @@ export type Database = {
           is_used: boolean
           password: string
           position: string
+          status: string
+          test_completed_at: string | null
+          test_started_at: string | null
           updated_at: string
         }
         Insert: {
           assigned_tests?: string[] | null
+          auto_submitted?: boolean
           candidate_email: string
           candidate_name: string
           code: string
@@ -39,10 +44,14 @@ export type Database = {
           is_used?: boolean
           password: string
           position?: string
+          status?: string
+          test_completed_at?: string | null
+          test_started_at?: string | null
           updated_at?: string
         }
         Update: {
           assigned_tests?: string[] | null
+          auto_submitted?: boolean
           candidate_email?: string
           candidate_name?: string
           code?: string
@@ -52,7 +61,49 @@ export type Database = {
           is_used?: boolean
           password?: string
           position?: string
+          status?: string
+          test_completed_at?: string | null
+          test_started_at?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: string
+          is_public: boolean
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+          value_type: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_public?: boolean
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+          value_type?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_public?: boolean
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+          value_type?: string
         }
         Relationships: []
       }
@@ -218,6 +269,8 @@ export type Database = {
           id: string
           image_url: string | null
           is_correct: boolean | null
+          option_definition: string | null
+          option_definition_en: string | null
           option_label: string
           option_text: string
           option_text_en: string | null
@@ -231,6 +284,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_correct?: boolean | null
+          option_definition?: string | null
+          option_definition_en?: string | null
           option_label: string
           option_text: string
           option_text_en?: string | null
@@ -244,6 +299,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_correct?: boolean | null
+          option_definition?: string | null
+          option_definition_en?: string | null
           option_label?: string
           option_text?: string
           option_text_en?: string | null
@@ -391,10 +448,16 @@ export type Database = {
           current_question_idx: number
           current_test_idx: number
           id: string
+          is_code_deactivated: boolean
           last_active_at: string
+          last_violation_at: string | null
+          original_duration_seconds: number
           seconds_remaining: number
+          test_started_at: string | null
+          time_penalty_seconds: number
           updated_at: string
           violation_count: number
+          violation_history: Json
         }
         Insert: {
           activation_code_id: string
@@ -405,10 +468,16 @@ export type Database = {
           current_question_idx?: number
           current_test_idx?: number
           id?: string
+          is_code_deactivated?: boolean
           last_active_at?: string
+          last_violation_at?: string | null
+          original_duration_seconds?: number
           seconds_remaining?: number
+          test_started_at?: string | null
+          time_penalty_seconds?: number
           updated_at?: string
           violation_count?: number
+          violation_history?: Json
         }
         Update: {
           activation_code_id?: string
@@ -419,10 +488,16 @@ export type Database = {
           current_question_idx?: number
           current_test_idx?: number
           id?: string
+          is_code_deactivated?: boolean
           last_active_at?: string
+          last_violation_at?: string | null
+          original_duration_seconds?: number
           seconds_remaining?: number
+          test_started_at?: string | null
+          time_penalty_seconds?: number
           updated_at?: string
           violation_count?: number
+          violation_history?: Json
         }
         Relationships: []
       }
