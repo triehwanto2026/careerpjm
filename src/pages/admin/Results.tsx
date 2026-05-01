@@ -457,11 +457,17 @@ const Results = () => {
 
     ${discInterpretation}
 
-    ${r.interpretation && !r.test_name.toUpperCase().includes("DISC") ? `
+    ${(() => {
+      const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+      const isDISC = r.test_name.toUpperCase().includes("DISC");
+      const text = isPP ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40) : r.interpretation;
+      if (isDISC || !text) return "";
+      return `
     <div class="section">
-      <div class="section-title">Interpretasi Psikolog</div>
-      <div class="interpretation">${r.interpretation}</div>
-    </div>` : ""}
+      <div class="section-title">Interpretasi Psikolog${isPP ? ' — Profil 4 Temperamen' : ''}</div>
+      <div class="interpretation" style="white-space:pre-line;">${text.replace(/</g, '&lt;')}</div>
+    </div>`;
+    })()}
 
     <div class="section">
       <div class="section-title">Lembar Jawaban Kandidat (${answers.length} Soal)</div>
@@ -652,27 +658,24 @@ const Results = () => {
         </ResponsiveContainer>
       );
     }
-    if (r.test_name === "Personality Plus") {
-      // Map category codes to full names
-      const categoryNames: Record<string, string> = {
-        'K': 'Koleris',
-        'S': 'Sanguinis',
-        'M': 'Melankolis',
-        'P': 'Plegmatis'
-      };
-      const mappedData = data.map(d => ({
-        name: categoryNames[d.name] || d.name,
-        value: d.value
-      }));
+    if (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) {
+      // Map kode → nama temperamen lengkap
+      const categoryNames: Record<string, string> = { 'K': 'Koleris', 'S': 'Sanguinis', 'M': 'Melankolis', 'P': 'Plegmatis' };
+      const order = ['Sanguinis', 'Koleris', 'Melankolis', 'Plegmatis'];
+      const valueByName: Record<string, number> = {};
+      data.forEach(d => { valueByName[categoryNames[d.name] || d.name] = d.value; });
+      const mappedData = order.map(n => ({ name: n, value: valueByName[n] || 0 }));
+      // Skala Y maksimum = total soal / 4 (asumsi terdistribusi merata di 4 temperamen)
+      const yMax = Math.max(10, Math.ceil((r.total_questions || 40) / 4));
       return (
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={mappedData} margin={{ left: 60, right: 20, top: 10, bottom: 10 }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={mappedData} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-            <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
-            <YAxis domain={[0, 30]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+            <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12, fontWeight: 600 }} />
+            <YAxis domain={[0, yMax]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Skor', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
             <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-            <Bar dataKey="value" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 6, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+          </LineChart>
         </ResponsiveContainer>
       );
     }
@@ -702,7 +705,55 @@ const Results = () => {
     );
   };
 
-  // Detail view
+  // === Interpretasi otomatis Personality Plus (4 Temperamen) ===
+  const buildPersonalityPlusInterpretation = (cats: Record<string, number>, total: number) => {
+    const names: Record<string, string> = { K: 'Koleris', S: 'Sanguinis', M: 'Melankolis', P: 'Plegmatis' };
+    const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+    Object.entries(cats).forEach(([k, v]) => { const n = names[k] || k; if (n in norm) norm[n] = v; });
+    const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
+    const [dom, domVal] = sorted[0];
+    const [sec, secVal] = sorted[1];
+    const sumAll = sorted.reduce((s, [, v]) => s + v, 0) || 1;
+    const pct = (v: number) => Math.round((v / sumAll) * 100);
+
+    const desc: Record<string, { kekuatan: string; kelemahan: string; kerja: string }> = {
+      Sanguinis: {
+        kekuatan: "Ekspresif, antusias, ramah, mudah bergaul, optimis, kreatif, dan mampu memotivasi orang lain. Cocok di lingkungan yang membutuhkan komunikasi intensif.",
+        kelemahan: "Cenderung impulsif, kurang disiplin pada detail, mudah teralihkan, dan kadang sulit menyelesaikan tugas yang berulang/monoton.",
+        kerja: "Marketing, Public Relations, Sales, Trainer, Customer Engagement, Event Organizer.",
+      },
+      Koleris: {
+        kekuatan: "Tegas, berorientasi pada hasil, pemimpin alami, mandiri, cepat mengambil keputusan, dan tidak takut tantangan.",
+        kelemahan: "Cenderung dominan, kurang sabar terhadap detail emosional rekan kerja, dan dapat dipersepsikan keras kepala.",
+        kerja: "Manajer Operasional, Project Lead, Supervisor Lapangan, Entrepreneur, Pemimpin Tim.",
+      },
+      Melankolis: {
+        kekuatan: "Analitis, perfeksionis, terstruktur, teliti, setia, dan memiliki standar mutu yang tinggi terhadap pekerjaan.",
+        kelemahan: "Cenderung pesimistis, perfeksionisme berlebihan dapat memperlambat eksekusi, sensitif terhadap kritik.",
+        kerja: "Akuntan, Auditor, Quality Control, Riset & Pengembangan, Analis Data, Engineer.",
+      },
+      Plegmatis: {
+        kekuatan: "Tenang, sabar, diplomatis, pendengar yang baik, mampu menjadi penengah dalam konflik, dan stabil di bawah tekanan.",
+        kelemahan: "Kurang inisiatif, sulit mengambil keputusan tegas, cenderung menghindari konfrontasi dan perubahan mendadak.",
+        kerja: "HR, Mediator, Administrasi, Customer Service, Konselor, Asisten Eksekutif.",
+      },
+    };
+
+    const d = desc[dom];
+    const s = desc[sec];
+    return `Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen DOMINAN: ${dom} (${pct(domVal)}%) dengan dukungan SEKUNDER: ${sec} (${pct(secVal)}%). Distribusi keseluruhan — Sanguinis: ${pct(norm.Sanguinis)}%, Koleris: ${pct(norm.Koleris)}%, Melankolis: ${pct(norm.Melankolis)}%, Plegmatis: ${pct(norm.Plegmatis)}%.
+
+KEKUATAN (${dom}): ${d.kekuatan}
+AREA PERHATIAN (${dom}): ${d.kelemahan}
+
+Kombinasi ${dom}-${sec}: kandidat memiliki karakter utama ${dom.toLowerCase()} yang dilengkapi nuansa ${sec.toLowerCase()} (${s.kekuatan.split('.')[0].toLowerCase()}). Kombinasi ini memperkaya profil dan memperluas zona efektivitas kerja.
+
+REKOMENDASI POSISI: ${d.kerja}
+
+CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didampingi wawancara mendalam (kompetensi & nilai) untuk validasi konteks pekerjaan. Skor tertinggi adalah karakter natural; tidak menutup kemungkinan kandidat menampilkan perilaku temperamen lain situasionalnya.`;
+  };
+
+
   if (selectedResult) {
     const r = selectedResult;
     const cats = r.categories as Record<string, number>;
@@ -858,13 +909,20 @@ const Results = () => {
               </div>
             </div>
 
-            {/* Interpretation */}
-            {r.interpretation && (
-              <div className="glass rounded-xl p-5 glow-border mt-4">
-                <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{r.interpretation}</p>
-              </div>
-            )}
+            {/* Interpretation — pakai narasi otomatis untuk Personality Plus */}
+            {(() => {
+              const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+              const interpText = isPP
+                ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40)
+                : r.interpretation;
+              if (!interpText) return null;
+              return (
+                <div className="glass rounded-xl p-5 glow-border mt-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : ''}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
+                </div>
+              );
+            })()}
 
             {/* Answers section */}
             <div className="glass rounded-xl p-5 glow-border mt-4">
