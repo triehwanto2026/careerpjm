@@ -903,13 +903,20 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
               </div>
             </div>
 
-            {/* Interpretation */}
-            {r.interpretation && (
-              <div className="glass rounded-xl p-5 glow-border mt-4">
-                <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{r.interpretation}</p>
-              </div>
-            )}
+            {/* Interpretation — pakai narasi otomatis untuk Personality Plus */}
+            {(() => {
+              const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+              const interpText = isPP
+                ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40)
+                : r.interpretation;
+              if (!interpText) return null;
+              return (
+                <div className="glass rounded-xl p-5 glow-border mt-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : ''}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
+                </div>
+              );
+            })()}
 
             {/* Answers section */}
             <div className="glass rounded-xl p-5 glow-border mt-4">
