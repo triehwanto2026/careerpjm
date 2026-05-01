@@ -72,7 +72,7 @@ const TestPage = () => {
 
   // Resume saved progress (answers + position) once instruments load
   const [resumed, setResumed] = useState(false);
-  
+
   useEffect(() => {
     if (resumed || instruments.length === 0) return;
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -80,43 +80,49 @@ const TestPage = () => {
     const cand = JSON.parse(candRaw);
     if (!cand.activationCodeId) { setResumed(true); return; }
     (async () => {
+      const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
+      const totalSec = totalDur * 60;
       const { data: session } = await supabase.from("test_sessions").select("*")
         .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email).maybeSingle();
-      
+
       if (session) {
         // Restore saved progress
         setAnswers((session.answers as Record<string, string>) || {});
         setCurrentTestIdx(session.current_test_idx || 0);
         setCurrentQIdx(session.current_question_idx || 0);
         setCompletedSubtests(new Set(session.completed_subtests || []));
-        
-        // Check if we have a saved start time in localStorage (persists across logout)
-        const savedStartTime = localStorage.getItem(`psytest_start_${cand.activationCodeId}`);
-        
-        if (savedStartTime) {
-          // Use the saved start time from localStorage
-          const testStartedAt = parseInt(savedStartTime, 10);
-          const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
-          const actualElapsed = Math.floor((Date.now() - testStartedAt) / 1000);
-          const remaining = Math.max(0, totalDur * 60 - actualElapsed);
-          
-          if (remaining <= 0) {
-            sessionStorage.setItem("psytest_should_auto_submit", "true");
-          } else {
-            sessionStorage.setItem("psytest_started_at", String(testStartedAt));
-          }
-        } else {
-          // No saved start time, calculate from seconds_remaining
-          const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
-          const elapsedAtLastSave = totalDur * 60 - session.seconds_remaining;
-          sessionStorage.setItem("psytest_started_at", String(Date.now() - elapsedAtLastSave * 1000));
+
+        // Sisa waktu = nilai tersimpan DIKURANGI waktu yang berlalu sejak terakhir aktif (penalti cheat)
+        const lastActive = session.last_active_at ? new Date(session.last_active_at).getTime() : Date.now();
+        const elapsedSinceLastActive = Math.floor((Date.now() - lastActive) / 1000);
+        const remaining = Math.max(0, (session.seconds_remaining || totalSec) - elapsedSinceLastActive);
+
+        // Set started_at agar TestTimer (yang menghitung dari elapsed) tampil dengan sisa yang benar
+        const syntheticStart = Date.now() - (totalSec - remaining) * 1000;
+        sessionStorage.setItem("psytest_started_at", String(syntheticStart));
+
+        if (remaining <= 0) {
+          sessionStorage.setItem("psytest_should_auto_submit", "true");
         }
       } else {
-        // No saved session - first time taking test
+        // First time
         const startTime = Date.now();
         sessionStorage.setItem("psytest_started_at", String(startTime));
-        // Save to localStorage so it persists across logout
-        localStorage.setItem(`psytest_start_${cand.activationCodeId}`, String(startTime));
+        // Buat session baru dengan original_duration_seconds
+        await supabase.from("test_sessions").insert({
+          activation_code_id: cand.activationCodeId,
+          candidate_email: cand.email,
+          answers: {},
+          seconds_remaining: totalSec,
+          original_duration_seconds: totalSec,
+          test_started_at: new Date().toISOString(),
+          last_active_at: new Date().toISOString(),
+        } as any);
+        // Tandai activation code sebagai started
+        await supabase.from("activation_codes").update({
+          test_started_at: new Date().toISOString(),
+          status: 'active',
+        } as any).eq("id", cand.activationCodeId);
       }
       setResumed(true);
     })();
