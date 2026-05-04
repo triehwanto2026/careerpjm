@@ -677,9 +677,9 @@ const Results = () => {
           <LineChart data={mappedData} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
             <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12, fontWeight: 600 }} />
-            <YAxis domain={[0, yMax]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Skor', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-            <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 6, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+            <YAxis domain={[0, yMax]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Jumlah Jawaban', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
+            <Tooltip formatter={(v: any) => [`${v} jawaban`, 'Skor']} contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+            <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 6, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} label={{ position: 'top', fill: '#2dd4bf', fontSize: 12, fontWeight: 700 }} />
           </LineChart>
         </ResponsiveContainer>
       );
@@ -712,9 +712,14 @@ const Results = () => {
 
   // === Interpretasi otomatis Personality Plus (4 Temperamen) ===
   const buildPersonalityPlusInterpretation = (cats: Record<string, number>, total: number) => {
-    const names: Record<string, string> = { K: 'Koleris', S: 'Sanguinis', M: 'Melankolis', P: 'Plegmatis' };
+    const ppMap: Record<string, string> = {
+      K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+      S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+      M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+      P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+    };
     const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
-    Object.entries(cats).forEach(([k, v]) => { const n = names[k] || k; if (n in norm) norm[n] = v; });
+    Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
     const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
     const [dom, domVal] = sorted[0];
     const [sec, secVal] = sorted[1];
@@ -746,7 +751,7 @@ const Results = () => {
 
     const d = desc[dom];
     const s = desc[sec];
-    return `Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen DOMINAN: ${dom} (${pct(domVal)}%) dengan dukungan SEKUNDER: ${sec} (${pct(secVal)}%). Distribusi keseluruhan — Sanguinis: ${pct(norm.Sanguinis)}%, Koleris: ${pct(norm.Koleris)}%, Melankolis: ${pct(norm.Melankolis)}%, Plegmatis: ${pct(norm.Plegmatis)}%.
+    return `Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen DOMINAN: ${dom} (${domVal} jawaban — ${pct(domVal)}%) dengan dukungan SEKUNDER: ${sec} (${secVal} jawaban — ${pct(secVal)}%). Distribusi jumlah jawaban — Sanguinis: ${norm.Sanguinis}, Koleris: ${norm.Koleris}, Melankolis: ${norm.Melankolis}, Plegmatis: ${norm.Plegmatis}.
 
 KEKUATAN (${dom}): ${d.kekuatan}
 AREA PERHATIAN (${dom}): ${d.kelemahan}
