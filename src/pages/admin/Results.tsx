@@ -887,7 +887,45 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                       <span className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-400 rounded"></div> Positif</span>
                     </div>
                   </div>
-                ) : (
+                ) : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
+                  const ppMap: Record<string, string> = {
+                    K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+                    S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+                    M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+                    P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+                  };
+                  const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+                  Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+                  const totalAns = Object.values(norm).reduce((a, b) => a + b, 0) || 1;
+                  const maxVal = Math.max(...Object.values(norm), 1);
+                  return (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Temperamen</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Jumlah Jawaban</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Proporsi</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                      </tr></thead>
+                      <tbody>
+                        {(['Sanguinis','Koleris','Melankolis','Plegmatis'] as const).map(t => {
+                          const v = norm[t]; const pctRel = (v / maxVal) * 100; const pctTotal = Math.round((v / totalAns) * 100);
+                          return (
+                            <tr key={t} className="border-b border-border/50">
+                              <td className="py-2 px-3 text-foreground font-medium">{t}</td>
+                              <td className="py-2 px-3 text-foreground">{v} jawaban</td>
+                              <td className="py-2 px-3 text-muted-foreground">{pctTotal}%</td>
+                              <td className="py-2 px-3 w-40">
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-full rounded-full bg-primary" style={{ width: `${pctRel}%` }} />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })() : (
                   // Other tests: Vertical bar chart
                   <table className="w-full text-sm">
                     <thead>
