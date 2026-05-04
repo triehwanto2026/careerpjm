@@ -485,7 +485,8 @@ const TestPage = () => {
             question_text_en: q.question_text_en,
             selected_answer: opt?.option_text || optId || "",
             selected_answer_label: opt?.option_label || "",
-            category: q.category,
+            // Prefer option's category_target (e.g. Sanguine/Choleric for Personality Plus) over question.category
+            category: opt?.category_target?.trim() || q.category || null,
             is_correct: opt?.is_correct ?? null,
             correct_answer: q.options.find(o => o.is_correct)?.option_text || null,
           };

@@ -14,6 +14,7 @@ import Candidates from "./pages/admin/Candidates";
 import Results from "./pages/admin/Results";
 import Settings from "./pages/admin/Settings";
 import QuestionBuilder from "./pages/admin/QuestionBuilder";
+import AnswerKeyManager from "./pages/admin/AnswerKeyManager";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/admin/activation-codes" element={<ActivationCodes />} />
             <Route path="/admin/test-instruments" element={<TestInstruments />} />
             <Route path="/admin/test-instruments/:instrumentId/questions" element={<QuestionBuilder />} />
+            <Route path="/admin/answer-keys" element={<AnswerKeyManager />} />
             <Route path="/admin/candidates" element={<Candidates />} />
             <Route path="/admin/results" element={<Results />} />
             <Route path="/admin/settings" element={<Settings />} />

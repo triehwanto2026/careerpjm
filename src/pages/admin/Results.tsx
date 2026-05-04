@@ -476,10 +476,11 @@ const Results = () => {
         <thead><tr><th style="width:36px;">No</th><th>Pertanyaan</th><th style="width:180px;">Jawaban</th><th style="width:120px;">Kategori</th></tr></thead>
         <tbody>
           ${answers.map(a => {
-            // Extract DISC categories from answer if it's a DISC test
+            const ppMap: Record<string, string> = { K:'Koleris',C:'Koleris',Choleric:'Koleris',Koleris:'Koleris',S:'Sanguinis',Sanguine:'Sanguinis',Sanguinis:'Sanguinis',M:'Melankolis',Melancholy:'Melankolis',Melancholic:'Melankolis',Melankolis:'Melankolis',P:'Plegmatis',Phlegmatic:'Plegmatis',Plegmatis:'Plegmatis',Plegmatic:'Plegmatis' };
             let categoryDisplay = a.category || "-";
-            if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
-              // For DISC, show the actual category from the answer (like D-C, I-S, etc.)
+            if ((r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) && a.category) {
+              categoryDisplay = ppMap[a.category] || a.category;
+            } else if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
               categoryDisplay = a.selected_answer_label;
             }
             return `
@@ -659,22 +660,27 @@ const Results = () => {
       );
     }
     if (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) {
-      // Map kode → nama temperamen lengkap
-      const categoryNames: Record<string, string> = { 'K': 'Koleris', 'S': 'Sanguinis', 'M': 'Melankolis', 'P': 'Plegmatis' };
+      // Map semua varian (kode 1-huruf, EN, ID) ke nama temperamen Indonesia
+      const ppMap: Record<string, string> = {
+        K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+        S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+        M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+        P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+      };
       const order = ['Sanguinis', 'Koleris', 'Melankolis', 'Plegmatis'];
-      const valueByName: Record<string, number> = {};
-      data.forEach(d => { valueByName[categoryNames[d.name] || d.name] = d.value; });
+      const valueByName: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+      data.forEach(d => { const k = ppMap[d.name] || d.name; if (k in valueByName) valueByName[k] += d.value; });
       const mappedData = order.map(n => ({ name: n, value: valueByName[n] || 0 }));
-      // Skala Y maksimum = total soal / 4 (asumsi terdistribusi merata di 4 temperamen)
-      const yMax = Math.max(10, Math.ceil((r.total_questions || 40) / 4));
+      // Skala Y maksimum = total soal (max teoritis jika kandidat memilih dimensi sama setiap soal)
+      const yMax = Math.max(10, r.total_questions || 40);
       return (
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={mappedData} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
             <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12, fontWeight: 600 }} />
-            <YAxis domain={[0, yMax]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Skor', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-            <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 6, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+            <YAxis domain={[0, yMax]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Jumlah Jawaban', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
+            <Tooltip formatter={(v: any) => [`${v} jawaban`, 'Skor']} contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+            <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 6, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} label={{ position: 'top', fill: '#2dd4bf', fontSize: 12, fontWeight: 700 }} />
           </LineChart>
         </ResponsiveContainer>
       );
@@ -707,9 +713,14 @@ const Results = () => {
 
   // === Interpretasi otomatis Personality Plus (4 Temperamen) ===
   const buildPersonalityPlusInterpretation = (cats: Record<string, number>, total: number) => {
-    const names: Record<string, string> = { K: 'Koleris', S: 'Sanguinis', M: 'Melankolis', P: 'Plegmatis' };
+    const ppMap: Record<string, string> = {
+      K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+      S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+      M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+      P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+    };
     const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
-    Object.entries(cats).forEach(([k, v]) => { const n = names[k] || k; if (n in norm) norm[n] = v; });
+    Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
     const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
     const [dom, domVal] = sorted[0];
     const [sec, secVal] = sorted[1];
@@ -741,7 +752,7 @@ const Results = () => {
 
     const d = desc[dom];
     const s = desc[sec];
-    return `Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen DOMINAN: ${dom} (${pct(domVal)}%) dengan dukungan SEKUNDER: ${sec} (${pct(secVal)}%). Distribusi keseluruhan — Sanguinis: ${pct(norm.Sanguinis)}%, Koleris: ${pct(norm.Koleris)}%, Melankolis: ${pct(norm.Melankolis)}%, Plegmatis: ${pct(norm.Plegmatis)}%.
+    return `Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen DOMINAN: ${dom} (${domVal} jawaban — ${pct(domVal)}%) dengan dukungan SEKUNDER: ${sec} (${secVal} jawaban — ${pct(secVal)}%). Distribusi jumlah jawaban — Sanguinis: ${norm.Sanguinis}, Koleris: ${norm.Koleris}, Melankolis: ${norm.Melankolis}, Plegmatis: ${norm.Plegmatis}.
 
 KEKUATAN (${dom}): ${d.kekuatan}
 AREA PERHATIAN (${dom}): ${d.kelemahan}
@@ -877,7 +888,45 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                       <span className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-400 rounded"></div> Positif</span>
                     </div>
                   </div>
-                ) : (
+                ) : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
+                  const ppMap: Record<string, string> = {
+                    K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+                    S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+                    M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+                    P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+                  };
+                  const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+                  Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+                  const totalAns = Object.values(norm).reduce((a, b) => a + b, 0) || 1;
+                  const maxVal = Math.max(...Object.values(norm), 1);
+                  return (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Temperamen</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Jumlah Jawaban</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Proporsi</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                      </tr></thead>
+                      <tbody>
+                        {(['Sanguinis','Koleris','Melankolis','Plegmatis'] as const).map(t => {
+                          const v = norm[t]; const pctRel = (v / maxVal) * 100; const pctTotal = Math.round((v / totalAns) * 100);
+                          return (
+                            <tr key={t} className="border-b border-border/50">
+                              <td className="py-2 px-3 text-foreground font-medium">{t}</td>
+                              <td className="py-2 px-3 text-foreground">{v} jawaban</td>
+                              <td className="py-2 px-3 text-muted-foreground">{pctTotal}%</td>
+                              <td className="py-2 px-3 w-40">
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-full rounded-full bg-primary" style={{ width: `${pctRel}%` }} />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })() : (
                   // Other tests: Vertical bar chart
                   <table className="w-full text-sm">
                     <thead>
@@ -962,14 +1011,14 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                           </td>
                           <td className="py-2.5 px-3 text-xs text-muted-foreground">
                             {(() => {
-                              const categoryMap: Record<string, string> = {
-                                'K': 'Koleris',
-                                'S': 'Sanguinis',
-                                'M': 'Melankolis',
-                                'P': 'Plegmatis'
+                              const ppMap: Record<string, string> = {
+                                K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+                                S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+                                M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+                                P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
                               };
-                              if (r.test_name === "Personality Plus" && a.category) {
-                                return categoryMap[a.category] || a.category;
+                              if ((r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) && a.category) {
+                                return ppMap[a.category] || a.category;
                               }
                               if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
                                 return a.selected_answer_label;
