@@ -476,10 +476,11 @@ const Results = () => {
         <thead><tr><th style="width:36px;">No</th><th>Pertanyaan</th><th style="width:180px;">Jawaban</th><th style="width:120px;">Kategori</th></tr></thead>
         <tbody>
           ${answers.map(a => {
-            // Extract DISC categories from answer if it's a DISC test
+            const ppMap: Record<string, string> = { K:'Koleris',C:'Koleris',Choleric:'Koleris',Koleris:'Koleris',S:'Sanguinis',Sanguine:'Sanguinis',Sanguinis:'Sanguinis',M:'Melankolis',Melancholy:'Melankolis',Melancholic:'Melankolis',Melankolis:'Melankolis',P:'Plegmatis',Phlegmatic:'Plegmatis',Plegmatis:'Plegmatis',Plegmatic:'Plegmatis' };
             let categoryDisplay = a.category || "-";
-            if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
-              // For DISC, show the actual category from the answer (like D-C, I-S, etc.)
+            if ((r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) && a.category) {
+              categoryDisplay = ppMap[a.category] || a.category;
+            } else if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
               categoryDisplay = a.selected_answer_label;
             }
             return `
