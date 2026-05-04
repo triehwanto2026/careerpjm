@@ -52,6 +52,8 @@ interface OptionRow {
   is_correct: boolean;
   display_order: number;
   image_url: string | null;
+  option_definition: string | null;
+  option_definition_en: string | null;
 }
 
 const QUESTION_TYPES = [
@@ -60,6 +62,7 @@ const QUESTION_TYPES = [
   { value: "likert", label: "Skala Likert (1-5)" },
   { value: "true_false", label: "Benar/Salah" },
   { value: "text", label: "Esai Singkat" },
+  { value: "numeric", label: "Input Angka (Kraepelin)" },
 ];
 
 const SCORING_RULES = [
@@ -245,13 +248,17 @@ const QuestionBuilder = () => {
     const { value } = await Swal.fire({
       title: `Tambah Pilihan untuk Soal #${q.question_number}`,
       html: `
-        <div style="text-align:left;font-size:13px;">
+        <div style="text-align:left;font-size:13px;max-height:65vh;overflow-y:auto;padding-right:8px;">
           <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Label (A/B/C/dll) *</label>
           <input id="o-label" class="swal2-input" value="${nextLabel}" style="margin:0 0 10px;width:100%">
           <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Teks Pilihan (ID) *</label>
           <input id="o-text" class="swal2-input" style="margin:0 0 10px;width:100%">
           <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Teks Pilihan (EN)</label>
           <input id="o-text-en" class="swal2-input" style="margin:0 0 10px;width:100%">
+          <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Definisi Pilihan (ID) - untuk Personality Plus</label>
+          <textarea id="o-def" class="swal2-textarea" placeholder="Jelaskan arti dari pilihan ini..." style="margin:0 0 10px;width:100%;min-height:50px"></textarea>
+          <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Definisi Pilihan (EN)</label>
+          <textarea id="o-def-en" class="swal2-textarea" placeholder="Explain the meaning of this option..." style="margin:0 0 10px;width:100%;min-height:50px"></textarea>
           <div style="display:flex;gap:10px">
             <div style="flex:1">
               <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Nilai Skor</label>
@@ -273,7 +280,7 @@ const QuestionBuilder = () => {
       confirmButtonText: "Simpan",
       showCancelButton: true,
       cancelButtonText: "Batal",
-      width: 520,
+      width: 580,
       preConfirm: () => {
         const label = (document.getElementById("o-label") as HTMLInputElement).value.trim();
         const text = (document.getElementById("o-text") as HTMLInputElement).value.trim();
@@ -283,6 +290,8 @@ const QuestionBuilder = () => {
           option_label: label,
           option_text: text,
           option_text_en: (document.getElementById("o-text-en") as HTMLInputElement).value.trim(),
+          option_definition: (document.getElementById("o-def") as HTMLTextAreaElement).value.trim(),
+          option_definition_en: (document.getElementById("o-def-en") as HTMLTextAreaElement).value.trim(),
           score_value: parseFloat((document.getElementById("o-score") as HTMLInputElement).value) || 0,
           category_target: (document.getElementById("o-cat") as HTMLInputElement).value.trim(),
           is_correct: (document.getElementById("o-correct") as HTMLInputElement).checked,
@@ -392,6 +401,7 @@ const QuestionBuilder = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-foreground truncate">{o.option_text}</p>
                               {o.option_text_en && <p className="text-[10px] text-muted-foreground italic truncate">{o.option_text_en}</p>}
+                              {o.option_definition && <p className="text-[10px] text-primary/80 mt-0.5 truncate">Def: {o.option_definition}</p>}
                             </div>
                             <div className="flex items-center gap-1.5 text-[10px]">
                               {o.is_correct && <span className="flex items-center gap-0.5 rounded bg-emerald-400/10 text-emerald-400 px-1.5 py-0.5"><Check className="h-2.5 w-2.5" /> Benar</span>}

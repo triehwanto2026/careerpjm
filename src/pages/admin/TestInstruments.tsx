@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -235,6 +235,64 @@ const TestInstruments = () => {
     if (r.isConfirmed) { await supabase.from("test_instruments").delete().eq("id", id); await load(); }
   };
 
+  const handlePreview = async (t: InstrumentRow) => {
+    setOpenMenu(null);
+    const { data: questions } = await supabase.from("test_questions").select("*").eq("instrument_id", t.id).order("question_number");
+    
+    if (!questions || questions.length === 0) {
+      Swal.fire({ icon: "info", title: "Belum Ada Soal", text: "Alat tes ini belum memiliki soal.", ...SWAL_THEME });
+      return;
+    }
+
+    const questionIds = questions.map((q: any) => q.id);
+    const { data: options } = await supabase.from("test_question_options").select("*").in("question_id", questionIds).order("display_order");
+    
+    const optionsByQ: Record<string, any[]> = {};
+    (options || []).forEach((o: any) => {
+      (optionsByQ[o.question_id] ||= []).push(o);
+    });
+
+    const html = (questions as any[]).map((q: any) => {
+      const opts = optionsByQ[q.id] || [];
+      const optionsHtml = opts.map((o: any) => `
+        <div style="padding:8px 12px;margin:6px 0;background:${o.is_correct ? 'hsla(16,84%,56%,0.12)' : 'hsla(210,14%,15%,0.6)'};border-radius:8px;border:1px solid ${o.is_correct ? 'hsl(16,84%,56%,0.4)' : 'hsla(210,14%,25%)'};cursor:pointer;transition:all 0.2s;">
+          <div style="display:flex;align-items:start;gap:10px">
+            <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:${o.is_correct ? 'hsl(16,84%,56%)' : 'hsl(210,14%,30%)'};color:${o.is_correct ? 'white' : 'hsl(210,20%,92%)'};border-radius:4px;font-weight:600;font-size:11px">${o.option_label || ''}</span>
+            <div style="flex:1">
+              <p style="font-weight:500;color:hsl(210,20%,92%);margin:0 0 4px 0">${o.option_text || ''}</p>
+              ${o.option_definition ? `<p style="font-size:11px;color:hsl(210,20%,60%);margin:0;line-height:1.4">${o.option_definition}</p>` : ''}
+            </div>
+            ${o.is_correct ? '<span style="flex-shrink:0;color:hsl(16,84%,56%);font-size:11px;font-weight:600">✓</span>' : ''}
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <div style="margin-bottom:20px;padding:16px;background:hsla(210,14%,8%,0.7);border-radius:12px;border:1px solid hsla(210,14%,25%)">
+          <div style="display:flex;align-items:start;gap:10px;margin-bottom:12px">
+            <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:hsl(174,72%,46%);color:white;border-radius:8px;font-weight:600;font-size:13px">${q.question_number || ''}</span>
+            <div style="flex:1">
+              <p style="font-weight:600;color:hsl(210,20%,92%);margin:0 0 6px 0;line-height:1.5">${q.question_text || ''}</p>
+              ${q.question_text_en ? `<p style="font-size:12px;color:hsl(210,20%,60%);margin:0;font-style:italic">${q.question_text_en}</p>` : ''}
+            </div>
+          </div>
+          ${q.image_url ? `<img src="${q.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;margin:8px 0;border:1px solid hsla(210,14%,30%)">` : ''}
+          <div style="margin-top:8px">
+            ${optionsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    Swal.fire({
+      title: `Preview: ${t.name}`,
+      html: `<div style="text-align:left;max-height:70vh;overflow-y:auto;font-size:13px">${html}</div>`,
+      ...SWAL_THEME,
+      width: 700,
+      confirmButtonText: "Tutup",
+    });
+  };
+
   if (loading) return <AdminLayout><div className="flex items-center justify-center py-20 text-muted-foreground">Memuat data...</div></AdminLayout>;
 
   return (
@@ -289,11 +347,25 @@ const TestInstruments = () => {
                 <p><span className="text-foreground/70">Scoring:</span> {t.scoring_method}</p>
                 <p><span className="text-foreground/70">Audiens:</span> {t.target_audience}</p>
               </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handlePreview(t)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-muted text-foreground px-3 py-2 text-xs font-semibold hover:bg-muted/80 transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Preview
+                </button>
+                <button
+                  onClick={() => navigate(`/admin/test-instruments/${t.id}/questions`)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-semibold hover:bg-primary/20 transition-colors"
+                >
+                  <ListChecks className="h-3.5 w-3.5" /> Soal
+                </button>
+              </div>
               <button
-                onClick={() => navigate(`/admin/test-instruments/${t.id}/questions`)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-semibold hover:bg-primary/20 transition-colors"
+                onClick={() => navigate(`/admin/answer-keys?instrument=${t.id}`)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 text-primary px-3 py-2 text-xs font-semibold hover:bg-primary/10 transition-colors"
               >
-                <ListChecks className="h-3.5 w-3.5" /> Kelola Bank Soal
+                <Check className="h-3.5 w-3.5" /> Set Jawaban Benar
               </button>
             </div>
           ))}

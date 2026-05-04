@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Check, Save, ChevronLeft, ListChecks } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -11,6 +11,7 @@ interface O { id: string; question_id: string; option_label: string; option_text
 
 const AnswerKeyManager = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [instruments, setInstruments] = useState<Inst[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [questions, setQuestions] = useState<Q[]>([]);
@@ -21,8 +22,13 @@ const AnswerKeyManager = () => {
   useEffect(() => {
     supabase.from("test_instruments").select("id, name, category, scoring_method").order("name").then(({ data }) => {
       setInstruments((data as Inst[]) || []);
+      // Pre-select instrument from URL parameter
+      const instrumentParam = searchParams.get("instrument");
+      if (instrumentParam && (data as Inst[])?.some(i => i.id === instrumentParam)) {
+        setSelected(instrumentParam);
+      }
     });
-  }, []);
+  }, [searchParams]);
 
   const load = async (id: string) => {
     setLoading(true); setDirty({});
