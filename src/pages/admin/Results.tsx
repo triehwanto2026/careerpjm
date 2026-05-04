@@ -659,14 +659,19 @@ const Results = () => {
       );
     }
     if (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) {
-      // Map kode → nama temperamen lengkap
-      const categoryNames: Record<string, string> = { 'K': 'Koleris', 'S': 'Sanguinis', 'M': 'Melankolis', 'P': 'Plegmatis' };
+      // Map semua varian (kode 1-huruf, EN, ID) ke nama temperamen Indonesia
+      const ppMap: Record<string, string> = {
+        K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+        S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+        M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+        P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+      };
       const order = ['Sanguinis', 'Koleris', 'Melankolis', 'Plegmatis'];
-      const valueByName: Record<string, number> = {};
-      data.forEach(d => { valueByName[categoryNames[d.name] || d.name] = d.value; });
+      const valueByName: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+      data.forEach(d => { const k = ppMap[d.name] || d.name; if (k in valueByName) valueByName[k] += d.value; });
       const mappedData = order.map(n => ({ name: n, value: valueByName[n] || 0 }));
-      // Skala Y maksimum = total soal / 4 (asumsi terdistribusi merata di 4 temperamen)
-      const yMax = Math.max(10, Math.ceil((r.total_questions || 40) / 4));
+      // Skala Y maksimum = total soal (max teoritis jika kandidat memilih dimensi sama setiap soal)
+      const yMax = Math.max(10, r.total_questions || 40);
       return (
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={mappedData} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
