@@ -1010,14 +1010,14 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                           </td>
                           <td className="py-2.5 px-3 text-xs text-muted-foreground">
                             {(() => {
-                              const categoryMap: Record<string, string> = {
-                                'K': 'Koleris',
-                                'S': 'Sanguinis',
-                                'M': 'Melankolis',
-                                'P': 'Plegmatis'
+                              const ppMap: Record<string, string> = {
+                                K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+                                S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+                                M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+                                P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
                               };
-                              if (r.test_name === "Personality Plus" && a.category) {
-                                return categoryMap[a.category] || a.category;
+                              if ((r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) && a.category) {
+                                return ppMap[a.category] || a.category;
                               }
                               if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
                                 return a.selected_answer_label;
