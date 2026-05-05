@@ -462,7 +462,15 @@ const TestPage = () => {
       showSubtestExample(currentQuestion.subtest_code);
     }
   }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample]);
-  
+
+  // Show PAPIKOSTIK instructions when test starts
+  useEffect(() => {
+    const isPAPIKOSTIK = currentTest?.name.toLowerCase().includes('papikostick') || currentTest?.name.toLowerCase().includes('papi');
+    if (isPAPIKOSTIK && currentQIdx === 0) {
+      showPAPIKOSTIKInstructions();
+    }
+  }, [currentTestIdx, currentTest, currentQIdx, showPAPIKOSTIKInstructions]);
+
   // Show memory items for 3 minutes
   const showMemoryItems = useCallback(() => {
     const memoryItems = {
@@ -519,6 +527,45 @@ const TestPage = () => {
       },
       willClose: () => {
         clearInterval((Swal as any).timerInterval);
+      }
+    });
+  }, []);
+
+  // Show PAPIKOSTIK instructions and example
+  const showPAPIKOSTIKInstructions = useCallback(() => {
+    let html = '<div style="text-align:left;max-height:70vh;overflow-y:auto;">';
+    html += '<div style="margin-bottom:20px;padding:12px;background:hsla(174,72%,46%,0.1);border-radius:8px;border:1px solid hsla(174,72%,46%,0.3);">';
+    html += '<h3 style="margin:0 0 8px 0;color:hsl(174,72%,46%);">PETUNJUK PENGISIAN</h3>';
+    html += '<ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%);line-height:1.6">';
+    html += '<li>Dalam Lembar ini terdapat 90 pertanyaan (Tidak ada batasan waktu)</li>';
+    html += '<li>Semua pilihan dalam lembar ini bukanlah bersifat BENAR atau SALAH, jadi TIDAK ADA JAWABAN YANG SALAH</li>';
+    html += '<li>Pilihlah pernyataan paling dominant atau paling mencerminkan diri anda atau menggambarkan perasaan anda saat ini</li>';
+    html += '<li>Anda harus memilih jawaban a atau b dari dua pernyataan yang tersedia</li>';
+    html += '<li>Seluruh pertanyaan harus dijawab</li>';
+    html += '</ul>';
+    html += '</div>';
+    
+    html += '<h4 style="margin-bottom:15px;color:hsl(210,20%,92%);">CONTOH:</h4>';
+    html += '<div style="margin-bottom:20px;padding:12px;background:hsla(210,14%,15%,0.6);border-radius:8px;border:1px solid hsla(210,14%,25%);">';
+    html += '<p style="margin:0 0 10px 0;color:hsl(210,20%,92%);font-weight:500;">Contoh Soal 1:</p>';
+    html += '<p style="margin:0 0 8px 0;color:hsl(210,20%,75%);">a. Saya Seorang Pekerja Giat</p>';
+    html += '<p style="margin:0 0 8px 0;color:hsl(210,20%,75%);">b. Saya Bukan Seorang Pemurung</p>';
+    html += '<p style="margin:5px 0 0 0;color:hsl(174,72%,46%);font-size:13px;font-style:italic;">Bila anda merasa bahwa pernyataan pertama "Saya seorang pekerja giat" lebih mencerminkan diri anda saat ini ketimbang pernyataan kedua "Saya Bukan seorang pemurung" maka pilihlah a. Begitu pula sebaliknya.</p>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    Swal.fire({
+      title: 'SOAL PAPI Kostick',
+      html: html,
+      confirmButtonText: 'Mulai Tes',
+      showConfirmButton: true,
+      showCloseButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      ...SWAL_THEME,
+      customClass: {
+        popup: 'papikostik-modal'
       }
     });
   }, []);
