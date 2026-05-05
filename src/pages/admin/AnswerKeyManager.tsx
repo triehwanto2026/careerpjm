@@ -54,8 +54,13 @@ const AnswerKeyManager = () => {
     });
   };
 
-  const setCorrect = (qid: string, oid: string) => {
-    opts[qid].forEach(o => patch(o.id, { is_correct: o.id === oid }));
+  const setCorrect = (qid: string, oid: string, multi: boolean) => {
+    if (multi) {
+      const target = opts[qid].find(o => o.id === oid);
+      patch(oid, { is_correct: !target?.is_correct });
+    } else {
+      opts[qid].forEach(o => patch(o.id, { is_correct: o.id === oid }));
+    }
   };
 
   const saveAll = async () => {
