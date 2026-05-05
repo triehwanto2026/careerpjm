@@ -2,8 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, User, Lock, Eye, EyeOff } from "lucide-react";
 import Swal from "sweetalert2";
-import { ADMIN_CREDENTIALS } from "@/data/adminStore";
+import { supabase } from "@/integrations/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
+
+const hashPassword = async (password: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+};
 
 const AdminLogin = () => {
   const [username, setUsername] = useState("");
@@ -23,15 +31,52 @@ const AdminLogin = () => {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
 
-    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+    try {
+      // Hash password and verify against database
+      const passwordHash = await hashPassword(password);
+
+      const { data: user, error } = await supabase
+        .from("admin_users")
+        .select("*, admin_roles(name, permissions)")
+        .eq("username", username.trim())
+        .eq("password_hash", passwordHash)
+        .eq("is_active", true)
+        .single();
+
+      if (error || !user) {
+        setLoading(false);
+        Swal.fire({
+          icon: "error", title: "Login Gagal", text: "Username atau password salah, atau akun tidak aktif.",
+          background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
+        });
+        return;
+      }
+
+      // Update last login
+      await supabase
+        .from("admin_users")
+        .update({ last_login: new Date().toISOString() })
+        .eq("id", user.id);
+
+      // Store admin session with user info and permissions
+      const roleData = user.admin_roles as { name: string; permissions: string[] } | null;
+      const adminSession = {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        role_id: user.role_id,
+        role_name: roleData?.name || "",
+        permissions: roleData?.permissions || [],
+      };
+
       sessionStorage.setItem("psytest_admin", "true");
+      sessionStorage.setItem("psytest_admin_user", JSON.stringify(adminSession));
       navigate("/admin/dashboard", { replace: true });
-    } else {
+    } catch {
       setLoading(false);
       Swal.fire({
-        icon: "error", title: "Login Gagal", text: "Username atau password salah.",
+        icon: "error", title: "Login Gagal", text: "Terjadi kesalahan. Silakan coba lagi.",
         background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
       });
     }

@@ -12,8 +12,13 @@ interface Setting {
   category: string;
   description: string;
   is_public: boolean;
-  [key: string]: any;
 }
+
+const SWAL_THEME = {
+  background: "hsl(var(--card))" as string,
+  color: "hsl(var(--foreground))" as string,
+  confirmButtonColor: "hsl(168, 76%, 42%)" as string,
+};
 
 const Settings = () => {
   const [settings, setSettings] = useState<Setting[]>([]);
@@ -21,6 +26,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("branding");
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [hasChanges, setHasChanges] = useState(false);
 
   const categories = [
     { id: "branding", name: "Branding", icon: Palette, description: "Logo, warna, header, footer" },
@@ -30,15 +36,30 @@ const Settings = () => {
   ];
 
   const loadSettings = async () => {
-    const { data } = await (supabase as any).from("app_settings").select("*").order("category, key");
-    setSettings((data as Setting[]) || []);
-    
-    // Initialize form data
-    const initialData: Record<string, string> = {};
-    (data as Setting[])?.forEach(s => {
-      initialData[s.key] = s.value;
-    });
-    setFormData(initialData);
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("*")
+      .order("category, key");
+
+    if (error) {
+      console.error("Error loading settings:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Gagal memuat pengaturan",
+        text: error.message,
+        ...SWAL_THEME,
+      });
+    } else {
+      const loaded = (data as Setting[]) || [];
+      setSettings(loaded);
+      const initialData: Record<string, string> = {};
+      loaded.forEach((s) => {
+        initialData[s.key] = s.value;
+      });
+      setFormData(initialData);
+      setHasChanges(false);
+    }
     setLoading(false);
   };
 
@@ -46,132 +67,185 @@ const Settings = () => {
     loadSettings();
   }, []);
 
+  const handleFieldChange = (key: string, value: string) => {
+    setFormData((prev) => {
+      const next = { ...prev, [key]: value };
+      // Check if any value differs from original
+      const original = settings.find((s) => s.key === key)?.value;
+      const anyChanged = Object.entries(next).some(([k, v]) => {
+        const orig = settings.find((s) => s.key === k)?.value;
+        return v !== orig;
+      });
+      setHasChanges(anyChanged);
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    try {
-      const updates = Object.entries(formData).map(([key, value]) => 
-        (supabase as any).from("app_settings").update({ value }).eq("key", key)
-      );
-      
-      await Promise.all(updates);
-      
+    const errors: string[] = [];
+    let successCount = 0;
+
+    for (const [key, value] of Object.entries(formData)) {
+      const originalValue = settings.find((s) => s.key === key)?.value;
+      if (value === originalValue) continue; // Skip unchanged
+
+      const { data: updatedRows, error } = await supabase
+        .from("app_settings")
+        .update({ value })
+        .eq("key", key)
+        .select();
+
+      if (error) {
+        errors.push(`${key}: ${error.message}`);
+      } else if (!updatedRows || updatedRows.length === 0) {
+        errors.push(`${key}: Tidak berhasil disimpan (cek RLS policy)`);
+      } else {
+        successCount++;
+      }
+    }
+
+    if (errors.length > 0) {
+      await Swal.fire({
+        icon: "warning",
+        title: `${successCount} tersimpan, ${errors.length} gagal`,
+        html: `<div style="text-align:left;font-size:12px;">${errors.map((e) => `• ${e}`).join("<br>")}</div>`,
+        ...SWAL_THEME,
+      });
+    } else if (successCount > 0) {
       await Swal.fire({
         icon: "success",
         title: "Berhasil",
-        text: "Pengaturan berhasil disimpan",
-        confirmButtonColor: "#0f766e",
+        text: `${successCount} pengaturan berhasil disimpan`,
+        timer: 1500,
+        showConfirmButton: false,
+        ...SWAL_THEME,
       });
-      
-      await loadSettings();
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Gagal",
-        text: "Terjadi kesalahan saat menyimpan pengaturan",
-        confirmButtonColor: "#dc2626",
+      setHasChanges(false);
+    } else {
+      await Swal.fire({
+        icon: "info",
+        title: "Tidak ada perubahan",
+        text: "Tidak ada pengaturan yang diubah",
+        timer: 1500,
+        showConfirmButton: false,
+        ...SWAL_THEME,
       });
-    } finally {
-      setSaving(false);
     }
+
+    await loadSettings();
+    setSaving(false);
   };
 
-  const handleImageUpload = async (setting: Setting, file: File) => {
+  const handleImageUpload = async (settingKey: string, file: File) => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${setting.key}_${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${settingKey}_${Date.now()}.${fileExt}`;
 
-      // Upload file to Supabase storage
-      const { error: uploadError } = await (supabase as any).storage
-        .from('settings-images')
-        .upload(filePath, file);
+      const { error: uploadError } = await supabase.storage
+        .from("settings-images")
+        .upload(fileName, file, { upsert: true });
 
       if (uploadError) {
         throw uploadError;
       }
 
-      // Get public URL
-      const { data: { publicUrl } } = (supabase as any).storage
-        .from('settings-images')
-        .getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage
+        .from("settings-images")
+        .getPublicUrl(fileName);
 
-      // Update form data with new URL
-      setFormData(prev => ({ ...prev, [setting.key]: publicUrl }));
+      handleFieldChange(settingKey, urlData.publicUrl);
 
       Swal.fire({
         icon: "success",
         title: "Berhasil",
         text: "Gambar berhasil diupload",
-        confirmButtonColor: "#0f766e",
         timer: 1500,
         showConfirmButton: false,
+        ...SWAL_THEME,
       });
-    } catch (error) {
-      console.error('Upload error:', error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Upload error:", error);
       Swal.fire({
         icon: "error",
         title: "Gagal Upload",
-        text: "Terjadi kesalahan saat mengupload gambar",
-        confirmButtonColor: "#dc2626",
+        text: `Terjadi kesalahan saat mengupload gambar: ${errMsg}`,
+        ...SWAL_THEME,
       });
     }
   };
 
   const handleReset = async () => {
+    if (!hasChanges) {
+      await Swal.fire({
+        icon: "info",
+        title: "Tidak ada perubahan",
+        text: "Belum ada pengaturan yang diubah",
+        timer: 1500,
+        showConfirmButton: false,
+        ...SWAL_THEME,
+      });
+      return;
+    }
+
     const result = await Swal.fire({
       icon: "warning",
-      title: "Reset Pengaturan?",
-      text: "Pengaturan akan dikembalikan ke nilai default",
+      title: "Batalkan Perubahan?",
+      text: "Perubahan yang belum disimpan akan dibatalkan",
       showCancelButton: true,
-      confirmButtonText: "Ya, Reset",
-      cancelButtonText: "Batal",
-      confirmButtonColor: "#dc2626",
+      confirmButtonText: "Ya, Batalkan",
+      cancelButtonText: "Tetap Edit",
+      confirmButtonColor: "hsl(0, 72%, 51%)",
+      ...SWAL_THEME,
     });
 
     if (result.isConfirmed) {
       await loadSettings();
-      Swal.fire({
-        icon: "success",
-        title: "Direset",
-        text: "Pengaturan telah dikembalikan ke nilai tersimpan",
-        confirmButtonColor: "#0f766e",
-      });
     }
   };
 
   const renderField = (setting: Setting) => {
-    const handleChange = (value: string) => {
-      setFormData(prev => ({ ...prev, [setting.key]: value }));
-    };
+    const currentValue = formData[setting.key] || "";
+    const originalValue = settings.find((s) => s.key === setting.key)?.value || "";
+    const isChanged = currentValue !== originalValue;
+
+    const baseInputClass =
+      "w-full px-3 py-2 rounded-lg border bg-background text-sm text-foreground outline-none transition-colors";
+    const borderClass = isChanged
+      ? "border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+      : "border-input focus:border-primary";
 
     switch (setting.value_type) {
       case "boolean":
         return (
           <div className="flex items-center gap-3">
             <button
-              onClick={() => handleChange(formData[setting.key] === "true" ? "false" : "true")}
+              type="button"
+              onClick={() => handleFieldChange(setting.key, currentValue === "true" ? "false" : "true")}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                formData[setting.key] === "true" ? "bg-primary" : "bg-input"
+                currentValue === "true" ? "bg-primary" : "bg-muted"
               }`}
             >
               <span
                 className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  formData[setting.key] === "true" ? "left-7" : "left-1"
+                  currentValue === "true" ? "translate-x-7" : "translate-x-1"
                 }`}
               />
             </button>
             <span className="text-sm text-muted-foreground">
-              {formData[setting.key] === "true" ? "Aktif" : "Nonaktif"}
+              {currentValue === "true" ? "Aktif" : "Nonaktif"}
             </span>
+            {isChanged && <span className="text-xs text-primary font-medium">(diubah)</span>}
           </div>
         );
       case "number":
         return (
           <input
             type="number"
-            value={formData[setting.key] || ""}
-            onChange={(e) => handleChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            value={currentValue}
+            onChange={(e) => handleFieldChange(setting.key, e.target.value)}
+            className={`${baseInputClass} ${borderClass}`}
           />
         );
       case "image_url":
@@ -180,12 +254,12 @@ const Settings = () => {
             <div className="flex gap-2">
               <input
                 type="text"
-                value={formData[setting.key] || ""}
-                onChange={(e) => handleChange(e.target.value)}
+                value={currentValue}
+                onChange={(e) => handleFieldChange(setting.key, e.target.value)}
                 placeholder="https://..."
-                className="flex-1 px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                className={`${baseInputClass} ${borderClass} flex-1`}
               />
-              <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-colors cursor-pointer">
+              <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all cursor-pointer shrink-0">
                 <Upload className="h-4 w-4" />
                 <span className="text-sm font-medium">Upload</span>
                 <input
@@ -194,27 +268,27 @@ const Settings = () => {
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      handleImageUpload(setting, file);
-                    }
+                    if (file) handleImageUpload(setting.key, file);
+                    e.currentTarget.value = "";
                   }}
                 />
               </label>
             </div>
-            {formData[setting.key] && (
-              <div className="relative border border-border rounded-lg p-2">
+            {currentValue && (
+              <div className="relative border border-border rounded-lg p-2 inline-block">
                 <img
-                  src={formData[setting.key]}
+                  src={currentValue}
                   alt="Preview"
-                  className="max-w-full h-32 object-contain mx-auto"
-                  onError={(e) => (e.currentTarget.style.display = "none")}
+                  className="max-h-32 object-contain rounded"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                 />
                 <button
-                  onClick={() => handleChange("")}
-                  className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors"
+                  type="button"
+                  onClick={() => handleFieldChange(setting.key, "")}
+                  className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors"
                   title="Hapus gambar"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3" />
                 </button>
               </div>
             )}
@@ -223,20 +297,20 @@ const Settings = () => {
       case "json":
         return (
           <textarea
-            value={formData[setting.key] || ""}
-            onChange={(e) => handleChange(e.target.value)}
-            rows={3}
+            value={currentValue}
+            onChange={(e) => handleFieldChange(setting.key, e.target.value)}
+            rows={4}
             placeholder='{"key": "value"}'
-            className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
+            className={`${baseInputClass} ${borderClass} font-mono text-xs`}
           />
         );
       default:
         return (
           <input
             type="text"
-            value={formData[setting.key] || ""}
-            onChange={(e) => handleChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            value={currentValue}
+            onChange={(e) => handleFieldChange(setting.key, e.target.value)}
+            className={`${baseInputClass} ${borderClass}`}
           />
         );
     }
@@ -255,19 +329,23 @@ const Settings = () => {
           <div className="flex gap-2">
             <button
               onClick={handleReset}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
-              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm"
+              disabled={loading || !hasChanges}
             >
               <RefreshCw className="h-4 w-4" />
-              Reset
+              Batal
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-colors disabled:opacity-50"
+              disabled={saving || loading || !hasChanges}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                hasChanges
+                  ? "bg-primary text-primary-foreground hover:brightness-110"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              }`}
             >
               <Save className="h-4 w-4" />
-              {saving ? "Menyimpan..." : "Simpan"}
+              {saving ? "Menyimpan..." : hasChanges ? "Simpan Perubahan" : "Tersimpan"}
             </button>
           </div>
         </div>
@@ -322,11 +400,16 @@ const Settings = () => {
                     <div key={setting.id} className="space-y-2">
                       <div className="flex items-center gap-2">
                         <label className="text-sm font-medium text-foreground">
-                          {setting.key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                          {setting.key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                         </label>
                         {setting.is_public && (
                           <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
                             Publik
+                          </span>
+                        )}
+                        {(formData[setting.key] || "") !== (settings.find((s) => s.key === setting.key)?.value || "") && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                            Diubah
                           </span>
                         )}
                       </div>

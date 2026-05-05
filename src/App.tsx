@@ -16,6 +16,8 @@ import Settings from "./pages/admin/Settings";
 import QuestionBuilder from "./pages/admin/QuestionBuilder";
 import AnswerKeyManager from "./pages/admin/AnswerKeyManager";
 import InterpretationManager from "./pages/admin/InterpretationManager";
+import UserManagement from "./pages/admin/UserManagement";
+import RoleManagement from "./pages/admin/RoleManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,8 @@ const App = () => (
             <Route path="/admin/candidates" element={<Candidates />} />
             <Route path="/admin/results" element={<Results />} />
             <Route path="/admin/settings" element={<Settings />} />
+            <Route path="/admin/users" element={<UserManagement />} />
+            <Route path="/admin/roles" element={<RoleManagement />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

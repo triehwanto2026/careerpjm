@@ -560,6 +560,80 @@ export type Database = {
           },
         ]
       }
+      admin_roles: {
+        Row: {
+          id: string
+          name: string
+          description: string
+          permissions: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string
+          permissions?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string
+          permissions?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      admin_users: {
+        Row: {
+          id: string
+          username: string
+          email: string
+          password_hash: string
+          full_name: string
+          role_id: string | null
+          is_active: boolean
+          last_login: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          username: string
+          email: string
+          password_hash: string
+          full_name?: string
+          role_id?: string | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          username?: string
+          email?: string
+          password_hash?: string
+          full_name?: string
+          role_id?: string | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_users_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "admin_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_sessions: {
         Row: {
           activation_code_id: string
