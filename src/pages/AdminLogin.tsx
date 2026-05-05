@@ -36,15 +36,21 @@ const AdminLogin = () => {
       // Hash password and verify against database
       const passwordHash = await hashPassword(password);
 
-      const { data: user, error } = await supabase
+      console.log("Attempting login for:", username.trim());
+      console.log("Password hash:", passwordHash);
+
+      // First try without join to check basic access
+      const { data: basicUser, error: basicError } = await supabase
         .from("admin_users")
-        .select("*, admin_roles(name, permissions)")
+        .select("*")
         .eq("username", username.trim())
         .eq("password_hash", passwordHash)
         .eq("is_active", true)
         .single();
 
-      if (error || !user) {
+      console.log("Basic user query:", { data: basicUser, error: basicError });
+
+      if (basicError || !basicUser) {
         setLoading(false);
         Swal.fire({
           icon: "error", title: "Login Gagal", text: "Username atau password salah, atau akun tidak aktif.",
@@ -53,6 +59,46 @@ const AdminLogin = () => {
         return;
       }
 
+      // Now try with role join
+      const { data: user, error: roleError } = await supabase
+        .from("admin_users")
+        .select("*, admin_roles(name, permissions)")
+        .eq("id", basicUser.id)
+        .single();
+
+      console.log("Role join query:", { data: user, error: roleError });
+
+      if (roleError || !user) {
+        // Fallback: use basic user data and fetch role separately
+        const { data: roleData, error: roleFetchError } = await supabase
+          .from("admin_roles")
+          .select("*")
+          .eq("id", basicUser.role_id)
+          .single();
+
+        console.log("Separate role fetch:", { data: roleData, error: roleFetchError });
+
+        const userWithRole = {
+          ...basicUser,
+          admin_roles: roleData || { name: "Unknown", permissions: [] },
+        };
+        await completeLogin(userWithRole);
+        return;
+      }
+
+      await completeLogin(user);
+    } catch (err) {
+      console.error("Login error:", err);
+      setLoading(false);
+      Swal.fire({
+        icon: "error", title: "Login Gagal", text: "Terjadi kesalahan. Silakan coba lagi.",
+        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
+      });
+    }
+  };
+
+  const completeLogin = async (user: any) => {
+    try {
       // Update last login
       await supabase
         .from("admin_users")
@@ -76,7 +122,7 @@ const AdminLogin = () => {
     } catch {
       setLoading(false);
       Swal.fire({
-        icon: "error", title: "Login Gagal", text: "Terjadi kesalahan. Silakan coba lagi.",
+        icon: "error", title: "Login Gagal", text: "Terjadi kesalahan saat menyimpan sesi.",
         background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
       });
     }
