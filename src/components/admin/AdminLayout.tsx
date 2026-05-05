@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NavItem {
   path: string;
@@ -52,6 +53,29 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
+  const [adminPanelName, setAdminPanelName] = useState("PsyAdmin");
+  const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null);
+
+  // Fetch admin branding settings
+  useEffect(() => {
+    const fetchBranding = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .in("key", ["admin_panel_name", "admin_logo_url"]);
+
+      if (data) {
+        data.forEach((setting) => {
+          if (setting.key === "admin_panel_name") {
+            setAdminPanelName(setting.value || "PsyAdmin");
+          } else if (setting.key === "admin_logo_url") {
+            setAdminLogoUrl(setting.value || null);
+          }
+        });
+      }
+    };
+    fetchBranding();
+  }, []);
 
   useEffect(() => {
     if (sessionStorage.getItem("psytest_admin") !== "true") {
@@ -174,8 +198,14 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform duration-300 md:static md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-foreground">Psy<span className="text-gradient">Admin</span></span>
+            {adminLogoUrl ? (
+              <img src={adminLogoUrl} alt="Admin Logo" className="h-6 w-6 object-contain" />
+            ) : (
+              <ShieldCheck className="h-6 w-6 text-primary" />
+            )}
+            <span className="text-lg font-bold text-foreground">
+              {adminPanelName}
+            </span>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="text-muted-foreground md:hidden"><X className="h-5 w-5" /></button>
         </div>
