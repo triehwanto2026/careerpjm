@@ -375,6 +375,76 @@ const Results = () => {
       </div>
     </div>
 
+    ${(() => {
+      // For CFIT, calculate IQ from correct answers
+      let cfitIqHtml = '';
+      if (r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) {
+        const iqClassification: Record<number, { iq: number; classification: string }> = {
+          49: { iq: 183, classification: "GENIUS" },
+          48: { iq: 179, classification: "GENIUS" },
+          47: { iq: 176, classification: "GENIUS" },
+          46: { iq: 173, classification: "GENIUS" },
+          45: { iq: 169, classification: "VERY SUPERIOR" },
+          44: { iq: 167, classification: "VERY SUPERIOR" },
+          43: { iq: 165, classification: "VERY SUPERIOR" },
+          42: { iq: 161, classification: "VERY SUPERIOR" },
+          41: { iq: 157, classification: "VERY SUPERIOR" },
+          40: { iq: 155, classification: "VERY SUPERIOR" },
+          39: { iq: 152, classification: "VERY SUPERIOR" },
+          38: { iq: 149, classification: "VERY SUPERIOR" },
+          37: { iq: 145, classification: "VERY SUPERIOR" },
+          36: { iq: 142, classification: "VERY SUPERIOR" },
+          35: { iq: 140, classification: "VERY SUPERIOR" },
+          34: { iq: 137, classification: "SUPERIOR" },
+          33: { iq: 133, classification: "SUPERIOR" },
+          32: { iq: 131, classification: "SUPERIOR" },
+          31: { iq: 128, classification: "SUPERIOR" },
+          30: { iq: 124, classification: "SUPERIOR" },
+          29: { iq: 121, classification: "SUPERIOR" },
+          28: { iq: 119, classification: "HIGH AVERAGE" },
+          27: { iq: 116, classification: "HIGH AVERAGE" },
+          26: { iq: 113, classification: "HIGH AVERAGE" },
+          25: { iq: 109, classification: "AVERAGE" },
+          24: { iq: 106, classification: "AVERAGE" },
+          23: { iq: 103, classification: "AVERAGE" },
+          22: { iq: 100, classification: "AVERAGE" },
+          21: { iq: 96, classification: "AVERAGE" },
+          20: { iq: 94, classification: "AVERAGE" },
+          19: { iq: 91, classification: "AVERAGE" },
+          18: { iq: 88, classification: "LOW AVERAGE" },
+          17: { iq: 85, classification: "LOW AVERAGE" },
+          16: { iq: 81, classification: "LOW AVERAGE" },
+          15: { iq: 78, classification: "BOEDERLINE MENTAL RETARDATION" },
+          14: { iq: 75, classification: "BOEDERLINE MENTAL RETARDATION" },
+          13: { iq: 72, classification: "BOEDERLINE MENTAL RETARDATION" },
+          12: { iq: 70, classification: "BOEDERLINE MENTAL RETARDATION" },
+          11: { iq: 67, classification: "MILD MENTAL RETARDATION" },
+          10: { iq: 65, classification: "MILD MENTAL RETARDATION" },
+          9: { iq: 60, classification: "MILD MENTAL RETARDATION" },
+          8: { iq: 57, classification: "MILD MENTAL RETARDATION" },
+          7: { iq: 55, classification: "MILD MENTAL RETARDATION" },
+          6: { iq: 52, classification: "MILD MENTAL RETARDATION" },
+          5: { iq: 48, classification: "MODERATE MENTAL RETARDATION" },
+          4: { iq: 47, classification: "MODERATE MENTAL RETARDATION" },
+          3: { iq: 45, classification: "MODERATE MENTAL RETARDATION" },
+          2: { iq: 43, classification: "MODERATE MENTAL RETARDATION" },
+          1: { iq: 40, classification: "MODERATE MENTAL RETARDATION" },
+          0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" }
+        };
+        const correctCount = answers.filter(a => a.is_correct === true).length;
+        const iqInfo = iqClassification[correctCount] || { iq: 0, classification: "UNKNOWN" };
+        cfitIqHtml = `
+          <div class="score-cards">
+            <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
+            <div class="score-card"><div class="label">IQ Score</div><div class="value">${iqInfo.iq}</div></div>
+            <div class="score-card"><div class="label">Klasifikasi</div><div class="value" style="font-size:13pt;margin-top:8px;">${iqInfo.classification}</div></div>
+          </div>
+          <p style="text-align:center;font-size:9pt;color:#64748b;margin-top:8px;">Jawaban Benar: ${correctCount} / ${r.total_questions}</p>
+        `;
+      }
+      return cfitIqHtml;
+    })()}
+    ${!(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? `
     <div class="section">
       <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
       <div class="score-cards">
@@ -383,6 +453,7 @@ const Results = () => {
         <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
       </div>
     </div>
+    ` : ''}
 
     ${discChartsHTML}
 
@@ -698,6 +769,102 @@ const Results = () => {
         </ResponsiveContainer>
       );
     }
+    // CFIT 3A - Culture Fair Intelligence Test
+    if (r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) {
+      // CFIT IQ Classification Table based on Raw Score (correct answers)
+      const iqClassification: Record<number, { iq: number; classification: string }> = {
+        49: { iq: 183, classification: "GENIUS" },
+        48: { iq: 179, classification: "GENIUS" },
+        47: { iq: 176, classification: "GENIUS" },
+        46: { iq: 173, classification: "GENIUS" },
+        45: { iq: 169, classification: "VERY SUPERIOR" },
+        44: { iq: 167, classification: "VERY SUPERIOR" },
+        43: { iq: 165, classification: "VERY SUPERIOR" },
+        42: { iq: 161, classification: "VERY SUPERIOR" },
+        41: { iq: 157, classification: "VERY SUPERIOR" },
+        40: { iq: 155, classification: "VERY SUPERIOR" },
+        39: { iq: 152, classification: "VERY SUPERIOR" },
+        38: { iq: 149, classification: "VERY SUPERIOR" },
+        37: { iq: 145, classification: "VERY SUPERIOR" },
+        36: { iq: 142, classification: "VERY SUPERIOR" },
+        35: { iq: 140, classification: "VERY SUPERIOR" },
+        34: { iq: 137, classification: "SUPERIOR" },
+        33: { iq: 133, classification: "SUPERIOR" },
+        32: { iq: 131, classification: "SUPERIOR" },
+        31: { iq: 128, classification: "SUPERIOR" },
+        30: { iq: 124, classification: "SUPERIOR" },
+        29: { iq: 121, classification: "SUPERIOR" },
+        28: { iq: 119, classification: "HIGH AVERAGE" },
+        27: { iq: 116, classification: "HIGH AVERAGE" },
+        26: { iq: 113, classification: "HIGH AVERAGE" },
+        25: { iq: 109, classification: "AVERAGE" },
+        24: { iq: 106, classification: "AVERAGE" },
+        23: { iq: 103, classification: "AVERAGE" },
+        22: { iq: 100, classification: "AVERAGE" },
+        21: { iq: 96, classification: "AVERAGE" },
+        20: { iq: 94, classification: "AVERAGE" },
+        19: { iq: 91, classification: "AVERAGE" },
+        18: { iq: 88, classification: "LOW AVERAGE" },
+        17: { iq: 85, classification: "LOW AVERAGE" },
+        16: { iq: 81, classification: "LOW AVERAGE" },
+        15: { iq: 78, classification: "BOEDERLINE MENTAL RETARDATION" },
+        14: { iq: 75, classification: "BOEDERLINE MENTAL RETARDATION" },
+        13: { iq: 72, classification: "BOEDERLINE MENTAL RETARDATION" },
+        12: { iq: 70, classification: "BOEDERLINE MENTAL RETARDATION" },
+        11: { iq: 67, classification: "MILD MENTAL RETARDATION" },
+        10: { iq: 65, classification: "MILD MENTAL RETARDATION" },
+        9: { iq: 60, classification: "MILD MENTAL RETARDATION" },
+        8: { iq: 57, classification: "MILD MENTAL RETARDATION" },
+        7: { iq: 55, classification: "MILD MENTAL RETARDATION" },
+        6: { iq: 52, classification: "MILD MENTAL RETARDATION" },
+        5: { iq: 48, classification: "MODERATE MENTAL RETARDATION" },
+        4: { iq: 47, classification: "MODERATE MENTAL RETARDATION" },
+        3: { iq: 45, classification: "MODERATE MENTAL RETARDATION" },
+        2: { iq: 43, classification: "MODERATE MENTAL RETARDATION" },
+        1: { iq: 40, classification: "MODERATE MENTAL RETARDATION" },
+        0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" }
+      };
+
+      // Calculate raw score from correct answers
+      const correctAnswers = answers.filter(a => a.is_correct === true).length;
+      const rawScore = correctAnswers;
+      const iqInfo = iqClassification[rawScore] || { iq: 0, classification: "UNKNOWN" };
+
+      return (
+        <div className="space-y-4">
+          {/* IQ Score Display */}
+          <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5 p-6 text-center">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Hasil IQ dan Klasifikasi</p>
+            <div className="flex items-center justify-center gap-6">
+              <div>
+                <p className="text-5xl font-bold text-primary">{iqInfo.iq}</p>
+                <p className="text-xs text-muted-foreground mt-1">IQ Score</p>
+              </div>
+              <div className="w-px h-16 bg-border"></div>
+              <div>
+                <p className="text-2xl font-bold text-primary">{iqInfo.classification}</p>
+                <p className="text-xs text-muted-foreground mt-1">Klasifikasi</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">Jawaban Benar: {rawScore} / {r.total_questions}</p>
+          </div>
+
+          {/* Line Chart with visible number scale */}
+          <div className="rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-xs font-semibold text-foreground mb-3">Grafik Hasil — CFIT 3A (Culture Fair Intelligence Test)</p>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={data} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+                <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
+                <YAxis domain={[0, 50]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Skor', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any) => [v, 'Skor']} />
+                <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} label={{ position: 'top', fill: '#2dd4bf', fontSize: 11, fontWeight: 700 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      );
+    }
     return (
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data}>
@@ -825,8 +992,69 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                 <p className="text-lg font-bold text-primary mt-1">{r.test_name}</p>
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
-                <p className="text-xs text-muted-foreground">Skor</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{r.score}<span className="text-lg text-muted-foreground">%</span></p>
+                <p className="text-xs text-muted-foreground">{(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? "IQ Score" : "Skor"}</p>
+                <p className="text-3xl font-bold text-foreground mt-1">
+                  {(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) 
+                    ? (() => {
+                        const iqClassification: Record<number, { iq: number; classification: string }> = {
+                          49: { iq: 183, classification: "GENIUS" },
+                          48: { iq: 179, classification: "GENIUS" },
+                          47: { iq: 176, classification: "GENIUS" },
+                          46: { iq: 173, classification: "GENIUS" },
+                          45: { iq: 169, classification: "VERY SUPERIOR" },
+                          44: { iq: 167, classification: "VERY SUPERIOR" },
+                          43: { iq: 165, classification: "VERY SUPERIOR" },
+                          42: { iq: 161, classification: "VERY SUPERIOR" },
+                          41: { iq: 157, classification: "VERY SUPERIOR" },
+                          40: { iq: 155, classification: "VERY SUPERIOR" },
+                          39: { iq: 152, classification: "VERY SUPERIOR" },
+                          38: { iq: 149, classification: "VERY SUPERIOR" },
+                          37: { iq: 145, classification: "VERY SUPERIOR" },
+                          36: { iq: 142, classification: "VERY SUPERIOR" },
+                          35: { iq: 140, classification: "VERY SUPERIOR" },
+                          34: { iq: 137, classification: "SUPERIOR" },
+                          33: { iq: 133, classification: "SUPERIOR" },
+                          32: { iq: 131, classification: "SUPERIOR" },
+                          31: { iq: 128, classification: "SUPERIOR" },
+                          30: { iq: 124, classification: "SUPERIOR" },
+                          29: { iq: 121, classification: "SUPERIOR" },
+                          28: { iq: 119, classification: "HIGH AVERAGE" },
+                          27: { iq: 116, classification: "HIGH AVERAGE" },
+                          26: { iq: 113, classification: "HIGH AVERAGE" },
+                          25: { iq: 109, classification: "AVERAGE" },
+                          24: { iq: 106, classification: "AVERAGE" },
+                          23: { iq: 103, classification: "AVERAGE" },
+                          22: { iq: 100, classification: "AVERAGE" },
+                          21: { iq: 96, classification: "AVERAGE" },
+                          20: { iq: 94, classification: "AVERAGE" },
+                          19: { iq: 91, classification: "AVERAGE" },
+                          18: { iq: 88, classification: "LOW AVERAGE" },
+                          17: { iq: 85, classification: "LOW AVERAGE" },
+                          16: { iq: 81, classification: "LOW AVERAGE" },
+                          15: { iq: 78, classification: "BOEDERLINE MENTAL RETARDATION" },
+                          14: { iq: 75, classification: "BOEDERLINE MENTAL RETARDATION" },
+                          13: { iq: 72, classification: "BOEDERLINE MENTAL RETARDATION" },
+                          12: { iq: 70, classification: "BOEDERLINE MENTAL RETARDATION" },
+                          11: { iq: 67, classification: "MILD MENTAL RETARDATION" },
+                          10: { iq: 65, classification: "MILD MENTAL RETARDATION" },
+                          9: { iq: 60, classification: "MILD MENTAL RETARDATION" },
+                          8: { iq: 57, classification: "MILD MENTAL RETARDATION" },
+                          7: { iq: 55, classification: "MILD MENTAL RETARDATION" },
+                          6: { iq: 52, classification: "MILD MENTAL RETARDATION" },
+                          5: { iq: 48, classification: "MODERATE MENTAL RETARDATION" },
+                          4: { iq: 47, classification: "MODERATE MENTAL RETARDATION" },
+                          3: { iq: 45, classification: "MODERATE MENTAL RETARDATION" },
+                          2: { iq: 43, classification: "MODERATE MENTAL RETARDATION" },
+                          1: { iq: 40, classification: "MODERATE MENTAL RETARDATION" },
+                          0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" }
+                        };
+                        const correctCount = answers.filter(a => a.is_correct === true).length;
+                        const iqInfo = iqClassification[correctCount] || { iq: 0, classification: "UNKNOWN" };
+                        return iqInfo.iq;
+                      })()
+                    : `${r.score}%`
+                  }
+                </p>
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
                 <p className="text-xs text-muted-foreground">Soal Dijawab</p>
