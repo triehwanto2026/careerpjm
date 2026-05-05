@@ -32,7 +32,7 @@ const AnswerKeyManager = () => {
 
   const load = async (id: string) => {
     setLoading(true); setDirty({});
-    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, category, subtest_code").eq("instrument_id", id).order("question_number");
+    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, category, subtest_code, question_type").eq("instrument_id", id).order("question_number");
     setQuestions((qs as Q[]) || []);
     if (qs && qs.length) {
       const { data: os } = await supabase.from("test_question_options").select("*").in("question_id", qs.map((q: any) => q.id)).order("display_order");
