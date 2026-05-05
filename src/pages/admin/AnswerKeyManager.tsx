@@ -6,7 +6,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Inst { id: string; name: string; category: string; scoring_method: string; }
-interface Q { id: string; question_number: number; question_text: string; category: string | null; subtest_code: string | null; }
+interface Q { id: string; question_number: number; question_text: string; category: string | null; subtest_code: string | null; question_type: string; }
 interface O { id: string; question_id: string; option_label: string; option_text: string; score_value: number; category_target: string | null; is_correct: boolean | null; display_order: number; }
 
 const AnswerKeyManager = () => {
