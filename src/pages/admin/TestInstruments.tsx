@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check, BookOpen } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -307,6 +307,9 @@ const TestInstruments = () => {
             <button onClick={() => navigate("/admin/answer-keys")} className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
               <ListChecks className="h-4 w-4" /> Manajer Kunci Jawaban
             </button>
+            <button onClick={() => navigate("/admin/interpretations")} className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+              <BookOpen className="h-4 w-4" /> Manajer Interpretasi
+            </button>
             <button onClick={handleAdd} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
               <Plus className="h-4 w-4" /> Tambah Alat Tes
             </button>
@@ -366,6 +369,12 @@ const TestInstruments = () => {
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 text-primary px-3 py-2 text-xs font-semibold hover:bg-primary/10 transition-colors"
               >
                 <Check className="h-3.5 w-3.5" /> Set Jawaban Benar
+              </button>
+              <button
+                onClick={() => navigate(`/admin/interpretations?instrument=${t.id}`)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border text-foreground px-3 py-2 text-xs font-semibold hover:bg-muted transition-colors"
+              >
+                <BookOpen className="h-3.5 w-3.5" /> Atur Interpretasi
               </button>
             </div>
           ))}
