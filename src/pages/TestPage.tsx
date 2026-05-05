@@ -339,6 +339,22 @@ const TestPage = () => {
     // Auto-advance to next question
     handleNext();
   };
+  const handleMultiPick = (instrumentId: string, questionId: string, optId: string, maxPick = 2) => {
+    const key = `${instrumentId}:${questionId}`;
+    const current = (answers[key] as string) || "";
+    const set = new Set(current ? current.split("+").filter(Boolean) : []);
+    if (set.has(optId)) set.delete(optId);
+    else {
+      set.add(optId);
+      if (set.size > maxPick) {
+        // remove oldest (first)
+        const first = Array.from(set)[0];
+        set.delete(first);
+      }
+    }
+    const sorted = Array.from(set).sort().join("+");
+    setAnswers(prev => ({ ...prev, [key]: sorted }));
+  };
   const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
     const key = `${instrumentId}:${questionId}`;
     const current = (answers[key] as string) || "";
