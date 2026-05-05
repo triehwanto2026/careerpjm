@@ -119,6 +119,9 @@ const AnswerKeyManager = () => {
                   </div>
                 </div>
               </div>
+              {q.question_type === "multi_choice" && (
+                <p className="mb-2 text-xs text-amber-400">Soal pilihan berpasangan — tandai 2 jawaban benar.</p>
+              )}
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
@@ -141,7 +144,7 @@ const AnswerKeyManager = () => {
                         <input type="text" value={o.category_target || ""} onChange={e => patch(o.id, { category_target: e.target.value })} placeholder="D, Sanguine..." className="w-full rounded border border-border bg-muted px-1.5 py-0.5 text-xs" />
                       </td>
                       <td className="py-1.5 px-2 text-center">
-                        <button onClick={() => setCorrect(q.id, o.id)} className={`h-6 w-6 rounded border-2 inline-flex items-center justify-center transition-all ${o.is_correct ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>
+                        <button onClick={() => setCorrect(q.id, o.id, q.question_type === "multi_choice")} className={`h-6 w-6 rounded border-2 inline-flex items-center justify-center transition-all ${o.is_correct ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>
                           {o.is_correct && <Check className="h-3 w-3" />}
                         </button>
                       </td>
