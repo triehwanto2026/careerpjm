@@ -246,14 +246,282 @@ const TestPage = () => {
   const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
+  
+  // Show examples and instructions for IST subtests
+  const showSubtestExample = useCallback((subtestCode: string) => {
+    const examples = {
+      SE: {
+        title: 'Subtest SE - Sentence Completion',
+        instructions: 'Soal-soal 01-20 terdiri atas kalimat-kalimat. Pada setiap kalimat satu kata hilang dan disediakan 5 (lima) kata pilihan sebagai penggantinya. Pilihan kata yang tepat dapat menyempurnakan kalimat itu!',
+        examples: [
+          {
+            question: 'Seekor kuda mempunyai kesamaan terbanyak dengan seekor …..',
+            options: ['a) kucing', 'b) bajing', 'c) keledai', 'd) lembu', 'e) anjing'],
+            correct: 'c',
+            explanation: 'Jawaban yang benar ialah : c) keledai. Oleh karena itu, pada lembar jawaban di belakang contoh 01, huruf c harus dicoret.'
+          },
+          {
+            question: 'Lawannya "harapan" ialah …..',
+            options: ['a) duka', 'b) putus asa', 'c) sengsara', 'd) cinta', 'e) benci'],
+            correct: 'b',
+            explanation: 'Jawabannya ialah b) putus asa. Maka huruf b yang seharusnya dicoret.'
+          }
+        ]
+      },
+      WA: {
+        title: 'Subtest WA - Word Association',
+        instructions: 'Ditentukan 5 kata. Pada 4 dari 5 kata itu terdapat suatu kesamaan. Carilah kata yang kelima yang tidak memiliki kesamaan dengan keempat kata itu.',
+        examples: [
+          {
+            question: 'a) meja b) kursi c) burung d) lemari e) tempat tidur',
+            options: ['a) meja', 'b) kursi', 'c) burung', 'd) lemari', 'e) tempat tidur'],
+            correct: 'c',
+            explanation: 'a), b), d), dan e) ialah perabot rumah (meubel). c) burung, bukan perabot rumah atau tidak memiliki kesamaan dengan keempat kata itu. Oleh karena itu, pada lembar jawaban di belakang contoh 02, huruf c harus dicoret.'
+          },
+          {
+            question: 'a) duduk b) berbaring c) berdiri d) berjalan e) berjongkok',
+            options: ['a) duduk', 'b) berbaring', 'c) berdiri', 'd) berjalan', 'e) berjongkok'],
+            correct: 'd',
+            explanation: 'pada a), b), c), dan e) orang berada dalam keadaan tidak bergerak, sedangkan d) orang dalam keadaan bergerak. Maka jawaban yang benar ialah : d) berjalan.'
+          }
+        ]
+      },
+      AN: {
+        title: 'Subtest AN - Analogy',
+        instructions: 'Ditentukan 3 (tiga) kata. Antara kata pertama dan kata kedua terdapat suatu hubungan tertentu. Antara kata ketiga dan salah satu diantara lima kata pilihan harus pula terdapat hubungan yang sama itu. Carilah kata itu.',
+        examples: [
+          {
+            question: 'Hutan : pohon = tembok : ?',
+            options: ['a) batu bata', 'b) rumah', 'c) semen', 'd) putih', 'e) dinding'],
+            correct: 'a',
+            explanation: 'hubungan antara hutan dan pohon ialah bahwa hutan terdiri atas pohon-pohon, maka hubungan antara tembok dan salah satu kata pilihan bahwa tembok terdiri atas batu-batu bata. Oleh karena itu, pada lembar jawaban di belakang contoh 03, huruf a harus dicoret.'
+          },
+          {
+            question: 'Gelap : terang = basah : ?',
+            options: ['a) Hujan', 'b) hari', 'c) lembab', 'd) angin', 'e) kering'],
+            correct: 'e',
+            explanation: 'Gelap ialah lawannya dari terang, maka untuk basah lawannya ialah kering. Maka jawaban contoh ini ialah : e) kering.'
+          }
+        ]
+      },
+      GE: {
+        title: 'Subtest GE - Generalization',
+        instructions: 'Ditentukan dua kata. Carilah satu perkataan yang meliputi pengertian kedua kata tadi. Tulislah perkataan itu pada lembar jawaban di belakang nomor soal yang sesuai.',
+        examples: [
+          {
+            question: 'Ayam – itik',
+            answer: 'burung',
+            explanation: 'Perkataan "burung" dapat meliputi pengertian kedua kata itu. Maka jawabannya ialah "burung". Oleh karena itu, pada lembar jawaban di belakang contoh 04, harus ditulis "burung".'
+          },
+          {
+            question: 'Gaun – celana',
+            answer: 'pakaian',
+            explanation: 'Pada contoh ini jawabannya ialah "pakaian" maka "pakaian" yang seharusnya ditulis. Carilah selalu perkataan yang tepat yang dapat meliputi pengertuan kedua kata itu.'
+          }
+        ]
+      },
+      RA: {
+        title: 'Subtest RA - Arithmetic',
+        instructions: 'Persoalan berikutnya ialah soal-soal hitungan.',
+        examples: [
+          {
+            question: 'Sebatang pensil harganya 25 rupiah. Berapakah harga 3 batang?',
+            answer: '75',
+            explanation: 'Jawabannya ialah : 75. Perhatikan cara menjawab di atas lembar jawaban! Pada lembar jawaban lihatlah pada kolom 05. Kolom ini terdiri atas angka-angka 1 sampai 9 dan 0. Untuk menunjukkan jawaban suatu soal, maka coretlah angka-angka yang terdapat di dalam jawaban itu. Keurutan angka jawaban tidak perlu dihiraukan. Pada contoh 05 jawaban ialah 75. Oleh karena itu, pada lembar jawaban di belakang contoh 05, angka 7 dan 5 harus dicoret.'
+          },
+          {
+            question: 'Dengan sepede Husin dapat mencapai 15 km dalam waktu 1 jam. Berapa km-kah yang dapat ia capai dalam waktu 4 jam?',
+            answer: '60',
+            explanation: 'Jawabannya ialah : 60. Maka untuk menunjukkan jawaban itu angka 6 dan 0 yang seharusnya dicoret.'
+          }
+        ]
+      },
+      ZR: {
+        title: 'Subtest ZR - Number Series',
+        instructions: 'Pada persoalan berikut akan diberikan deret angka. Setiap deret tersusun menurut suatu aturan yang tertentu dan dapat dilanjutkan menurut aturan itu. Carilah untuk setiap deret, angka berikutnya dan coretlah jawaban saudara pada lembar jawaban di belakang nomor soal yang sesuai.',
+        examples: [
+          {
+            question: '2 4 6 8 10 12 14 ?',
+            answer: '16',
+            explanation: 'Pada deret ini angka berikutnya selelau didapat jika angka di depannya ditambah dengan 2. Maka jawabanya ialah 16. Oleh karena itu, pada lembar jawaban di belakang contoh 06, angka 1 dan 6 harus dicoret.'
+          },
+          {
+            question: '9 7 10 8 11 9 12 ?',
+            answer: '10',
+            explanation: 'Pada deret ini berganti-ganti harus dikurangi dengan 2 dan setelah itu ditambah dengan 3. Jawaban contoh ini ialah : 10, maka dari itu angka 1 dan 0 seharusnya yang dicoret. Kadang-kadang pada beberapa soal harus pula dikalikan atau dibagi.'
+          }
+        ]
+      },
+      FA: {
+        title: 'Subtest FA - Figure Assembly',
+        instructions: 'Pada persoalan berikutnya, setiap soal memperlihatkan suatu bentuk tertentu yang terpotong menjadi beberapa bagian. Carilah di antara bentuk-bentuk yang ditentukan (a, b, c, d, e) bentuk yang dibangun dengan cara menyusun potongan-potongan itu sedemikian rupa, sehingga tidak ada kelebihan sudut atau ruang di antaranya.',
+        examples: [
+          {
+            question: '[Gambar potongan-potongan]',
+            options: ['a) Gambar A', 'b) Gambar B', 'c) Gambar C', 'd) Gambar D', 'e) Gambar E'],
+            correct: 'a',
+            explanation: 'Jika potongan-potongan pada contoh 07 di atas disusun (digabungkan), maka akan menghasilkan bentuk a. Oleh karena itu, pada lembar jawaban di belakang contoh 07, huruf a harus dicoret.'
+          }
+        ]
+      },
+      WU: {
+        title: 'Subtest WU - Cube Rotation',
+        instructions: 'Ditentukan 5 (lima) buah kubus a, b, c, d, e. Pada tiap-tiap kubus terdapat enam tanda yang berlainan pada setiap sisinya. Tiga dari tanda itu dapat dilihat. Kubus-kubus yang ditentukan itu (a, b, c, d, e) ialah kubus-kubus yang berbeda, artinya kubus-kubus itu dapat mempunyai tanda-tanda yang sama, akan tetapi susunannya berlainan, setiap soal memperlihatkan salah satu kubus yang ditentukan di dalam kedudukan yang berbeda. Carilah kubus yang dimaksudkan itu dan coretkanlah jawaban saudara pada lembar jawaban di belakang nomor yang sesuai.',
+        examples: [
+          {
+            question: '[Gambar kubus dalam posisi berbeda]',
+            options: ['a) Kubus A', 'b) Kubus B', 'c) Kubus C', 'd) Kubus D', 'e) Kubus E'],
+            correct: 'a',
+            explanation: 'Contoh ini memperlihatkan kubus a dengan kedudukan yang berbeda. Mendapatkannya adalah dengan cara menggulingkan lebih dulu kubus itu ke kiri satu kali dan kemudian diputar ke kiri satu kali, sehingga sisi kubus yang bertanda dua segi empat hitam terletak di depan, seperti kubus a. Oleh karena itu, pada lembar jawaban di belakang contoh 08, huruf a harus dicoret.'
+          }
+        ]
+      },
+      ME: {
+        title: 'Subtest ME - Memory',
+        instructions: 'Pada persoalan berikutnya, terdapat sejumlah pertanyaan mengenai kata-kata yang telah saudara hafalkan tadi. Coretlah jawaban saudara pada lembaran jawaban di belakang nomor soal yang sesuai.',
+        examples: [
+          {
+            question: 'Kata yang mempunyai huruf permulaan – Q – adalah suatu …….',
+            options: ['a) bunga', 'b) perkakas', 'c) burung', 'd) kesenian', 'e) binatang'],
+            correct: 'd',
+            explanation: 'Quintet adalah termasuk dalam jenis kesenian, sehingga jawaban yang benar adalah d). Oleh karena itu, pada lembar jawaban di belakang contoh 09 huruf d harus dicoret.'
+          },
+          {
+            question: 'Kata yang mempunyai huruf pertama – Z – adalah suatu …….',
+            options: ['a) bunga', 'b) perkakas', 'c) burung', 'd) kesenian', 'e) binatang'],
+            correct: 'e',
+            explanation: 'Jawabannya adalah e, karena Zebra termasuk dalam jenis binatang.'
+          }
+        ]
+      }
+    };
+    
+    const example = examples[subtestCode as keyof typeof examples];
+    if (!example) return;
+    
+    let html = '<div style="text-align:left;max-height:70vh;overflow-y:auto;">';
+    html += `<div style="margin-bottom:20px;padding:12px;background:hsla(174,72%,46%,0.1);border-radius:8px;border:1px solid hsla(174,72%,46%,0.3);">`;
+    html += `<h3 style="margin:0 0 8px 0;color:hsl(174,72%,46%);">PETUNJUK</h3>`;
+    html += `<p style="margin:0;color:hsl(210,20%,75%);line-height:1.5">${example.instructions}</p>`;
+    html += `</div>`;
+    
+    html += '<h4 style="margin-bottom:15px;color:hsl(210,20%,92%);">CONTOH:</h4>';
+    
+    example.examples.forEach((ex, idx) => {
+      html += `<div style="margin-bottom:20px;padding:12px;background:hsla(210,14%,15%,0.6);border-radius:8px;border:1px solid hsla(210,14%,25%);">`;
+      html += `<p style="margin:0 0 10px 0;color:hsl(210,20%,92%);font-weight:500;">Contoh ${idx + 1}:</p>`;
+      html += `<p style="margin:0 0 10px 0;color:hsl(210,20%,75%);">${ex.question}</p>`;
+      
+      if (ex.options) {
+        ex.options.forEach(opt => {
+          html += `<p style="margin:2px 0;color:hsl(210,20%,70%);font-size:13px;">${opt}</p>`;
+        });
+      }
+      
+      if (ex.answer) {
+        html += `<p style="margin:10px 0 5px 0;color:hsl(174,72%,46%);font-weight:500;">Jawaban: ${ex.answer}</p>`;
+      }
+      
+      if (ex.correct) {
+        html += `<p style="margin:10px 0 5px 0;color:hsl(174,72%,46%);font-weight:500;">Jawaban yang benar: ${ex.correct})</p>`;
+      }
+      
+      html += `<p style="margin:5px 0 0 0;color:hsl(210,20%,60%);font-size:12px;font-style:italic;">${ex.explanation}</p>`;
+      html += `</div>`;
+    });
+    
+    html += '</div>';
+    
+    Swal.fire({
+      title: example.title,
+      html: html,
+      confirmButtonText: 'Mulai Subtest',
+      showConfirmButton: true,
+      showCloseButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      ...SWAL_THEME,
+      customClass: {
+        popup: 'ist-example-modal'
+      }
+    }).then(() => {
+      // After showing examples, show memory items if ME subtest
+      if (subtestCode === 'ME') {
+        showMemoryItems();
+      }
+    });
+  }, []);
 
   // Track current IST subtest when question changes
   useEffect(() => {
     if (isIST(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
       setCurrentSubtest(currentQuestion.subtest_code);
       setSubtestStartedAt(Date.now());
+      
+      // Show examples for all IST subtests
+      showSubtestExample(currentQuestion.subtest_code);
     }
-  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest]);
+  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample]);
+  
+  // Show memory items for 3 minutes
+  const showMemoryItems = useCallback(() => {
+    const memoryItems = {
+      'BUNGA': 'SOKA, LARAT, FLAMBOYAN, YASMIN, DAHLIA',
+      'PERKAKAS': 'WAJAN, JARUM, KIKIR, CANGKUL, PALU',
+      'BURUNG': 'ITIK, ELANG, WALET, TERUKUR, NURI',
+      'KESENIAN': 'QUATET, ARCA, OPERA, UKIRAN, GAMELAN',
+      'BINATANG': 'RUSA, MUSANG, BERUANG, HARIMAU, ZEBRA'
+    };
+    
+    let html = '<div style="text-align:left;max-height:60vh;overflow-y:auto;">';
+    html += '<h3 style="margin-bottom:15px;color:hsl(174,72%,46%);">HAFALKAN KATA-KATA INI (3 MENIT)</h3>';
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">';
+    
+    Object.entries(memoryItems).forEach(([category, items]) => {
+      html += `<div style="padding:10px;background:hsla(210,14%,15%,0.6);border-radius:8px;border:1px solid hsla(210,14%,25%);">`;
+      html += `<h4 style="margin:0 0 8px 0;color:hsl(210,20%,92%);font-size:14px;">${category}</h4>`;
+      html += `<p style="margin:0;color:hsl(210,20%,75%);font-size:13px;line-height:1.4">${items}</p>`;
+      html += `</div>`;
+    });
+    
+    html += '</div>';
+    html += '<p style="margin-top:15px;text-align:center;color:hsl(210,20%,60%);font-size:12px;">Setelah 3 menit, halaman ini akan otomatis tertutup</p>';
+    html += '</div>';
+    
+    Swal.fire({
+      title: 'Subtest ME - Memory',
+      html: html,
+      timer: 180000, // 3 minutes
+      timerProgressBar: true,
+      showConfirmButton: false,
+      showCloseButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      ...SWAL_THEME,
+      didOpen: () => {
+        // Add countdown display
+        let timeLeft = 180; // 3 minutes in seconds
+        const interval = setInterval(() => {
+          if (timeLeft > 0) {
+            timeLeft--;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            Swal.update({
+              title: `Subtest ME - Memory (${minutes}:${seconds.toString().padStart(2, '0')})`
+            });
+          } else {
+            clearInterval(interval);
+          }
+        }, 1000);
+        
+        // Store interval ID to clear it when modal closes
+        (Swal as any).timerInterval = interval;
+      },
+      willClose: () => {
+        clearInterval((Swal as any).timerInterval);
+      }
+    });
+  }, []);
 
   // Subtest info for IST strict mode (computed each render — also used by useEffect below)
   const subtestQuestions = isIST(currentTest) && currentSubtest
