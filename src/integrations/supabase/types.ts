@@ -168,40 +168,49 @@ export type Database = {
           category: string | null
           correct_answer: string | null
           created_at: string
+          expected_answer: string | null
           id: string
           is_correct: boolean | null
           question_number: number
           question_text: string
           question_text_en: string | null
+          reaction_time_ms: number | null
           selected_answer: string
           selected_answer_label: string
           test_result_id: string
+          typed_answer: string | null
         }
         Insert: {
           category?: string | null
           correct_answer?: string | null
           created_at?: string
+          expected_answer?: string | null
           id?: string
           is_correct?: boolean | null
           question_number: number
           question_text: string
           question_text_en?: string | null
+          reaction_time_ms?: number | null
           selected_answer: string
           selected_answer_label?: string
           test_result_id: string
+          typed_answer?: string | null
         }
         Update: {
           category?: string | null
           correct_answer?: string | null
           created_at?: string
+          expected_answer?: string | null
           id?: string
           is_correct?: boolean | null
           question_number?: number
           question_text?: string
           question_text_en?: string | null
+          reaction_time_ms?: number | null
           selected_answer?: string
           selected_answer_label?: string
           test_result_id?: string
+          typed_answer?: string | null
         }
         Relationships: [
           {
@@ -260,6 +269,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      test_interpretations: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          instrument_id: string
+          interpretation_key: string
+          interpretation_text: string
+          interpretation_text_en: string | null
+          max_value: number | null
+          min_value: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          instrument_id: string
+          interpretation_key: string
+          interpretation_text: string
+          interpretation_text_en?: string | null
+          max_value?: number | null
+          min_value?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          instrument_id?: string
+          interpretation_key?: string
+          interpretation_text?: string
+          interpretation_text_en?: string | null
+          max_value?: number | null
+          min_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_interpretations_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "test_instruments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_question_options: {
         Row: {
@@ -376,8 +429,53 @@ export type Database = {
           },
         ]
       }
+      test_result_details: {
+        Row: {
+          accuracy_rate: number | null
+          correct_count: number
+          created_at: string
+          id: string
+          incorrect_count: number
+          questions_count: number
+          segment_number: number
+          speed_per_minute: number | null
+          test_result_id: string
+        }
+        Insert: {
+          accuracy_rate?: number | null
+          correct_count?: number
+          created_at?: string
+          id?: string
+          incorrect_count?: number
+          questions_count?: number
+          segment_number?: number
+          speed_per_minute?: number | null
+          test_result_id: string
+        }
+        Update: {
+          accuracy_rate?: number | null
+          correct_count?: number
+          created_at?: string
+          id?: string
+          incorrect_count?: number
+          questions_count?: number
+          segment_number?: number
+          speed_per_minute?: number | null
+          test_result_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_result_details_test_result_id_fkey"
+            columns: ["test_result_id"]
+            isOneToOne: false
+            referencedRelation: "test_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_results: {
         Row: {
+          accuracy_score: number | null
           answered_questions: number
           candidate_id: string | null
           candidate_name: string
@@ -385,16 +483,22 @@ export type Database = {
           categories: Json
           completed_at: string
           created_at: string
+          duration_seconds: number | null
           id: string
+          instrument_id: string | null
           interpretation: string | null
           position: string
           score: number
+          speed_score: number | null
+          stability_score: number | null
           status: string
           test_name: string
           total_questions: number
           webcam_photo_url: string | null
+          work_capacity: number | null
         }
         Insert: {
+          accuracy_score?: number | null
           answered_questions?: number
           candidate_id?: string | null
           candidate_name: string
@@ -402,16 +506,22 @@ export type Database = {
           categories?: Json
           completed_at?: string
           created_at?: string
+          duration_seconds?: number | null
           id?: string
+          instrument_id?: string | null
           interpretation?: string | null
           position?: string
           score?: number
+          speed_score?: number | null
+          stability_score?: number | null
           status?: string
           test_name?: string
           total_questions?: number
           webcam_photo_url?: string | null
+          work_capacity?: number | null
         }
         Update: {
+          accuracy_score?: number | null
           answered_questions?: number
           candidate_id?: string | null
           candidate_name?: string
@@ -419,14 +529,19 @@ export type Database = {
           categories?: Json
           completed_at?: string
           created_at?: string
+          duration_seconds?: number | null
           id?: string
+          instrument_id?: string | null
           interpretation?: string | null
           position?: string
           score?: number
+          speed_score?: number | null
+          stability_score?: number | null
           status?: string
           test_name?: string
           total_questions?: number
           webcam_photo_url?: string | null
+          work_capacity?: number | null
         }
         Relationships: [
           {
@@ -434,6 +549,13 @@ export type Database = {
             columns: ["candidate_id"]
             isOneToOne: false
             referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_results_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "test_instruments"
             referencedColumns: ["id"]
           },
         ]

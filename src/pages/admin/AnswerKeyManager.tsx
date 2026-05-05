@@ -6,7 +6,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Inst { id: string; name: string; category: string; scoring_method: string; }
-interface Q { id: string; question_number: number; question_text: string; category: string | null; subtest_code: string | null; }
+interface Q { id: string; question_number: number; question_text: string; category: string | null; subtest_code: string | null; question_type: string; }
 interface O { id: string; question_id: string; option_label: string; option_text: string; score_value: number; category_target: string | null; is_correct: boolean | null; display_order: number; }
 
 const AnswerKeyManager = () => {
@@ -32,7 +32,7 @@ const AnswerKeyManager = () => {
 
   const load = async (id: string) => {
     setLoading(true); setDirty({});
-    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, category, subtest_code").eq("instrument_id", id).order("question_number");
+    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, category, subtest_code, question_type").eq("instrument_id", id).order("question_number");
     setQuestions((qs as Q[]) || []);
     if (qs && qs.length) {
       const { data: os } = await supabase.from("test_question_options").select("*").in("question_id", qs.map((q: any) => q.id)).order("display_order");
@@ -54,8 +54,13 @@ const AnswerKeyManager = () => {
     });
   };
 
-  const setCorrect = (qid: string, oid: string) => {
-    opts[qid].forEach(o => patch(o.id, { is_correct: o.id === oid }));
+  const setCorrect = (qid: string, oid: string, multi: boolean) => {
+    if (multi) {
+      const target = opts[qid].find(o => o.id === oid);
+      patch(oid, { is_correct: !target?.is_correct });
+    } else {
+      opts[qid].forEach(o => patch(o.id, { is_correct: o.id === oid }));
+    }
   };
 
   const saveAll = async () => {
@@ -114,6 +119,9 @@ const AnswerKeyManager = () => {
                   </div>
                 </div>
               </div>
+              {q.question_type === "multi_choice" && (
+                <p className="mb-2 text-xs text-amber-400">Soal pilihan berpasangan — tandai 2 jawaban benar.</p>
+              )}
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
@@ -136,7 +144,7 @@ const AnswerKeyManager = () => {
                         <input type="text" value={o.category_target || ""} onChange={e => patch(o.id, { category_target: e.target.value })} placeholder="D, Sanguine..." className="w-full rounded border border-border bg-muted px-1.5 py-0.5 text-xs" />
                       </td>
                       <td className="py-1.5 px-2 text-center">
-                        <button onClick={() => setCorrect(q.id, o.id)} className={`h-6 w-6 rounded border-2 inline-flex items-center justify-center transition-all ${o.is_correct ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>
+                        <button onClick={() => setCorrect(q.id, o.id, q.question_type === "multi_choice")} className={`h-6 w-6 rounded border-2 inline-flex items-center justify-center transition-all ${o.is_correct ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>
                           {o.is_correct && <Check className="h-3 w-3" />}
                         </button>
                       </td>

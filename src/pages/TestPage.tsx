@@ -339,6 +339,22 @@ const TestPage = () => {
     // Auto-advance to next question
     handleNext();
   };
+  const handleMultiPick = (instrumentId: string, questionId: string, optId: string, maxPick = 2) => {
+    const key = `${instrumentId}:${questionId}`;
+    const current = (answers[key] as string) || "";
+    const set = new Set(current ? current.split("+").filter(Boolean) : []);
+    if (set.has(optId)) set.delete(optId);
+    else {
+      set.add(optId);
+      if (set.size > maxPick) {
+        // remove oldest (first)
+        const first = Array.from(set)[0];
+        set.delete(first);
+      }
+    }
+    const sorted = Array.from(set).sort().join("+");
+    setAnswers(prev => ({ ...prev, [key]: sorted }));
+  };
   const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
     const key = `${instrumentId}:${questionId}`;
     const current = (answers[key] as string) || "";
@@ -423,6 +439,19 @@ const TestPage = () => {
           if (lOpt?.category_target) cats[lOpt.category_target] = (cats[lOpt.category_target] || 0) - 1;
           return;
         }
+        if (q.question_type === "multi_choice" && optId.includes("+")) {
+          const ids = optId.split("+").filter(Boolean);
+          const picked = q.options.filter(o => ids.includes(o.id));
+          const correctIds = q.options.filter(o => o.is_correct).map(o => o.id);
+          const allCorrect = correctIds.length > 0 && ids.length === correctIds.length && ids.every(id => correctIds.includes(id));
+          if (allCorrect) correctCount++;
+          picked.forEach(opt => {
+            totalScore += Number(opt.score_value || 0);
+            const dim = opt.category_target?.trim() || q.category?.trim() || "Umum";
+            cats[dim] = (cats[dim] || 0) + Number(opt.score_value || 0);
+          });
+          return;
+        }
         const opt = q.options.find(o => o.id === optId);
         if (!opt) return;
         totalScore += Number(opt.score_value || 0);
@@ -475,6 +504,24 @@ const TestPage = () => {
               category: q.category,
               is_correct: null,
               correct_answer: null,
+            };
+          }
+          if (q.question_type === "multi_choice" && optId!.includes("+")) {
+            const ids = optId!.split("+").filter(Boolean);
+            const picked = q.options.filter(o => ids.includes(o.id));
+            const correctIds = q.options.filter(o => o.is_correct).map(o => o.id);
+            const allCorrect = correctIds.length > 0 && ids.length === correctIds.length && ids.every(id => correctIds.includes(id));
+            const correctOpts = q.options.filter(o => o.is_correct);
+            return {
+              test_result_id: resultData.id,
+              question_number: q.question_number,
+              question_text: q.question_text,
+              question_text_en: q.question_text_en,
+              selected_answer: picked.map(o => `${o.option_label}. ${o.option_text}`).join(" + "),
+              selected_answer_label: picked.map(o => o.option_label).join("+"),
+              category: q.category,
+              is_correct: allCorrect,
+              correct_answer: correctOpts.map(o => `${o.option_label}. ${o.option_text}`).join(" + ") || null,
             };
           }
           const opt = q.options.find(o => o.id === optId);
@@ -642,6 +689,24 @@ const TestPage = () => {
                         });
                       })()}
                     </div>
+                  ) : currentQuestion.question_type === "multi_choice" ? (
+                    <>
+                      <p className="text-xs text-amber-400 font-medium">Pilih 2 jawaban yang benar.</p>
+                      {currentQuestion.options.map(opt => {
+                        const picked = new Set(((currentAns as string) || "").split("+").filter(Boolean));
+                        const isSelected = picked.has(opt.id);
+                        return (
+                          <button key={opt.id} onClick={() => handleMultiPick(currentTest.id, currentQuestion.id, opt.id, 2)}
+                            className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
+                            <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{isSelected ? "✓" : opt.option_label}</span>
+                            <div className="flex-1">
+                              {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
+                              <span className="text-sm font-medium text-foreground">{opt.option_label}. {opt.option_text}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
                   ) : currentQuestion.options.map(opt => {
                     const isSelected = currentAns === opt.id;
                     const definition = (opt as any).option_definition || null;
