@@ -677,6 +677,11 @@ const TestPage = () => {
                       })}
                     </>
                   ) : currentQuestion.options.map(opt => {
+                    const isSelected = currentAns === opt.id;
+                    const definition = (opt as any).option_definition || null;
+                    const definitionEn = (opt as any).option_definition_en || null;
+                    return (
+                      <button key={opt.id} onClick={() => handleAnswer(currentTest.id, currentQuestion.id, opt.id)}
                         className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
                         <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{opt.option_label}</span>
                         <div className="flex-1">
