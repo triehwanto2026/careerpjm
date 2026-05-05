@@ -506,6 +506,24 @@ const TestPage = () => {
               correct_answer: null,
             };
           }
+          if (q.question_type === "multi_choice" && optId!.includes("+")) {
+            const ids = optId!.split("+").filter(Boolean);
+            const picked = q.options.filter(o => ids.includes(o.id));
+            const correctIds = q.options.filter(o => o.is_correct).map(o => o.id);
+            const allCorrect = correctIds.length > 0 && ids.length === correctIds.length && ids.every(id => correctIds.includes(id));
+            const correctOpts = q.options.filter(o => o.is_correct);
+            return {
+              test_result_id: resultData.id,
+              question_number: q.question_number,
+              question_text: q.question_text,
+              question_text_en: q.question_text_en,
+              selected_answer: picked.map(o => `${o.option_label}. ${o.option_text}`).join(" + "),
+              selected_answer_label: picked.map(o => o.option_label).join("+"),
+              category: q.category,
+              is_correct: allCorrect,
+              correct_answer: correctOpts.map(o => `${o.option_label}. ${o.option_text}`).join(" + ") || null,
+            };
+          }
           const opt = q.options.find(o => o.id === optId);
           return {
             test_result_id: resultData.id,
