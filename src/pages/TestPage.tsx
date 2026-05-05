@@ -439,6 +439,19 @@ const TestPage = () => {
           if (lOpt?.category_target) cats[lOpt.category_target] = (cats[lOpt.category_target] || 0) - 1;
           return;
         }
+        if (q.question_type === "multi_choice" && optId.includes("+")) {
+          const ids = optId.split("+").filter(Boolean);
+          const picked = q.options.filter(o => ids.includes(o.id));
+          const correctIds = q.options.filter(o => o.is_correct).map(o => o.id);
+          const allCorrect = correctIds.length > 0 && ids.length === correctIds.length && ids.every(id => correctIds.includes(id));
+          if (allCorrect) correctCount++;
+          picked.forEach(opt => {
+            totalScore += Number(opt.score_value || 0);
+            const dim = opt.category_target?.trim() || q.category?.trim() || "Umum";
+            cats[dim] = (cats[dim] || 0) + Number(opt.score_value || 0);
+          });
+          return;
+        }
         const opt = q.options.find(o => o.id === optId);
         if (!opt) return;
         totalScore += Number(opt.score_value || 0);
