@@ -658,12 +658,25 @@ const TestPage = () => {
                         });
                       })()}
                     </div>
+                  ) : currentQuestion.question_type === "multi_choice" ? (
+                    <>
+                      <p className="text-xs text-amber-400 font-medium">Pilih 2 jawaban yang benar.</p>
+                      {currentQuestion.options.map(opt => {
+                        const picked = new Set(((currentAns as string) || "").split("+").filter(Boolean));
+                        const isSelected = picked.has(opt.id);
+                        return (
+                          <button key={opt.id} onClick={() => handleMultiPick(currentTest.id, currentQuestion.id, opt.id, 2)}
+                            className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
+                            <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{isSelected ? "✓" : opt.option_label}</span>
+                            <div className="flex-1">
+                              {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
+                              <span className="text-sm font-medium text-foreground">{opt.option_label}. {opt.option_text}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
                   ) : currentQuestion.options.map(opt => {
-                    const isSelected = currentAns === opt.id;
-                    const definition = (opt as any).option_definition || null;
-                    const definitionEn = (opt as any).option_definition_en || null;
-                    return (
-                      <button key={opt.id} onClick={() => handleAnswer(currentTest.id, currentQuestion.id, opt.id)}
                         className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
                         <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{opt.option_label}</span>
                         <div className="flex-1">
