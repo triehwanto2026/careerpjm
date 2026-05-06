@@ -463,13 +463,8 @@ const TestPage = () => {
     }
   }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample]);
 
-  // Show PAPIKOSTIK instructions when test starts
-  useEffect(() => {
-    const isPAPIKOSTIK = currentTest?.name.toLowerCase().includes('papikostick') || currentTest?.name.toLowerCase().includes('papi');
-    if (isPAPIKOSTIK && currentQIdx === 0) {
-      showPAPIKOSTIKInstructions();
-    }
-  }, [currentTestIdx, currentTest, currentQIdx, showPAPIKOSTIKInstructions]);
+  // PAPIKOSTIK instructions effect is declared after showPAPIKOSTIKInstructions below
+
 
   // Show memory items for 3 minutes
   const showMemoryItems = useCallback(() => {
@@ -569,6 +564,14 @@ const TestPage = () => {
       }
     });
   }, []);
+
+  // Show PAPIKOSTIK instructions when test starts
+  useEffect(() => {
+    const isPAPIKOSTIK = currentTest?.name.toLowerCase().includes('papikostick') || currentTest?.name.toLowerCase().includes('papi');
+    if (isPAPIKOSTIK && currentQIdx === 0) {
+      showPAPIKOSTIKInstructions();
+    }
+  }, [currentTestIdx, currentTest, currentQIdx, showPAPIKOSTIKInstructions]);
 
   // Subtest info for IST strict mode (computed each render — also used by useEffect below)
   const subtestQuestions = isIST(currentTest) && currentSubtest
@@ -750,8 +753,16 @@ const TestPage = () => {
           optId.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
           const mOpt = q.options.find(o => o.id === parts.M);
           const lOpt = q.options.find(o => o.id === parts.L);
-          if (mOpt?.category_target) cats[mOpt.category_target] = (cats[mOpt.category_target] || 0) + 1;
-          if (lOpt?.category_target) cats[lOpt.category_target] = (cats[lOpt.category_target] || 0) - 1;
+          if (mOpt?.category_target) {
+            const d = mOpt.category_target;
+            cats[d] = (cats[d] || 0) + 1;                  // Net (Mirror) = M - L
+            cats[`${d}_M`] = (cats[`${d}_M`] || 0) + 1;    // Mask: Most-like count
+          }
+          if (lOpt?.category_target) {
+            const d = lOpt.category_target;
+            cats[d] = (cats[d] || 0) - 1;
+            cats[`${d}_L`] = (cats[`${d}_L`] || 0) + 1;    // Core: Least-like count
+          }
           return;
         }
         if (q.question_type === "multi_choice" && optId.includes("+")) {

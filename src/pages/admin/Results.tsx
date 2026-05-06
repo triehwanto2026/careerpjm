@@ -612,66 +612,58 @@ const Results = () => {
 
     // DISC: render Mask/Core/Mirror as bar charts + final Line chart trend + Radar (Spider)
     if (r.test_name.toUpperCase().includes("DISC")) {
-      const dims = ["D", "I", "S", "C"];
-      const mask = dims.map(d => ({ name: d, value: Math.max(0, Number(cats[d] || 0)) }));
-      const core = dims.map(d => ({ name: d, value: Math.max(0, -Number(cats[d] || 0)) }));
-      const mirror = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
-      const lineData = dims.map(d => ({
-        dimensi: d,
-        Mask: Math.max(0, Number(cats[d] || 0)),
-        Core: Math.max(0, -Number(cats[d] || 0)),
-        Mirror: Number(cats[d] || 0),
-      }));
-      const radarData = dims.map(d => ({ dim: d, value: Number(cats[d] || 0) }));
+      const dims = ["D", "I", "S", "C"] as const;
+      const M = (d: string) => Number(cats[`${d}_M`] || 0);
+      const L = (d: string) => Number(cats[`${d}_L`] || 0);
+      const N = (d: string) => Number(cats[d] || 0); // already net = M - L
+      const mask = dims.map(d => ({ name: d, value: M(d) }));
+      const core = dims.map(d => ({ name: d, value: L(d) }));
+      const mirror = dims.map(d => ({ name: d, value: N(d) }));
       const jobMatch: Record<string, string> = {
         D: "Manager, Entrepreneur, Sales Director, Director, CEO",
         I: "Sales, Public Relations, Marketing, Trainer, Public Speaker",
         S: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist",
         C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer",
       };
-      const oldDominant = dims.reduce((a, b) => Number(cats[a] || 0) > Number(cats[b] || 0) ? a : b);
-      const renderMini = (title: string, d: { name: string; value: number }[], color: string) => (
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={d}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-              <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
-              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-              <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      );
-      
-      // Get top 2 dominant categories for interpretation (use actual values, not absolute)
-      const sortedCats = Object.entries(cats).sort((a, b) => b[1] - a[1]);
-      const topCategories = sortedCats.slice(0, 2).map(([cat]) => cat);
-      const dominant = topCategories[0];
-      const secondary = topCategories[1];
-      
-      // Generate interpretation text
+      const renderMini = (title: string, d: { name: string; value: number }[], color: string, allowNeg = false) => {
+        const vals = d.map(x => x.value);
+        const yMin = allowNeg ? Math.min(0, ...vals) : 0;
+        const yMax = Math.max(1, ...vals.map(Math.abs));
+        return (
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={d}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+                <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+                <YAxis domain={[yMin, yMax]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+                <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} label={{ position: 'top', fill: color, fontSize: 11, fontWeight: 700 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      };
+
+      const sortedCats = dims.map(d => [d, N(d)] as [string, number]).sort((a, b) => b[1] - a[1]);
+      const dominant = sortedCats[0][0];
+      const secondary = sortedCats[1][0];
+
       const interpretations: Record<string, string> = {
         'D': `Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.`,
         'I': `Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.`,
         'S': `Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.`,
         'C': `Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.`
       };
-      
+
       return (
         <div className="space-y-4">
-          {/* Kategori Dominan - Tampil di atas grafik */}
           <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5 p-4 text-center">
             <p className="text-xs font-medium text-muted-foreground mb-1">Kategori Dominan DISC</p>
             <div className="flex items-center justify-center gap-3">
               <span className="text-3xl font-bold text-primary">{dominant}</span>
-              {secondary && (
-                <>
-                  <span className="text-2xl text-muted-foreground/50">&</span>
-                  <span className="text-2xl font-semibold text-primary/80">{secondary}</span>
-                </>
-              )}
+              <span className="text-2xl text-muted-foreground/50">&</span>
+              <span className="text-2xl font-semibold text-primary/80">{secondary}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               {dominant === 'D' && 'Dominance - Pemimpin yang tegas dan berorientasi hasil'}
@@ -682,36 +674,22 @@ const Results = () => {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            {renderMini("Mask - Public Self (M)", mask, "#10b981")}
-            {renderMini("Core - Private Self (L)", core, "#f59e0b")}
-            {renderMini("Mirror - Perceived Self (Net)", mirror, "#ec4899")}
+            {renderMini("Mask — Public Self (Most)", mask, "#10b981")}
+            {renderMini("Core — Private Self (Least)", core, "#f59e0b")}
+            {renderMini("Mirror — Perceived Self (Net = M − L)", mirror, "#ec4899", true)}
           </div>
 
-          {/* Interpretasi Lengkap DISC */}
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-3">Interpretasi Profil DISC</p>
             <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Profil Dominan: {dominant}{secondary ? ` & ${secondary}` : ''}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{interpretations[dominant] || ''}</p>
-                {secondary && (
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-                    Kombinasi dengan {secondary} memberikan keseimbangan antara kekuatan {dominant} dan stabilitas {secondary}.
-                  </p>
-                )}
-              </div>
+              <p className="text-sm font-medium text-foreground">Profil Dominan: {dominant} & {secondary}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{interpretations[dominant] || ''}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Kombinasi dengan {secondary} memberikan keseimbangan antara kekuatan {dominant} dan karakter {secondary}.
+              </p>
               <div>
                 <p className="text-xs font-medium text-foreground">Pekerjaan yang Sesuai:</p>
                 <p className="text-xs text-muted-foreground">{jobMatch[dominant]}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-foreground">Rekomendasi:</p>
-                <p className="text-xs text-muted-foreground">
-                  Kandidat menunjukkan potensi tinggi untuk peran yang sesuai dengan profil {dominant}. 
-                  Pertimbangkan untuk penempatan di posisi yang memanfaatkan kekuatan alami ini.
-                </p>
               </div>
             </div>
           </div>
@@ -1072,51 +1050,83 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
             <div className="glass rounded-xl p-5 glow-border mt-4">
               <h3 className="text-sm font-semibold text-foreground mb-3">Detail Skor per Dimensi</h3>
               <div className="overflow-x-auto">
-                {r.test_name.toUpperCase().includes("DISC") ? (
-                  // DISC: Horizontal bar chart with 0 in center, fixed order D, I, S, C
-                  <div className="space-y-3">
-                    {["D", "I", "S", "C"].map(dim => {
-                      const value = Number(cats[dim] || 0);
-                      const maxVal = Math.max(...Object.values(cats).map(Math.abs), 1);
-                      const barWidth = (Math.abs(value) / maxVal) * 40;
-                      const isPositive = value >= 0;
-                      return (
-                        <div key={dim} className="flex items-center gap-3">
-                          <span className="w-8 text-right font-medium text-foreground">{dim}</span>
-                          <div className="flex-1 relative h-8 flex items-center">
-                            {/* Zero line */}
-                            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-400"></div>
-                            {/* Negative bar (left side) */}
-                            {!isPositive && (
-                              <div 
-                                className="absolute right-1/2 h-6 bg-red-400 rounded-l"
-                                style={{ width: `${barWidth}%`, marginRight: '-1px' }}
-                              />
-                            )}
-                            {/* Positive bar (right side) */}
-                            {isPositive && (
-                              <div 
-                                className="absolute left-1/2 h-6 bg-emerald-400 rounded-r"
-                                style={{ width: `${barWidth}%`, marginLeft: '1px' }}
-                              />
-                            )}
-                            {/* Value label */}
-                            <span className={`absolute text-xs font-semibold ${
-                              isPositive ? 'left-1/2 ml-2 text-emerald-600' : 'right-1/2 mr-2 text-red-600'
-                            }`}>
-                              {value}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="flex items-center justify-center gap-6 mt-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><div className="w-3 h-3 bg-red-400 rounded"></div> Negatif</span>
-                      <div className="w-px h-4 bg-gray-300"></div>
-                      <span className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-400 rounded"></div> Positif</span>
+                {r.test_name.toUpperCase().includes("DISC") ? (() => {
+                  const dims = ["D", "I", "S", "C"] as const;
+                  const dimLabels: Record<string, string> = {
+                    D: "Dominance — Pengarah, tegas, berorientasi hasil",
+                    I: "Influence — Persuasif, ekspresif, sosial",
+                    S: "Steadiness — Stabil, sabar, kooperatif",
+                    C: "Conscientiousness — Teliti, analitis, sistematis",
+                  };
+                  const M = (d: string) => Number(cats[`${d}_M`] || 0);
+                  const L = (d: string) => Number(cats[`${d}_L`] || 0);
+                  const N = (d: string) => Number(cats[d] || 0);
+                  const totalQ = r.total_questions || 24;
+                  const sorted = [...dims].sort((a, b) => N(b) - N(a));
+                  const rank: Record<string, number> = {};
+                  sorted.forEach((d, i) => { rank[d] = i + 1; });
+                  const level = (n: number) => n >= Math.ceil(totalQ * 0.25) ? "Tinggi" : n >= 1 ? "Sedang" : n <= -Math.ceil(totalQ * 0.25) ? "Rendah" : "Netral";
+                  const levelColor = (lv: string) => lv === "Tinggi" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                    : lv === "Rendah" ? "bg-red-500/20 text-red-400 border-red-500/40"
+                    : lv === "Sedang" ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                    : "bg-muted text-muted-foreground border-border";
+                  return (
+                    <div className="space-y-3">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dimensi</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground" title="Most-like (Mask)">M</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground" title="Least-like (Core)">L</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground" title="Net = M − L (Mirror)">Net</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground">Level</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground">Rank</th>
+                            <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground w-[35%]">Visual</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dims.map(d => {
+                            const m = M(d); const l = L(d); const n = N(d);
+                            const lv = level(n);
+                            const w = Math.min(50, Math.abs(n) / Math.max(totalQ, 1) * 50);
+                            return (
+                              <tr key={d} className="border-b border-border/50">
+                                <td className="py-2.5 px-3">
+                                  <div className="font-bold text-foreground">{d}</div>
+                                  <div className="text-[11px] text-muted-foreground">{dimLabels[d]}</div>
+                                </td>
+                                <td className="py-2.5 px-3 text-center text-emerald-400 font-semibold">{m}</td>
+                                <td className="py-2.5 px-3 text-center text-amber-400 font-semibold">{l}</td>
+                                <td className={`py-2.5 px-3 text-center font-bold ${n > 0 ? 'text-emerald-400' : n < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>{n > 0 ? `+${n}` : n}</td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className={`inline-block rounded-md border px-2 py-0.5 text-[11px] font-medium ${levelColor(lv)}`}>{lv}</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center text-foreground font-semibold">#{rank[d]}</td>
+                                <td className="py-2.5 px-3">
+                                  <div className="relative h-5 bg-muted/40 rounded">
+                                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border" />
+                                    {n >= 0 ? (
+                                      <div className="absolute left-1/2 top-0 bottom-0 bg-emerald-500/70 rounded-r" style={{ width: `${w}%` }} />
+                                    ) : (
+                                      <div className="absolute right-1/2 top-0 bottom-0 bg-red-500/70 rounded-l" style={{ width: `${w}%` }} />
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-muted-foreground pt-2 border-t border-border/50">
+                        <p><span className="font-semibold text-foreground">M (Most):</span> jumlah dipilih sebagai "Paling Sesuai" (Mask).</p>
+                        <p><span className="font-semibold text-foreground">L (Least):</span> jumlah dipilih sebagai "Paling Tidak Sesuai" (Core).</p>
+                        <p><span className="font-semibold text-foreground">Net:</span> M − L → kekuatan natural (Mirror).</p>
+                        <p><span className="font-semibold text-foreground">Rank:</span> urutan kekuatan dimensi (1 = paling dominan).</p>
+                      </div>
                     </div>
-                  </div>
-                ) : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
+                  );
+                })()
+                : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
                   const ppMap: Record<string, string> = {
                     K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
                     S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
