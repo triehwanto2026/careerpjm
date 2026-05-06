@@ -463,13 +463,8 @@ const TestPage = () => {
     }
   }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample]);
 
-  // Show PAPIKOSTIK instructions when test starts
-  useEffect(() => {
-    const isPAPIKOSTIK = currentTest?.name.toLowerCase().includes('papikostick') || currentTest?.name.toLowerCase().includes('papi');
-    if (isPAPIKOSTIK && currentQIdx === 0) {
-      showPAPIKOSTIKInstructions();
-    }
-  }, [currentTestIdx, currentTest, currentQIdx, showPAPIKOSTIKInstructions]);
+  // PAPIKOSTIK instructions effect is declared after showPAPIKOSTIKInstructions below
+
 
   // Show memory items for 3 minutes
   const showMemoryItems = useCallback(() => {
