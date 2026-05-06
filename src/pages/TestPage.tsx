@@ -750,8 +750,16 @@ const TestPage = () => {
           optId.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
           const mOpt = q.options.find(o => o.id === parts.M);
           const lOpt = q.options.find(o => o.id === parts.L);
-          if (mOpt?.category_target) cats[mOpt.category_target] = (cats[mOpt.category_target] || 0) + 1;
-          if (lOpt?.category_target) cats[lOpt.category_target] = (cats[lOpt.category_target] || 0) - 1;
+          if (mOpt?.category_target) {
+            const d = mOpt.category_target;
+            cats[d] = (cats[d] || 0) + 1;                  // Net (Mirror) = M - L
+            cats[`${d}_M`] = (cats[`${d}_M`] || 0) + 1;    // Mask: Most-like count
+          }
+          if (lOpt?.category_target) {
+            const d = lOpt.category_target;
+            cats[d] = (cats[d] || 0) - 1;
+            cats[`${d}_L`] = (cats[`${d}_L`] || 0) + 1;    // Core: Least-like count
+          }
           return;
         }
         if (q.question_type === "multi_choice" && optId.includes("+")) {
