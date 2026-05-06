@@ -751,22 +751,22 @@ const istQuestions = {
   
   // GE - Generalization (Questions 61-76) - These are open-ended, need typed answers
   GE: [
-    { question_number: 61, question_text: "mawar – melati", answer: "bunga" },
-    { question_number: 62, question_text: "mata – telinga", answer: "panca indera" },
-    { question_number: 63, question_text: "gula – intan", answer: "benda keras" },
-    { question_number: 64, question_text: "hujan – salju", answer: "curahan" },
-    { question_number: 65, question_text: "pengantar surat – telepon", answer: "komunikasi" },
-    { question_number: 66, question_text: "kamera – kacamata", answer: "alat optik" },
-    { question_number: 67, question_text: "lambung – usus", answer: "alat pencernaan" },
-    { question_number: 68, question_text: "banyak – sedikit", answer: "kuantitas" },
-    { question_number: 69, question_text: "telur – benih", answer: "perkembangbiakan" },
-    { question_number: 70, question_text: "bendera – lencana", answer: "simbol" },
-    { question_number: 71, question_text: "rumput – gajah", answer: "makhluk hidup" },
-    { question_number: 72, question_text: "ember – kantong", answer: "wadah" },
-    { question_number: 73, question_text: "awal – akhir", answer: "urutan" },
-    { question_number: 74, question_text: "kikir – boros", answer: "sifat pengeluaran" },
-    { question_number: 75, question_text: "penawaran – permintaan", answer: "ekonomi" },
-    { question_number: 76, question_text: "atas – bawah", answer: "posisi" }
+    { question_number: 61, question_text: "mawar – melati", answer: "Bunga" },
+    { question_number: 62, question_text: "mata – telinga", answer: "Indera / Alat Indra" },
+    { question_number: 63, question_text: "gula – intan", answer: "Kristal" },
+    { question_number: 64, question_text: "hujan – salju", answer: "Presipitasi / Jenis Cuaca" },
+    { question_number: 65, question_text: "pengantar surat – telepon", answer: "Alat Komunikasi / Penghubung" },
+    { question_number: 66, question_text: "kamera – kacamata", answer: "Alat Optik / Lensa" },
+    { question_number: 67, question_text: "lambung – usus", answer: "Pencernaan / Organ" },
+    { question_number: 68, question_text: "banyak – sedikit", answer: "Jumlah / Kuantitas" },
+    { question_number: 69, question_text: "telur – benih", answer: "Calon Makhluk Hidup / Bibit" },
+    { question_number: 70, question_text: "bendera – lencana", answer: "Simbol / Lambang" },
+    { question_number: 71, question_text: "rumput – gajah", answer: "Makanan" },
+    { question_number: 72, question_text: "ember – kantong", answer: "Wadah / Tempat" },
+    { question_number: 73, question_text: "awal – akhir", answer: "Batas / Bagian" },
+    { question_number: 74, question_text: "kikir – boros", answer: "Sifat / Karakter" },
+    { question_number: 75, question_text: "penawaran – permintaan", answer: "Ekonomi / Pasar" },
+    { question_number: 76, question_text: "atas – bawah", answer: "Arah / Posisi" }
   ],
   
   // RA - Arithmetic (Questions 77-96)
@@ -817,18 +817,20 @@ const istQuestions = {
     { question_number: 116, question_text: "5 35 28 4 11 77 70 ?", answer: "46" }
   ],
   
-  // FA - Figure Assembly (Questions 117-136) - Need images
+  // FA - Figure Assembly (Questions 117-136) - Support 2 images: question image + answer choices image
   FA: Array.from({ length: 20 }, (_, i) => ({
     question_number: 117 + i,
-    question_text: `[IMAGE NEEDED - Soal No ${117 + i}]`,
+    question_text: `Pilih potongan gambar yang tepat untuk melengkapi pola di atas (Soal No ${117 + i})`,
+    question_image: `fa${117 + i}_soal.png`, // Gambar 1: soal/pattern yang harus dilengkapi
+    options_image: `fa${117 + i}_pilihan.png`, // Gambar 2: pilihan jawaban A-E
     options: [
-      { label: "a", text: "Gambar A" },
-      { label: "b", text: "Gambar B" },
-      { label: "c", text: "Gambar C" },
-      { label: "d", text: "Gambar D" },
-      { label: "e", text: "Gambar E" }
+      { label: "a", text: "A" },
+      { label: "b", text: "B" },
+      { label: "c", text: "C" },
+      { label: "d", text: "D" },
+      { label: "e", text: "E" }
     ],
-    correct: "a" // Placeholder
+    correct: "a" // Placeholder - update dengan jawaban yang benar
   })),
   
   // WU - Cube Rotation (Questions 137-156) - Need images
@@ -1131,7 +1133,9 @@ async function updateISTQuestions() {
           question_type: subtestInfo[subtestCode].type,
           scoring_rule: 'correct_only',
           subtest_code: subtestCode,
-          time_limit_minutes: subtestCode === 'ME' ? 3 : null // Memory has 3 minutes
+          time_limit_minutes: subtestCode === 'ME' ? 3 : null, // Memory has 3 minutes
+          question_image: q.question_image || null, // Gambar 1: soal
+          options_image: q.options_image || null // Gambar 2: pilihan jawaban
         })
         .select()
         .single();
@@ -1174,7 +1178,8 @@ async function updateISTQuestions() {
   Object.entries(istQuestions).forEach(([code, questions]) => {
     console.log(`- ${code}: ${questions.length} questions`);
   });
-  console.log('\nNote: Subtest FA (117-136) and WU (137-156) need images to be uploaded manually');
+  console.log('\nNote: Subtest FA (117-136) now supports 2 images: question_image (soal) and options_image (pilihan jawaban)');
+console.log('Subtest WU (137-156) need images to be uploaded manually');
   console.log('Subtest ME (157-176) includes 3-minute memory display at the beginning');
 }
 

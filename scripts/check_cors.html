@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CORS Test</title>
+</head>
+<body>
+  <h2>CORS Test for IST Images</h2>
+  <p>Jika gambar muncul di bawah, berarti CORS OK:</p>
+  
+  <h3>Soal 117 - Gambar 1 (Soal):</h3>
+  <img src="https://vsmsgyupvtvzhzpzeota.supabase.co/storage/v1/object/public/test-images/q117-soal-1778036036979-r38qkb.png" 
+       style="max-width: 300px; border: 2px solid green;" 
+       onerror="this.style.border='2px solid red'; this.alt='FAILED TO LOAD'">
+  
+  <h3>Soal 117 - Gambar 2 (Pilihan):</h3>
+  <img src="https://vsmsgyupvtvzhzpzeota.supabase.co/storage/v1/object/public/test-images/q117-pilihan-1778036037673-0zajbz.png" 
+       style="max-width: 300px; border: 2px solid green;" 
+       onerror="this.style.border='2px solid red'; this.alt='FAILED TO LOAD'">
+       
+  <p><b>Jika gambar merah = masalah CORS/RLS</b></p>
+  <p><b>Jika gambar hijau = CORS OK, masalah di aplikasi</b></p>
+</body>
+</html>

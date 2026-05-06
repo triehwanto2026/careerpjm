@@ -17,6 +17,8 @@ interface DbQuestion {
   id: string; instrument_id: string; question_number: number; question_text: string; question_text_en: string | null;
   category: string | null; question_type: string; scoring_rule: string;
   subtest_code?: string | null; time_limit_minutes?: number | null; image_url?: string | null;
+  question_image?: string | null; // Gambar 1: soal/pattern (IST subtest FA)
+  options_image?: string | null; // Gambar 2: pilihan jawaban A-E (IST subtest FA)
   options: DbOption[];
 }
 interface DbInstrument {
@@ -992,8 +994,58 @@ const TestPage = () => {
                 {showEnglish && currentQuestion.question_text_en && (
                   <p className="text-sm italic text-muted-foreground">{currentQuestion.question_text_en}</p>
                 )}
-                {currentQuestion.image_url && (
-                  <img src={currentQuestion.image_url} alt="Soal" className="max-h-72 w-auto rounded-lg border border-border bg-white" loading="lazy" />
+                {/* DEBUG: Show image status */}
+                <div className="text-[10px] text-muted-foreground bg-muted p-2 rounded">
+                  DEBUG: q{currentQuestion.question_number} | 
+                  q_img: {currentQuestion.question_image ? 'YES' : 'NO'} | 
+                  o_img: {currentQuestion.options_image ? 'YES' : 'NO'} | 
+                  old: {currentQuestion.image_url ? 'YES' : 'NO'}
+                </div>
+                
+                {currentQuestion.question_image && (
+                  <div className="space-y-2 border border-dashed border-border p-2 rounded">
+                    <p className="text-xs text-muted-foreground">Gambar 1 - Soal:</p>
+                    <img 
+                      src={currentQuestion.question_image} 
+                      alt="Soal" 
+                      className="max-h-72 w-auto rounded-lg border border-border bg-white" 
+                      onError={(e) => { 
+                        console.error('Failed to load question_image:', currentQuestion.question_image); 
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const errMsg = target.parentElement?.querySelector('.img-error');
+                        if (errMsg) errMsg.classList.remove('hidden');
+                      }}
+                    />
+                    <p className="img-error hidden text-xs text-destructive">⚠ Gagal memuat gambar 1</p>
+                    <p className="text-[10px] text-muted-foreground break-all">{currentQuestion.question_image}</p>
+                  </div>
+                )}
+                {currentQuestion.options_image && (
+                  <div className="space-y-2 border border-dashed border-border p-2 rounded">
+                    <p className="text-xs text-muted-foreground">Gambar 2 - Pilihan Jawaban:</p>
+                    <img 
+                      src={currentQuestion.options_image} 
+                      alt="Pilihan Jawaban" 
+                      className="max-h-72 w-auto rounded-lg border border-border bg-white" 
+                      onError={(e) => { 
+                        console.error('Failed to load options_image:', currentQuestion.options_image); 
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const errMsg = target.parentElement?.querySelector('.img-error');
+                        if (errMsg) errMsg.classList.remove('hidden');
+                      }}
+                    />
+                    <p className="img-error hidden text-xs text-destructive">⚠ Gagal memuat gambar 2</p>
+                    <p className="text-[10px] text-muted-foreground break-all">{currentQuestion.options_image}</p>
+                  </div>
+                )}
+                {/* Fallback untuk gambar lama (image_url) */}
+                {!currentQuestion.question_image && !currentQuestion.options_image && currentQuestion.image_url && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Gambar Soal:</p>
+                    <img src={currentQuestion.image_url} alt="Soal" className="max-h-72 w-auto rounded-lg border border-border bg-white" />
+                  </div>
                 )}
                 <div className="space-y-3">
                   {currentQuestion.options.length === 0 ? (

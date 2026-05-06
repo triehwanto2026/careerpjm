@@ -276,7 +276,9 @@ const TestInstruments = () => {
               ${q.question_text_en ? `<p style="font-size:12px;color:hsl(210,20%,60%);margin:0;font-style:italic">${q.question_text_en}</p>` : ''}
             </div>
           </div>
-          ${q.image_url ? `<img src="${q.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;margin:8px 0;border:1px solid hsla(210,14%,30%)">` : ''}
+          ${q.question_image ? `<div style="margin:12px 0;padding:12px;background:hsla(210,14%,12%,0.5);border-radius:8px;border:1px dashed hsla(210,14%,30%)"><p style="font-size:11px;color:hsl(174,72%,46%);margin:0 0 8px 0;font-weight:600">Gambar 1 - Soal/Pola:</p><img src="${q.question_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid hsla(210,14%,30%);background:white"></div>` : ''}
+          ${q.options_image ? `<div style="margin:12px 0;padding:12px;background:hsla(210,14%,12%,0.5);border-radius:8px;border:1px dashed hsla(210,14%,30%)"><p style="font-size:11px;color:hsl(174,72%,46%,0.8);margin:0 0 8px 0;font-weight:600">Gambar 2 - Pilihan Jawaban:</p><img src="${q.options_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid hsla(210,14%,30%);background:white"></div>` : ''}
+          ${!q.question_image && !q.options_image && q.image_url ? `<div style="margin:12px 0"><p style="font-size:11px;color:hsl(210,20%,60%);margin:0 0 8px 0">Gambar Soal:</p><img src="${q.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid hsla(210,14%,30%)"></div>` : ''}
           <div style="margin-top:8px">
             ${optionsHtml}
           </div>

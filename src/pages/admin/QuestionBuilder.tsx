@@ -39,6 +39,8 @@ interface QuestionRow {
   question_type: string;
   scoring_rule: string;
   image_url: string | null;
+  question_image?: string | null; // Gambar 1: soal/pattern
+  options_image?: string | null; // Gambar 2: pilihan jawaban
 }
 
 interface OptionRow {
@@ -131,8 +133,12 @@ const QuestionBuilder = () => {
               </select>
             </div>
           </div>
-          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Gambar Soal (opsional — IST/CFIT)</label>
-          <input id="q-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
+          <div style="border-top:1px solid hsl(var(--border));padding-top:12px;margin-top:12px;">
+            <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--primary))">Gambar 1: Soal/Pola (opsional — IST subtest FA)</label>
+            <input id="q-image1" type="file" accept="image/*" class="swal2-file" style="margin:0 0 10px;width:100%">
+            <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--primary))">Gambar 2: Pilihan Jawaban A-E (opsional — IST subtest FA)</label>
+            <input id="q-image2" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
+          </div>
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan Soal",
@@ -142,26 +148,31 @@ const QuestionBuilder = () => {
       preConfirm: () => {
         const text = (document.getElementById("q-text") as HTMLTextAreaElement).value.trim();
         if (!text) { Swal.showValidationMessage("Teks soal wajib diisi"); return; }
-        const fileInput = document.getElementById("q-image") as HTMLInputElement;
+        const fileInput1 = document.getElementById("q-image1") as HTMLInputElement;
+        const fileInput2 = document.getElementById("q-image2") as HTMLInputElement;
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
-          _imageFile: fileInput?.files?.[0] || null,
+          _imageFile1: fileInput1?.files?.[0] || null,
+          _imageFile2: fileInput2?.files?.[0] || null,
         };
       },
     });
     if (value) {
-      const { _imageFile, ...payload } = value as any;
-      let image_url: string | null = null;
-      if (_imageFile) image_url = await uploadTestImage(_imageFile, `q${nextNum}`);
+      const { _imageFile1, _imageFile2, ...payload } = value as any;
+      let question_image: string | null = null;
+      let options_image: string | null = null;
+      if (_imageFile1) question_image = await uploadTestImage(_imageFile1, `q${nextNum}-soal`);
+      if (_imageFile2) options_image = await uploadTestImage(_imageFile2, `q${nextNum}-pilihan`);
       await supabase.from("test_questions").insert({
         instrument_id: instrumentId,
         question_number: nextNum,
         ...payload,
-        image_url,
+        question_image,
+        options_image,
       });
       await load();
     }
@@ -192,10 +203,17 @@ const QuestionBuilder = () => {
               </select>
             </div>
           </div>
-          ${q.image_url ? `<div style="margin-top:10px;"><img src="${q.image_url}" style="max-height:100px;border:1px solid #cbd5e1;border-radius:4px;" /></div>` : ""}
-          <label style="display:block;margin-top:10px;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Ganti Gambar Soal (opsional)</label>
-          <input id="q-image" type="file" accept="image/*" class="swal2-file" style="margin:0;width:100%">
-          ${q.image_url ? `<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px"><input id="q-rmimg" type="checkbox" style="width:16px;height:16px;accent-color:hsl(0,72%,51%)">Hapus gambar saat ini</label>` : ""}
+          <div style="border-top:1px solid hsl(var(--border));padding-top:12px;margin-top:12px;">
+            ${q.question_image ? `<div style="margin-top:10px;"><img src="${q.question_image}" style="max-height:80px;border:1px solid #cbd5e1;border-radius:4px;" /><span style="font-size:11px;color:hsl(var(--muted-foreground))">Gambar 1: Soal</span></div>` : ""}
+            <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--primary))">Ganti Gambar 1: Soal/Pola (opsional)</label>
+            <input id="q-image1" type="file" accept="image/*" class="swal2-file" style="margin:0 0 8px;width:100%">
+            ${q.question_image ? `<label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px"><input id="q-rmimg1" type="checkbox" style="width:16px;height:16px;accent-color:hsl(0,72%,51%)">Hapus Gambar 1</label>` : ""}
+            
+            ${q.options_image ? `<div style="margin-top:10px;"><img src="${q.options_image}" style="max-height:80px;border:1px solid #cbd5e1;border-radius:4px;" /><span style="font-size:11px;color:hsl(var(--muted-foreground))">Gambar 2: Pilihan</span></div>` : ""}
+            <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--primary))">Ganti Gambar 2: Pilihan Jawaban (opsional)</label>
+            <input id="q-image2" type="file" accept="image/*" class="swal2-file" style="margin:0 0 8px;width:100%">
+            ${q.options_image ? `<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input id="q-rmimg2" type="checkbox" style="width:16px;height:16px;accent-color:hsl(0,72%,51%)">Hapus Gambar 2</label>` : ""}
+          </div>
         </div>`,
       ...SWAL_THEME(),
       confirmButtonText: "Simpan",
@@ -205,24 +223,30 @@ const QuestionBuilder = () => {
       preConfirm: () => {
         const text = (document.getElementById("q-text") as HTMLTextAreaElement).value.trim();
         if (!text) { Swal.showValidationMessage("Teks soal wajib diisi"); return; }
-        const fileInput = document.getElementById("q-image") as HTMLInputElement;
-        const rmImg = document.getElementById("q-rmimg") as HTMLInputElement | null;
+        const fileInput1 = document.getElementById("q-image1") as HTMLInputElement;
+        const fileInput2 = document.getElementById("q-image2") as HTMLInputElement;
+        const rmImg1 = document.getElementById("q-rmimg1") as HTMLInputElement | null;
+        const rmImg2 = document.getElementById("q-rmimg2") as HTMLInputElement | null;
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
-          _imageFile: fileInput?.files?.[0] || null,
-          _removeImage: rmImg?.checked || false,
+          _imageFile1: fileInput1?.files?.[0] || null,
+          _imageFile2: fileInput2?.files?.[0] || null,
+          _removeImage1: rmImg1?.checked || false,
+          _removeImage2: rmImg2?.checked || false,
         };
       },
     });
     if (value) {
-      const { _imageFile, _removeImage, ...payload } = value as any;
+      const { _imageFile1, _imageFile2, _removeImage1, _removeImage2, ...payload } = value as any;
       const updates: any = { ...payload };
-      if (_imageFile) updates.image_url = await uploadTestImage(_imageFile, `q${q.question_number}`);
-      else if (_removeImage) updates.image_url = null;
+      if (_imageFile1) updates.question_image = await uploadTestImage(_imageFile1, `q${q.question_number}-soal`);
+      else if (_removeImage1) updates.question_image = null;
+      if (_imageFile2) updates.options_image = await uploadTestImage(_imageFile2, `q${q.question_number}-pilihan`);
+      else if (_removeImage2) updates.options_image = null;
       await supabase.from("test_questions").update(updates).eq("id", q.id);
       await load();
     }
@@ -359,11 +383,28 @@ const QuestionBuilder = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground leading-relaxed">{q.question_text}</p>
                       {q.question_text_en && <p className="text-xs text-muted-foreground italic mt-1">{q.question_text_en}</p>}
-                      {q.image_url && (
-                        <div className="mt-2 inline-flex items-center gap-1 text-[10px] text-primary">
-                          <ImageIcon className="h-3 w-3" />
-                          <a href={q.image_url} target="_blank" rel="noopener noreferrer" className="hover:underline">Lihat gambar soal</a>
-                          <img src={q.image_url} alt="thumb" className="ml-2 h-12 w-auto rounded border border-border bg-card" />
+                      {(q.question_image || q.options_image) && (
+                        <div className="mt-3 space-y-3">
+                          {q.question_image && (
+                            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <ImageIcon className="h-4 w-4 text-primary" />
+                                <span className="text-xs font-medium text-primary">Gambar 1 - Soal/Pola:</span>
+                                <a href={q.question_image} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:underline ml-auto">Buka di tab baru</a>
+                              </div>
+                              <img src={q.question_image} alt="Soal" className="max-h-48 w-auto rounded border border-border bg-white" />
+                            </div>
+                          )}
+                          {q.options_image && (
+                            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <ImageIcon className="h-4 w-4 text-primary/80" />
+                                <span className="text-xs font-medium text-primary/80">Gambar 2 - Pilihan Jawaban:</span>
+                                <a href={q.options_image} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:underline ml-auto">Buka di tab baru</a>
+                              </div>
+                              <img src={q.options_image} alt="Pilihan Jawaban" className="max-h-48 w-auto rounded border border-border bg-white" />
+                            </div>
+                          )}
                         </div>
                       )}
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">

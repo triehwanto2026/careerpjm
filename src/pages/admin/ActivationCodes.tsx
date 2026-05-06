@@ -18,6 +18,7 @@ interface CodeRow {
   id: string; code: string; password: string;
   candidate_name: string; candidate_email: string; position: string;
   is_used: boolean; expires_at: string | null; created_at: string;
+  used_at?: string | null;
   assigned_tests: string[] | null;
 }
 
@@ -258,7 +259,16 @@ const ActivationCodes = () => {
                       {(!c.assigned_tests || c.assigned_tests.length === 0) && <span className="text-muted-foreground">-</span>}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">{c.expires_at?.split("T")[0] || "-"}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+  {c.is_used && c.used_at ? (
+    <div>
+      <div className="text-destructive font-medium">Terpakai: {c.used_at.split("T")[0]}</div>
+      <div className="text-[10px] text-muted-foreground">{c.used_at.split("T")[1]?.split(".")[0] || ""}</div>
+    </div>
+  ) : (
+    c.expires_at?.split("T")[0] || "-"
+  )}
+</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${c.is_used ? "bg-muted text-muted-foreground" : "bg-emerald-400/10 text-emerald-400"}`}>
                       {c.is_used ? "Terpakai" : "Aktif"}
