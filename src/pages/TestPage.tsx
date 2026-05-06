@@ -565,6 +565,14 @@ const TestPage = () => {
     });
   }, []);
 
+  // Show PAPIKOSTIK instructions when test starts
+  useEffect(() => {
+    const isPAPIKOSTIK = currentTest?.name.toLowerCase().includes('papikostick') || currentTest?.name.toLowerCase().includes('papi');
+    if (isPAPIKOSTIK && currentQIdx === 0) {
+      showPAPIKOSTIKInstructions();
+    }
+  }, [currentTestIdx, currentTest, currentQIdx, showPAPIKOSTIKInstructions]);
+
   // Subtest info for IST strict mode (computed each render — also used by useEffect below)
   const subtestQuestions = isIST(currentTest) && currentSubtest
     ? currentTest.questions.filter(q => q.subtest_code === currentSubtest) : [];
