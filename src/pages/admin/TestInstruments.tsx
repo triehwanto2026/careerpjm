@@ -252,46 +252,111 @@ const TestInstruments = () => {
       (optionsByQ[o.question_id] ||= []).push(o);
     });
 
+    const totalQuestions = questions.length;
+    
     const html = (questions as any[]).map((q: any) => {
       const opts = optionsByQ[q.id] || [];
-      const optionsHtml = opts.map((o: any) => `
-        <div style="padding:8px 12px;margin:6px 0;background:${o.is_correct ? 'hsla(16,84%,56%,0.12)' : 'hsla(210,14%,15%,0.6)'};border-radius:8px;border:1px solid ${o.is_correct ? 'hsl(16,84%,56%,0.4)' : 'hsla(210,14%,25%)'};cursor:pointer;transition:all 0.2s;">
-          <div style="display:flex;align-items:start;gap:10px">
-            <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:${o.is_correct ? 'hsl(16,84%,56%)' : 'hsl(210,14%,30%)'};color:${o.is_correct ? 'white' : 'hsl(210,20%,92%)'};border-radius:4px;font-weight:600;font-size:11px">${o.option_label || ''}</span>
-            <div style="flex:1">
-              <p style="font-weight:500;color:hsl(210,20%,92%);margin:0 0 4px 0">${o.option_text || ''}</p>
-              ${o.option_definition ? `<p style="font-size:11px;color:hsl(210,20%,60%);margin:0;line-height:1.4">${o.option_definition}</p>` : ''}
-            </div>
-            ${o.is_correct ? '<span style="flex-shrink:0;color:hsl(16,84%,56%);font-size:11px;font-weight:600">✓</span>' : ''}
+      
+      // Match TestPage.tsx layout - support multiple question types
+      let optionsHtml = '';
+      
+      if (q.question_type === 'disc_pair') {
+        // DISC layout with M/L columns
+        const discHeader = `
+          <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:8px;margin-bottom:12px;padding:8px 0;border-bottom:1px solid hsla(210,14%,25%)">
+            <span style="font-size:11px;font-weight:700;color:hsl(210,20%,60%);text-transform:uppercase;letter-spacing:0.5px">Pernyataan</span>
+            <span style="font-size:11px;font-weight:700;color:hsl(150,84%,45%);text-align:center;text-transform:uppercase;letter-spacing:0.5px">PALING (M)</span>
+            <span style="font-size:11px;font-weight:700;color:hsl(30,84%,50%);text-align:center;text-transform:uppercase;letter-spacing:0.5px">TIDAK (L)</span>
           </div>
-        </div>
-      `).join('');
+        `;
+        
+        const discOptions = opts.map((o: any) => `
+          <div style="display:grid;grid-template-columns:1fr 60px 60px;align-items:center;gap:8px;padding:12px;margin-bottom:8px;border-radius:10px;border:1px solid hsla(210,14%,25%);background:hsla(210,14%,15%,0.6)">
+            <div>
+              <p style="font-weight:500;color:hsl(210,20%,92%);margin:0;line-height:1.5">${o.option_text || ''}</p>
+            </div>
+            <div style="display:flex;justify-content:center">
+              <div style="width:36px;height:36px;border-radius:6px;border:2px solid hsla(210,14%,30%);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:hsl(210,20%,60%)">M</div>
+            </div>
+            <div style="display:flex;justify-content:center">
+              <div style="width:36px;height:36px;border-radius:6px;border:2px solid hsla(210,14%,30%);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:hsl(210,20%,60%)">L</div>
+            </div>
+          </div>
+        `).join('');
+        
+        optionsHtml = discHeader + discOptions;
+      } else {
+        // Standard multiple choice layout
+        optionsHtml = opts.map((o: any) => `
+          <div style="padding:12px 16px;margin:8px 0;background:hsla(210,14%,15%,0.6);border-radius:10px;border:1px solid hsla(210,14%,25%);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:12px;">
+            <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:hsl(210,14%,25%);color:hsl(210,20%,92%);border-radius:6px;font-weight:600;font-size:13px;border:1px solid hsla(210,14%,30%)">${o.option_label || ''}</span>
+            <div style="flex:1">
+              <p style="font-weight:500;color:hsl(210,20%,92%);margin:0;line-height:1.5">${o.option_text || ''}</p>
+              ${o.option_definition ? `<p style="font-size:11px;color:hsl(210,20%,60%);margin:4px 0 0 0;line-height:1.4">${o.option_definition}</p>` : ''}
+            </div>
+            ${o.is_correct ? '<span style="flex-shrink:0;color:hsl(16,84%,56%);font-size:13px;font-weight:600">✓ Benar</span>' : ''}
+          </div>
+        `).join('');
+      }
 
       return `
-        <div style="margin-bottom:20px;padding:16px;background:hsla(210,14%,8%,0.7);border-radius:12px;border:1px solid hsla(210,14%,25%)">
-          <div style="display:flex;align-items:start;gap:10px;margin-bottom:12px">
-            <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:hsl(174,72%,46%);color:white;border-radius:8px;font-weight:600;font-size:13px">${q.question_number || ''}</span>
-            <div style="flex:1">
-              <p style="font-weight:600;color:hsl(210,20%,92%);margin:0 0 6px 0;line-height:1.5">${q.question_text || ''}</p>
-              ${q.question_text_en ? `<p style="font-size:12px;color:hsl(210,20%,60%);margin:0;font-style:italic">${q.question_text_en}</p>` : ''}
-            </div>
+        <div style="margin-bottom:24px;padding:20px;background:hsla(210,14%,10%,0.8);border-radius:16px;border:1px solid hsla(210,14%,25%)">
+          <!-- Header: Test name & Question counter (like TestPage) -->
+          <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid hsla(210,14%,25%)">
+            <span style="font-size:12px;color:hsl(174,72%,46%)">${t.name}</span>
+            <span style="font-size:12px;color:hsl(210,20%,60%);margin-left:8px">· Soal <strong style="color:hsl(210,20%,92%)">${q.question_number}</strong> dari ${totalQuestions}</span>
           </div>
-          ${q.question_image ? `<div style="margin:12px 0;padding:12px;background:hsla(210,14%,12%,0.5);border-radius:8px;border:1px dashed hsla(210,14%,30%)"><p style="font-size:11px;color:hsl(174,72%,46%);margin:0 0 8px 0;font-weight:600">Gambar 1 - Soal/Pola:</p><img src="${q.question_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid hsla(210,14%,30%);background:white"></div>` : ''}
-          ${q.options_image ? `<div style="margin:12px 0;padding:12px;background:hsla(210,14%,12%,0.5);border-radius:8px;border:1px dashed hsla(210,14%,30%)"><p style="font-size:11px;color:hsl(174,72%,46%,0.8);margin:0 0 8px 0;font-weight:600">Gambar 2 - Pilihan Jawaban:</p><img src="${q.options_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid hsla(210,14%,30%);background:white"></div>` : ''}
-          ${!q.question_image && !q.options_image && q.image_url ? `<div style="margin:12px 0"><p style="font-size:11px;color:hsl(210,20%,60%);margin:0 0 8px 0">Gambar Soal:</p><img src="${q.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid hsla(210,14%,30%)"></div>` : ''}
-          <div style="margin-top:8px">
-            ${optionsHtml}
+          
+          <!-- Category badge (like TestPage) -->
+          ${q.category ? `<span style="display:inline-block;background:hsla(174,72%,46%,0.1);color:hsl(174,72%,46%);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:500;margin-bottom:12px">${q.category}</span>` : ''}
+          
+          <!-- Question text (like TestPage) -->
+          <h3 style="font-size:16px;font-weight:600;color:hsl(210,20%,96%);margin:0 0 12px 0;line-height:1.6">${q.question_text || ''}</h3>
+          ${q.question_text_en ? `<p style="font-size:13px;color:hsl(210,20%,60%);margin:0 0 16px 0;font-style:italic">${q.question_text_en}</p>` : ''}
+          
+          <!-- Images - Same layout as TestPage.tsx -->
+          ${q.question_image ? `
+            <div style="margin:16px 0;padding:16px;background:hsla(210,14%,12%,0.5);border-radius:12px;border:1px dashed hsla(210,14%,30%)">
+              <p style="font-size:11px;color:hsl(210,20%,60%);margin:0 0 12px 0">Soal:</p>
+              <img src="${q.question_image}" alt="Soal" style="max-height:280px;width:auto;border-radius:10px;border:1px solid hsla(210,14%,30%);background:white;display:block">
+            </div>
+          ` : ''}
+          
+          ${q.options_image ? `
+            <div style="margin:16px 0;padding:16px;background:hsla(210,14%,12%,0.5);border-radius:12px;border:1px dashed hsla(210,14%,30%)">
+              <p style="font-size:11px;color:hsl(210,20%,60%);margin:0 0 12px 0">Pilihan jawaban:</p>
+              <img src="${q.options_image}" alt="Pilihan Jawaban" style="max-height:280px;width:auto;border-radius:10px;border:1px solid hsla(210,14%,30%);background:white;display:block">
+            </div>
+          ` : ''}
+          
+          ${!q.question_image && !q.options_image && q.image_url ? `
+            <div style="margin:16px 0">
+              <img src="${q.image_url}" alt="Soal" style="max-height:280px;width:auto;border-radius:10px;border:1px solid hsla(210,14%,30%);background:white;display:block">
+            </div>
+          ` : ''}
+          
+          <!-- Debug info -->
+          <div style="margin-bottom:12px;padding:8px;background:hsla(210,14%,20%,0.5);border-radius:6px;font-size:10px;color:hsl(210,20%,50%)">
+            DEBUG: question_type=${q.question_type || 'null'} | options=${opts.length}
+          </div>
+          
+          <!-- Options section -->
+          <div style="margin-top:16px">
+            ${opts.length === 0 ? '<p style="font-size:13px;color:hsl(210,20%,60%);font-style:italic">Belum ada pilihan jawaban untuk soal ini.</p>' : optionsHtml}
           </div>
         </div>
       `;
     }).join('');
 
     Swal.fire({
-      title: `Preview: ${t.name}`,
-      html: `<div style="text-align:left;max-height:70vh;overflow-y:auto;font-size:13px">${html}</div>`,
+      title: `Preview Tes`,
+      html: `<div style="text-align:left;max-height:75vh;overflow-y:auto;font-size:13px;padding-right:8px">${html}</div>`,
       ...SWAL_THEME,
-      width: 700,
-      confirmButtonText: "Tutup",
+      width: 800,
+      confirmButtonText: "Tutup Preview",
+      customClass: {
+        htmlContainer: 'preview-modal-container'
+      }
     });
   };
 
