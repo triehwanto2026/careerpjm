@@ -830,17 +830,6 @@ const Results = () => {
       const rawScore = correctAnswers;
       const iqInfo = iqClassification[rawScore] || { iq: 0, classification: "UNKNOWN" };
 
-      // Calculate per dimension (series) statistics
-      const dimensions = ["Series A", "Series B", "Series C", "Series D", "Series E"];
-      const dimensionStats = dimensions.map(dim => {
-        const dimAnswers = answers.filter(a => a.category === dim);
-        const total = dimAnswers.length;
-        const correct = dimAnswers.filter(a => a.is_correct === true).length;
-        return { name: dim, total, correct };
-      });
-
-      const maxTotal = Math.max(...dimensionStats.map(d => d.total), 1);
-
       return (
         <div className="space-y-4">
           {/* IQ Score Display */}
@@ -860,54 +849,18 @@ const Results = () => {
             <p className="text-xs text-muted-foreground mt-3">Jawaban Benar: {rawScore} / {r.total_questions}</p>
           </div>
 
-          {/* Bar Chart - Detail Skor per Dimensi */}
+          {/* Line Chart with visible number scale */}
           <div className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-xs font-semibold text-foreground mb-3">Detail Skor per Dimensi</p>
+            <p className="text-xs font-semibold text-foreground mb-3">Grafik Hasil — CFIT 3A (Culture Fair Intelligence Test)</p>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={dimensionStats} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
+              <LineChart data={data} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
                 <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
-                <YAxis domain={[0, Math.ceil(maxTotal * 1.2)]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Jumlah Soal', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any, name: string) => {
-                  if (name === 'total') return [v, 'Total Soal'];
-                  if (name === 'correct') return [v, 'Jawaban Benar'];
-                  return v;
-                }} />
-                <Bar dataKey="total" fill="#e2e8f0" radius={[0, 0, 0, 0]} name="total" />
-                <Bar dataKey="correct" fill="#22c55e" radius={[4, 4, 0, 0]} name="correct" />
-              </BarChart>
+                <YAxis domain={[0, 50]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Skor', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any) => [v, 'Skor']} />
+                <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} label={{ position: 'top', fill: '#2dd4bf', fontSize: 11, fontWeight: 700 }} />
+              </LineChart>
             </ResponsiveContainer>
-            <div className="flex items-center justify-center gap-6 mt-4 text-xs">
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded" />
-                Jawaban Benar
-              </span>
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-slate-200 rounded" />
-                Total Soal
-              </span>
-            </div>
-          </div>
-
-          {/* Dimension Details Table */}
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs font-semibold text-foreground mb-3">Rincian per Dimensi</p>
-            <div className="space-y-2">
-              {dimensionStats.map(dim => (
-                <div key={dim.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <span className="text-sm font-medium text-foreground">{dim.name}</span>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32 h-3 bg-slate-200 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-green-500 rounded-full" 
-                        style={{ width: `${(dim.correct / dim.total) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-bold text-green-600">{dim.correct}/{dim.total}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       );
