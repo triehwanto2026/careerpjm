@@ -753,13 +753,24 @@ const TestPage = () => {
           optId.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
           const mOpt = q.options.find(o => o.id === parts.M);
           const lOpt = q.options.find(o => o.id === parts.L);
+          
+          // Map category_target to standard D/I/S/C codes
+          const mapToCode = (target: string) => {
+            const t = target?.toUpperCase().trim();
+            if (t === 'D' || t === 'DOMINANCE') return 'D';
+            if (t === 'I' || t === 'INFLUENCE') return 'I';
+            if (t === 'S' || t === 'STEADINESS') return 'S';
+            if (t === 'C' || t === 'COMPLIANCE') return 'C';
+            return t;
+          };
+          
           if (mOpt?.category_target) {
-            const d = mOpt.category_target;
+            const d = mapToCode(mOpt.category_target);
             cats[d] = (cats[d] || 0) + 1;                  // Net (Mirror) = M - L
             cats[`${d}_M`] = (cats[`${d}_M`] || 0) + 1;    // Mask: Most-like count
           }
           if (lOpt?.category_target) {
-            const d = lOpt.category_target;
+            const d = mapToCode(lOpt.category_target);
             cats[d] = (cats[d] || 0) - 1;
             cats[`${d}_L`] = (cats[`${d}_L`] || 0) + 1;    // Core: Least-like count
           }

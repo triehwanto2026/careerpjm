@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LineChart, Line,
+  PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area,
 } from "recharts";
 
 const COLORS = ["#2dd4bf", "#60a5fa", "#f59e0b", "#ef4444", "#a78bfa", "#f472b6", "#34d399", "#fb923c"];
@@ -613,9 +613,44 @@ const Results = () => {
     // DISC: render Mask/Core/Mirror as bar charts + final Line chart trend + Radar (Spider)
     if (r.test_name.toUpperCase().includes("DISC")) {
       const dims = ["D", "I", "S", "C"] as const;
-      const M = (d: string) => Number(cats[`${d}_M`] || 0);
-      const L = (d: string) => Number(cats[`${d}_L`] || 0);
-      const N = (d: string) => Number(cats[d] || 0); // already net = M - L
+      const dimMap: Record<string, string> = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
+      const reverseDimMap: Record<string, string> = { Dominance: "D", Influence: "I", Steadiness: "S", Compliance: "C" };
+      
+      // Check if using old format (D, I, S, C) or new format (full names)
+      const useOldFormat = cats["D"] !== undefined || cats["I"] !== undefined || cats["S"] !== undefined || cats["C"] !== undefined;
+      
+      // Helper to get M value
+      const getM = (d: string) => {
+        if (useOldFormat) {
+          return cats[`${d}_M`] !== undefined ? Number(cats[`${d}_M`]) : 0;
+        } else {
+          const fullName = dimMap[d];
+          return cats[`${fullName}_M`] !== undefined ? Number(cats[`${fullName}_M`]) : 0;
+        }
+      };
+      // Helper to get L value  
+      const getL = (d: string) => {
+        if (useOldFormat) {
+          return cats[`${d}_L`] !== undefined ? Number(cats[`${d}_L`]) : 0;
+        } else {
+          const fullName = dimMap[d];
+          return cats[`${fullName}_L`] !== undefined ? Number(cats[`${fullName}_L`]) : 0;
+        }
+      };
+      // Helper to get Net value
+      const getN = (d: string) => {
+        if (useOldFormat) {
+          return Number(cats[d] || 0);
+        } else {
+          const fullName = dimMap[d];
+          return Number(cats[fullName] || 0);
+        }
+      };
+      
+      const M = getM;
+      const L = getL;
+      const N = getN;
+      
       const mask = dims.map(d => ({ name: d, value: M(d) }));
       const core = dims.map(d => ({ name: d, value: L(d) }));
       const mirror = dims.map(d => ({ name: d, value: N(d) }));
@@ -633,19 +668,33 @@ const Results = () => {
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
             <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={d}>
+              <AreaChart data={d}>
+                <defs>
+                  <linearGradient id={`gradient-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
                 <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
                 <YAxis domain={[yMin, yMax]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
                 <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-                <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} label={{ position: 'top', fill: color, fontSize: 11, fontWeight: 700 }} />
-              </LineChart>
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke={color} 
+                  strokeWidth={3}
+                  fill={`url(#gradient-${color.replace('#', '')})`}
+                  dot={{ r: 5, fill: color, strokeWidth: 2 }} 
+                  activeDot={{ r: 7, fill: color, strokeWidth: 2 }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         );
       };
 
-      const sortedCats = dims.map(d => [d, N(d)] as [string, number]).sort((a, b) => b[1] - a[1]);
+      const sortedCats = dims.map(d => [d, getN(d)] as [string, number]).sort((a, b) => b[1] - a[1]);
       const dominant = sortedCats[0][0];
       const secondary = sortedCats[1][0];
 
@@ -1052,15 +1101,40 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
               <div className="overflow-x-auto">
                 {r.test_name.toUpperCase().includes("DISC") ? (() => {
                   const dims = ["D", "I", "S", "C"] as const;
+                  const dimMap: Record<string, string> = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
                   const dimLabels: Record<string, string> = {
                     D: "Dominance — Pengarah, tegas, berorientasi hasil",
                     I: "Influence — Persuasif, ekspresif, sosial",
                     S: "Steadiness — Stabil, sabar, kooperatif",
                     C: "Conscientiousness — Teliti, analitis, sistematis",
                   };
-                  const M = (d: string) => Number(cats[`${d}_M`] || 0);
-                  const L = (d: string) => Number(cats[`${d}_L`] || 0);
-                  const N = (d: string) => Number(cats[d] || 0);
+                  // Check if using old format (D, I, S, C) or new format (full names)
+                  const useOldFormat = cats["D"] !== undefined || cats["I"] !== undefined || cats["S"] !== undefined || cats["C"] !== undefined;
+                  
+                  const M = (d: string) => {
+                    if (useOldFormat) {
+                      return cats[`${d}_M`] !== undefined ? Number(cats[`${d}_M`]) : null;
+                    } else {
+                      const fullName = dimMap[d];
+                      return cats[`${fullName}_M`] !== undefined ? Number(cats[`${fullName}_M`]) : null;
+                    }
+                  };
+                  const L = (d: string) => {
+                    if (useOldFormat) {
+                      return cats[`${d}_L`] !== undefined ? Number(cats[`${d}_L`]) : null;
+                    } else {
+                      const fullName = dimMap[d];
+                      return cats[`${fullName}_L`] !== undefined ? Number(cats[`${fullName}_L`]) : null;
+                    }
+                  };
+                  const N = (d: string) => {
+                    if (useOldFormat) {
+                      return Number(cats[d] || 0);
+                    } else {
+                      const fullName = dimMap[d];
+                      return Number(cats[fullName] || 0);
+                    }
+                  };
                   const totalQ = r.total_questions || 24;
                   const sorted = [...dims].sort((a, b) => N(b) - N(a));
                   const rank: Record<string, number> = {};
@@ -1095,8 +1169,8 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                                   <div className="font-bold text-foreground">{d}</div>
                                   <div className="text-[11px] text-muted-foreground">{dimLabels[d]}</div>
                                 </td>
-                                <td className="py-2.5 px-3 text-center text-emerald-400 font-semibold">{m}</td>
-                                <td className="py-2.5 px-3 text-center text-amber-400 font-semibold">{l}</td>
+                                <td className="py-2.5 px-3 text-center text-emerald-400 font-semibold">{m === null ? "-" : m}</td>
+                                <td className="py-2.5 px-3 text-center text-amber-400 font-semibold">{l === null ? "-" : l}</td>
                                 <td className={`py-2.5 px-3 text-center font-bold ${n > 0 ? 'text-emerald-400' : n < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>{n > 0 ? `+${n}` : n}</td>
                                 <td className="py-2.5 px-3 text-center">
                                   <span className={`inline-block rounded-md border px-2 py-0.5 text-[11px] font-medium ${levelColor(lv)}`}>{lv}</span>

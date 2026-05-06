@@ -1,0 +1,132 @@
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+
+const envFile = fs.readFileSync('.env', 'utf8');
+const envVars = {};
+envFile.split('\n').forEach(line => {
+  const [key, ...valueParts] = line.split('=');
+  if (key && valueParts.length > 0) {
+    envVars[key.trim()] = valueParts.join('=').replace(/"/g, '').trim();
+  }
+});
+
+const supabase = createClient(envVars.VITE_SUPABASE_URL, envVars.VITE_SUPABASE_ANON_KEY || envVars.VITE_SUPABASE_PUBLISHABLE_KEY);
+
+async function fixDiscML() {
+  console.log('Fixing DISC M and L values...');
+
+  // Get all results
+  const { data: results, error: resultsError } = await supabase
+    .from('test_results')
+    .select('*');
+
+  if (resultsError) {
+    console.error('Error fetching results:', resultsError);
+    return;
+  }
+
+  const discResults = results?.filter(r => 
+    r.test_name && r.test_name.toUpperCase().includes('DISC')
+  );
+
+  if (!discResults || discResults.length === 0) {
+    console.log('No DISC results found');
+    return;
+  }
+
+  console.log(`Processing ${discResults.length} DISC results...`);
+
+  let updated = 0;
+  for (const result of discResults) {
+    const cats = result.categories || {};
+    
+    const newM = { D: 0, I: 0, S: 0, C: 0 };
+    const newL = { D: 0, I: 0, S: 0, C: 0 };
+    const newNet = { D: 0, I: 0, S: 0, C: 0 };
+
+    // Get answers for this result
+    const { data: answers, error: ansError } = await supabase
+      .from('test_result_details')
+      .select('*')
+      .eq('test_result_id', result.id);
+
+    if (ansError) {
+      console.error(`Error fetching answers for result ${result.id}:`, ansError);
+      continue;
+    }
+
+    if (!answers || answers.length === 0) {
+      console.log(`No answers found for result ${result.id}`);
+      continue;
+    }
+
+    console.log(`Result ${result.id}: ${answers.length} answers found`);
+
+    // Process each answer - read from selected_answer_label
+    for (const answer of answers) {
+      if (answer.selected_answer_label) {
+        const label = answer.selected_answer_label;
+        
+        // Format: "M:D / L:I" or "M:Dominance / L:Influence"
+        const mMatch = label.match(/M:([^/]+)/);
+        if (mMatch) {
+          const mCategory = mMatch[1].trim();
+          const d = mapCategoryToCode(mCategory);
+          if (d) {
+            newM[d]++;
+            newNet[d]++;
+          }
+        }
+        
+        const lMatch = label.match(/L:(.+)/);
+        if (lMatch) {
+          const lCategory = lMatch[1].trim();
+          const d = mapCategoryToCode(lCategory);
+          if (d) {
+            newL[d]++;
+            newNet[d]--;
+          }
+        }
+      }
+    }
+
+    console.log(`  Calculated M: D=${newM.D}, I=${newM.I}, S=${newM.S}, C=${newM.C}`);
+    console.log(`  Calculated L: D=${newL.D}, I=${newL.I}, S=${newL.S}, C=${newL.C}`);
+
+    // Update categories
+    const updatedCats = { ...cats };
+    for (const dim of ['D', 'I', 'S', 'C']) {
+      updatedCats[dim] = newNet[dim];
+      updatedCats[`${dim}_M`] = newM[dim];
+      updatedCats[`${dim}_L`] = newL[dim];
+    }
+
+    const { error: updateError } = await supabase
+      .from('test_results')
+      .update({ categories: updatedCats })
+      .eq('id', result.id);
+
+    if (updateError) {
+      console.error(`Error updating result ${result.id}:`, updateError);
+    } else {
+      console.log(`✓ Updated result ${result.id}`);
+      updated++;
+    }
+  }
+
+  console.log(`\nDone! ${updated} results updated.`);
+}
+
+function mapCategoryToCode(target) {
+  if (!target) return null;
+  const t = String(target).toUpperCase().trim();
+  if (t === 'D' || t === 'DOMINANCE') return 'D';
+  if (t === 'I' || t === 'INFLUENCE') return 'I';
+  if (t === 'S' || t === 'STEADINESS') return 'S';
+  if (t === 'C' || t === 'COMPLIANCE') return 'C';
+  return null;
+}
+
+fixDiscML().catch(err => {
+  console.error('Error:', err);
+});
