@@ -612,66 +612,58 @@ const Results = () => {
 
     // DISC: render Mask/Core/Mirror as bar charts + final Line chart trend + Radar (Spider)
     if (r.test_name.toUpperCase().includes("DISC")) {
-      const dims = ["D", "I", "S", "C"];
-      const mask = dims.map(d => ({ name: d, value: Math.max(0, Number(cats[d] || 0)) }));
-      const core = dims.map(d => ({ name: d, value: Math.max(0, -Number(cats[d] || 0)) }));
-      const mirror = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
-      const lineData = dims.map(d => ({
-        dimensi: d,
-        Mask: Math.max(0, Number(cats[d] || 0)),
-        Core: Math.max(0, -Number(cats[d] || 0)),
-        Mirror: Number(cats[d] || 0),
-      }));
-      const radarData = dims.map(d => ({ dim: d, value: Number(cats[d] || 0) }));
+      const dims = ["D", "I", "S", "C"] as const;
+      const M = (d: string) => Number(cats[`${d}_M`] || 0);
+      const L = (d: string) => Number(cats[`${d}_L`] || 0);
+      const N = (d: string) => Number(cats[d] || 0); // already net = M - L
+      const mask = dims.map(d => ({ name: d, value: M(d) }));
+      const core = dims.map(d => ({ name: d, value: L(d) }));
+      const mirror = dims.map(d => ({ name: d, value: N(d) }));
       const jobMatch: Record<string, string> = {
         D: "Manager, Entrepreneur, Sales Director, Director, CEO",
         I: "Sales, Public Relations, Marketing, Trainer, Public Speaker",
         S: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist",
         C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer",
       };
-      const oldDominant = dims.reduce((a, b) => Number(cats[a] || 0) > Number(cats[b] || 0) ? a : b);
-      const renderMini = (title: string, d: { name: string; value: number }[], color: string) => (
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={d}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-              <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
-              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-              <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      );
-      
-      // Get top 2 dominant categories for interpretation (use actual values, not absolute)
-      const sortedCats = Object.entries(cats).sort((a, b) => b[1] - a[1]);
-      const topCategories = sortedCats.slice(0, 2).map(([cat]) => cat);
-      const dominant = topCategories[0];
-      const secondary = topCategories[1];
-      
-      // Generate interpretation text
+      const renderMini = (title: string, d: { name: string; value: number }[], color: string, allowNeg = false) => {
+        const vals = d.map(x => x.value);
+        const yMin = allowNeg ? Math.min(0, ...vals) : 0;
+        const yMax = Math.max(1, ...vals.map(Math.abs));
+        return (
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold text-foreground mb-2">{title}</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={d}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+                <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+                <YAxis domain={[yMin, yMax]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
+                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+                <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} label={{ position: 'top', fill: color, fontSize: 11, fontWeight: 700 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      };
+
+      const sortedCats = dims.map(d => [d, N(d)] as [string, number]).sort((a, b) => b[1] - a[1]);
+      const dominant = sortedCats[0][0];
+      const secondary = sortedCats[1][0];
+
       const interpretations: Record<string, string> = {
         'D': `Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.`,
         'I': `Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.`,
         'S': `Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.`,
         'C': `Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.`
       };
-      
+
       return (
         <div className="space-y-4">
-          {/* Kategori Dominan - Tampil di atas grafik */}
           <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5 p-4 text-center">
             <p className="text-xs font-medium text-muted-foreground mb-1">Kategori Dominan DISC</p>
             <div className="flex items-center justify-center gap-3">
               <span className="text-3xl font-bold text-primary">{dominant}</span>
-              {secondary && (
-                <>
-                  <span className="text-2xl text-muted-foreground/50">&</span>
-                  <span className="text-2xl font-semibold text-primary/80">{secondary}</span>
-                </>
-              )}
+              <span className="text-2xl text-muted-foreground/50">&</span>
+              <span className="text-2xl font-semibold text-primary/80">{secondary}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               {dominant === 'D' && 'Dominance - Pemimpin yang tegas dan berorientasi hasil'}
@@ -682,36 +674,22 @@ const Results = () => {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            {renderMini("Mask - Public Self (M)", mask, "#10b981")}
-            {renderMini("Core - Private Self (L)", core, "#f59e0b")}
-            {renderMini("Mirror - Perceived Self (Net)", mirror, "#ec4899")}
+            {renderMini("Mask — Public Self (Most)", mask, "#10b981")}
+            {renderMini("Core — Private Self (Least)", core, "#f59e0b")}
+            {renderMini("Mirror — Perceived Self (Net = M − L)", mirror, "#ec4899", true)}
           </div>
 
-          {/* Interpretasi Lengkap DISC */}
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-3">Interpretasi Profil DISC</p>
             <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Profil Dominan: {dominant}{secondary ? ` & ${secondary}` : ''}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{interpretations[dominant] || ''}</p>
-                {secondary && (
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-                    Kombinasi dengan {secondary} memberikan keseimbangan antara kekuatan {dominant} dan stabilitas {secondary}.
-                  </p>
-                )}
-              </div>
+              <p className="text-sm font-medium text-foreground">Profil Dominan: {dominant} & {secondary}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{interpretations[dominant] || ''}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Kombinasi dengan {secondary} memberikan keseimbangan antara kekuatan {dominant} dan karakter {secondary}.
+              </p>
               <div>
                 <p className="text-xs font-medium text-foreground">Pekerjaan yang Sesuai:</p>
                 <p className="text-xs text-muted-foreground">{jobMatch[dominant]}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-foreground">Rekomendasi:</p>
-                <p className="text-xs text-muted-foreground">
-                  Kandidat menunjukkan potensi tinggi untuk peran yang sesuai dengan profil {dominant}. 
-                  Pertimbangkan untuk penempatan di posisi yang memanfaatkan kekuatan alami ini.
-                </p>
               </div>
             </div>
           </div>
