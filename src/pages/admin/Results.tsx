@@ -1050,50 +1050,82 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
             <div className="glass rounded-xl p-5 glow-border mt-4">
               <h3 className="text-sm font-semibold text-foreground mb-3">Detail Skor per Dimensi</h3>
               <div className="overflow-x-auto">
-                {r.test_name.toUpperCase().includes("DISC") ? (
-                  // DISC: Horizontal bar chart with 0 in center, fixed order D, I, S, C
-                  <div className="space-y-3">
-                    {["D", "I", "S", "C"].map(dim => {
-                      const value = Number(cats[dim] || 0);
-                      const maxVal = Math.max(...Object.values(cats).map(Math.abs), 1);
-                      const barWidth = (Math.abs(value) / maxVal) * 40;
-                      const isPositive = value >= 0;
-                      return (
-                        <div key={dim} className="flex items-center gap-3">
-                          <span className="w-8 text-right font-medium text-foreground">{dim}</span>
-                          <div className="flex-1 relative h-8 flex items-center">
-                            {/* Zero line */}
-                            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-400"></div>
-                            {/* Negative bar (left side) */}
-                            {!isPositive && (
-                              <div 
-                                className="absolute right-1/2 h-6 bg-red-400 rounded-l"
-                                style={{ width: `${barWidth}%`, marginRight: '-1px' }}
-                              />
-                            )}
-                            {/* Positive bar (right side) */}
-                            {isPositive && (
-                              <div 
-                                className="absolute left-1/2 h-6 bg-emerald-400 rounded-r"
-                                style={{ width: `${barWidth}%`, marginLeft: '1px' }}
-                              />
-                            )}
-                            {/* Value label */}
-                            <span className={`absolute text-xs font-semibold ${
-                              isPositive ? 'left-1/2 ml-2 text-emerald-600' : 'right-1/2 mr-2 text-red-600'
-                            }`}>
-                              {value}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="flex items-center justify-center gap-6 mt-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><div className="w-3 h-3 bg-red-400 rounded"></div> Negatif</span>
-                      <div className="w-px h-4 bg-gray-300"></div>
-                      <span className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-400 rounded"></div> Positif</span>
+                {r.test_name.toUpperCase().includes("DISC") ? (() => {
+                  const dims = ["D", "I", "S", "C"] as const;
+                  const dimLabels: Record<string, string> = {
+                    D: "Dominance — Pengarah, tegas, berorientasi hasil",
+                    I: "Influence — Persuasif, ekspresif, sosial",
+                    S: "Steadiness — Stabil, sabar, kooperatif",
+                    C: "Conscientiousness — Teliti, analitis, sistematis",
+                  };
+                  const M = (d: string) => Number(cats[`${d}_M`] || 0);
+                  const L = (d: string) => Number(cats[`${d}_L`] || 0);
+                  const N = (d: string) => Number(cats[d] || 0);
+                  const totalQ = r.total_questions || 24;
+                  const sorted = [...dims].sort((a, b) => N(b) - N(a));
+                  const rank: Record<string, number> = {};
+                  sorted.forEach((d, i) => { rank[d] = i + 1; });
+                  const level = (n: number) => n >= Math.ceil(totalQ * 0.25) ? "Tinggi" : n >= 1 ? "Sedang" : n <= -Math.ceil(totalQ * 0.25) ? "Rendah" : "Netral";
+                  const levelColor = (lv: string) => lv === "Tinggi" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                    : lv === "Rendah" ? "bg-red-500/20 text-red-400 border-red-500/40"
+                    : lv === "Sedang" ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                    : "bg-muted text-muted-foreground border-border";
+                  return (
+                    <div className="space-y-3">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dimensi</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground" title="Most-like (Mask)">M</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground" title="Least-like (Core)">L</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground" title="Net = M − L (Mirror)">Net</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground">Level</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-muted-foreground">Rank</th>
+                            <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground w-[35%]">Visual</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dims.map(d => {
+                            const m = M(d); const l = L(d); const n = N(d);
+                            const lv = level(n);
+                            const w = Math.min(50, Math.abs(n) / Math.max(totalQ, 1) * 50);
+                            return (
+                              <tr key={d} className="border-b border-border/50">
+                                <td className="py-2.5 px-3">
+                                  <div className="font-bold text-foreground">{d}</div>
+                                  <div className="text-[11px] text-muted-foreground">{dimLabels[d]}</div>
+                                </td>
+                                <td className="py-2.5 px-3 text-center text-emerald-400 font-semibold">{m}</td>
+                                <td className="py-2.5 px-3 text-center text-amber-400 font-semibold">{l}</td>
+                                <td className={`py-2.5 px-3 text-center font-bold ${n > 0 ? 'text-emerald-400' : n < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>{n > 0 ? `+${n}` : n}</td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className={`inline-block rounded-md border px-2 py-0.5 text-[11px] font-medium ${levelColor(lv)}`}>{lv}</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center text-foreground font-semibold">#{rank[d]}</td>
+                                <td className="py-2.5 px-3">
+                                  <div className="relative h-5 bg-muted/40 rounded">
+                                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border" />
+                                    {n >= 0 ? (
+                                      <div className="absolute left-1/2 top-0 bottom-0 bg-emerald-500/70 rounded-r" style={{ width: `${w}%` }} />
+                                    ) : (
+                                      <div className="absolute right-1/2 top-0 bottom-0 bg-red-500/70 rounded-l" style={{ width: `${w}%` }} />
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-muted-foreground pt-2 border-t border-border/50">
+                        <p><span className="font-semibold text-foreground">M (Most):</span> jumlah dipilih sebagai "Paling Sesuai" (Mask).</p>
+                        <p><span className="font-semibold text-foreground">L (Least):</span> jumlah dipilih sebagai "Paling Tidak Sesuai" (Core).</p>
+                        <p><span className="font-semibold text-foreground">Net:</span> M − L → kekuatan natural (Mirror).</p>
+                        <p><span className="font-semibold text-foreground">Rank:</span> urutan kekuatan dimensi (1 = paling dominan).</p>
+                      </div>
                     </div>
-                  </div>
+                  );
+                })()
                 ) : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
                   const ppMap: Record<string, string> = {
                     K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
