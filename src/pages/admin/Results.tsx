@@ -444,16 +444,40 @@ const Results = () => {
       }
       return cfitIqHtml;
     })()}
-    ${!(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? `
+    ${!(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? (() => {
+      const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+      let dominantScore = '';
+      if (isPP) {
+        const ppMap: Record<string, string> = {
+          K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+          S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+          M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+          P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+        };
+        const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+        Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+        const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
+        const dominant = sorted[0];
+        const second = sorted[1];
+        const diff = dominant[1] - second[1];
+        if (diff >= 1 && diff <= 4) {
+          dominantScore = `${dominant[0]} (${dominant[1]}) / ${second[0]} (${second[1]})`;
+        } else {
+          dominantScore = `${dominant[0]} (${dominant[1]})`;
+        }
+      }
+      return `
     <div class="section">
       <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
       <div class="score-cards">
         <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
-        <div class="score-card"><div class="label">Skor Akhir</div><div class="value">${r.score}<span style="font-size:14pt;color:#64748b;">%</span></div></div>
-        <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
+        <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : 'Skor Akhir'}</div>
+        <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : ''}">${isPP ? dominantScore : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
+        ${!isPP ? `<div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>` : ''}
       </div>
     </div>
-    ` : ''}
+    `;
+    })() : ''}
 
     ${discChartsHTML}
 
@@ -975,7 +999,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
             </button>
           </div>
 
-          <div ref={printRef}>
+          <div ref={printRef} className="max-h-[calc(100vh-200px)] overflow-y-auto pr-2 custom-scrollbar">
             {/* Profile card */}
             <div className="glass rounded-xl p-6 glow-border space-y-4">
               <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -1079,6 +1103,26 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                         const iqInfo = iqClassification[correctCount] || { iq: 0, classification: "UNKNOWN" };
                         return iqInfo.iq;
                       })()
+                    : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus"))
+                      ? (() => {
+                          const ppMap: Record<string, string> = {
+                            K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+                            S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+                            M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+                            P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+                          };
+                          const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+                          Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+                          const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
+                          const dominant = sorted[0];
+                          const second = sorted[1];
+                          const diff = dominant[1] - second[1];
+                          if (diff >= 1 && diff <= 4) {
+                            return <span className="text-4xl font-extrabold text-pink-400">{dominant[0]} ({dominant[1]}) / {second[0]} ({second[1]})</span>;
+                          } else {
+                            return <span className="text-4xl font-extrabold text-pink-400">{dominant[0]} ({dominant[1]})</span>;
+                          }
+                        })()
                     : `${r.score}%`
                   }
                 </p>
