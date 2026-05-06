@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X, Settings as SettingsIcon,
-  UserCog, Shield, ChevronDown, ChevronRight,
+  UserCog, Shield, ChevronDown, ChevronRight, Bell, User,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -55,6 +55,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
   const [adminPanelName, setAdminPanelName] = useState("PsyAdmin");
   const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
 
   // Fetch admin branding settings
   useEffect(() => {
@@ -309,10 +311,57 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           <h2 className="flex-1 text-sm font-semibold text-foreground">
             {activePageLabel}
           </h2>
-          <ThemeToggle />
+          <div className="flex items-center gap-2 relative">
+            {/* Notification Bell */}
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+              title="Notifikasi"
+            >
+              <Bell className="h-5 w-5" />
+              {notificationCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+              )}
+            </button>
+
+            {/* Notification Dropdown */}
+            {showNotifications && (
+              <div className="absolute right-16 top-12 w-80 bg-card border border-border rounded-lg shadow-lg z-50">
+                <div className="p-4 border-b border-border">
+                  <h3 className="font-semibold text-sm text-foreground">Notifikasi</h3>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  <div className="p-4 text-sm text-muted-foreground text-center">
+                    Tidak ada notifikasi baru
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Profile Link */}
+            <Link
+              to="/admin/profile"
+              className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+              title="Profil"
+            >
+              <User className="h-5 w-5" />
+            </Link>
+
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="flex-1 p-4 md:p-6">{children}</main>
+
+        <footer className="border-t border-border bg-card/50 px-4 py-3 md:px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+            <p>© 2024 {adminPanelName}. All rights reserved.</p>
+            <p className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+              System Online
+            </p>
+          </div>
+        </footer>
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ import AnswerKeyManager from "./pages/admin/AnswerKeyManager";
 import InterpretationManager from "./pages/admin/InterpretationManager";
 import UserManagement from "./pages/admin/UserManagement";
 import RoleManagement from "./pages/admin/RoleManagement";
+import Profile from "./pages/admin/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/admin/settings" element={<Settings />} />
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/roles" element={<RoleManagement />} />
+            <Route path="/admin/profile" element={<Profile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
