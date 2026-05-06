@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Mail, Shield, Layout, Upload, X } from "lucide-react";
+import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Mail, Shield, Layout, Upload, X, Database, Download } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,11 +27,14 @@ const Settings = () => {
   const [activeCategory, setActiveCategory] = useState<string>("branding");
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [backupFormat, setBackupFormat] = useState("json");
+  const [backupLoading, setBackupLoading] = useState(false);
 
   const categories = [
     { id: "branding", name: "Branding", icon: Palette, description: "Logo, warna, header, footer" },
     { id: "login", name: "Halaman Login", icon: Layout, description: "Tampilan halaman login" },
     { id: "system", name: "Sistem", icon: Shield, description: "Konfigurasi sistem" },
+    { id: "backup", name: "Backup Database", icon: Database, description: "Backup dan restore database" },
     { id: "email", name: "Email", icon: Mail, description: "Pengaturan email" },
   ];
 
@@ -205,6 +208,84 @@ const Settings = () => {
     }
   };
 
+  const handleManualBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const tables = ['admin_users', 'admin_roles', 'app_settings', 'test_instruments', 'test_questions', 'candidates', 'test_sessions', 'test_results', 'activation_codes', 'test_interpretations', 'test_answer_keys'];
+      const backupData: Record<string, any[]> = {};
+
+      for (const table of tables) {
+        const { data, error } = await (supabase.from(table as any).select('*'));
+        if (!error && data) {
+          backupData[table] = data;
+        }
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `backup-${timestamp}.${backupFormat}`;
+
+      if (backupFormat === 'json') {
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        // SQL format - generate INSERT statements
+        let sql = `-- Database Backup\n`;
+        sql += `-- Generated: ${new Date().toISOString()}\n\n`;
+        
+        for (const table of tables) {
+          if (backupData[table] && backupData[table].length > 0) {
+            sql += `-- Data for ${table}\n`;
+            backupData[table].forEach((row: any) => {
+              const columns = Object.keys(row);
+              const values = columns.map(col => {
+                const val = row[col];
+                if (val === null) return 'NULL';
+                if (typeof val === 'boolean') return val ? 'true' : 'false';
+                if (typeof val === 'number') return val;
+                if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+                return `'${String(val).replace(/'/g, "''")}'`;
+              });
+              sql += `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`;
+            });
+            sql += '\n';
+          }
+        }
+
+        const blob = new Blob([sql], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "Backup Berhasil",
+        text: `File ${filename} berhasil diunduh`,
+        timer: 2000,
+        showConfirmButton: false,
+        ...SWAL_THEME,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Backup error:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Backup Gagal",
+        text: `Terjadi kesalahan: ${errMsg}`,
+        ...SWAL_THEME,
+      });
+    }
+    setBackupLoading(false);
+  };
+
   const renderField = (setting: Setting) => {
     const currentValue = formData[setting.key] || "";
     const originalValue = settings.find((s) => s.key === setting.key)?.value || "";
@@ -316,7 +397,13 @@ const Settings = () => {
     }
   };
 
-  const categorySettings = settings.filter(s => s.category === activeCategory);
+  const categorySettings = settings.filter(s => {
+    if (activeCategory === "backup") {
+      // Backup settings are stored in "system" category
+      return ["auto_backup_enabled", "auto_backup_period", "auto_backup_format", "backup_retention_days"].includes(s.key);
+    }
+    return s.category === activeCategory;
+  });
 
   return (
     <AdminLayout>
@@ -389,6 +476,80 @@ const Settings = () => {
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              ) : activeCategory === "backup" ? (
+                <div className="space-y-8">
+                  {/* Manual Backup Section */}
+                  <div className="border border-border rounded-lg p-6 bg-muted/30">
+                    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <Download className="h-5 w-5 text-primary" />
+                      Backup Manual
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Download backup database secara manual dalam format JSON atau SQL.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm font-medium text-foreground">Format:</label>
+                        <select
+                          value={backupFormat}
+                          onChange={(e) => setBackupFormat(e.target.value)}
+                          className="px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary"
+                        >
+                          <option value="json">JSON</option>
+                          <option value="sql">SQL</option>
+                        </select>
+                      </div>
+                      <button
+                        onClick={handleManualBackup}
+                        disabled={backupLoading}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {backupLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
+                            Backup...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4" />
+                            Download Backup
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Auto Backup Settings */}
+                  <div className="border border-border rounded-lg p-6 bg-muted/30">
+                    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <Database className="h-5 w-5 text-primary" />
+                      Backup Otomatis
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Konfigurasi backup otomatis berdasarkan periode yang ditentukan.
+                    </p>
+                    <div className="space-y-4">
+                      {categorySettings.map((setting) => (
+                        <div key={setting.id} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              {setting.key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </label>
+                            {(formData[setting.key] || "") !== (settings.find((s) => s.key === setting.key)?.value || "") && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                Diubah
+                              </span>
+                            )}
+                          </div>
+                          {setting.description && (
+                            <p className="text-xs text-muted-foreground">{setting.description}</p>
+                          )}
+                          {renderField(setting)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : categorySettings.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-12 text-center">
