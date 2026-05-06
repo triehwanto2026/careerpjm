@@ -1126,7 +1126,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                     </div>
                   );
                 })()
-                ) : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
+                : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
                   const ppMap: Record<string, string> = {
                     K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
                     S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
