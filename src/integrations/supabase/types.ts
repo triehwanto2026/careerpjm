@@ -31,6 +31,7 @@ export type Database = {
           test_completed_at: string | null
           test_started_at: string | null
           updated_at: string
+          used_at: string | null
         }
         Insert: {
           assigned_tests?: string[] | null
@@ -48,6 +49,7 @@ export type Database = {
           test_completed_at?: string | null
           test_started_at?: string | null
           updated_at?: string
+          used_at?: string | null
         }
         Update: {
           assigned_tests?: string[] | null
@@ -65,6 +67,7 @@ export type Database = {
           test_completed_at?: string | null
           test_started_at?: string | null
           updated_at?: string
+          used_at?: string | null
         }
         Relationships: []
       }
@@ -452,6 +455,8 @@ export type Database = {
           id: string
           image_url: string | null
           instrument_id: string
+          options_image: string | null
+          question_image: string | null
           question_number: number
           question_text: string
           question_text_en: string | null
@@ -468,6 +473,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           instrument_id: string
+          options_image?: string | null
+          question_image?: string | null
           question_number?: number
           question_text: string
           question_text_en?: string | null
@@ -484,6 +491,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           instrument_id?: string
+          options_image?: string | null
+          question_image?: string | null
           question_number?: number
           question_text?: string
           question_text_en?: string | null
