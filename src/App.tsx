@@ -19,6 +19,14 @@ import InterpretationManager from "./pages/admin/InterpretationManager";
 import UserManagement from "./pages/admin/UserManagement";
 import RoleManagement from "./pages/admin/RoleManagement";
 import Profile from "./pages/admin/Profile";
+import Jobs from "./pages/admin/Jobs";
+import Recruitment from "./pages/admin/Recruitment";
+import CandidateLogin from "./pages/candidate/CandidateLogin";
+import CandidateRegister from "./pages/candidate/CandidateRegister";
+import CandidateProfile from "./pages/candidate/CandidateProfile";
+import CandidateJobs from "./pages/candidate/CandidateJobs";
+import CandidateApplications from "./pages/candidate/CandidateApplications";
+import CandidateTests from "./pages/candidate/CandidateTests";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
