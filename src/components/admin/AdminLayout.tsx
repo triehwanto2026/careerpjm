@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X, Settings as SettingsIcon,
-  UserCog, Shield, ChevronDown, ChevronRight, Bell, User,
+  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
