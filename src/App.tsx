@@ -54,6 +54,14 @@ const App = () => (
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/roles" element={<RoleManagement />} />
             <Route path="/admin/profile" element={<Profile />} />
+            <Route path="/admin/jobs" element={<Jobs />} />
+            <Route path="/admin/recruitment" element={<Recruitment />} />
+            <Route path="/candidate/login" element={<CandidateLogin />} />
+            <Route path="/candidate/register" element={<CandidateRegister />} />
+            <Route path="/candidate/profile" element={<CandidateProfile />} />
+            <Route path="/candidate/jobs" element={<CandidateJobs />} />
+            <Route path="/candidate/applications" element={<CandidateApplications />} />
+            <Route path="/candidate/tests" element={<CandidateTests />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
