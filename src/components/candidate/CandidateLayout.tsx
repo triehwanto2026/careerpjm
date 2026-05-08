@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { User, Briefcase, FileText, ClipboardList, LogOut, Brain, Menu, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const nav = [
   { to: "/candidate/profile", label: "Profil Saya", icon: User },
