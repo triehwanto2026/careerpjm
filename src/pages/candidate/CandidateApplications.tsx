@@ -43,7 +43,7 @@ export default function CandidateApplications() {
     const { data } = await supabase.from("job_applications").select("*").eq("user_id", session.user.id).order("applied_at", { ascending: false });
     const list = (data as any) || [];
     // Fetch vacancies
-    const ids = [...new Set(list.map((a: any) => a.vacancy_id))];
+    const ids = Array.from(new Set(list.map((a: any) => a.vacancy_id))) as string[];
     if (ids.length > 0) {
       const { data: vac } = await supabase.from("job_vacancies").select("id,title,department,location").in("id", ids);
       const map = new Map((vac || []).map((v: any) => [v.id, v]));
