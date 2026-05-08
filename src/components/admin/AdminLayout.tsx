@@ -26,6 +26,8 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
   { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
+  { path: "/admin/jobs", label: "Lowongan", icon: Briefcase },
+  { path: "/admin/recruitment", label: "Rekrutmen", icon: Workflow },
   { path: "/admin/candidates", label: "Kandidat", icon: Users },
   { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
   {
