@@ -108,7 +108,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       const hasPermission =
         perms.includes(currentPath) ||
         currentPath === "/admin" ||
-        currentPath === "/admin/test-instruments";
+        currentPath === "/admin/test-instruments" ||
+        currentPath === "/admin/jobs" ||
+        currentPath === "/admin/recruitment";
 
       const isSubRoute = currentPath.startsWith("/admin/test-instruments/");
       const hasParentPermission = isSubRoute && perms.includes("/admin/test-instruments");
