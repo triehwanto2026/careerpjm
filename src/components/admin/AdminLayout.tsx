@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X, Settings as SettingsIcon,
-  UserCog, Shield, ChevronDown, ChevronRight, Bell, User,
+  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -26,6 +26,8 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
   { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
+  { path: "/admin/jobs", label: "Lowongan", icon: Briefcase },
+  { path: "/admin/recruitment", label: "Rekrutmen", icon: Workflow },
   { path: "/admin/candidates", label: "Kandidat", icon: Users },
   { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
   {
@@ -106,7 +108,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       const hasPermission =
         perms.includes(currentPath) ||
         currentPath === "/admin" ||
-        currentPath === "/admin/test-instruments";
+        currentPath === "/admin/test-instruments" ||
+        currentPath === "/admin/jobs" ||
+        currentPath === "/admin/recruitment";
 
       const isSubRoute = currentPath.startsWith("/admin/test-instruments/");
       const hasParentPermission = isSubRoute && perms.includes("/admin/test-instruments");

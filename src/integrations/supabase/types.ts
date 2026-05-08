@@ -184,6 +184,144 @@ export type Database = {
         }
         Relationships: []
       }
+      candidate_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          mime_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          mime_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          mime_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      candidate_profiles: {
+        Row: {
+          address: string | null
+          bio: string | null
+          birth_date: string | null
+          birth_place: string | null
+          city: string | null
+          created_at: string
+          current_company: string | null
+          current_position: string | null
+          education_institution: string | null
+          education_level: string | null
+          education_major: string | null
+          education_year: number | null
+          email: string
+          expected_salary: number | null
+          experience_years: number | null
+          full_name: string
+          gender: string | null
+          gpa: number | null
+          id: string
+          is_complete: boolean
+          linkedin_url: string | null
+          marital_status: string | null
+          nationality: string | null
+          phone: string | null
+          photo_url: string | null
+          postal_code: string | null
+          province: string | null
+          religion: string | null
+          skills: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          bio?: string | null
+          birth_date?: string | null
+          birth_place?: string | null
+          city?: string | null
+          created_at?: string
+          current_company?: string | null
+          current_position?: string | null
+          education_institution?: string | null
+          education_level?: string | null
+          education_major?: string | null
+          education_year?: number | null
+          email?: string
+          expected_salary?: number | null
+          experience_years?: number | null
+          full_name?: string
+          gender?: string | null
+          gpa?: number | null
+          id?: string
+          is_complete?: boolean
+          linkedin_url?: string | null
+          marital_status?: string | null
+          nationality?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          postal_code?: string | null
+          province?: string | null
+          religion?: string | null
+          skills?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          bio?: string | null
+          birth_date?: string | null
+          birth_place?: string | null
+          city?: string | null
+          created_at?: string
+          current_company?: string | null
+          current_position?: string | null
+          education_institution?: string | null
+          education_level?: string | null
+          education_major?: string | null
+          education_year?: number | null
+          email?: string
+          expected_salary?: number | null
+          experience_years?: number | null
+          full_name?: string
+          gender?: string | null
+          gpa?: number | null
+          id?: string
+          is_complete?: boolean
+          linkedin_url?: string | null
+          marital_status?: string | null
+          nationality?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          postal_code?: string | null
+          province?: string | null
+          religion?: string | null
+          skills?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       candidates: {
         Row: {
           activation_code_id: string | null
@@ -239,6 +377,110 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      job_applications: {
+        Row: {
+          activation_code_id: string | null
+          admin_notes: string | null
+          applied_at: string
+          cover_letter: string | null
+          created_at: string
+          id: string
+          status: string
+          status_updated_at: string
+          updated_at: string
+          user_id: string
+          vacancy_id: string
+        }
+        Insert: {
+          activation_code_id?: string | null
+          admin_notes?: string | null
+          applied_at?: string
+          cover_letter?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          status_updated_at?: string
+          updated_at?: string
+          user_id: string
+          vacancy_id: string
+        }
+        Update: {
+          activation_code_id?: string | null
+          admin_notes?: string | null
+          applied_at?: string
+          cover_letter?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          status_updated_at?: string
+          updated_at?: string
+          user_id?: string
+          vacancy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_vacancy_id_fkey"
+            columns: ["vacancy_id"]
+            isOneToOne: false
+            referencedRelation: "job_vacancies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_vacancies: {
+        Row: {
+          closes_at: string | null
+          created_at: string
+          department: string | null
+          description: string | null
+          employment_type: string | null
+          id: string
+          location: string | null
+          max_salary: number | null
+          min_salary: number | null
+          posted_by: string | null
+          requirements: string | null
+          responsibilities: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          closes_at?: string | null
+          created_at?: string
+          department?: string | null
+          description?: string | null
+          employment_type?: string | null
+          id?: string
+          location?: string | null
+          max_salary?: number | null
+          min_salary?: number | null
+          posted_by?: string | null
+          requirements?: string | null
+          responsibilities?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          closes_at?: string | null
+          created_at?: string
+          department?: string | null
+          description?: string | null
+          employment_type?: string | null
+          id?: string
+          location?: string | null
+          max_salary?: number | null
+          min_salary?: number | null
+          posted_by?: string | null
+          requirements?: string | null
+          responsibilities?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       test_answers: {
         Row: {

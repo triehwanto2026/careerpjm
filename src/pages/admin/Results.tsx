@@ -619,6 +619,233 @@ const Results = () => {
     setTimeout(() => win.print(), 300);
   };
 
+  // ============= COMPACT 2-PAGE PRINT FOR PP & DISC =============
+  const handlePrintCompact = () => {
+    if (!selectedResult) return;
+    const r = selectedResult;
+    const profile = r.candidate_profile as Record<string, string> | null;
+    const cats = r.categories as Record<string, number>;
+    const isDISC = r.test_name.toUpperCase().includes("DISC");
+    const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+    if (!isPP && !isDISC) return;
+
+    const fmtDate = (s: string) => new Date(s).toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" });
+    const esc = (s: string) => (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" } as any)[c]);
+
+    // ---- Build score data ----
+    let dimensions: { key: string; label: string; value: number; color: string }[] = [];
+    let dominantText = "";
+    let interpretationText = "";
+
+    if (isPP) {
+      const ppMap: Record<string, string> = {
+        K: "Koleris", C: "Koleris", Choleric: "Koleris", Koleris: "Koleris",
+        S: "Sanguinis", Sanguine: "Sanguinis", Sanguinis: "Sanguinis",
+        M: "Melankolis", Melancholy: "Melankolis", Melancholic: "Melankolis", Melankolis: "Melankolis",
+        P: "Plegmatis", Phlegmatic: "Plegmatis", Plegmatis: "Plegmatis",
+      };
+      const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+      Object.entries(cats).forEach(([k, v]) => {
+        const mapped = ppMap[k] || k;
+        if (norm[mapped] !== undefined) norm[mapped] += Number(v) || 0;
+      });
+      const colors: Record<string, string> = { Sanguinis: "#f59e0b", Koleris: "#dc2626", Melankolis: "#2563eb", Plegmatis: "#059669" };
+      dimensions = Object.entries(norm).map(([k, v]) => ({ key: k, label: k, value: v, color: colors[k] }));
+      const sorted = [...dimensions].sort((a, b) => b.value - a.value);
+      dominantText = `${sorted[0].label} (Dominan) — ${sorted[1].label} (Sekunder)`;
+      const total = dimensions.reduce((s, d) => s + d.value, 0) || 1;
+      const pct = (v: number) => ((v / total) * 100).toFixed(1);
+      const ppDesc: Record<string, string> = {
+        Sanguinis: "Ekspresif, hangat, antusias, suka bergaul, optimistik. Mudah membangun hubungan namun cenderung kurang teliti pada detail.",
+        Koleris: "Tegas, berorientasi tujuan, cepat mengambil keputusan, suka memimpin. Kuat dalam eksekusi namun bisa terkesan dominan.",
+        Melankolis: "Analitis, teliti, perfeksionis, terstruktur. Kuat dalam perencanaan dan kontrol kualitas namun cenderung perfeksionis.",
+        Plegmatis: "Tenang, sabar, konsisten, mudah berkompromi. Pendukung tim yang andal namun bisa lambat dalam mengambil inisiatif.",
+      };
+      interpretationText = `Profil dominan kandidat adalah ${sorted[0].label} (${pct(sorted[0].value)}%) dengan dukungan ${sorted[1].label} (${pct(sorted[1].value)}%). ${ppDesc[sorted[0].label]}`;
+    } else {
+      // DISC
+      const dims = ["D", "I", "S", "C"];
+      const labels: Record<string, string> = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
+      const colors: Record<string, string> = { D: "#dc2626", I: "#f59e0b", S: "#059669", C: "#2563eb" };
+      dimensions = dims.map((d) => ({ key: d, label: `${d} - ${labels[d]}`, value: Number(cats[d] || 0), color: colors[d] }));
+      const sorted = [...dimensions].sort((a, b) => b.value - a.value);
+      dominantText = `${sorted[0].label} (Dominan) — ${sorted[1].label} (Sekunder)`;
+      const discDesc: Record<string, string> = {
+        D: "Berorientasi hasil, tegas, percaya diri, suka tantangan. Cocok untuk peran kepemimpinan dan pengambilan keputusan cepat.",
+        I: "Komunikatif, persuasif, antusias, suka berinteraksi. Cocok untuk peran sales, marketing, dan public relations.",
+        S: "Sabar, konsisten, kooperatif, pendukung tim. Cocok untuk peran customer service, HR, dan administrasi.",
+        C: "Analitis, akurat, sistematis, perfeksionis. Cocok untuk peran analyst, engineer, dan quality control.",
+      };
+      interpretationText = `Profil dominan kandidat adalah ${sorted[0].label}. ${discDesc[sorted[0].key]}`;
+    }
+
+    const maxVal = Math.max(...dimensions.map((d) => Math.abs(d.value)), 1);
+
+    // ---- Bar chart SVG ----
+    const barChart = `
+      <svg width="100%" viewBox="0 0 500 ${dimensions.length * 42 + 20}" xmlns="http://www.w3.org/2000/svg">
+        ${dimensions.map((d, i) => {
+          const y = i * 42 + 10;
+          const w = (Math.abs(d.value) / maxVal) * 360;
+          return `
+            <text x="0" y="${y + 18}" font-size="11" font-weight="700" fill="#0f172a">${esc(d.label)}</text>
+            <rect x="120" y="${y + 6}" width="360" height="20" fill="#f1f5f9" rx="3"/>
+            <rect x="120" y="${y + 6}" width="${w}" height="20" fill="${d.color}" rx="3"/>
+            <text x="${120 + w + 6}" y="${y + 21}" font-size="11" font-weight="700" fill="#0f172a">${d.value}</text>
+          `;
+        }).join("")}
+      </svg>`;
+
+    // ---- Lembar jawaban ----
+    const ppMap2: Record<string, string> = {
+      K: "Koleris", C: "Koleris", Choleric: "Koleris", Koleris: "Koleris",
+      S: "Sanguinis", Sanguine: "Sanguinis", Sanguinis: "Sanguinis",
+      M: "Melankolis", Melancholy: "Melankolis", Melancholic: "Melankolis", Melankolis: "Melankolis",
+      P: "Plegmatis", Phlegmatic: "Plegmatis", Plegmatis: "Plegmatis",
+    };
+
+    const answerRows = answers.map((a) => {
+      let cat = a.category || "-";
+      if (isPP && a.category) cat = ppMap2[a.category] || a.category;
+      else if (isDISC && a.selected_answer_label) cat = a.selected_answer_label;
+      const ans = a.selected_answer && a.selected_answer.includes("PALING")
+        ? a.selected_answer
+        : (a.selected_answer_label && !isDISC ? a.selected_answer_label + ". " : "") + (a.selected_answer || "");
+      return `<tr>
+        <td class="num">${a.question_number}</td>
+        <td class="q">${esc(a.question_text)}</td>
+        <td class="a">${esc(ans)}</td>
+        <td class="c">${esc(cat)}</td>
+      </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Hasil ${esc(r.test_name)} — ${esc(r.candidate_name)}</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #0f172a; margin: 0; padding: 0; font-size: 10pt; line-height: 1.45; }
+  .page { page-break-after: always; min-height: 270mm; }
+  .page:last-child { page-break-after: auto; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0f766e; padding-bottom: 8px; margin-bottom: 10px; }
+  .header h1 { margin: 0; font-size: 16pt; color: #0f766e; }
+  .header .sub { font-size: 9pt; color: #64748b; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 9pt; font-weight: 700; color: #fff; }
+  .profile { display: grid; grid-template-columns: 80px 1fr; gap: 12px; align-items: center; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; margin-bottom: 12px; }
+  .profile img, .profile .ph { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 2px solid #0f766e; background: #ccfbf1; display: flex; align-items: center; justify-content: center; font-size: 28pt; font-weight: 700; color: #0f766e; }
+  .profile .info { font-size: 10pt; }
+  .profile .info .name { font-size: 13pt; font-weight: 700; color: #0f172a; margin-bottom: 2px; }
+  .profile .info .row { color: #475569; }
+  .section { margin-bottom: 12px; }
+  .section-title { font-size: 11pt; font-weight: 700; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 8px; margin-bottom: 8px; }
+  .scorecard { display: grid; grid-template-columns: repeat(${dimensions.length}, 1fr); gap: 8px; margin-bottom: 12px; }
+  .scorecard .item { padding: 10px; border-radius: 8px; text-align: center; color: #fff; }
+  .scorecard .item .lbl { font-size: 8pt; font-weight: 600; opacity: 0.95; }
+  .scorecard .item .val { font-size: 22pt; font-weight: 800; line-height: 1; margin-top: 4px; }
+  .interp { background: #fefce8; border-left: 4px solid #eab308; padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 10pt; color: #422006; line-height: 1.6; }
+  .dominant { background: #ecfeff; border: 1px solid #06b6d4; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; }
+  .dominant .label { font-size: 9pt; color: #0e7490; font-weight: 600; }
+  .dominant .text { font-size: 13pt; font-weight: 800; color: #0f766e; margin-top: 3px; }
+  table.ans { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  table.ans thead th { background: #0f766e; color: #fff; padding: 5px 6px; text-align: left; font-weight: 700; font-size: 8.5pt; }
+  table.ans tbody td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  table.ans tbody tr:nth-child(even) { background: #f8fafc; }
+  table.ans .num { width: 28px; text-align: center; font-weight: 700; color: #0f766e; }
+  table.ans .q { font-size: 8.5pt; }
+  table.ans .a { width: 130px; font-weight: 600; color: #0f172a; }
+  table.ans .c { width: 80px; font-size: 8pt; color: #475569; }
+  .footer { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 8pt; color: #94a3b8; text-align: center; }
+  .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 18px; }
+  .sig { text-align: center; }
+  .sig .role { font-size: 9pt; color: #475569; margin-bottom: 36px; }
+  .sig .line { border-top: 1px solid #0f172a; padding-top: 4px; font-size: 9pt; font-weight: 700; }
+</style>
+</head><body>
+
+<!-- ================== HALAMAN 1: HASIL ================== -->
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>LAPORAN HASIL ${esc(r.test_name).toUpperCase()}</h1>
+      <div class="sub">PsyTest Recruitment Platform — Dokumen Konfidensial</div>
+    </div>
+    <div class="badge" style="background:${r.status === 'passed' ? '#059669' : r.status === 'review' ? '#d97706' : '#dc2626'}">
+      ${r.status === 'passed' ? 'LULUS' : r.status === 'review' ? 'REVIEW' : 'TIDAK LULUS'}
+    </div>
+  </div>
+
+  <div class="profile">
+    ${profile?.photo_url ? `<img src="${profile.photo_url}" alt="" />` : `<div class="ph">${esc(r.candidate_name.charAt(0))}</div>`}
+    <div class="info">
+      <div class="name">${esc(r.candidate_name)}</div>
+      <div class="row"><b>Posisi:</b> ${esc(r.position || '-')}</div>
+      <div class="row"><b>Tanggal Tes:</b> ${fmtDate(r.completed_at)}</div>
+      <div class="row"><b>Jumlah Soal:</b> ${r.total_questions} • <b>Dijawab:</b> ${r.answered_questions}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Skor per Dimensi</div>
+    <div class="scorecard">
+      ${dimensions.map(d => `
+        <div class="item" style="background:${d.color}">
+          <div class="lbl">${esc(d.label)}</div>
+          <div class="val">${d.value}</div>
+        </div>`).join("")}
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Grafik Distribusi</div>
+    ${barChart}
+  </div>
+
+  <div class="dominant">
+    <div class="label">Profil Dominan</div>
+    <div class="text">${esc(dominantText)}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Interpretasi Psikolog</div>
+    <div class="interp">${esc(interpretationText)}</div>
+  </div>
+
+  <div class="signature">
+    <div class="sig"><div class="role">Kandidat</div><div class="line">${esc(r.candidate_name)}</div></div>
+    <div class="sig"><div class="role">Psikolog Penilai</div><div class="line">________________________</div></div>
+  </div>
+
+  <div class="footer">Halaman 1 dari 2 — Hasil Tes &middot; Dicetak ${new Date().toLocaleString("id-ID")}</div>
+</div>
+
+<!-- ================== HALAMAN 2: LEMBAR JAWABAN ================== -->
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>LEMBAR JAWABAN ${esc(r.test_name).toUpperCase()}</h1>
+      <div class="sub">${esc(r.candidate_name)} &middot; ${esc(r.position || '-')} &middot; ${fmtDate(r.completed_at)}</div>
+    </div>
+    <div class="badge" style="background:#0f766e">${answers.length} SOAL</div>
+  </div>
+
+  ${answers.length === 0 ? '<p style="color:#94a3b8;font-style:italic;padding:12px 0;">Belum ada data jawaban tersimpan.</p>' : `
+  <table class="ans">
+    <thead><tr><th class="num">No</th><th>Pertanyaan</th><th class="a">Jawaban</th><th class="c">Kategori</th></tr></thead>
+    <tbody>${answerRows}</tbody>
+  </table>`}
+
+  <div class="footer">Halaman 2 dari 2 — Lembar Jawaban &middot; Dicetak ${new Date().toLocaleString("id-ID")}</div>
+</div>
+
+</body></html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
   const handleExport = () => {
     const csv = [
       "Nama,Posisi,Tes,Skor,Dijawab,Total,Tanggal,Status",
@@ -994,9 +1221,16 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
         <div className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button onClick={() => { setSelectedResult(null); setAnswers([]); }} className="text-sm text-primary hover:underline">← Kembali ke Daftar Hasil</button>
-            <button onClick={handlePrint} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all">
-              <Printer className="h-4 w-4" /> Cetak Laporan
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {(r.test_name.includes("Personality Plus") || r.test_name.toUpperCase().includes("DISC")) && (
+                <button onClick={handlePrintCompact} className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 transition-all">
+                  <FileText className="h-4 w-4" /> Cetak Ringkas (2 Halaman)
+                </button>
+              )}
+              <button onClick={handlePrint} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all">
+                <Printer className="h-4 w-4" /> Cetak Laporan Lengkap
+              </button>
+            </div>
           </div>
 
           <div ref={printRef} className="max-h-[calc(100vh-200px)] overflow-y-auto pr-2 custom-scrollbar">
