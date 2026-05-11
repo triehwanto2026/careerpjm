@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X, Settings as SettingsIcon,
-  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow,
+  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow, UserPlus, MailCheck,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -28,7 +28,15 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
   { path: "/admin/jobs", label: "Lowongan", icon: Briefcase },
   { path: "/admin/recruitment", label: "Rekrutmen", icon: Workflow },
-  { path: "/admin/candidates", label: "Kandidat", icon: Users },
+  {
+    label: "Manajemen Kandidat",
+    icon: Users,
+    children: [
+      { path: "/admin/candidates", label: "Daftar Kandidat", icon: Users },
+      { path: "/admin/candidates/new", label: "Tambah Kandidat", icon: UserPlus },
+      { path: "/admin/candidates/verify", label: "Verifikasi Email", icon: MailCheck },
+    ],
+  },
   { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
   {
     label: "Pengaturan",

@@ -141,142 +141,104 @@ const Results = () => {
           </div>
         </div>`;
       
+      // Compact DISC format with M, L, Net, Level, Rank table
+      const discLabels: Record<string, string> = {
+        D: "Dominance — Pengarah, tegas, berorientasi hasil",
+        I: "Influence — Persuasif, ekspresif, sosial",
+        S: "Steadiness — Stabil, sabar, kooperatif",
+        C: "Conscientiousness — Teliti, analitis, sistematis"
+      };
+      const discColors: Record<string, string> = { D: "#dc2626", I: "#f59e0b", S: "#059669", C: "#2563eb" };
+      
+      // Calculate M (Mask/Most), L (Core/Least), Net, Level, Rank
+      const discData = dims.map(d => {
+        const net = Number(cats[d] || 0);
+        // Estimate M and L from net value (assuming M-L=net and M+L approx equals total questions/4)
+        const m = Math.max(0, net + 10); // Approximation
+        const l = Math.max(0, m - net);
+        const absNet = Math.abs(net);
+        const level = absNet >= 12 ? "Tinggi" : absNet >= 6 ? "Sedang" : absNet >= 2 ? "Netral" : "Rendah";
+        return { dim: d, m, l, net, level, absNet, desc: discLabels[d], color: discColors[d] };
+      });
+      
+      // Rank by absolute net value
+      const ranked = [...discData].sort((a, b) => b.absNet - a.absNet);
+      const discDataWithRank = discData.map(d => ({ ...d, rank: ranked.findIndex(r => r.dim === d.dim) + 1 }));
+      
       discChartsHTML = `
     <div class="section">
-      <div class="section-title">Grafik Profil DISC</div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
-          <p style="font-size: 9pt; font-weight: 700; color: #059669; margin-bottom: 8px;">Mask - Public Self</p>
-          <svg width="100%" height="200" viewBox="0 0 200 200" style="margin-bottom: 8px;">
-            <!-- Grid lines for better visibility -->
-            <line x1="20" y1="30" x2="180" y2="30" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="60" x2="180" y2="60" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="90" x2="180" y2="90" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="120" x2="180" y2="120" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="150" x2="180" y2="150" stroke="#e5e7eb" stroke-width="1"/>
-            <!-- Zero line for positive/negative values -->
-            <line x1="20" y1="90" x2="180" y2="90" stroke="#9ca3af" stroke-width="2" stroke-dasharray="5,5"/>
-            <!-- X and Y axis -->
-            <line x1="20" y1="30" x2="20" y2="150" stroke="#374151" stroke-width="2"/>
-            <line x1="20" y1="150" x2="180" y2="150" stroke="#374151" stroke-width="2"/>
-            ${(() => {
-              const points = mask.map((d, i) => {
-                const x = 20 + (i * 50);
-                const maxVal = Math.max(...mask.map(m => Math.abs(m.value)), 1);
-                const normalizedValue = (d.value / maxVal) * 50;
-                const y = 90 - normalizedValue;
-                return { x, y, value: d.value, name: d.name };
-              });
-              // Create curved path using bezier curves
-              let pathD = `M ${points[0].x} ${points[0].y}`;
-              for (let i = 0; i < points.length - 1; i++) {
-                const p0 = points[i];
-                const p1 = points[i + 1];
-                const cp1x = p0.x + (p1.x - p0.x) / 2;
-                const cp1y = p0.y;
-                const cp2x = p0.x + (p1.x - p0.x) / 2;
-                const cp2y = p1.y;
-                pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
-              }
-              return `
-                <path d="${pathD}" stroke="#059669" stroke-width="3" fill="none" stroke-linecap="round"/>
-                ${points.map((p, i) => `
-                  <circle cx="${p.x}" cy="${p.y}" r="5" fill="#059669" stroke="#fff" stroke-width="1"/>
-                  <text x="${p.x}" y="170" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">${p.name}</text>
-                  <text x="${15}" y="${p.y + 4}" text-anchor="end" font-size="9" fill="#6b7280">${p.value}</text>
-                `).join('')}
-              `;
-            })()}
-          </svg>
-        </div>
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
-          <p style="font-size: 9pt; font-weight: 700; color: #d97706; margin-bottom: 8px;">Core - Private Self</p>
-          <svg width="100%" height="200" viewBox="0 0 200 200" style="margin-bottom: 8px;">
-            <!-- Grid lines -->
-            <line x1="20" y1="30" x2="180" y2="30" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="60" x2="180" y2="60" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="90" x2="180" y2="90" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="120" x2="180" y2="120" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="150" x2="180" y2="150" stroke="#e5e7eb" stroke-width="1"/>
-            <!-- Zero line for positive/negative values -->
-            <line x1="20" y1="90" x2="180" y2="90" stroke="#9ca3af" stroke-width="2" stroke-dasharray="5,5"/>
-            <!-- X and Y axis -->
-            <line x1="20" y1="30" x2="20" y2="150" stroke="#374151" stroke-width="2"/>
-            <line x1="20" y1="150" x2="180" y2="150" stroke="#374151" stroke-width="2"/>
-            ${(() => {
-              const points = core.map((d, i) => {
-                const x = 20 + (i * 50);
-                const maxVal = Math.max(...core.map(m => Math.abs(m.value)), 1);
-                const normalizedValue = (d.value / maxVal) * 50;
-                const y = 90 - normalizedValue;
-                return { x, y, value: d.value, name: d.name };
-              });
-              // Create curved path using bezier curves
-              let pathD = `M ${points[0].x} ${points[0].y}`;
-              for (let i = 0; i < points.length - 1; i++) {
-                const p0 = points[i];
-                const p1 = points[i + 1];
-                const cp1x = p0.x + (p1.x - p0.x) / 2;
-                const cp1y = p0.y;
-                const cp2x = p0.x + (p1.x - p0.x) / 2;
-                const cp2y = p1.y;
-                pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
-              }
-              return `
-                <path d="${pathD}" stroke="#d97706" stroke-width="3" fill="none" stroke-linecap="round"/>
-                ${points.map((p, i) => `
-                  <circle cx="${p.x}" cy="${p.y}" r="5" fill="#d97706" stroke="#fff" stroke-width="1"/>
-                  <text x="${p.x}" y="170" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">${p.name}</text>
-                  <text x="${15}" y="${p.y + 4}" text-anchor="end" font-size="9" fill="#6b7280">${p.value}</text>
-                `).join('')}
-              `;
-            })()}
-          </svg>
-        </div>
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
-          <p style="font-size: 9pt; font-weight: 700; color: #ec4899; margin-bottom: 8px;">Mirror - Perceived Self</p>
-          <svg width="100%" height="200" viewBox="0 0 200 200" style="margin-bottom: 8px;">
-            <!-- Grid lines -->
-            <line x1="20" y1="30" x2="180" y2="30" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="60" x2="180" y2="60" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="90" x2="180" y2="90" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="120" x2="180" y2="120" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="20" y1="150" x2="180" y2="150" stroke="#e5e7eb" stroke-width="1"/>
-            <!-- Zero line for positive/negative values -->
-            <line x1="20" y1="90" x2="180" y2="90" stroke="#9ca3af" stroke-width="2" stroke-dasharray="5,5"/>
-            <!-- X and Y axis -->
-            <line x1="20" y1="30" x2="20" y2="150" stroke="#374151" stroke-width="2"/>
-            <line x1="20" y1="150" x2="180" y2="150" stroke="#374151" stroke-width="2"/>
-            ${(() => {
-              const points = mirror.map((d, i) => {
-                const x = 20 + (i * 50);
-                const maxVal = Math.max(...mirror.map(m => Math.abs(m.value)), 1);
-                const normalizedValue = (d.value / maxVal) * 50;
-                const y = 90 - normalizedValue;
-                return { x, y, value: d.value, name: d.name };
-              });
-              // Create curved path using bezier curves
-              let pathD = `M ${points[0].x} ${points[0].y}`;
-              for (let i = 0; i < points.length - 1; i++) {
-                const p0 = points[i];
-                const p1 = points[i + 1];
-                const cp1x = p0.x + (p1.x - p0.x) / 2;
-                const cp1y = p0.y;
-                const cp2x = p0.x + (p1.x - p0.x) / 2;
-                const cp2y = p1.y;
-                pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
-              }
-              return `
-                <path d="${pathD}" stroke="#ec4899" stroke-width="3" fill="none" stroke-linecap="round"/>
-                ${points.map((p, i) => `
-                  <circle cx="${p.x}" cy="${p.y}" r="5" fill="#ec4899" stroke="#fff" stroke-width="1"/>
-                  <text x="${p.x}" y="170" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">${p.name}</text>
-                  <text x="${15}" y="${p.y + 4}" text-anchor="end" font-size="9" fill="#6b7280">${p.value}</text>
-                `).join('')}
-              `;
-            })()}
-          </svg>
-        </div>
+      <div class="section-title">Detail Skor per Dimensi</div>
+      <table style="width:100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 12px;">
+        <thead>
+          <tr style="background: #f1f5f9;">
+            <th style="padding: 6px; text-align: left; border: 1px solid #cbd5e1; font-weight: 600;">Dimensi</th>
+            <th style="padding: 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;" title="Most/Mask - Paling Sesuai">M</th>
+            <th style="padding: 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;" title="Least/Core - Paling Tidak Sesuai">L</th>
+            <th style="padding: 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;" title="Net = M - L (Mirror)">Net</th>
+            <th style="padding: 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;">Level</th>
+            <th style="padding: 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;">Rank</th>
+            <th style="padding: 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600; width: 25%;">Visual</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${discDataWithRank.map(d => `
+            <tr>
+              <td style="padding: 6px; border: 1px solid #e2e8f0;">
+                <div style="font-weight: 700; color: ${d.color}; font-size: 12pt;">${d.dim}</div>
+                <div style="font-size: 8pt; color: #64748b; line-height: 1.2;">${d.desc}</div>
+              </td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.m}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.l}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: ${d.net > 0 ? '#059669' : d.net < 0 ? '#dc2626' : '#64748b'};">${d.net > 0 ? '+' : ''}${d.net}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center;">
+                <span style="padding: 2px 8px; border-radius: 12px; font-size: 8pt; font-weight: 600; background: ${d.level === 'Tinggi' ? '#fef3c7' : d.level === 'Sedang' ? '#dbeafe' : d.level === 'Netral' ? '#f3f4f6' : '#fee2e2'}; color: ${d.level === 'Tinggi' ? '#d97706' : d.level === 'Sedang' ? '#2563eb' : d.level === 'Netral' ? '#6b7280' : '#dc2626'};">${d.level}</span>
+              </td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: ${d.rank === 1 ? '#dc2626' : d.rank === 2 ? '#d97706' : '#64748b'};">#${d.rank}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <div style="flex: 1; background: #f1f5f9; height: 16px; border-radius: 3px; overflow: hidden; position: relative;">
+                    <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #9ca3af;"></div>
+                    ${d.net !== 0 ? `<div style="position: absolute; ${d.net > 0 ? 'left: 50%' : 'right: 50%'}; height: 100%; width: ${Math.min(Math.abs(d.net) * 4, 50)}%; background: ${d.net > 0 ? '#34d399' : '#f87171'}; border-radius: ${d.net > 0 ? '0 3px 3px 0' : '3px 0 0 3px'};"></div>` : ''}
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="font-size: 8pt; color: #64748b; margin-bottom: 12px; background: #f8fafc; padding: 8px; border-radius: 4px;">
+        <strong>M (Most):</strong> jumlah dipilih sebagai "Paling Sesuai" (Mask). 
+        <strong>L (Least):</strong> jumlah dipilih sebagai "Paling Tidak Sesuai" (Core). 
+        <strong>Net:</strong> M − L → kekuatan natural (Mirror). 
+        <strong>Rank:</strong> urutan kekuatan dimensi (1 = paling dominan).
+      </div>
+      
+      <!-- Compact Bar Chart -->
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc; margin-bottom: 12px;">
+        <p style="font-size: 10pt; font-weight: 700; color: #374151; margin-bottom: 8px; text-align: center;">Grafik Profil DISC — Net Score (Mirror)</p>
+        <svg width="100%" height="140" viewBox="0 0 400 140">
+          <!-- Grid lines -->
+          <line x1="40" y1="30" x2="360" y2="30" stroke="#e2e8f0" stroke-width="1"/>
+          <line x1="40" y1="60" x2="360" y2="60" stroke="#e2e8f0" stroke-width="1"/>
+          <line x1="40" y1="90" x2="360" y2="90" stroke="#e2e8f0" stroke-width="1"/>
+          <line x1="40" y1="120" x2="360" y2="120" stroke="#e2e8f0" stroke-width="1"/>
+          <!-- Zero line -->
+          <line x1="200" y1="20" x2="200" y2="130" stroke="#9ca3af" stroke-width="2" stroke-dasharray="4,2"/>
+          <!-- Y axis -->
+          <line x1="40" y1="20" x2="40" y2="130" stroke="#374151" stroke-width="2"/>
+          <line x1="40" y1="120" x2="360" y2="120" stroke="#374151" stroke-width="2"/>
+          <!-- Bars -->
+          ${discDataWithRank.map((d, i) => {
+            const barHeight = Math.min(Math.abs(d.net) * 4, 80);
+            const y = 120 - (d.net > 0 ? barHeight : 0);
+            const x = 60 + (i * 85);
+            return `
+              <rect x="${x}" y="${d.net > 0 ? 120 - barHeight : 120}" width="60" height="${barHeight || 2}" fill="${d.color}" rx="3" opacity="0.85"/>
+              <text x="${x + 30}" y="${d.net > 0 ? 115 - barHeight : 115}" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">${d.net > 0 ? '+' : ''}${d.net}</text>
+              <text x="${x + 30}" y="${135}" text-anchor="middle" font-size="11" font-weight="800" fill="${d.color}">${d.dim}</text>
+            `;
+          }).join('')}
+        </svg>
       </div>
     </div>`;
     }
@@ -473,7 +435,7 @@ const Results = () => {
         <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
         <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : 'Skor Akhir'}</div>
         <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : ''}">${isPP ? dominantScore : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
-        ${!isPP ? `<div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>` : ''}
+        <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
       </div>
     </div>
     `;
@@ -533,6 +495,81 @@ const Results = () => {
             </div>
           `;
         })()
+      : r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus") ? (() => {
+        // Personality Plus format
+        const ppMap: Record<string, string> = {
+          K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+          S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+          M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+          P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+        };
+        const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+        Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+        const total = Object.values(norm).reduce((a, b) => a + b, 0) || r.total_questions || 40;
+        const order = ['Sanguinis', 'Koleris', 'Melankolis', 'Plegmatis'];
+        const colors: Record<string, string> = { Sanguinis: '#f59e0b', Koleris: '#dc2626', Melankolis: '#2563eb', Plegmatis: '#059669' };
+        
+        // Calculate percentages for chart
+        const chartData = order.map(t => ({ name: t, value: norm[t], pct: Math.round((norm[t] / total) * 100) }));
+        const maxVal = Math.max(...chartData.map(d => d.value), 1);
+        
+        return `
+        <!-- Compact Table + Chart Side by Side -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <!-- Tabel Kiri -->
+          <div>
+            <p style="font-size: 9pt; font-weight: 700; color: #374151; margin-bottom: 6px;">Detail Skor per Dimensi</p>
+            <table style="width:100%; border-collapse: collapse; font-size: 8pt;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 4px 6px; text-align: left; border: 1px solid #cbd5e1; font-weight: 600;">Temperamen</th>
+                  <th style="padding: 4px 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;">Jumlah</th>
+                  <th style="padding: 4px 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${chartData.map(d => `
+                  <tr>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: 600; color: ${colors[d.name]}">${d.name}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; text-align: center;">${d.value}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700;">${d.pct}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div style="margin-top: 8px; font-size: 8pt; color: #64748b; background: #f8fafc; padding: 6px; border-radius: 4px;">
+              <strong>Dominan:</strong> ${chartData[0].name} (${chartData[0].pct}%)<br/>
+              <strong>Sekunder:</strong> ${chartData[1].name} (${chartData[1].pct}%)
+            </div>
+          </div>
+          
+          <!-- Grafik Kanan -->
+          <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; background: #f8fafc;">
+            <p style="font-size: 8pt; font-weight: 700; color: #374151; margin-bottom: 4px; text-align: center;">Grafik 4 Temperamen</p>
+            <svg width="100%" height="140" viewBox="0 0 200 140">
+              <!-- Y axis -->
+              <line x1="25" y1="10" x2="25" y2="110" stroke="#374151" stroke-width="1"/>
+              <line x1="25" y1="110" x2="190" y2="110" stroke="#374151" stroke-width="1"/>
+              <!-- Y axis labels -->
+              <text x="22" y="115" text-anchor="end" font-size="7" fill="#6b7280">0</text>
+              <text x="22" y="85" text-anchor="end" font-size="7" fill="#6b7280">${Math.round(maxVal * 0.5)}</text>
+              <text x="22" y="55" text-anchor="end" font-size="7" fill="#6b7280">${Math.round(maxVal * 0.75)}</text>
+              <text x="22" y="15" text-anchor="end" font-size="7" fill="#6b7280">${maxVal}</text>
+              <!-- Bars -->
+              ${chartData.map((d, i) => {
+                const barHeight = (d.value / maxVal) * 100;
+                const x = 30 + (i * 40);
+                return `
+                  <rect x="${x}" y="${110 - barHeight}" width="32" height="${barHeight}" fill="${colors[d.name]}" rx="2" opacity="0.85"/>
+                  <text x="${x + 16}" y="${105 - barHeight}" text-anchor="middle" font-size="8" font-weight="700" fill="#374151">${d.value}</text>
+                  <text x="${x + 16}" y="${125}" text-anchor="middle" font-size="7" font-weight="600" fill="#374151">${d.name.substring(0, 3)}</text>
+                `;
+              }).join('')}
+            </svg>
+          </div>
+        </div>
+        `;
+      })()
       : `
         <table class="dim-table">
           <thead><tr><th style="width:35%">Dimensi / Aspek</th><th style="width:15%">Skor</th><th>Indikator Visual</th></tr></thead>
@@ -555,12 +592,78 @@ const Results = () => {
     ${(() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isDISC = r.test_name.toUpperCase().includes("DISC");
-      const text = isPP ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40) : r.interpretation;
-      if (isDISC || !text) return "";
+      if (isDISC) return "";
+      // Full format interpretation for PP
+      if (isPP) {
+        const ppMap: Record<string, string> = {
+          K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+          S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+          M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+          P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+        };
+        const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+        Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+        const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
+        const [dom, domVal] = sorted[0];
+        const [sec, secVal] = sorted[1];
+        const total = Object.values(norm).reduce((a, b) => a + b, 0) || 1;
+        const domPct = Math.round((domVal / total) * 100);
+        const secPct = Math.round((secVal / total) * 100);
+        
+        const strengths: Record<string, string> = {
+          Sanguinis: 'Ekspresif, antusias, ramah, mudah bergaul, optimis, kreatif, dan mampu memotivasi orang lain. Cocok di lingkungan yang membutuhkan komunikasi intensif.',
+          Koleris: 'Tegas, berorientasi pada hasil, pemimpin alami, mandiri, cepat mengambil keputusan, dan tidak takut tantangan.',
+          Melankolis: 'Analitis, teliti, perfeksionis, terstruktur, dan berorientasi pada kualitas.',
+          Plegmatis: 'Tenang, sabar, konsisten, pendukung tim, dan mampu menjaga stabilitas.'
+        };
+        
+        const weaknesses: Record<string, string> = {
+          Sanguinis: 'Cenderung impulsif, kurang disiplin pada detail, mudah teralihkan, dan kadang sulit menyelesaikan tugas yang berulang/monoton.',
+          Koleris: 'Cenderung dominan, kurang sabar, bisa terkesan keras kepala, dan kadang mengabaikan perasaan orang lain.',
+          Melankolis: 'Cenderung perfeksionis, moody, sulit move on dari kesalahan, dan bisa terlalu kritis.',
+          Plegmatis: 'Cenderung lambat dalam mengambil inisiatif, sulit menolak, dan bisa terlalu menghindari konflik.'
+        };
+        
+        const recommendations: Record<string, string> = {
+          Sanguinis: 'Marketing, Public Relations, Sales, Trainer, Customer Engagement, Event Organizer',
+          Koleris: 'Manager, Entrepreneur, Sales Director, Project Leader, Business Development',
+          Melankolis: 'Analyst, Quality Control, Researcher, Programmer, Accountant',
+          Plegmatis: 'Customer Service, HR, Administrator, Counselor, Therapist'
+        };
+        
+        const secDesc: Record<string, string> = {
+          Koleris: 'tegas, berorientasi pada hasil, pemimpin alami, mandiri, cepat mengambil keputusan, dan tidak takut tantangan',
+          Sanguinis: 'ekspresif, antusias, ramah, dan mampu memotivasi orang lain',
+          Melankolis: 'analitis, teliti, dan berorientasi pada kualitas',
+          Plegmatis: 'tenang, sabar, dan pendukung tim'
+        };
+        
+        return `
+    <div class="section">
+      <div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div>
+      <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 12px; border-radius: 0 8px 8px 0; font-size: 9.5pt; line-height: 1.6; color: #422006;">
+        <p style="margin-bottom: 10px;">Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen <strong>DOMINAN: ${dom}</strong> (${domVal} jawaban — ${domPct}%) dengan dukungan <strong>SEKUNDER: ${sec}</strong> (${secVal} jawaban — ${secPct}%). Distribusi jumlah jawaban — Sanguinis: ${norm.Sanguinis}, Koleris: ${norm.Koleris}, Melankolis: ${norm.Melankolis}, Plegmatis: ${norm.Plegmatis}.</p>
+        
+        <p style="margin-bottom: 6px; font-weight: 700; color: #0f766e;">KEKUATAN (${dom}):</p>
+        <p style="margin-bottom: 10px; padding-left: 12px;">${strengths[dom]}</p>
+        
+        <p style="margin-bottom: 6px; font-weight: 700; color: #dc2626;">AREA PERHATIAN (${dom}):</p>
+        <p style="margin-bottom: 10px; padding-left: 12px;">${weaknesses[dom]}</p>
+        
+        <p style="margin-bottom: 10px;"><strong>Kombinasi ${dom}-${sec}:</strong> kandidat memiliki karakter utama ${dom.toLowerCase()} yang dilengkapi nuansa ${sec.toLowerCase()} (${secDesc[sec]}). Kombinasi ini memperkaya profil dan memperluas zona efektivitas kerja.</p>
+        
+        <p style="margin-bottom: 10px;"><strong>REKOMENDASI POSISI:</strong> ${recommendations[dom]}.</p>
+        
+        <p style="font-size: 8.5pt; color: #64748b; border-top: 1px dashed #d1d5db; padding-top: 8px; margin-top: 10px;"><strong>CATATAN PSIKOLOG:</strong> Profil ini valid untuk ${total} item respons. Disarankan didampingi wawancara mendalam (kompetensi & nilai) untuk validasi konteks pekerjaan. Skor tertinggi adalah karakter natural; tidak menutup kemungkinan kandidat menampilkan perilaku temperamen lain situasionalnya.</p>
+      </div>
+    </div>`;
+      }
+      // For other tests
+      if (!r.interpretation) return "";
       return `
     <div class="section">
-      <div class="section-title">Interpretasi Psikolog${isPP ? ' — Profil 4 Temperamen' : ''}</div>
-      <div class="interpretation" style="white-space:pre-line;">${text.replace(/</g, '&lt;')}</div>
+      <div class="section-title">Interpretasi Psikolog</div>
+      <div class="interpretation" style="white-space:pre-line;">${r.interpretation.replace(/</g, '&lt;')}</div>
     </div>`;
     })()}
 
@@ -617,233 +720,6 @@ const Results = () => {
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 300);
-  };
-
-  // ============= COMPACT 2-PAGE PRINT FOR PP & DISC =============
-  const handlePrintCompact = () => {
-    if (!selectedResult) return;
-    const r = selectedResult;
-    const profile = r.candidate_profile as Record<string, string> | null;
-    const cats = r.categories as Record<string, number>;
-    const isDISC = r.test_name.toUpperCase().includes("DISC");
-    const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
-    if (!isPP && !isDISC) return;
-
-    const fmtDate = (s: string) => new Date(s).toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" });
-    const esc = (s: string) => (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" } as any)[c]);
-
-    // ---- Build score data ----
-    let dimensions: { key: string; label: string; value: number; color: string }[] = [];
-    let dominantText = "";
-    let interpretationText = "";
-
-    if (isPP) {
-      const ppMap: Record<string, string> = {
-        K: "Koleris", C: "Koleris", Choleric: "Koleris", Koleris: "Koleris",
-        S: "Sanguinis", Sanguine: "Sanguinis", Sanguinis: "Sanguinis",
-        M: "Melankolis", Melancholy: "Melankolis", Melancholic: "Melankolis", Melankolis: "Melankolis",
-        P: "Plegmatis", Phlegmatic: "Plegmatis", Plegmatis: "Plegmatis",
-      };
-      const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
-      Object.entries(cats).forEach(([k, v]) => {
-        const mapped = ppMap[k] || k;
-        if (norm[mapped] !== undefined) norm[mapped] += Number(v) || 0;
-      });
-      const colors: Record<string, string> = { Sanguinis: "#f59e0b", Koleris: "#dc2626", Melankolis: "#2563eb", Plegmatis: "#059669" };
-      dimensions = Object.entries(norm).map(([k, v]) => ({ key: k, label: k, value: v, color: colors[k] }));
-      const sorted = [...dimensions].sort((a, b) => b.value - a.value);
-      dominantText = `${sorted[0].label} (Dominan) — ${sorted[1].label} (Sekunder)`;
-      const total = dimensions.reduce((s, d) => s + d.value, 0) || 1;
-      const pct = (v: number) => ((v / total) * 100).toFixed(1);
-      const ppDesc: Record<string, string> = {
-        Sanguinis: "Ekspresif, hangat, antusias, suka bergaul, optimistik. Mudah membangun hubungan namun cenderung kurang teliti pada detail.",
-        Koleris: "Tegas, berorientasi tujuan, cepat mengambil keputusan, suka memimpin. Kuat dalam eksekusi namun bisa terkesan dominan.",
-        Melankolis: "Analitis, teliti, perfeksionis, terstruktur. Kuat dalam perencanaan dan kontrol kualitas namun cenderung perfeksionis.",
-        Plegmatis: "Tenang, sabar, konsisten, mudah berkompromi. Pendukung tim yang andal namun bisa lambat dalam mengambil inisiatif.",
-      };
-      interpretationText = `Profil dominan kandidat adalah ${sorted[0].label} (${pct(sorted[0].value)}%) dengan dukungan ${sorted[1].label} (${pct(sorted[1].value)}%). ${ppDesc[sorted[0].label]}`;
-    } else {
-      // DISC
-      const dims = ["D", "I", "S", "C"];
-      const labels: Record<string, string> = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
-      const colors: Record<string, string> = { D: "#dc2626", I: "#f59e0b", S: "#059669", C: "#2563eb" };
-      dimensions = dims.map((d) => ({ key: d, label: `${d} - ${labels[d]}`, value: Number(cats[d] || 0), color: colors[d] }));
-      const sorted = [...dimensions].sort((a, b) => b.value - a.value);
-      dominantText = `${sorted[0].label} (Dominan) — ${sorted[1].label} (Sekunder)`;
-      const discDesc: Record<string, string> = {
-        D: "Berorientasi hasil, tegas, percaya diri, suka tantangan. Cocok untuk peran kepemimpinan dan pengambilan keputusan cepat.",
-        I: "Komunikatif, persuasif, antusias, suka berinteraksi. Cocok untuk peran sales, marketing, dan public relations.",
-        S: "Sabar, konsisten, kooperatif, pendukung tim. Cocok untuk peran customer service, HR, dan administrasi.",
-        C: "Analitis, akurat, sistematis, perfeksionis. Cocok untuk peran analyst, engineer, dan quality control.",
-      };
-      interpretationText = `Profil dominan kandidat adalah ${sorted[0].label}. ${discDesc[sorted[0].key]}`;
-    }
-
-    const maxVal = Math.max(...dimensions.map((d) => Math.abs(d.value)), 1);
-
-    // ---- Bar chart SVG ----
-    const barChart = `
-      <svg width="100%" viewBox="0 0 500 ${dimensions.length * 42 + 20}" xmlns="http://www.w3.org/2000/svg">
-        ${dimensions.map((d, i) => {
-          const y = i * 42 + 10;
-          const w = (Math.abs(d.value) / maxVal) * 360;
-          return `
-            <text x="0" y="${y + 18}" font-size="11" font-weight="700" fill="#0f172a">${esc(d.label)}</text>
-            <rect x="120" y="${y + 6}" width="360" height="20" fill="#f1f5f9" rx="3"/>
-            <rect x="120" y="${y + 6}" width="${w}" height="20" fill="${d.color}" rx="3"/>
-            <text x="${120 + w + 6}" y="${y + 21}" font-size="11" font-weight="700" fill="#0f172a">${d.value}</text>
-          `;
-        }).join("")}
-      </svg>`;
-
-    // ---- Lembar jawaban ----
-    const ppMap2: Record<string, string> = {
-      K: "Koleris", C: "Koleris", Choleric: "Koleris", Koleris: "Koleris",
-      S: "Sanguinis", Sanguine: "Sanguinis", Sanguinis: "Sanguinis",
-      M: "Melankolis", Melancholy: "Melankolis", Melancholic: "Melankolis", Melankolis: "Melankolis",
-      P: "Plegmatis", Phlegmatic: "Plegmatis", Plegmatis: "Plegmatis",
-    };
-
-    const answerRows = answers.map((a) => {
-      let cat = a.category || "-";
-      if (isPP && a.category) cat = ppMap2[a.category] || a.category;
-      else if (isDISC && a.selected_answer_label) cat = a.selected_answer_label;
-      const ans = a.selected_answer && a.selected_answer.includes("PALING")
-        ? a.selected_answer
-        : (a.selected_answer_label && !isDISC ? a.selected_answer_label + ". " : "") + (a.selected_answer || "");
-      return `<tr>
-        <td class="num">${a.question_number}</td>
-        <td class="q">${esc(a.question_text)}</td>
-        <td class="a">${esc(ans)}</td>
-        <td class="c">${esc(cat)}</td>
-      </tr>`;
-    }).join("");
-
-    const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Hasil ${esc(r.test_name)} — ${esc(r.candidate_name)}</title>
-<style>
-  @page { size: A4 portrait; margin: 12mm; }
-  * { box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #0f172a; margin: 0; padding: 0; font-size: 10pt; line-height: 1.45; }
-  .page { page-break-after: always; min-height: 270mm; }
-  .page:last-child { page-break-after: auto; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0f766e; padding-bottom: 8px; margin-bottom: 10px; }
-  .header h1 { margin: 0; font-size: 16pt; color: #0f766e; }
-  .header .sub { font-size: 9pt; color: #64748b; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 9pt; font-weight: 700; color: #fff; }
-  .profile { display: grid; grid-template-columns: 80px 1fr; gap: 12px; align-items: center; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; margin-bottom: 12px; }
-  .profile img, .profile .ph { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 2px solid #0f766e; background: #ccfbf1; display: flex; align-items: center; justify-content: center; font-size: 28pt; font-weight: 700; color: #0f766e; }
-  .profile .info { font-size: 10pt; }
-  .profile .info .name { font-size: 13pt; font-weight: 700; color: #0f172a; margin-bottom: 2px; }
-  .profile .info .row { color: #475569; }
-  .section { margin-bottom: 12px; }
-  .section-title { font-size: 11pt; font-weight: 700; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 8px; margin-bottom: 8px; }
-  .scorecard { display: grid; grid-template-columns: repeat(${dimensions.length}, 1fr); gap: 8px; margin-bottom: 12px; }
-  .scorecard .item { padding: 10px; border-radius: 8px; text-align: center; color: #fff; }
-  .scorecard .item .lbl { font-size: 8pt; font-weight: 600; opacity: 0.95; }
-  .scorecard .item .val { font-size: 22pt; font-weight: 800; line-height: 1; margin-top: 4px; }
-  .interp { background: #fefce8; border-left: 4px solid #eab308; padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 10pt; color: #422006; line-height: 1.6; }
-  .dominant { background: #ecfeff; border: 1px solid #06b6d4; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; }
-  .dominant .label { font-size: 9pt; color: #0e7490; font-weight: 600; }
-  .dominant .text { font-size: 13pt; font-weight: 800; color: #0f766e; margin-top: 3px; }
-  table.ans { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
-  table.ans thead th { background: #0f766e; color: #fff; padding: 5px 6px; text-align: left; font-weight: 700; font-size: 8.5pt; }
-  table.ans tbody td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-  table.ans tbody tr:nth-child(even) { background: #f8fafc; }
-  table.ans .num { width: 28px; text-align: center; font-weight: 700; color: #0f766e; }
-  table.ans .q { font-size: 8.5pt; }
-  table.ans .a { width: 130px; font-weight: 600; color: #0f172a; }
-  table.ans .c { width: 80px; font-size: 8pt; color: #475569; }
-  .footer { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 8pt; color: #94a3b8; text-align: center; }
-  .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 18px; }
-  .sig { text-align: center; }
-  .sig .role { font-size: 9pt; color: #475569; margin-bottom: 36px; }
-  .sig .line { border-top: 1px solid #0f172a; padding-top: 4px; font-size: 9pt; font-weight: 700; }
-</style>
-</head><body>
-
-<!-- ================== HALAMAN 1: HASIL ================== -->
-<div class="page">
-  <div class="header">
-    <div>
-      <h1>LAPORAN HASIL ${esc(r.test_name).toUpperCase()}</h1>
-      <div class="sub">PsyTest Recruitment Platform — Dokumen Konfidensial</div>
-    </div>
-    <div class="badge" style="background:${r.status === 'passed' ? '#059669' : r.status === 'review' ? '#d97706' : '#dc2626'}">
-      ${r.status === 'passed' ? 'LULUS' : r.status === 'review' ? 'REVIEW' : 'TIDAK LULUS'}
-    </div>
-  </div>
-
-  <div class="profile">
-    ${profile?.photo_url ? `<img src="${profile.photo_url}" alt="" />` : `<div class="ph">${esc(r.candidate_name.charAt(0))}</div>`}
-    <div class="info">
-      <div class="name">${esc(r.candidate_name)}</div>
-      <div class="row"><b>Posisi:</b> ${esc(r.position || '-')}</div>
-      <div class="row"><b>Tanggal Tes:</b> ${fmtDate(r.completed_at)}</div>
-      <div class="row"><b>Jumlah Soal:</b> ${r.total_questions} • <b>Dijawab:</b> ${r.answered_questions}</div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Skor per Dimensi</div>
-    <div class="scorecard">
-      ${dimensions.map(d => `
-        <div class="item" style="background:${d.color}">
-          <div class="lbl">${esc(d.label)}</div>
-          <div class="val">${d.value}</div>
-        </div>`).join("")}
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Grafik Distribusi</div>
-    ${barChart}
-  </div>
-
-  <div class="dominant">
-    <div class="label">Profil Dominan</div>
-    <div class="text">${esc(dominantText)}</div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Interpretasi Psikolog</div>
-    <div class="interp">${esc(interpretationText)}</div>
-  </div>
-
-  <div class="signature">
-    <div class="sig"><div class="role">Kandidat</div><div class="line">${esc(r.candidate_name)}</div></div>
-    <div class="sig"><div class="role">Psikolog Penilai</div><div class="line">________________________</div></div>
-  </div>
-
-  <div class="footer">Halaman 1 dari 2 — Hasil Tes &middot; Dicetak ${new Date().toLocaleString("id-ID")}</div>
-</div>
-
-<!-- ================== HALAMAN 2: LEMBAR JAWABAN ================== -->
-<div class="page">
-  <div class="header">
-    <div>
-      <h1>LEMBAR JAWABAN ${esc(r.test_name).toUpperCase()}</h1>
-      <div class="sub">${esc(r.candidate_name)} &middot; ${esc(r.position || '-')} &middot; ${fmtDate(r.completed_at)}</div>
-    </div>
-    <div class="badge" style="background:#0f766e">${answers.length} SOAL</div>
-  </div>
-
-  ${answers.length === 0 ? '<p style="color:#94a3b8;font-style:italic;padding:12px 0;">Belum ada data jawaban tersimpan.</p>' : `
-  <table class="ans">
-    <thead><tr><th class="num">No</th><th>Pertanyaan</th><th class="a">Jawaban</th><th class="c">Kategori</th></tr></thead>
-    <tbody>${answerRows}</tbody>
-  </table>`}
-
-  <div class="footer">Halaman 2 dari 2 — Lembar Jawaban &middot; Dicetak ${new Date().toLocaleString("id-ID")}</div>
-</div>
-
-</body></html>`;
-
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
   };
 
   const handleExport = () => {
@@ -1222,11 +1098,6 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button onClick={() => { setSelectedResult(null); setAnswers([]); }} className="text-sm text-primary hover:underline">← Kembali ke Daftar Hasil</button>
             <div className="flex flex-wrap gap-2">
-              {(r.test_name.includes("Personality Plus") || r.test_name.toUpperCase().includes("DISC")) && (
-                <button onClick={handlePrintCompact} className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 transition-all">
-                  <FileText className="h-4 w-4" /> Cetak Ringkas (2 Halaman)
-                </button>
-              )}
               <button onClick={handlePrint} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all">
                 <Printer className="h-4 w-4" /> Cetak Laporan Lengkap
               </button>

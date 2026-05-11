@@ -4,7 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import Index from "./pages/Index";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
 import TestPage from "./pages/TestPage";
 import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/admin/Dashboard";
@@ -39,7 +40,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<Dashboard />} />
@@ -49,6 +51,8 @@ const App = () => (
             <Route path="/admin/answer-keys" element={<AnswerKeyManager />} />
             <Route path="/admin/interpretations" element={<InterpretationManager />} />
             <Route path="/admin/candidates" element={<Candidates />} />
+            <Route path="/admin/candidates/new" element={<Candidates />} />
+            <Route path="/admin/candidates/verify" element={<Candidates />} />
             <Route path="/admin/results" element={<Results />} />
             <Route path="/admin/settings" element={<Settings />} />
             <Route path="/admin/users" element={<UserManagement />} />
