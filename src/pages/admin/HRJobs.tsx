@@ -1,4 +1,4 @@
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, MoreVertical, Eye, Edit, Trash2, MapPin, Clock, Filter, Building2, ToggleLeft, ToggleRight } from "lucide-react";
@@ -67,7 +67,7 @@ const HRJobs = () => {
   };
 
   return (
-    <DashboardLayout role="hr">
+    <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div><h1 className="text-2xl font-bold">Kelola Lowongan</h1><p className="text-muted-foreground">Buat dan kelola lowongan pekerjaan</p></div>
@@ -153,7 +153,7 @@ const HRJobs = () => {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </AdminLayout>
   );
 };
 

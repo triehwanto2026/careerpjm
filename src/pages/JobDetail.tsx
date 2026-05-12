@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { PublicLayout } from "@/components/layout/PublicLayout";
+import PublicLayout from "@/components/layout/PublicLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Building2, Clock, Banknote, ArrowLeft, CheckCircle2, Briefcase, Send } from "lucide-react";

@@ -1,4 +1,4 @@
-import { PublicLayout } from "@/components/layout/PublicLayout";
+import PublicLayout from "@/components/layout/PublicLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin, Building2, Clock, ArrowRight, Filter, Briefcase, Banknote } from "lucide-react";
