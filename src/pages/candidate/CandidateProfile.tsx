@@ -125,7 +125,7 @@ const blank: Profile = {
   education_level: "", education_major: "", education_institution: "", education_year: null,
   gpa: null, experience_years: 0, current_position: "", current_company: "", expected_salary: null,
   skills: "", bio: "", photo_url: null, linkedin_url: null, is_complete: false,
-  bpjs_kesehatan: "", bpjs_ketenagakerjaan: "",
+  bpjs_kesehatan: "", bpjs_ketenagakerjaan: "", alamat_domisili: "",
 };
 
 export default function CandidateProfile() {
@@ -151,10 +151,59 @@ export default function CandidateProfile() {
       const profileData = { ...blank, ...(p as any) };
       setProfile(profileData);
       setOriginalProfile(profileData);
+      
+      // Load and parse array fields from database
+      try {
+        const pData = p as any; // Type assertion to access dynamic fields
+        
+        // Helper function to safely parse JSON fields
+        const safeParseJSON = (value: any, defaultValue: any) => {
+          if (!value) return defaultValue;
+          if (Array.isArray(value)) return value;
+          if (typeof value === 'object') return value;
+          try {
+            return JSON.parse(value);
+          } catch (e) {
+            console.warn('Failed to parse JSON field in load:', e);
+            return defaultValue;
+          }
+        };
+        
+        const familyData = safeParseJSON(pData.family_members, []);
+        const educationData = safeParseJSON(pData.education_history, []);
+        const informalEducationData = safeParseJSON(pData.informal_education, []);
+        const workExperienceData = safeParseJSON(pData.work_experience, []);
+        const skillsData = safeParseJSON(pData.skills, []);
+        const languagesData = safeParseJSON(pData.languages, []);
+        
+        setFamilyMembers(familyData);
+        setEducationHistory(educationData);
+        setInformalEducation(informalEducationData);
+        setWorkExperience(workExperienceData);
+        setSkills(skillsData);
+        setLanguages(languagesData);
+      } catch (error) {
+        console.error('Error parsing array data:', error);
+        // Set empty arrays if parsing fails
+        setFamilyMembers([]);
+        setEducationHistory([]);
+        setInformalEducation([]);
+        setWorkExperience([]);
+        setSkills([]);
+        setLanguages([]);
+      }
     } else {
       const profileData = { ...blank, email: session.user.email || "" };
       setProfile(profileData);
       setOriginalProfile(profileData);
+      
+      // Set empty arrays for new profile
+      setFamilyMembers([]);
+      setEducationHistory([]);
+      setInformalEducation([]);
+      setWorkExperience([]);
+      setSkills([]);
+      setLanguages([]);
     }
     const { data: d } = await supabase.from("candidate_documents").select("*").eq("user_id", session.user.id);
     setDocs((d as any) || []);
@@ -304,21 +353,47 @@ export default function CandidateProfile() {
   const save = async () => {
     setSaving(true);
     calculateProgress(); // Update progress first
-    const payload: any = { ...profile, user_id: userId, is_complete: progress >= 50 };
-    delete payload.id;
-    // Remove new fields temporarily until migration is run
-    const { nik, npwp, blood_type, height_cm, weight_kg, shirt_size, pants_size, shoe_size,
-            father_name, mother_name, spouse_name, number_of_children, emergency_contact_name,
-            emergency_contact_relation, emergency_contact_phone, hobbies, vehicle_license, has_vehicle,
-            medical_history, source_info, willing_relocate, willing_overtime, willing_shift, ...safePayload } = payload;
-    const { error } = await supabase.from("candidate_profiles").upsert(safePayload, { onConflict: "user_id" });
-    setSaving(false);
-    if (error) {
-      Swal.fire({ icon: "error", title: "Gagal menyimpan", text: error.message });
-      return;
+    
+    try {
+      // Save main profile data
+      const payload: any = { 
+        ...profile, 
+        user_id: userId, 
+        is_complete: progress >= 50,
+        // Include array fields as JSON strings
+        family_members: JSON.stringify(familyMembers || []),
+        education_history: JSON.stringify(educationHistory || []),
+        informal_education: JSON.stringify(informalEducation || []),
+        work_experience: JSON.stringify(workExperience || []),
+        skills: JSON.stringify(skills || []),
+        languages: JSON.stringify(languages || []),
+      };
+      delete payload.id;
+      
+      // Debug logging
+      console.log('Saving payload with skills:', payload.skills);
+      console.log('Saving payload with work_experience:', payload.work_experience);
+      console.log('Skills array being saved:', skills);
+      console.log('Work experience array being saved:', workExperience);
+      
+      const { error } = await supabase.from("candidate_profiles").upsert(payload, { onConflict: "user_id" });
+      
+      if (error) {
+        console.error('Profile save error:', error);
+        Swal.fire({ icon: "error", title: "Gagal menyimpan", text: error.message });
+        return;
+      }
+      
+      console.log('Profile saved successfully');
+      Swal.fire({ icon: "success", title: "Profil tersimpan", timer: 1500, showConfirmButton: false });
+      setIsEditing(false); // Exit edit mode after successful save
+      load();
+    } catch (error) {
+      console.error('Save error:', error);
+      Swal.fire({ icon: "error", title: "Gagal menyimpan", text: "Terjadi kesalahan saat menyimpan data" });
+    } finally {
+      setSaving(false);
     }
-    Swal.fire({ icon: "success", title: "Profil tersimpan", timer: 1500, showConfirmButton: false });
-    load();
   };
 
   const uploadDoc = async (type: string, file: File) => {
@@ -447,37 +522,37 @@ export default function CandidateProfile() {
                 <div><label className={lbl}>Tanggal Lahir *</label><input type="date" className={isEditing ? inp : inpDisabled} value={profile.birth_date || ""} onChange={(e) => isEditing && upd("birth_date", e.target.value)} disabled={!isEditing} /></div>
                 <div>
                   <label className={lbl}>Gol. Darah</label>
-                  <select className={inp} value={profile.blood_type} onChange={(e) => upd("blood_type", e.target.value)}>
+                  <select className={isEditing ? inp : inpDisabled} value={profile.blood_type} onChange={(e) => isEditing && upd("blood_type", e.target.value)} disabled={!isEditing}>
                     <option value="">Pilih...</option><option>A</option><option>B</option><option>AB</option><option>O</option>
                   </select>
                 </div>
                 <div>
                   <label className={lbl}>Jenis Kelamin *</label>
-                  <select className={inp} value={profile.gender} onChange={(e) => upd("gender", e.target.value)}>
+                  <select className={isEditing ? inp : inpDisabled} value={profile.gender} onChange={(e) => isEditing && upd("gender", e.target.value)} disabled={!isEditing}>
                     <option value="">Pilih...</option><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option>
                   </select>
                 </div>
                 <div>
                   <label className={lbl}>Status Pernikahan</label>
-                  <select className={inp} value={profile.marital_status} onChange={(e) => upd("marital_status", e.target.value)}>
+                  <select className={isEditing ? inp : inpDisabled} value={profile.marital_status} onChange={(e) => isEditing && upd("marital_status", e.target.value)} disabled={!isEditing}>
                     <option value="">Pilih...</option><option value="Belum Menikah">Belum Menikah</option><option value="Menikah">Menikah</option><option value="Cerai">Cerai</option><option value="Cerai Mati">Cerai Mati</option>
                   </select>
                 </div>
                 <div>
                   <label className={lbl}>Agama</label>
-                  <select className={inp} value={profile.religion} onChange={(e) => upd("religion", e.target.value)}>
+                  <select className={isEditing ? inp : inpDisabled} value={profile.religion} onChange={(e) => isEditing && upd("religion", e.target.value)} disabled={!isEditing}>
                     <option value="">Pilih...</option><option>Islam</option><option>Kristen Protestan</option><option>Kristen Katolik</option><option>Hindu</option><option>Buddha</option><option>Konghucu</option><option>Lainnya</option>
                   </select>
                 </div>
-                <div><label className={lbl}>Suku/Bangsa</label><input className={inp} value={profile.ethnicity} onChange={(e) => upd("ethnicity", e.target.value)} /></div>
+                <div><label className={lbl}>Suku/Bangsa</label><input className={isEditing ? inp : inpDisabled} value={profile.ethnicity} onChange={(e) => isEditing && upd("ethnicity", e.target.value)} disabled={!isEditing} /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><label className={lbl}>No. BPJS Kesehatan</label><input className={inp} value={profile.bpjs_kesehatan || ""} onChange={(e) => upd("bpjs_kesehatan", e.target.value)} placeholder="Nomor BPJS Kesehatan" /></div>
-                  <div><label className={lbl}>No. BPJS Ketenagakerjaan</label><input className={inp} value={profile.bpjs_ketenagakerjaan || ""} onChange={(e) => upd("bpjs_ketenagakerjaan", e.target.value)} placeholder="Nomor BPJS Ketenagakerjaan" /></div>
+                  <div><label className={lbl}>No. BPJS Kesehatan</label><input className={isEditing ? inp : inpDisabled} value={profile.bpjs_kesehatan || ""} onChange={(e) => isEditing && upd("bpjs_kesehatan", e.target.value)} placeholder="Nomor BPJS Kesehatan" disabled={!isEditing} /></div>
+                  <div><label className={lbl}>No. BPJS Ketenagakerjaan</label><input className={isEditing ? inp : inpDisabled} value={profile.bpjs_ketenagakerjaan || ""} onChange={(e) => isEditing && upd("bpjs_ketenagakerjaan", e.target.value)} placeholder="Nomor BPJS Ketenagakerjaan" disabled={!isEditing} /></div>
                 </div>
-                <div className="md:col-span-3"><label className={lbl}>Alamat Lengkap *</label><textarea className={inp} rows={3} value={profile.address} onChange={(e) => upd("address", e.target.value)} /></div>
-                <div><label className={lbl}>Kota</label><input className={inp} value={profile.city} onChange={(e) => upd("city", e.target.value)} /></div>
-                <div><label className={lbl}>Provinsi</label><input className={inp} value={profile.province} onChange={(e) => upd("province", e.target.value)} /></div>
-                <div><label className={lbl}>Kode Pos</label><input className={inp} value={profile.postal_code} onChange={(e) => upd("postal_code", e.target.value)} /></div>
+                <div className="md:col-span-3"><label className={lbl}>Alamat Lengkap *</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={profile.address} onChange={(e) => isEditing && upd("address", e.target.value)} disabled={!isEditing} /></div>
+                <div><label className={lbl}>Kota</label><input className={isEditing ? inp : inpDisabled} value={profile.city} onChange={(e) => isEditing && upd("city", e.target.value)} disabled={!isEditing} /></div>
+                <div><label className={lbl}>Provinsi</label><input className={isEditing ? inp : inpDisabled} value={profile.province} onChange={(e) => isEditing && upd("province", e.target.value)} disabled={!isEditing} /></div>
+                <div><label className={lbl}>Kode Pos</label><input className={isEditing ? inp : inpDisabled} value={profile.postal_code} onChange={(e) => isEditing && upd("postal_code", e.target.value)} disabled={!isEditing} /></div>
               </div>
             </section>
 
@@ -485,9 +560,9 @@ export default function CandidateProfile() {
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Heart className="h-5 w-5 text-primary"/> Data Fisik</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div><label className={lbl}>Tinggi (cm)</label><input type="number" className={inp} value={profile.height_cm || ""} onChange={(e) => upd("height_cm", parseInt(e.target.value) || null)} /></div>
-                <div><label className={lbl}>Berat (kg)</label><input type="number" className={inp} value={profile.weight_kg || ""} onChange={(e) => upd("weight_kg", parseInt(e.target.value) || null)} /></div>
-                <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Riwayat Penyakit</label><input className={inp} value={profile.medical_history} onChange={(e) => upd("medical_history", e.target.value)} placeholder="Tulis 'Tidak ada' jika tidak ada" /></div>
+                <div><label className={lbl}>Tinggi (cm)</label><input type="number" className={isEditing ? inp : inpDisabled} value={profile.height_cm || ""} onChange={(e) => isEditing && upd("height_cm", parseInt(e.target.value) || null)} disabled={!isEditing} /></div>
+                <div><label className={lbl}>Berat (kg)</label><input type="number" className={isEditing ? inp : inpDisabled} value={profile.weight_kg || ""} onChange={(e) => isEditing && upd("weight_kg", parseInt(e.target.value) || null)} disabled={!isEditing} /></div>
+                <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Riwayat Penyakit</label><input className={isEditing ? inp : inpDisabled} value={profile.medical_history} onChange={(e) => isEditing && upd("medical_history", e.target.value)} placeholder="Tulis 'Tidak ada' jika tidak ada" disabled={!isEditing} /></div>
               </div>
             </section>
 
@@ -495,14 +570,14 @@ export default function CandidateProfile() {
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Phone className="h-5 w-5 text-primary"/> Kontak Darurat</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div><label className={lbl}>Nama Kontak</label><input className={inp} value={profile.emergency_contact_name} onChange={(e) => upd("emergency_contact_name", e.target.value)} /></div>
+                <div><label className={lbl}>Nama Kontak</label><input className={isEditing ? inp : inpDisabled} value={profile.emergency_contact_name} onChange={(e) => isEditing && upd("emergency_contact_name", e.target.value)} disabled={!isEditing} /></div>
                 <div>
                   <label className={lbl}>Hubungan</label>
-                  <select className={inp} value={profile.emergency_contact_relation} onChange={(e) => upd("emergency_contact_relation", e.target.value)}>
+                  <select className={isEditing ? inp : inpDisabled} value={profile.emergency_contact_relation} onChange={(e) => isEditing && upd("emergency_contact_relation", e.target.value)} disabled={!isEditing}>
                     <option value="">Pilih...</option><option>Ayah</option><option>Ibu</option><option>Suami/Istri</option><option>Saudara</option><option>Anak</option><option>Teman</option><option>Lainnya</option>
                   </select>
                 </div>
-                <div><label className={lbl}>No. Telepon</label><input className={inp} value={profile.emergency_contact_phone} onChange={(e) => upd("emergency_contact_phone", e.target.value)} /></div>
+                <div><label className={lbl}>No. Telepon</label><input className={isEditing ? inp : inpDisabled} value={profile.emergency_contact_phone} onChange={(e) => isEditing && upd("emergency_contact_phone", e.target.value)} disabled={!isEditing} /></div>
               </div>
             </section>
           </div>
@@ -527,14 +602,16 @@ export default function CandidateProfile() {
                         <div key={index} className="bg-background rounded-lg border border-border p-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-medium">Anggota Keluarga #{index + 1}</h4>
-                            <button onClick={() => removeFamilyMember(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {isEditing && (
+                              <button onClick={() => removeFamilyMember(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
                             <div className="w-24">
                               <label className={lbl}>Hubungan</label>
-                              <select className={inp} value={member.relation} onChange={(e) => updateFamilyMember(index, 'relation', e.target.value)}>
+                              <select className={isEditing ? inp : inpDisabled} value={member.relation} onChange={(e) => isEditing && updateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
                                 <option value="Ayah">Ayah</option>
                                 <option value="Ibu">Ibu</option>
@@ -547,11 +624,11 @@ export default function CandidateProfile() {
                             </div>
                             <div className="flex-1 min-w-[120px]">
                               <label className={lbl}>Nama</label>
-                              <input className={inp} value={member.name} onChange={(e) => updateFamilyMember(index, 'name', e.target.value)} />
+                              <input className={isEditing ? inp : inpDisabled} value={member.name} onChange={(e) => isEditing && updateFamilyMember(index, 'name', e.target.value)} disabled={!isEditing} />
                             </div>
                             <div className="w-16">
                               <label className={lbl}>Jenis Kelamin</label>
-                              <select className={inp} value={member.gender} onChange={(e) => updateFamilyMember(index, 'gender', e.target.value)}>
+                              <select className={isEditing ? inp : inpDisabled} value={member.gender} onChange={(e) => isEditing && updateFamilyMember(index, 'gender', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
                                 <option value="L">L</option>
                                 <option value="P">P</option>
@@ -559,11 +636,11 @@ export default function CandidateProfile() {
                             </div>
                             <div className="w-16">
                               <label className={lbl}>Usia</label>
-                              <input type="number" className={inp} value={member.age} onChange={(e) => updateFamilyMember(index, 'age', e.target.value)} />
+                              <input type="number" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateFamilyMember(index, 'age', e.target.value)} disabled={!isEditing} />
                             </div>
                             <div className="w-32">
                               <label className={lbl}>Pendidikan</label>
-                              <select className={inp} value={member.education} onChange={(e) => updateFamilyMember(index, 'education', e.target.value)}>
+                              <select className={isEditing ? inp : inpDisabled} value={member.education} onChange={(e) => isEditing && updateFamilyMember(index, 'education', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
                                 <option value="Tidak tamat SD">Tidak tamat SD</option>
                                 <option value="SD">SD</option>
@@ -578,11 +655,11 @@ export default function CandidateProfile() {
                             </div>
                             <div className="flex-1 min-w-[120px]">
                               <label className={lbl}>Pekerjaan</label>
-                              <input className={inp} value={member.occupation} onChange={(e) => updateFamilyMember(index, 'occupation', e.target.value)} />
+                              <input className={isEditing ? inp : inpDisabled} value={member.occupation} onChange={(e) => isEditing && updateFamilyMember(index, 'occupation', e.target.value)} disabled={!isEditing} />
                             </div>
                             <div className="flex-1 min-w-[120px]">
                               <label className={lbl}>Perusahaan</label>
-                              <input className={inp} value={member.company} onChange={(e) => updateFamilyMember(index, 'company', e.target.value)} />
+                              <input className={isEditing ? inp : inpDisabled} value={member.company} onChange={(e) => isEditing && updateFamilyMember(index, 'company', e.target.value)} disabled={!isEditing} />
                             </div>
                           </div>
                         </div>
@@ -591,9 +668,11 @@ export default function CandidateProfile() {
                   )}
                 </div>
               </div>
-              <button onClick={addFamilyMember} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                <Plus className="h-4 w-4" /> Tambah Anggota Keluarga
-              </button>
+              {isEditing && (
+                <button onClick={addFamilyMember} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
+                  <Plus className="h-4 w-4" /> Tambah Anggota Keluarga
+                </button>
+              )}
             </section>
           </div>
         )}
@@ -614,14 +693,16 @@ export default function CandidateProfile() {
                     <div key={index} className="bg-background rounded-lg border border-border p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Pendidikan #{index + 1}</h4>
-                        <button onClick={() => removeEducation(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {isEditing && (
+                          <button onClick={() => removeEducation(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
                         <div className="w-28">
                           <label className={lbl}>Jenjang</label>
-                          <select className={inp} value={edu.level} onChange={(e) => updateEducation(index, 'level', e.target.value)}>
+                          <select className={isEditing ? inp : inpDisabled} value={edu.level} onChange={(e) => isEditing && updateEducation(index, 'level', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
                             <option value="SD">SD</option>
                             <option value="SMP">SMP</option>
@@ -635,27 +716,27 @@ export default function CandidateProfile() {
                         </div>
                         <div className="flex-1 min-w-[140px]">
                           <label className={lbl}>Nama Sekolah</label>
-                          <input className={inp} value={edu.school} onChange={(e) => updateEducation(index, 'school', e.target.value)} />
+                          <input className={isEditing ? inp : inpDisabled} value={edu.school} onChange={(e) => isEditing && updateEducation(index, 'school', e.target.value)} disabled={!isEditing} />
                         </div>
                         <div className="flex-1 min-w-[120px]">
                           <label className={lbl}>Jurusan</label>
-                          <input className={inp} value={edu.major} onChange={(e) => updateEducation(index, 'major', e.target.value)} />
+                          <input className={isEditing ? inp : inpDisabled} value={edu.major} onChange={(e) => isEditing && updateEducation(index, 'major', e.target.value)} disabled={!isEditing} />
                         </div>
                         <div className="w-20">
                           <label className={lbl}>Masuk</label>
-                          <input type="number" className={inp} value={edu.start_year} onChange={(e) => updateEducation(index, 'start_year', e.target.value)} placeholder="Tahun" />
+                          <input type="number" className={isEditing ? inp : inpDisabled} value={edu.start_year} onChange={(e) => isEditing && updateEducation(index, 'start_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
                         </div>
                         <div className="w-20">
                           <label className={lbl}>Selesai</label>
-                          <input type="number" className={inp} value={edu.end_year} onChange={(e) => updateEducation(index, 'end_year', e.target.value)} placeholder="Tahun" />
+                          <input type="number" className={isEditing ? inp : inpDisabled} value={edu.end_year} onChange={(e) => isEditing && updateEducation(index, 'end_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
                         </div>
                         <div className="w-24">
                           <label className={lbl}>Nilai</label>
-                          <input className={inp} value={edu.grade} onChange={(e) => updateEducation(index, 'grade', e.target.value)} placeholder="Nilai/IPK" />
+                          <input className={isEditing ? inp : inpDisabled} value={edu.grade} onChange={(e) => isEditing && updateEducation(index, 'grade', e.target.value)} placeholder="Nilai/IPK" disabled={!isEditing} />
                         </div>
                         <div className="w-24">
                           <label className={lbl}>Status</label>
-                          <select className={inp} value={edu.status} onChange={(e) => updateEducation(index, 'status', e.target.value)}>
+                          <select className={isEditing ? inp : inpDisabled} value={edu.status} onChange={(e) => isEditing && updateEducation(index, 'status', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
                             <option value="Lulus">Lulus</option>
                             <option value="Tidak Lulus">Tidak Lulus</option>
@@ -666,9 +747,11 @@ export default function CandidateProfile() {
                   ))
                 )}
               </div>
-              <button onClick={addEducation} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                <Plus className="h-4 w-4" /> Tambah Riwayat Pendidikan
-              </button>
+              {isEditing && (
+                <button onClick={addEducation} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
+                  <Plus className="h-4 w-4" /> Tambah Riwayat Pendidikan
+                </button>
+              )}
             </section>
 
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
@@ -684,23 +767,27 @@ export default function CandidateProfile() {
                     <div key={index} className="bg-background rounded-lg border border-border p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Pendidikan Informal #{index + 1}</h4>
-                        <button onClick={() => removeInformalEducation(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {isEditing && (
+                          <button onClick={() => removeInformalEducation(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div><label className={lbl}>Nama Kursus/Pelatihan</label><input className={inp} value={edu.name} onChange={(e) => updateInformalEducation(index, 'name', e.target.value)} placeholder="Nama kursus/pelatihan" /></div>
-                        <div><label className={lbl}>Lembaga/Institusi</label><input className={inp} value={edu.institution} onChange={(e) => updateInformalEducation(index, 'institution', e.target.value)} placeholder="Lembaga penyelenggara" /></div>
-                        <div><label className={lbl}>Tahun</label><input type="number" className={inp} value={edu.year} onChange={(e) => updateInformalEducation(index, 'year', e.target.value)} placeholder="Tahun" /></div>
-                        <div><label className={lbl}>Sertifikat</label><input className={inp} value={edu.certificate} onChange={(e) => updateInformalEducation(index, 'certificate', e.target.value)} placeholder="Nama sertifikat" /></div>
+                        <div><label className={lbl}>Nama Kursus/Pelatihan</label><input className={isEditing ? inp : inpDisabled} value={edu.name} onChange={(e) => isEditing && updateInformalEducation(index, 'name', e.target.value)} placeholder="Nama kursus/pelatihan" disabled={!isEditing} /></div>
+                        <div><label className={lbl}>Lembaga/Institusi</label><input className={isEditing ? inp : inpDisabled} value={edu.institution} onChange={(e) => isEditing && updateInformalEducation(index, 'institution', e.target.value)} placeholder="Lembaga penyelenggara" disabled={!isEditing} /></div>
+                        <div><label className={lbl}>Tahun</label><input type="number" className={isEditing ? inp : inpDisabled} value={edu.year} onChange={(e) => isEditing && updateInformalEducation(index, 'year', e.target.value)} placeholder="Tahun" disabled={!isEditing} /></div>
+                        <div><label className={lbl}>Sertifikat</label><input className={isEditing ? inp : inpDisabled} value={edu.certificate} onChange={(e) => isEditing && updateInformalEducation(index, 'certificate', e.target.value)} placeholder="Nama sertifikat" disabled={!isEditing} /></div>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              <button onClick={addInformalEducation} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                <Plus className="h-4 w-4" /> Tambah Pendidikan Informal
-              </button>
+              {isEditing && (
+                <button onClick={addInformalEducation} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
+                  <Plus className="h-4 w-4" /> Tambah Pendidikan Informal
+                </button>
+              )}
             </section>
           </div>
         )}
@@ -711,9 +798,11 @@ export default function CandidateProfile() {
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary"/> Keahlian</h2>
-                <button onClick={addSkill} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                  <Plus className="h-4 w-4" /> Tambah Keahlian
-                </button>
+                {isEditing && (
+                  <button onClick={addSkill} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
+                    <Plus className="h-4 w-4" /> Tambah Keahlian
+                  </button>
+                )}
               </div>
               <div className="space-y-3">
                 {skills.length === 0 ? (
@@ -726,15 +815,17 @@ export default function CandidateProfile() {
                     <div key={index} className="bg-background rounded-lg border border-border p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Keahlian #{index + 1}</h4>
-                        <button onClick={() => removeSkill(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {isEditing && (
+                          <button onClick={() => removeSkill(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div><label className={lbl}>Nama Keahlian</label><input className={inp} value={skill.name} onChange={(e) => updateSkill(index, 'name', e.target.value)} placeholder="Contoh: Microsoft Excel, Public Speaking" /></div>
+                        <div><label className={lbl}>Nama Keahlian</label><input className={isEditing ? inp : inpDisabled} value={skill.name} onChange={(e) => isEditing && updateSkill(index, 'name', e.target.value)} placeholder="Contoh: Microsoft Excel, Public Speaking" disabled={!isEditing} /></div>
                         <div>
                           <label className={lbl}>Tingkat Kemahiran</label>
-                          <select className={inp} value={skill.level} onChange={(e) => updateSkill(index, 'level', e.target.value)}>
+                          <select className={isEditing ? inp : inpDisabled} value={skill.level} onChange={(e) => isEditing && updateSkill(index, 'level', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
                             <option value="Pemula">Pemula</option>
                             <option value="Menengah">Menengah</option>
@@ -752,9 +843,11 @@ export default function CandidateProfile() {
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold flex items-center gap-2"><Globe className="h-5 w-5 text-primary"/> Bahasa</h2>
-                <button onClick={addLanguage} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                  <Plus className="h-4 w-4" /> Tambah Bahasa
-                </button>
+                {isEditing && (
+                  <button onClick={addLanguage} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
+                    <Plus className="h-4 w-4" /> Tambah Bahasa
+                  </button>
+                )}
               </div>
               <div className="space-y-3">
                 {languages.length === 0 ? (
@@ -767,15 +860,17 @@ export default function CandidateProfile() {
                     <div key={index} className="bg-background rounded-lg border border-border p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Bahasa #{index + 1}</h4>
-                        <button onClick={() => removeLanguage(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {isEditing && (
+                          <button onClick={() => removeLanguage(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div><label className={lbl}>Nama Bahasa</label><input className={inp} value={language.name} onChange={(e) => updateLanguage(index, 'name', e.target.value)} placeholder="Contoh: Bahasa Indonesia, English" /></div>
+                        <div><label className={lbl}>Nama Bahasa</label><input className={isEditing ? inp : inpDisabled} value={language.name} onChange={(e) => isEditing && updateLanguage(index, 'name', e.target.value)} placeholder="Contoh: Bahasa Indonesia, English" disabled={!isEditing} /></div>
                         <div>
                           <label className={lbl}>Tingkat Kemahiran</label>
-                          <select className={inp} value={language.level} onChange={(e) => updateLanguage(index, 'level', e.target.value)}>
+                          <select className={isEditing ? inp : inpDisabled} value={language.level} onChange={(e) => isEditing && updateLanguage(index, 'level', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
                             <option value="Dasar">Dasar</option>
                             <option value="Menengah">Menengah</option>
@@ -794,15 +889,15 @@ export default function CandidateProfile() {
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Star className="h-5 w-5 text-primary"/> Kepribadian</h2>
               <div className="grid grid-cols-1 gap-3">
-                <div><label className={lbl}>Kelebihan (Strengths)</label><textarea className={inp} rows={3} value={profile.strengths} onChange={(e) => upd("strengths", e.target.value)} placeholder="Apa kelebihan Anda?" /></div>
-                <div><label className={lbl}>Kekurangan (Weaknesses)</label><textarea className={inp} rows={3} value={profile.weaknesses} onChange={(e) => upd("weaknesses", e.target.value)} placeholder="Apa kekurangan Anda?" /></div>
+                <div><label className={lbl}>Kelebihan (Strengths)</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={profile.strengths} onChange={(e) => isEditing && upd("strengths", e.target.value)} placeholder="Apa kelebihan Anda?" disabled={!isEditing} /></div>
+                <div><label className={lbl}>Kekurangan (Weaknesses)</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={profile.weaknesses} onChange={(e) => isEditing && upd("weaknesses", e.target.value)} placeholder="Apa kekurangan Anda?" disabled={!isEditing} /></div>
               </div>
             </section>
 
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Link className="h-5 w-5 text-primary"/> Media Sosial</h2>
               <div className="grid grid-cols-1 gap-3">
-                <div><label className={lbl}>LinkedIn URL</label><input className={inp} value={profile.linkedin_url || ""} onChange={(e) => upd("linkedin_url", e.target.value)} placeholder="https://linkedin.com/in/username" /></div>
+                <div><label className={lbl}>LinkedIn URL</label><input className={isEditing ? inp : inpDisabled} value={profile.linkedin_url || ""} onChange={(e) => isEditing && upd("linkedin_url", e.target.value)} placeholder="https://linkedin.com/in/username" disabled={!isEditing} /></div>
               </div>
             </section>
           </div>
@@ -813,9 +908,11 @@ export default function CandidateProfile() {
           <div className="space-y-4 max-w-7xl mx-auto">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold flex items-center gap-2"><Briefcase className="h-5 w-5 text-primary"/> Pengalaman Kerja</h2>
-              <button onClick={addWorkExperience} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                <Plus className="h-4 w-4" /> Tambah Pengalaman
-              </button>
+              {isEditing && (
+                <button onClick={addWorkExperience} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
+                  <Plus className="h-4 w-4" /> Tambah Pengalaman
+                </button>
+              )}
             </div>
             
             {workExperience.length === 0 ? (
@@ -828,20 +925,22 @@ export default function CandidateProfile() {
                 <div key={index} className="bg-card border border-border rounded-2xl p-4 md:p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-lg">Pengalaman Kerja #{index + 1}</h3>
-                    <button onClick={() => removeWorkExperience(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {isEditing && (
+                      <button onClick={() => removeWorkExperience(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Informasi Perusahaan */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-muted-foreground">Informasi Perusahaan</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <div><label className={lbl}>Nama Perusahaan *</label><input className={inp} value={exp.company_name} onChange={(e) => updateWorkExperience(index, 'company_name', e.target.value)} placeholder="Nama PT/Perusahaan" /></div>
-                      <div><label className={lbl}>Jenis Usaha</label><input className={inp} value={exp.business_type} onChange={(e) => updateWorkExperience(index, 'business_type', e.target.value)} placeholder="Jenis usaha" /></div>
-                      <div><label className={lbl}>Jumlah Karyawan</label><input type="number" className={inp} value={exp.employee_count} onChange={(e) => updateWorkExperience(index, 'employee_count', e.target.value)} placeholder="Jumlah" /></div>
-                      <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Alamat</label><input className={inp} value={exp.address} onChange={(e) => updateWorkExperience(index, 'address', e.target.value)} placeholder="Alamat lengkap" /></div>
-                      <div><label className={lbl}>Kota</label><input className={inp} value={exp.city} onChange={(e) => updateWorkExperience(index, 'city', e.target.value)} placeholder="Kota" /></div>
+                      <div><label className={lbl}>Nama Perusahaan *</label><input className={isEditing ? inp : inpDisabled} value={exp.company_name} onChange={(e) => isEditing && updateWorkExperience(index, 'company_name', e.target.value)} placeholder="Nama PT/Perusahaan" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Jenis Usaha</label><input className={isEditing ? inp : inpDisabled} value={exp.business_type} onChange={(e) => isEditing && updateWorkExperience(index, 'business_type', e.target.value)} placeholder="Jenis usaha" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Jumlah Karyawan</label><input type="number" className={isEditing ? inp : inpDisabled} value={exp.employee_count} onChange={(e) => isEditing && updateWorkExperience(index, 'employee_count', e.target.value)} placeholder="Jumlah" disabled={!isEditing} /></div>
+                      <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Alamat</label><input className={isEditing ? inp : inpDisabled} value={exp.address} onChange={(e) => isEditing && updateWorkExperience(index, 'address', e.target.value)} placeholder="Alamat lengkap" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Kota</label><input className={isEditing ? inp : inpDisabled} value={exp.city} onChange={(e) => isEditing && updateWorkExperience(index, 'city', e.target.value)} placeholder="Kota" disabled={!isEditing} /></div>
                     </div>
                   </div>
 
@@ -849,13 +948,13 @@ export default function CandidateProfile() {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-muted-foreground">Periode Kerja</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                      <div><label className={lbl}>Tanggal Masuk *</label><input type="date" className={inp} value={exp.join_date} onChange={(e) => updateWorkExperience(index, 'join_date', e.target.value)} /></div>
+                      <div><label className={lbl}>Tanggal Masuk *</label><input type="date" className={isEditing ? inp : inpDisabled} value={exp.join_date} onChange={(e) => isEditing && updateWorkExperience(index, 'join_date', e.target.value)} disabled={!isEditing} /></div>
                       <div>
                         <label className={lbl}>Tanggal Keluar</label>
-                        <input type="date" className={inp} value={exp.end_date} onChange={(e) => updateWorkExperience(index, 'end_date', e.target.value)} disabled={exp.still_working} />
+                        <input type="date" className={isEditing ? inp : inpDisabled} value={exp.end_date} onChange={(e) => isEditing && updateWorkExperience(index, 'end_date', e.target.value)} disabled={!isEditing || exp.still_working} />
                       </div>
                       <div className="flex items-center gap-2 pt-6 sm:col-span-2 lg:col-span-3 xl:col-span-4">
-                        <input type="checkbox" id={`still-working-${index}`} className="rounded" checked={exp.still_working} onChange={(e) => updateWorkExperience(index, 'still_working', e.target.checked)} />
+                        <input type="checkbox" id={`still-working-${index}`} className="rounded" checked={exp.still_working} onChange={(e) => isEditing && updateWorkExperience(index, 'still_working', e.target.checked)} disabled={!isEditing} />
                         <label htmlFor={`still-working-${index}`} className="text-sm">Masih bekerja di perusahaan ini</label>
                       </div>
                     </div>
@@ -865,10 +964,10 @@ export default function CandidateProfile() {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-muted-foreground">Jabatan dan Gaji</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                      <div><label className={lbl}>Jabatan Awal *</label><input className={inp} value={exp.position_start} onChange={(e) => updateWorkExperience(index, 'position_start', e.target.value)} placeholder="Jabatan awal" /></div>
-                      <div><label className={lbl}>Gaji Awal</label><input className={inp} value={exp.salary_start} onChange={(e) => handleCurrencyInput(e.target.value, (value) => updateWorkExperience(index, 'salary_start', value))} placeholder="Rp 0" /></div>
-                      <div><label className={lbl}>Jabatan Akhir</label><input className={inp} value={exp.position_end} onChange={(e) => updateWorkExperience(index, 'position_end', e.target.value)} placeholder="Jabatan akhir" /></div>
-                      <div><label className={lbl}>Gaji Akhir</label><input className={inp} value={exp.salary_end} onChange={(e) => handleCurrencyInput(e.target.value, (value) => updateWorkExperience(index, 'salary_end', value))} placeholder="Rp 0" /></div>
+                      <div><label className={lbl}>Jabatan Awal *</label><input className={isEditing ? inp : inpDisabled} value={exp.position_start} onChange={(e) => isEditing && updateWorkExperience(index, 'position_start', e.target.value)} placeholder="Jabatan awal" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Gaji Awal</label><input className={isEditing ? inp : inpDisabled} value={exp.salary_start} onChange={(e) => isEditing && handleCurrencyInput(e.target.value, (value) => updateWorkExperience(index, 'salary_start', value))} placeholder="Rp 0" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Jabatan Akhir</label><input className={isEditing ? inp : inpDisabled} value={exp.position_end} onChange={(e) => isEditing && updateWorkExperience(index, 'position_end', e.target.value)} placeholder="Jabatan akhir" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Gaji Akhir</label><input className={isEditing ? inp : inpDisabled} value={exp.salary_end} onChange={(e) => isEditing && handleCurrencyInput(e.target.value, (value) => updateWorkExperience(index, 'salary_end', value))} placeholder="Rp 0" disabled={!isEditing} /></div>
                     </div>
                   </div>
 
@@ -876,9 +975,9 @@ export default function CandidateProfile() {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-muted-foreground">Informasi Atasan Langsung</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <div><label className={lbl}>Nama Atasan</label><input className={inp} value={exp.supervisor_name} onChange={(e) => updateWorkExperience(index, 'supervisor_name', e.target.value)} placeholder="Nama atasan" /></div>
-                      <div><label className={lbl}>Jabatan Atasan</label><input className={inp} value={exp.supervisor_position} onChange={(e) => updateWorkExperience(index, 'supervisor_position', e.target.value)} placeholder="Jabatan atasan" /></div>
-                      <div><label className={lbl}>Nomor Telepon</label><input className={inp} value={exp.supervisor_phone} onChange={(e) => updateWorkExperience(index, 'supervisor_phone', e.target.value)} placeholder="Nomor telepon" /></div>
+                      <div><label className={lbl}>Nama Atasan</label><input className={isEditing ? inp : inpDisabled} value={exp.supervisor_name} onChange={(e) => isEditing && updateWorkExperience(index, 'supervisor_name', e.target.value)} placeholder="Nama atasan" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Jabatan Atasan</label><input className={isEditing ? inp : inpDisabled} value={exp.supervisor_position} onChange={(e) => isEditing && updateWorkExperience(index, 'supervisor_position', e.target.value)} placeholder="Jabatan atasan" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Nomor Telepon</label><input className={isEditing ? inp : inpDisabled} value={exp.supervisor_phone} onChange={(e) => isEditing && updateWorkExperience(index, 'supervisor_phone', e.target.value)} placeholder="Nomor telepon" disabled={!isEditing} /></div>
                     </div>
                   </div>
 
@@ -886,9 +985,9 @@ export default function CandidateProfile() {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-muted-foreground">Detail Pekerjaan</h4>
                     <div className="grid grid-cols-1 gap-3">
-                      <div><label className={lbl}>Uraikan Tugas dan Tanggung Jawab</label><textarea className={inp} rows={3} value={exp.duties} onChange={(e) => updateWorkExperience(index, 'duties', e.target.value)} placeholder="Deskripsikan tugas dan tanggung jawab Anda" /></div>
-                      <div><label className={lbl}>Target atau Pencapaian</label><textarea className={inp} rows={3} value={exp.achievements} onChange={(e) => updateWorkExperience(index, 'achievements', e.target.value)} placeholder="Target yang dicapai selama bekerja" /></div>
-                      <div><label className={lbl}>Gambarkan Struktur Organisasi</label><textarea className={inp} rows={3} value={exp.organization_structure} onChange={(e) => updateWorkExperience(index, 'organization_structure', e.target.value)} placeholder="Deskripsikan struktur organisasi divisi/departemen Anda" /></div>
+                      <div><label className={lbl}>Uraikan Tugas dan Tanggung Jawab</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={exp.duties} onChange={(e) => isEditing && updateWorkExperience(index, 'duties', e.target.value)} placeholder="Deskripsikan tugas dan tanggung jawab Anda" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Target atau Pencapaian</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={exp.achievements} onChange={(e) => isEditing && updateWorkExperience(index, 'achievements', e.target.value)} placeholder="Target yang dicapai selama bekerja" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Gambarkan Struktur Organisasi</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={exp.organization_structure} onChange={(e) => isEditing && updateWorkExperience(index, 'organization_structure', e.target.value)} placeholder="Deskripsikan struktur organisasi divisi/departemen Anda" disabled={!isEditing} /></div>
                     </div>
                   </div>
 
@@ -896,8 +995,8 @@ export default function CandidateProfile() {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-muted-foreground">Alasan dan Benefit</h4>
                     <div className="grid grid-cols-1 gap-3">
-                      <div><label className={lbl}>Alasan Berhenti/Resign</label><textarea className={inp} rows={2} value={exp.resignation_reason} onChange={(e) => updateWorkExperience(index, 'resignation_reason', e.target.value)} placeholder="Alasan Anda berhenti dari perusahaan ini" /></div>
-                      <div><label className={lbl}>Benefit Lainnya yang Didapatkan</label><textarea className={inp} rows={2} value={exp.benefits} onChange={(e) => updateWorkExperience(index, 'benefits', e.target.value)} placeholder="Benefit tambahan (BPJS, tunjangan, dll)" /></div>
+                      <div><label className={lbl}>Alasan Berhenti/Resign</label><textarea className={isEditing ? inp : inpDisabled} rows={2} value={exp.resignation_reason} onChange={(e) => isEditing && updateWorkExperience(index, 'resignation_reason', e.target.value)} placeholder="Alasan Anda berhenti dari perusahaan ini" disabled={!isEditing} /></div>
+                      <div><label className={lbl}>Benefit Lainnya yang Didapatkan</label><textarea className={isEditing ? inp : inpDisabled} rows={2} value={exp.benefits} onChange={(e) => isEditing && updateWorkExperience(index, 'benefits', e.target.value)} placeholder="Benefit tambahan (BPJS, tunjangan, dll)" disabled={!isEditing} /></div>
                     </div>
                   </div>
                 </div>
@@ -912,11 +1011,11 @@ export default function CandidateProfile() {
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><DollarSign className="h-5 w-5 text-primary"/> Ekspektasi Gaji</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div><label className={lbl}>Gaji Pokok yang Diharapkan</label><input className={inp} value={profile.salary_exp_base} onChange={(e) => handleCurrencyInput(e.target.value, (value) => upd("salary_exp_base", value))} placeholder="Rp 0" /></div>
-                <div><label className={lbl}>Tunjangan yang Diharapkan</label><input className={inp} value={profile.salary_exp_allowances} onChange={(e) => handleCurrencyInput(e.target.value, (value) => upd("salary_exp_allowances", value))} placeholder="Rp 0" /></div>
-                <div className="sm:col-span-2"><label className={lbl}>Benefit/Fasilitas yang Diharapkan</label><textarea className={inp} rows={2} value={profile.salary_exp_benefits} onChange={(e) => upd("salary_exp_benefits", e.target.value)} placeholder="Asuransi, bonus, transport, dll" /></div>
-                <div><label className={lbl}>Ekspektasi Gaji Total (Rp)</label><input className={inp} value={profile.expected_salary ? formatCurrency(profile.expected_salary.toString()) : ''} onChange={(e) => handleCurrencyInput(e.target.value, (value) => upd("expected_salary", parseInt(value.replace(/\D/g, '')) || null))} placeholder="Rp 0" /></div>
-                <div><label className={lbl}>Gaji Saat Ini (opsional)</label><input className={inp} value={profile.salary_expectation} onChange={(e) => handleCurrencyInput(e.target.value, (value) => upd("salary_expectation", value))} placeholder="Rp 0" /></div>
+                <div><label className={lbl}>Gaji Pokok yang Diharapkan</label><input className={isEditing ? inp : inpDisabled} value={profile.salary_exp_base} onChange={(e) => isEditing && handleCurrencyInput(e.target.value, (value) => upd("salary_exp_base", value))} placeholder="Rp 0" disabled={!isEditing} /></div>
+                <div><label className={lbl}>Tunjangan yang Diharapkan</label><input className={isEditing ? inp : inpDisabled} value={profile.salary_exp_allowances} onChange={(e) => isEditing && handleCurrencyInput(e.target.value, (value) => upd("salary_exp_allowances", value))} placeholder="Rp 0" disabled={!isEditing} /></div>
+                <div className="sm:col-span-2"><label className={lbl}>Benefit/Fasilitas yang Diharapkan</label><textarea className={isEditing ? inp : inpDisabled} rows={2} value={profile.salary_exp_benefits} onChange={(e) => isEditing && upd("salary_exp_benefits", e.target.value)} placeholder="Asuransi, bonus, transport, dll" disabled={!isEditing} /></div>
+                <div><label className={lbl}>Ekspektasi Gaji Total (Rp)</label><input className={isEditing ? inp : inpDisabled} value={profile.expected_salary ? formatCurrency(profile.expected_salary.toString()) : ''} onChange={(e) => isEditing && handleCurrencyInput(e.target.value, (value) => upd("expected_salary", parseInt(value.replace(/\D/g, '')) || null))} placeholder="Rp 0" disabled={!isEditing} /></div>
+                <div><label className={lbl}>Gaji Saat Ini (opsional)</label><input className={isEditing ? inp : inpDisabled} value={profile.salary_expectation} onChange={(e) => isEditing && handleCurrencyInput(e.target.value, (value) => upd("salary_expectation", value))} placeholder="Rp 0" disabled={!isEditing} /></div>
               </div>
             </section>
           </div>
@@ -942,11 +1041,13 @@ export default function CandidateProfile() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className="cursor-pointer flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:brightness-110">
-                          <Upload className="h-3.5 w-3.5" /> {existing ? "Ganti" : "Upload"}
-                          <input type="file" accept={t.accept} className="hidden" onChange={(e) => e.target.files?.[0] && uploadDoc(t.key, e.target.files[0])} />
-                        </label>
-                        {existing && (
+                        {isEditing && (
+                          <label className="cursor-pointer flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:brightness-110">
+                            <Upload className="h-3.5 w-3.5" /> {existing ? "Ganti" : "Upload"}
+                            <input type="file" accept={t.accept} className="hidden" onChange={(e) => e.target.files?.[0] && uploadDoc(t.key, e.target.files[0])} />
+                          </label>
+                        )}
+                        {existing && isEditing && (
                           <button onClick={() => deleteDoc(existing.id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -966,27 +1067,27 @@ export default function CandidateProfile() {
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Info className="h-5 w-5 text-primary"/> Informasi Tambahan</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div><label className={lbl}>Hobi</label><input className={inp} value={profile.hobbies} onChange={(e) => upd("hobbies", e.target.value)} placeholder="Contoh: Membaca, Olahraga, Musik" /></div>
-                <div><label className={lbl}>SIM yang Dimiliki</label><input className={inp} value={profile.vehicle_license} onChange={(e) => upd("vehicle_license", e.target.value)} placeholder="A/B/C/None" /></div>
-                <div><label className={lbl}>Alamat Domisili</label><input className={inp} value={profile.alamat_domisili || ""} onChange={(e) => upd("alamat_domisili", e.target.value)} placeholder="Alamat domisili" /></div>
+                <div><label className={lbl}>Hobi</label><input className={isEditing ? inp : inpDisabled} value={profile.hobbies} onChange={(e) => isEditing && upd("hobbies", e.target.value)} placeholder="Contoh: Membaca, Olahraga, Musik" disabled={!isEditing} /></div>
+                <div><label className={lbl}>SIM yang Dimiliki</label><input className={isEditing ? inp : inpDisabled} value={profile.vehicle_license} onChange={(e) => isEditing && upd("vehicle_license", e.target.value)} placeholder="A/B/C/None" disabled={!isEditing} /></div>
+                <div><label className={lbl}>Alamat Domisili</label><input className={isEditing ? inp : inpDisabled} value={profile.alamat_domisili || ""} onChange={(e) => isEditing && upd("alamat_domisili", e.target.value)} placeholder="Alamat domisili" disabled={!isEditing} /></div>
                 <div className="flex items-center gap-2 pt-6">
-                  <input type="checkbox" id="has_vehicle" className="rounded" checked={profile.has_vehicle} onChange={(e) => upd("has_vehicle", e.target.checked)} />
+                  <input type="checkbox" id="has_vehicle" className="rounded" checked={profile.has_vehicle} onChange={(e) => isEditing && upd("has_vehicle", e.target.checked)} disabled={!isEditing} />
                   <label htmlFor="has_vehicle" className="text-sm">Memiliki Kendaraan</label>
                 </div>
                 {profile.has_vehicle && (
                   <>
-                    <div><label className={lbl}>Jenis Kendaraan</label><input className={inp} value={profile.vehicle_type} onChange={(e) => upd("vehicle_type", e.target.value)} placeholder="Motor/Mobil" /></div>
-                    <div><label className={lbl}>Merk Kendaraan</label><input className={inp} value={profile.vehicle_brand} onChange={(e) => upd("vehicle_brand", e.target.value)} /></div>
+                    <div><label className={lbl}>Jenis Kendaraan</label><input className={isEditing ? inp : inpDisabled} value={profile.vehicle_type} onChange={(e) => isEditing && upd("vehicle_type", e.target.value)} placeholder="Motor/Mobil" disabled={!isEditing} /></div>
+                    <div><label className={lbl}>Merk Kendaraan</label><input className={isEditing ? inp : inpDisabled} value={profile.vehicle_brand} onChange={(e) => isEditing && upd("vehicle_brand", e.target.value)} disabled={!isEditing} /></div>
                   </>
                 )}
                 <div><label className={lbl}>Status Kepemilikan Rumah</label>
-                  <select className={inp} value={profile.home_ownership} onChange={(e) => upd("home_ownership", e.target.value)}>
+                  <select className={isEditing ? inp : inpDisabled} value={profile.home_ownership} onChange={(e) => isEditing && upd("home_ownership", e.target.value)} disabled={!isEditing}>
                     <option value="">Pilih...</option><option>Milik Sendiri</option><option>Orang Tua</option><option>Kontrak/Sewa</option><option>Kost</option>
                   </select>
                 </div>
-                <div><label className={lbl}>Telepon Rumah</label><input className={inp} value={profile.home_phone} onChange={(e) => upd("home_phone", e.target.value)} /></div>
-                <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Sumber Informasi Lowongan</label><input className={inp} value={profile.source_info} onChange={(e) => upd("source_info", e.target.value)} placeholder="Contoh: Jobstreet, LinkedIn, Referral, dll" /></div>
-                <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Aktivitas Sosial/Organisasi</label><textarea className={inp} rows={2} value={profile.social_activities} onChange={(e) => upd("social_activities", e.target.value)} /></div>
+                <div><label className={lbl}>Telepon Rumah</label><input className={isEditing ? inp : inpDisabled} value={profile.home_phone} onChange={(e) => isEditing && upd("home_phone", e.target.value)} disabled={!isEditing} /></div>
+                <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Sumber Informasi Lowongan</label><input className={isEditing ? inp : inpDisabled} value={profile.source_info} onChange={(e) => isEditing && upd("source_info", e.target.value)} placeholder="Contoh: Jobstreet, LinkedIn, Referral, dll" disabled={!isEditing} /></div>
+                <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Aktivitas Sosial/Organisasi</label><textarea className={isEditing ? inp : inpDisabled} rows={2} value={profile.social_activities} onChange={(e) => isEditing && upd("social_activities", e.target.value)} disabled={!isEditing} /></div>
               </div>
             </section>
 
@@ -994,15 +1095,15 @@ export default function CandidateProfile() {
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Briefcase className="h-5 w-5 text-primary"/> Preferensi Kerja</h2>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" checked={profile.willing_relocate} onChange={(e) => upd("willing_relocate", e.target.checked)} />
+                  <input type="checkbox" className="rounded" checked={profile.willing_relocate} onChange={(e) => isEditing && upd("willing_relocate", e.target.checked)} disabled={!isEditing} />
                   <span className="text-sm">Bersedia Relokasi</span>
                 </label>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" checked={profile.willing_overtime} onChange={(e) => upd("willing_overtime", e.target.checked)} />
+                  <input type="checkbox" className="rounded" checked={profile.willing_overtime} onChange={(e) => isEditing && upd("willing_overtime", e.target.checked)} disabled={!isEditing} />
                   <span className="text-sm">Bersedia Lembur</span>
                 </label>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" checked={profile.willing_shift} onChange={(e) => upd("willing_shift", e.target.checked)} />
+                  <input type="checkbox" className="rounded" checked={profile.willing_shift} onChange={(e) => isEditing && upd("willing_shift", e.target.checked)} disabled={!isEditing} />
                   <span className="text-sm">Bersedia Shift</span>
                 </label>
               </div>

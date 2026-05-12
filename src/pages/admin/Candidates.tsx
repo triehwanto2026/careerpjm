@@ -923,16 +923,25 @@ const Candidates = () => {
           
           console.log('Found user:', user.id);
           
-          // Update the user's password
+          // Update the user's password with force update
           const { error: updateError } = await supabase.auth.admin.updateUserById(
             user.id,
-            { password: '123456' }
+            { 
+              password: '123456',
+              email_confirm: true, // Force email confirmation
+              phone_confirm: true  // Force phone confirmation if exists
+            }
           );
           
           if (updateError) {
             console.error('Update password failed:', updateError);
             throw new Error(`Gagal mengupdate password. Error: ${updateError.message}`);
           }
+          
+          console.log('Password update successful, waiting for propagation...');
+          
+          // Wait a moment for Supabase to propagate the password change
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
           // Verify password was updated by trying to sign in
           console.log('Verifying password update...');
@@ -943,7 +952,13 @@ const Candidates = () => {
           
           if (verifyError) {
             console.error('Password verification failed:', verifyError);
-            throw new Error(`Password berhasil diupdate tapi verifikasi gagal. Error: ${verifyError.message}`);
+            console.log('Attempting to refresh user session...');
+            
+            // Try to get fresh user data
+            const { data: freshUserData, error: refreshError } = await supabase.auth.admin.getUserById(user.id);
+            console.log('Fresh user data:', { freshUserData, refreshError });
+            
+            throw new Error(`Password berhasil diupdate tapi verifikasi gagal. Error: ${verifyError.message}. Silakan coba lagi dalam beberapa saat.`);
           } else {
             // Sign out after verification
             await supabase.auth.signOut();

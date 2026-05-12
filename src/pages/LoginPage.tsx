@@ -56,56 +56,93 @@ const LoginPage = () => {
         if (!activationCode && email && password) {
           console.log('Trying candidate login with:', { email, hasPassword: !!password });
           
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
+          try {
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
 
-          console.log('Auth result:', { authData, authError });
+            console.log('Auth result:', { authData, authError });
 
-          if (!authError && authData.user) {
-            // Check if user exists in candidates table
-            const { data: candidate } = await supabase
-              .from("candidates")
-              .select("id, name, email, position, photo_url, phone, birth_date, education, gender")
-              .eq("email", email)
-              .maybeSingle();
+            if (!authError && authData.user) {
+              // Check if user exists in candidates table
+              const { data: candidate } = await supabase
+                .from("candidates")
+                .select("id, name, email, position, photo_url, phone, birth_date, education, gender")
+                .eq("email", email)
+                .maybeSingle();
 
-            console.log('Candidate data:', candidate);
+              console.log('Candidate data:', candidate);
 
-            if (candidate) {
-              sessionStorage.setItem("psytest_auth", "true");
-              sessionStorage.setItem("psytest_candidate", JSON.stringify({
-                id: candidate.id,
-                name: candidate.name,
-                email: candidate.email,
-                position: candidate.position || "",
-                activationCodeId: null,
-                assignedTests: [],
-                photo_url: candidate.photo_url || null,
-                phone: candidate.phone || "",
-                birth_date: candidate.birth_date || "",
-                education: candidate.education || "",
-                gender: candidate.gender || "",
-              }));
+              if (candidate) {
+                sessionStorage.setItem("psytest_auth", "true");
+                sessionStorage.setItem("psytest_candidate", JSON.stringify({
+                  id: candidate.id,
+                  name: candidate.name,
+                  email: candidate.email,
+                  position: candidate.position || "",
+                  activationCodeId: null,
+                  assignedTests: [],
+                  photo_url: candidate.photo_url || null,
+                  phone: candidate.phone || "",
+                  birth_date: candidate.birth_date || "",
+                  education: candidate.education || "",
+                  gender: candidate.gender || "",
+                }));
 
-              Swal.fire({
-                icon: "success",
-                title: "Selamat Datang",
-                text: candidate.name,
-                timer: 1500,
-                showConfirmButton: false,
-                background: "hsl(var(--card))",
-                color: "hsl(var(--foreground))",
-              }).then(() => {
-                navigate("/test");
-              });
-              return;
+                Swal.fire({
+                  icon: "success",
+                  title: "Selamat Datang",
+                  text: candidate.name,
+                  timer: 1500,
+                  showConfirmButton: false,
+                  background: "hsl(var(--card))",
+                  color: "hsl(var(--foreground))",
+                }).then(() => {
+                  navigate("/candidate/dashboard");
+                });
+              } else {
+                console.log('No candidate found for email:', email);
+                Swal.fire({
+                  icon: "error",
+                  title: "Login Gagal",
+                  text: "Akun kandidat tidak ditemukan. Silakan hubungi admin.",
+                  background: "hsl(var(--card))",
+                  color: "hsl(var(--foreground))",
+                });
+              }
             } else {
-              console.log('No candidate found for email:', email);
+              console.log('Auth failed:', authError?.message);
+              
+              // Check if it's a password reset scenario
+              if (password === '123456' && authError?.message?.includes('Invalid login credentials')) {
+                console.log('Possible password reset scenario detected');
+                Swal.fire({
+                  icon: "warning",
+                  title: "Password Baru",
+                  text: "Jika password baru adalah 123456, silakan tunggu 1-2 menit setelah reset password sebelum mencoba login.",
+                  background: "hsl(var(--card))",
+                  color: "hsl(var(--foreground))",
+                });
+              } else {
+                Swal.fire({
+                  icon: "error",
+                  title: "Login Gagal",
+                  text: authError?.message || "Email atau password salah. Silakan coba lagi.",
+                  background: "hsl(var(--card))",
+                  color: "hsl(var(--foreground))",
+                });
+              }
             }
-          } else {
-            console.log('Auth failed:', authError?.message);
+          } catch (error) {
+            console.error('Login error:', error);
+            Swal.fire({
+              icon: "error",
+              title: "Login Gagal",
+              text: "Terjadi kesalahan saat login. Silakan coba lagi.",
+              background: "hsl(var(--card))",
+              color: "hsl(var(--foreground))",
+            });
           }
         }
 

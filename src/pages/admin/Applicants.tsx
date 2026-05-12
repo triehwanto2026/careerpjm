@@ -35,7 +35,7 @@ interface CandidateProfile {
   experience_years: string;
   current_position: string;
   current_company: string;
-  skills: string[];
+  skills: string | string[];
   strengths: string;
   created_at: string;
   updated_at: string;
@@ -96,7 +96,7 @@ export default function Applicants() {
         throw candidatesError;
       }
 
-      // Get applications for each candidate
+      // Get applications for each candidate and parse JSON fields
       const candidatesWithApplications = await Promise.all(
         (candidatesData || []).map(async (candidate: any) => {
           const { data: applicationsData, error: applicationsError } = await supabase
@@ -113,11 +113,52 @@ export default function Applicants() {
             `)
             .eq("user_id", candidate.user_id);
 
-          return {
+          // Helper function to safely parse JSON fields
+          const safeParseJSON = (value: any, defaultValue: any) => {
+            if (!value) return defaultValue;
+            if (Array.isArray(value)) return value;
+            if (typeof value === 'object') return value;
+            try {
+              return JSON.parse(value);
+            } catch (e) {
+              console.warn('Failed to parse JSON field in loadCandidates:', e);
+              return defaultValue;
+            }
+          };
+
+          // Parse array fields for each candidate
+          const parsedCandidate = {
             ...candidate,
+            family_members: safeParseJSON(candidate.family_members, []),
+            education_history: safeParseJSON(candidate.education_history, []),
+            languages: safeParseJSON(candidate.languages, []),
+            hobbies: safeParseJSON(candidate.hobbies, []),
+            work_experience: safeParseJSON(candidate.work_experience, []),
+            certificates: safeParseJSON(candidate.certificates, []),
+            references: safeParseJSON(candidate.references, []),
+            social_media: safeParseJSON(candidate.social_media, {}),
+            skills: safeParseJSON(candidate.skills, []),
             applications: applicationsData || [],
             has_applied: (applicationsData || []).length > 0
           };
+
+          // Debug logging for specific candidate
+          console.log('Parsed candidate skills:', parsedCandidate.skills);
+          console.log('Parsed candidate work_experience:', parsedCandidate.work_experience);
+          console.log('Raw skills from DB:', candidate.skills);
+          console.log('Raw work_experience from DB:', candidate.work_experience);
+          
+          // Debug logging for salary fields
+          console.log('Raw salary_exp_base from DB:', candidate.salary_exp_base);
+          console.log('Raw salary_exp_allowances from DB:', candidate.salary_exp_allowances);
+          console.log('Raw salary_exp_benefits from DB:', candidate.salary_exp_benefits);
+          console.log('Raw expected_salary from DB:', candidate.expected_salary);
+          console.log('Raw salary_expectation from DB:', candidate.salary_expectation);
+          console.log('Parsed salary_exp_base:', (parsedCandidate as any).salary_exp_base);
+          console.log('Parsed salary_exp_allowances:', (parsedCandidate as any).salary_exp_allowances);
+          console.log('Parsed salary_exp_benefits:', (parsedCandidate as any).salary_exp_benefits);
+
+          return parsedCandidate;
         })
       );
 
@@ -142,8 +183,63 @@ export default function Applicants() {
   );
 
   const viewCandidateDetail = (candidate: CandidateProfile) => {
-    setSelectedCandidate(candidate);
-    setShowDetailModal(true);
+    try {
+      // Parse JSON fields safely with better error handling
+      const parsedCandidate = { ...candidate };
+      
+      // Helper function to safely parse JSON fields
+      const safeParseJSON = (value: any, defaultValue: any) => {
+        if (!value) return defaultValue;
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'object') return value;
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          console.warn('Failed to parse JSON field:', e);
+          return defaultValue;
+        }
+      };
+      
+      // Parse each field with proper defaults
+      parsedCandidate.family_members = safeParseJSON(candidate.family_members, []);
+      parsedCandidate.education_history = safeParseJSON(candidate.education_history, []);
+      parsedCandidate.languages = safeParseJSON(candidate.languages, []);
+      parsedCandidate.hobbies = safeParseJSON(candidate.hobbies, []);
+      parsedCandidate.work_experience = safeParseJSON(candidate.work_experience, []);
+      parsedCandidate.certificates = safeParseJSON(candidate.certificates, []);
+      parsedCandidate.references = safeParseJSON(candidate.references, []);
+      parsedCandidate.social_media = safeParseJSON(candidate.social_media, {});
+      parsedCandidate.skills = safeParseJSON(candidate.skills, []);
+      
+      // Debug logging for selected candidate
+      console.log('Selected candidate salary data:', {
+        salary_exp_base: (parsedCandidate as any).salary_exp_base,
+        salary_exp_allowances: (parsedCandidate as any).salary_exp_allowances,
+        salary_exp_benefits: (parsedCandidate as any).salary_exp_benefits,
+        expected_salary: parsedCandidate.expected_salary,
+        salary_expectation: (parsedCandidate as any).salary_expectation
+      });
+      
+      setSelectedCandidate(parsedCandidate);
+      setShowDetailModal(true);
+    } catch (error) {
+      console.error('Error parsing candidate data:', error);
+      // Fallback to original candidate with empty arrays
+      const fallbackCandidate = {
+        ...candidate,
+        family_members: [],
+        education_history: [],
+        languages: [],
+        hobbies: [],
+        work_experience: [],
+        certificates: [],
+        references: [],
+        social_media: {},
+        skills: [],
+      };
+      setSelectedCandidate(fallbackCandidate);
+      setShowDetailModal(true);
+    }
   };
 
   const handleDeleteCandidate = async (candidate: CandidateProfile) => {
@@ -339,7 +435,7 @@ export default function Applicants() {
         <div class="section">
             <h2 class="section-title">Keahlian</h2>
             <div class="skills">
-                ${candidate.skills.map(skill => `<span class="skill">${skill}</span>`).join('')}
+                ${(Array.isArray(candidate.skills) ? candidate.skills : JSON.parse(candidate.skills || '[]')).map(skill => `<span class="skill">${skill}</span>`).join('')}
             </div>
         </div>
 
@@ -832,7 +928,7 @@ export default function Applicants() {
                         <Heart className="h-5 w-5 text-primary" />
                         Data Keluarga
                       </h3>
-                      {selectedCandidate.family_members && selectedCandidate.family_members.length > 0 ? (
+                      {selectedCandidate.family_members && Array.isArray(selectedCandidate.family_members) && selectedCandidate.family_members.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full border-collapse">
                             <thead>
@@ -895,7 +991,7 @@ export default function Applicants() {
                       </div>
                     </div>
 
-                    {selectedCandidate.education_history && selectedCandidate.education_history.length > 0 && (
+                    {selectedCandidate.education_history && Array.isArray(selectedCandidate.education_history) && selectedCandidate.education_history.length > 0 && (
                       <div className="bg-card border border-border rounded-lg p-4">
                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
                           <BookOpen className="h-5 w-5 text-primary" />
@@ -944,11 +1040,27 @@ export default function Applicants() {
                         <div>
                           <label className="text-sm text-muted-foreground">Skills</label>
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {(selectedCandidate.skills || []).map((skill, index) => (
-                              <span key={index} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                                {skill}
-                              </span>
-                            )) || <span className="text-muted-foreground">Tidak ada data</span>}
+                            {(() => {
+                              try {
+                                if (!selectedCandidate.skills || !Array.isArray(selectedCandidate.skills) || selectedCandidate.skills.length === 0) {
+                                  return <span className="text-muted-foreground">Tidak ada data</span>;
+                                }
+                                return selectedCandidate.skills.map((skill: any, index) => {
+                                  // Handle both string and object format
+                                  if (!skill) return null;
+                                  const skillName = typeof skill === 'string' ? skill : (skill as any).name || '';
+                                  if (!skillName) return null;
+                                  return (
+                                    <span key={index} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                                      {skillName}
+                                    </span>
+                                  );
+                                });
+                              } catch (error) {
+                                console.error('Error rendering skills:', error);
+                                return <span className="text-muted-foreground">Error loading skills</span>;
+                              }
+                            })()}
                           </div>
                         </div>
                         {selectedCandidate.strengths && (
@@ -964,7 +1076,7 @@ export default function Applicants() {
                           <Languages className="h-5 w-5 text-primary" />
                           Bahasa & Hobi
                         </h3>
-                        {selectedCandidate.languages && selectedCandidate.languages.length > 0 && (
+                        {selectedCandidate.languages && Array.isArray(selectedCandidate.languages) && selectedCandidate.languages.length > 0 && (
                           <div>
                             <label className="text-sm text-muted-foreground">Bahasa</label>
                             <div className="space-y-2 mt-2">
@@ -977,15 +1089,30 @@ export default function Applicants() {
                             </div>
                           </div>
                         )}
-                        {selectedCandidate.hobbies && selectedCandidate.hobbies.length > 0 && (
+                        {selectedCandidate.hobbies && (
                           <div>
                             <label className="text-sm text-muted-foreground">Hobi</label>
                             <div className="flex flex-wrap gap-2 mt-2">
-                              {selectedCandidate.hobbies.map((hobby, index) => (
-                                <span key={index} className="px-2 py-1 bg-muted/50 text-muted-foreground rounded text-sm">
-                                  {hobby}
-                                </span>
-                              ))}
+                              {(() => {
+                                try {
+                                  // Handle both string and array format
+                                  let hobbiesArray = [];
+                                  if (typeof selectedCandidate.hobbies === 'string') {
+                                    hobbiesArray = (selectedCandidate.hobbies as string).split(',').map(h => h.trim()).filter(h => h);
+                                  } else if (Array.isArray(selectedCandidate.hobbies)) {
+                                    hobbiesArray = selectedCandidate.hobbies;
+                                  }
+                                  
+                                  return hobbiesArray.map((hobby, index) => (
+                                    <span key={index} className="px-2 py-1 bg-muted/50 text-muted-foreground rounded text-sm">
+                                      {hobby}
+                                    </span>
+                                  ));
+                                } catch (error) {
+                                  console.error('Error rendering hobbies:', error);
+                                  return <span className="text-muted-foreground">Error loading hobbies</span>;
+                                }
+                              })()}
                             </div>
                           </div>
                         )}
@@ -1016,7 +1143,7 @@ export default function Applicants() {
                       </div>
                     </div>
 
-                    {selectedCandidate.work_experience && selectedCandidate.work_experience.length > 0 && (
+                    {selectedCandidate.work_experience && Array.isArray(selectedCandidate.work_experience) && selectedCandidate.work_experience.length > 0 && (
                       <div className="bg-card border border-border rounded-lg p-4">
                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
                           <Users2 className="h-5 w-5 text-primary" />
@@ -1027,14 +1154,17 @@ export default function Applicants() {
                             <div key={index} className="border border-border rounded-lg p-4 hover:bg-muted/20">
                               <div className="flex justify-between items-start mb-2">
                                 <div>
-                                  <h4 className="font-semibold text-foreground">{work.position || '-'}</h4>
-                                  <p className="text-sm text-muted-foreground">{work.company || '-'}</p>
+                                  <h4 className="font-semibold text-foreground">{work.position_start || work.position || '-'}</h4>
+                                  <p className="text-sm text-muted-foreground">{work.company_name || work.company || '-'}</p>
                                 </div>
                                 <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-                                  {work.period || '-'}
+                                  {work.join_date && work.end_date ? `${work.join_date} - ${work.end_date}` : work.join_date || work.period || '-'}
                                 </span>
                               </div>
-                              <p className="text-sm text-muted-foreground">{work.description || '-'}</p>
+                              <p className="text-sm text-muted-foreground">{work.duties || work.description || '-'}</p>
+                              {work.achievements && (
+                                <p className="text-sm text-muted-foreground mt-2"><strong>Pencapaian:</strong> {work.achievements}</p>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1052,14 +1182,24 @@ export default function Applicants() {
                         </h3>
                         <div className="space-y-3">
                           <div>
-                            <label className="text-sm text-muted-foreground">Gaji yang Diharapkan</label>
-                            <p className="font-medium text-foreground text-lg">{selectedCandidate.expected_salary || '-'}</p>
+                            <label className="text-sm text-muted-foreground">Gaji Pokok yang Diharapkan</label>
+                            <p className="font-medium text-foreground text-lg">{(selectedCandidate as any).salary_exp_base || '-'}</p>
                           </div>
                           <div>
-                            <label className="text-sm text-muted-foreground">Negotiable</label>
-                            <p className="font-medium text-foreground">
-                              {selectedCandidate.salary_negotiable ? 'Ya' : 'Tidak'}
-                            </p>
+                            <label className="text-sm text-muted-foreground">Tunjangan yang Diharapkan</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).salary_exp_allowances || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Benefit/Fasilitas yang Diharapkan</label>
+                            <p className="font-medium text-foreground whitespace-pre-line">{(selectedCandidate as any).salary_exp_benefits || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Ekspektasi Gaji Total</label>
+                            <p className="font-medium text-foreground text-lg">{selectedCandidate.expected_salary ? `Rp ${selectedCandidate.expected_salary}` : '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Gaji Saat Ini</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).salary_expectation || '-'}</p>
                           </div>
                         </div>
                       </div>
@@ -1067,17 +1207,33 @@ export default function Applicants() {
                       <div className="bg-card border border-border rounded-lg p-4 space-y-4">
                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                           <Calendar className="h-5 w-5 text-primary" />
-                          Ketersediaan
+                          Ketersediaan & Preferensi
                         </h3>
                         <div className="space-y-3">
                           <div>
                             <label className="text-sm text-muted-foreground">Tanggal Mulai Tersedia</label>
-                            <p className="font-medium text-foreground">{selectedCandidate.available_start_date || '-'}</p>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).available_from || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Periode Notice</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).notice_period ? `${(selectedCandidate as any).notice_period} hari` : '-'}</p>
                           </div>
                           <div>
                             <label className="text-sm text-muted-foreground">Bersedia Relokasi</label>
                             <p className="font-medium text-foreground">
-                              {selectedCandidate.willing_to_relocate ? 'Ya' : 'Tidak'}
+                              {(selectedCandidate as any).willing_relocate ? 'Ya' : 'Tidak'}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Bersedia Lembur</label>
+                            <p className="font-medium text-foreground">
+                              {(selectedCandidate as any).willing_overtime ? 'Ya' : 'Tidak'}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Bersedia Shift</label>
+                            <p className="font-medium text-foreground">
+                              {(selectedCandidate as any).willing_shift ? 'Ya' : 'Tidak'}
                             </p>
                           </div>
                         </div>
@@ -1112,7 +1268,7 @@ export default function Applicants() {
                         </div>
                       )}
 
-                      {selectedCandidate.certificates && selectedCandidate.certificates.length > 0 && (
+                      {selectedCandidate.certificates && Array.isArray(selectedCandidate.certificates) && selectedCandidate.certificates.length > 0 && (
                         <div>
                           <label className="text-sm text-muted-foreground">Sertifikat</label>
                           <div className="mt-2 space-y-2">
@@ -1173,20 +1329,79 @@ export default function Applicants() {
                           <MessageSquare className="h-5 w-5 text-primary" />
                           Informasi Tambahan
                         </h3>
-                        {selectedCandidate.additional_info && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="text-sm text-muted-foreground">Informasi Tambahan</label>
-                            <p className="text-foreground mt-2 whitespace-pre-line">{selectedCandidate.additional_info}</p>
+                            <label className="text-sm text-muted-foreground">Hobi</label>
+                            <p className="font-medium text-foreground">{selectedCandidate.hobbies || '-'}</p>
                           </div>
-                        )}
+                          <div>
+                            <label className="text-sm text-muted-foreground">SIM yang Dimiliki</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).vehicle_license || '-'}</p>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-sm text-muted-foreground">Alamat Domisili</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).alamat_domisili || '-'}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Memiliki Kendaraan:</span>
+                            <span className="font-medium text-foreground">{(selectedCandidate as any).has_vehicle ? 'Ya' : 'Tidak'}</span>
+                          </div>
+                          {(selectedCandidate as any).has_vehicle && (
+                            <>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Jenis Kendaraan</label>
+                                <p className="font-medium text-foreground">{(selectedCandidate as any).vehicle_type || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Merk Kendaraan</label>
+                                <p className="font-medium text-foreground">{(selectedCandidate as any).vehicle_brand || '-'}</p>
+                              </div>
+                            </>
+                          )}
+                          <div>
+                            <label className="text-sm text-muted-foreground">Status Kepemilikan Rumah</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).home_ownership || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Telepon Rumah</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).home_phone || '-'}</p>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-sm text-muted-foreground">Sumber Informasi Lowongan</label>
+                            <p className="font-medium text-foreground">{(selectedCandidate as any).source_info || '-'}</p>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-sm text-muted-foreground">Aktivitas Sosial/Organisasi</label>
+                            <p className="font-medium text-foreground whitespace-pre-line">{(selectedCandidate as any).social_activities || '-'}</p>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="bg-card border border-border rounded-lg p-4 space-y-4">
                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                          <Briefcase className="h-5 w-5 text-primary" />
+                          Preferensi Kerja
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Bersedia Relokasi:</span>
+                            <span className="font-medium text-foreground">{(selectedCandidate as any).willing_relocate ? 'Ya' : 'Tidak'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Bersedia Lembur:</span>
+                            <span className="font-medium text-foreground">{(selectedCandidate as any).willing_overtime ? 'Ya' : 'Tidak'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Bersedia Shift:</span>
+                            <span className="font-medium text-foreground">{(selectedCandidate as any).willing_shift ? 'Ya' : 'Tidak'}</span>
+                          </div>
+                        </div>
+
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mt-6">
                           <Link2 className="h-5 w-5 text-primary" />
                           Social Media & Referensi
                         </h3>
-                        {selectedCandidate.social_media && (
+                        {selectedCandidate.social_media && Object.keys(selectedCandidate.social_media).length > 0 && (
                           <div>
                             <label className="text-sm text-muted-foreground">Social Media</label>
                             <div className="space-y-2 mt-2">
@@ -1201,7 +1416,7 @@ export default function Applicants() {
                             </div>
                           </div>
                         )}
-                        {selectedCandidate.references && selectedCandidate.references.length > 0 && (
+                        {selectedCandidate.references && Array.isArray(selectedCandidate.references) && selectedCandidate.references.length > 0 && (
                           <div>
                             <label className="text-sm text-muted-foreground">Referensi</label>
                             <div className="space-y-2 mt-2">
