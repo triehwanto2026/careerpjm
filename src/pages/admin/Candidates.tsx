@@ -507,7 +507,7 @@ const Candidates = () => {
           email: form.email.trim(),
           password: 'tempPassword123!', // Temporary password, user will change it
           options: {
-            emailRedirectTo: `${window.location.origin}/candidate/profile`,
+            emailRedirectTo: undefined, // Disable email redirect for admin-created accounts
             data: { 
               full_name: form.name.trim(),
               created_by_admin: true
@@ -520,6 +520,80 @@ const Candidates = () => {
         
         if (authError) {
           console.error('Auth creation failed:', authError);
+          
+          // If auth fails, try to create user without email verification
+          if (authError.message.includes('email')) {
+            console.log('Trying to create user without email verification...');
+            
+            // Try admin API to create user directly
+            try {
+              const { data: adminData, error: adminError } = await supabase.auth.admin.createUser({
+                email: form.email.trim(),
+                password: 'tempPassword123!',
+                email_confirm: true, // Auto-confirm email
+                user_metadata: {
+                  full_name: form.name.trim(),
+                  created_by_admin: true
+                }
+              });
+              
+              console.log('Admin create result:', { adminData, adminError });
+              
+              if (!adminError && adminData.user) {
+                // Use admin-created user data
+                const userData = adminData.user;
+                
+                // Create candidate record
+                const { data: candidateData, error: candidateError } = await supabase.from("candidates").insert({
+                  name: form.name.trim(),
+                  email: form.email.trim(),
+                  status: "pending",
+                  created_at: new Date().toISOString(),
+                }).select().single();
+                
+                if (candidateError) throw candidateError;
+                
+                // Create candidate profile
+                const { data: profileData, error: profileError } = await supabase.from("candidate_profiles").insert({
+                  user_id: userData.id,
+                  full_name: form.name.trim(),
+                  email: form.email.trim(),
+                  phone: form.phone.trim() || null,
+                  birth_date: form.birth_date || null,
+                  gender: form.gender,
+                  education_level: form.education.trim() || null,
+                  nik: form.nik || null,
+                  nickname: form.nickname || null,
+                  created_at: new Date().toISOString(),
+                } as any).select().single();
+                
+                if (profileError) throw profileError;
+                
+                await Swal.fire({
+                  icon: "success",
+                  title: "Kandidat Berhasil Ditambahkan",
+                  html: `
+                    <div class="text-left">
+                      <p><strong>Login Information:</strong></p>
+                      <p>Email: ${form.email.trim()}</p>
+                      <p>Password: <strong>tempPassword123!</strong></p>
+                      <p class="text-sm text-amber-600 mt-2">Silakan berikan informasi login ini kepada kandidat.</p>
+                    </div>
+                  `,
+                  ...SWAL_THEME()
+                });
+                
+                setShowAddModal(false);
+                setForm(emptyForm);
+                setCandidates([]);
+                // Reload will happen automatically due to useEffect
+                return;
+              }
+            } catch (adminCreateError) {
+              console.error('Admin create also failed:', adminCreateError);
+            }
+          }
+          
           // Continue with database-only approach if auth fails
         }
         
@@ -858,6 +932,22 @@ const Candidates = () => {
           if (updateError) {
             console.error('Update password failed:', updateError);
             throw new Error(`Gagal mengupdate password. Error: ${updateError.message}`);
+          }
+          
+          // Verify password was updated by trying to sign in
+          console.log('Verifying password update...');
+          const { error: verifyError } = await supabase.auth.signInWithPassword({
+            email: candidate.email,
+            password: '123456'
+          });
+          
+          if (verifyError) {
+            console.error('Password verification failed:', verifyError);
+            throw new Error(`Password berhasil diupdate tapi verifikasi gagal. Error: ${verifyError.message}`);
+          } else {
+            // Sign out after verification
+            await supabase.auth.signOut();
+            console.log('Password verification successful');
           }
         }
         
