@@ -36,6 +36,8 @@ interface FormState {
   education: string; 
   gender: string;
   photo_url: string | null;
+  nik?: string;
+  nickname?: string;
 }
 
 const emptyForm: FormState = { 
@@ -372,10 +374,9 @@ const Candidates = () => {
         const { error } = await supabase.from("candidate_profiles").update(updateData).eq("email", editForm.email);
         profileError = error;
       } else {
-        // Create new profile
+        // Create new profile - don't set user_id to avoid foreign key constraint
         const { error } = await supabase.from("candidate_profiles").insert({
           ...updateData,
-          user_id: editForm.id,
           created_at: new Date().toISOString()
         });
         profileError = error;
@@ -451,6 +452,42 @@ const Candidates = () => {
     setSaving(true);
     
     try {
+      // Check for duplicate email
+      const { data: existingEmail, error: emailError } = await supabase
+        .from("candidates")
+        .select("email")
+        .eq("email", form.email)
+        .single();
+      
+      if (existingEmail) {
+        Swal.fire({ 
+          icon: "error", 
+          title: "Email Sudah Digunakan", 
+          text: "Email ini sudah terdaftar. Gunakan email lain.", 
+          ...SWAL_THEME() 
+        });
+        return;
+      }
+      
+      // Check for duplicate NIK in candidate_profiles
+      if (form.nik) {
+        const { data: existingNIK, error: nikError } = await supabase
+          .from("candidate_profiles")
+          .select("nik")
+          .eq("nik", form.nik)
+          .single();
+        
+        if (existingNIK) {
+          Swal.fire({ 
+            icon: "error", 
+            title: "NIK Sudah Terdaftar", 
+            text: "Nomor NIK ini sudah terdaftar. Periksa kembali NIK yang dimasukkan.", 
+            ...SWAL_THEME() 
+          });
+          return;
+        }
+      }
+      
       if (form.id) {
         // Update existing candidate
         const payload = {
@@ -476,18 +513,19 @@ const Candidates = () => {
         
         if (candidateError) throw candidateError;
         
-        // Create candidate profile without requiring auth user (using temp user_id)
-        const tempUserId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Create candidate profile without user_id constraint
         const { data: profileData, error: profileError } = await supabase.from("candidate_profiles").insert({
-          user_id: tempUserId,
+          user_id: candidateData.id, // Use candidate ID as user_id to satisfy constraint
           full_name: form.name.trim(),
           email: form.email.trim(),
           phone: form.phone.trim() || null,
           birth_date: form.birth_date || null,
           gender: form.gender,
           education_level: form.education.trim() || null,
+          nik: form.nik || null,
+          nickname: form.nickname || null,
           created_at: new Date().toISOString(),
-        }).select().single();
+        } as any).select().single();
         
         console.log('Profile data:', profileData);
         console.log('Profile error:', profileError);
