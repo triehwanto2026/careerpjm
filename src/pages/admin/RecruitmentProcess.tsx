@@ -767,7 +767,7 @@ export default function RecruitmentProcess() {
                       <div className="space-y-2">
                         <TabsTrigger value="personal" className="w-full justify-start">
                           <Users className="h-4 w-4 mr-2" />
-                          Data Diri
+                          Profil
                         </TabsTrigger>
                         <TabsTrigger value="family" className="w-full justify-start">
                           <Heart className="h-4 w-4 mr-2" />
@@ -779,25 +779,25 @@ export default function RecruitmentProcess() {
                         </TabsTrigger>
                         <TabsTrigger value="skills" className="w-full justify-start">
                           <Star className="h-4 w-4 mr-2" />
-                          Keahlian & Kepribadian
+                          Skill
                         </TabsTrigger>
                       </div>
                       <div className="space-y-2">
                         <TabsTrigger value="experience" className="w-full justify-start">
                           <Briefcase className="h-4 w-4 mr-2" />
-                          Pengalaman Kerja
+                          Pengalaman
                         </TabsTrigger>
                         <TabsTrigger value="salary" className="w-full justify-start">
                           <Target className="h-4 w-4 mr-2" />
-                          Ekspektasi Gaji
+                          Salary
                         </TabsTrigger>
                         <TabsTrigger value="documents" className="w-full justify-start">
                           <FileText className="h-4 w-4 mr-2" />
-                          Dokumen
+                          Data
                         </TabsTrigger>
                         <TabsTrigger value="additional" className="w-full justify-start">
                           <MessageSquare className="h-4 w-4 mr-2" />
-                          Info Tambahan
+                          Informasi
                         </TabsTrigger>
                       </div>
                     </TabsList>

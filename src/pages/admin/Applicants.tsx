@@ -10,6 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
 
+const SWAL_THEME = () => ({
+  background: "hsl(var(--card))",
+  color: "hsl(var(--foreground))",
+  confirmButtonColor: "hsl(174, 72%, 46%)",
+});
+
 interface CandidateProfile {
   id: string;
   user_id: string;
@@ -138,6 +144,72 @@ export default function Applicants() {
   const viewCandidateDetail = (candidate: CandidateProfile) => {
     setSelectedCandidate(candidate);
     setShowDetailModal(true);
+  };
+
+  const handleDeleteCandidate = async (candidate: CandidateProfile) => {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Hapus Kandidat?',
+      text: `Apakah Anda yakin ingin menghapus data kandidat "${candidate.full_name}"? Tindakan ini tidak dapat dibatalkan.`,
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#dc2626',
+      ...SWAL_THEME()
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Delete from candidate_profiles table
+        const { error: profileError } = await supabase
+          .from('candidate_profiles')
+          .delete()
+          .eq('id', candidate.id);
+
+        if (profileError) throw profileError;
+
+        // Delete from candidates table if exists
+        const { error: candidateError } = await supabase
+          .from('candidates')
+          .delete()
+          .eq('email', candidate.email);
+
+        if (candidateError && candidateError.code !== 'PGRST116') {
+          // Ignore error if record not found
+          throw candidateError;
+        }
+
+        // Delete auth user if exists
+        if (candidate.user_id) {
+          const { error: authError } = await supabase.auth.admin.deleteUser(candidate.user_id);
+          
+          if (authError && authError.message !== 'User not found') {
+            // Ignore error if user not found
+            console.warn('Auth user not found, continuing...');
+          }
+        }
+
+        // Refresh data
+        await loadCandidates();
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Berhasil Dihapus',
+          text: `Data kandidat "${candidate.full_name}" telah dihapus.`,
+          timer: 2000,
+          showConfirmButton: false,
+          ...SWAL_THEME()
+        });
+      } catch (error: any) {
+        console.error('Delete error:', error);
+        await Swal.fire({
+          icon: 'error',
+          title: 'Gagal Menghapus',
+          text: error.message || 'Terjadi kesalahan saat menghapus data kandidat',
+          ...SWAL_THEME()
+        });
+      }
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -535,6 +607,13 @@ export default function Applicants() {
                           >
                             <Phone className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                           </button>
+                          <button
+                            onClick={() => handleDeleteCandidate(candidate)}
+                            className="p-1 rounded hover:bg-destructive/10 hover:text-destructive transition"
+                            title="Hapus"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -606,7 +685,7 @@ export default function Applicants() {
                   <TabsList className="grid w-full grid-cols-8 bg-muted/50 border-b border-border sticky top-0 z-10 overflow-x-auto">
                     <TabsTrigger value="personal" className="flex items-center gap-2 whitespace-nowrap">
                       <User className="h-4 w-4" />
-                      Data Diri
+                      Profil
                     </TabsTrigger>
                     <TabsTrigger value="family" className="flex items-center gap-2 whitespace-nowrap">
                       <Heart className="h-4 w-4" />
@@ -618,23 +697,23 @@ export default function Applicants() {
                     </TabsTrigger>
                     <TabsTrigger value="skills" className="flex items-center gap-2 whitespace-nowrap">
                       <Star className="h-4 w-4" />
-                      Keahlian & Kepribadian
+                      Skill
                     </TabsTrigger>
                     <TabsTrigger value="experience" className="flex items-center gap-2 whitespace-nowrap">
                       <Briefcase className="h-4 w-4" />
-                      Pengalaman Kerja
+                      Pengalaman
                     </TabsTrigger>
                     <TabsTrigger value="salary" className="flex items-center gap-2 whitespace-nowrap">
                       <Target className="h-4 w-4" />
-                      Ekspektasi Gaji
+                      Salary
                     </TabsTrigger>
                     <TabsTrigger value="documents" className="flex items-center gap-2 whitespace-nowrap">
                       <FolderOpen className="h-4 w-4" />
-                      Dokumen
+                      Data
                     </TabsTrigger>
                     <TabsTrigger value="additional" className="flex items-center gap-2 whitespace-nowrap">
                       <MessageSquare className="h-4 w-4" />
-                      Info Tambahan
+                      Informasi
                     </TabsTrigger>
                   </TabsList>
 
