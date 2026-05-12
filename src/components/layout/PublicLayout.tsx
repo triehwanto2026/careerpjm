@@ -34,8 +34,11 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <Button variant="outline" asChild className="hidden md:inline-flex">
+              <Link to="/register">Daftar</Link>
+            </Button>
             <Button asChild className="hidden md:inline-flex">
-              <Link to="/login">Masuk</Link>
+              <Link to="/login">Login</Link>
             </Button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -71,8 +74,11 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
                 >
                   Tentang Kami
                 </Link>
+                <Button asChild className="w-full" variant="outline">
+                  <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Daftar</Link>
+                </Button>
                 <Button asChild className="w-full">
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Masuk</Link>
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
                 </Button>
               </nav>
             </div>

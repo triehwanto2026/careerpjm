@@ -26,18 +26,15 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
   { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
-  { path: "/admin/hr-jobs", label: "Lowongan", icon: Briefcase },
-  { path: "/admin/recruitment", label: "Rekrutmen", icon: Workflow },
+  { path: "/admin/hr-jobs", label: "Lowongan Kerja", icon: Briefcase },
   {
     label: "Manajemen Kandidat",
     icon: Users,
     children: [
       { path: "/admin/candidates", label: "Daftar Kandidat", icon: Users },
-      { path: "/admin/candidates/new", label: "Tambah Kandidat", icon: UserPlus },
-      { path: "/admin/candidates/verify", label: "Verifikasi Email", icon: MailCheck },
+      { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
     ],
   },
-  { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
   {
     label: "Pengaturan",
     icon: SettingsIcon,

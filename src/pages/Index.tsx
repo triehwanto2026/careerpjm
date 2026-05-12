@@ -46,7 +46,8 @@ const Index = () => {
     <PublicLayout>
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/80">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRjMC0yIDItNCAyLTRzLTItMi00LTJjMCAwIDAgMiAyIDJzMiAyIDIgMiAyIDItMiAyLTR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80')] bg-cover bg-center opacity-20"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/80 to-primary/60"></div>
         <div className="relative container py-24 md:py-32">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-3xl">
             <Badge className="mb-4 bg-white/20 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm">🚀 Platform Rekrutmen Resmi PJM Group</Badge>
@@ -76,9 +77,9 @@ const Index = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat, i) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.1, duration: 0.4 }} className="card-elevated p-6">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><stat.icon className="h-6 w-6 text-primary" /></div>
-                <div><p className="text-2xl font-bold">{stat.value}</p><p className="text-xs text-muted-foreground">{stat.label}</p></div>
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><stat.icon className="h-7 w-7 text-primary" /></div>
+                <div><p className="text-3xl font-bold">{stat.value}</p><p className="text-sm text-muted-foreground">{stat.label}</p></div>
               </div>
             </motion.div>
           ))}
