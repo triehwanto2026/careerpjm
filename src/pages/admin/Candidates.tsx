@@ -814,29 +814,51 @@ const Candidates = () => {
     
     if (r.isConfirmed) {
       try {
-        // Use admin API to list users and find the candidate
-        const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+        console.log('Attempting to reset password for:', candidate.email);
         
-        if (authError) {
-          console.error('Error listing users:', authError);
-          throw new Error("Tidak dapat mengakses daftar pengguna. Pastikan Anda memiliki akses admin.");
-        }
+        // Check current user session
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Current session:', session?.user?.email);
         
-        // Find the user by email
-        const user = (authUsers as any).users.find((u: any) => u.email === candidate.email);
-        if (!user) {
-          throw new Error("User tidak ditemukan");
-        }
+        // Try to use service role through RPC function
+        const { data: resetResult, error: rpcError } = await supabase.rpc('admin_reset_candidate_password', {
+          candidate_email: candidate.email,
+          new_password: '123456'
+        });
         
-        // Update the user's password
-        const { error: updateError } = await supabase.auth.admin.updateUserById(
-          user.id,
-          { password: '123456' }
-        );
+        console.log('RPC result:', { resetResult, rpcError });
         
-        if (updateError) {
-          console.error('Error updating password:', updateError);
-          throw new Error("Gagal mengupdate password. Pastikan Anda memiliki izin untuk mereset password.");
+        if (rpcError) {
+          console.log('RPC failed, trying direct admin API...');
+          
+          // Fallback: Try direct admin API
+          const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+          
+          console.log('Admin API result:', { authUsers, authError });
+          
+          if (authError) {
+            console.error('Admin API failed:', authError);
+            throw new Error(`Tidak dapat mengakses daftar pengguna. Error: ${authError.message}. Pastikan Anda menggunakan service role key atau memiliki admin privileges.`);
+          }
+          
+          // Find the user by email
+          const user = (authUsers as any).users.find((u: any) => u.email === candidate.email);
+          if (!user) {
+            throw new Error(`User dengan email ${candidate.email} tidak ditemukan di auth.users`);
+          }
+          
+          console.log('Found user:', user.id);
+          
+          // Update the user's password
+          const { error: updateError } = await supabase.auth.admin.updateUserById(
+            user.id,
+            { password: '123456' }
+          );
+          
+          if (updateError) {
+            console.error('Update password failed:', updateError);
+            throw new Error(`Gagal mengupdate password. Error: ${updateError.message}`);
+          }
         }
         
         await Swal.fire({ 
@@ -852,7 +874,7 @@ const Candidates = () => {
         await Swal.fire({ 
           icon: "error", 
           title: "Gagal Reset", 
-          text: error.message || "Terjadi kesalahan saat reset password. Pastikan Anda login sebagai admin dan memiliki izin yang cukup.",
+          text: error.message || "Terjadi kesalahan saat reset password. Pastikan Anda login sebagai superadmin dan menggunakan service role key.",
           ...SWAL_THEME() 
         });
       }
