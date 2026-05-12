@@ -125,7 +125,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         currentPath === "/admin/test-instruments" ||
         currentPath === "/admin/jobs" ||
         currentPath === "/admin/hr-jobs" ||
-        currentPath === "/admin/recruitment";
+        currentPath === "/admin/recruitment" ||
+        currentPath.startsWith("/admin/candidates");
 
       const isSubRoute = currentPath.startsWith("/admin/test-instruments/");
       const hasParentPermission = isSubRoute && perms.includes("/admin/test-instruments");
@@ -155,7 +156,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
 
     // Paths that should always be visible regardless of permissions
-    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/candidate-settings"];
+    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/candidate-settings", "/admin/candidates"];
 
     const filtered: NavEntry[] = [];
     for (const entry of ALL_NAV_ENTRIES) {

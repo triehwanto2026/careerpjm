@@ -27,12 +27,28 @@ interface CandidateRow {
 
 interface FormState {
   id?: string;
-  name: string; email: string; phone: string; position: string;
-  birth_date: string; education: string; gender: string;
+  name: string; 
+  email: string; 
+  password: string;
+  phone: string; 
+  position: string;
+  birth_date: string; 
+  education: string; 
+  gender: string;
   photo_url: string | null;
 }
 
-const emptyForm: FormState = { name: "", email: "", phone: "", position: "", birth_date: "", education: "", gender: "Laki-laki", photo_url: null };
+const emptyForm: FormState = { 
+  name: "", 
+  email: "", 
+  password: "", 
+  phone: "", 
+  position: "", 
+  birth_date: "", 
+  education: "", 
+  gender: "Laki-laki", 
+  photo_url: null 
+};
 
 const Candidates = () => {
   const location = useLocation();
@@ -151,7 +167,7 @@ const Candidates = () => {
   const openAdd = () => { setForm(emptyForm); setShowForm(true); };
   const openEdit = (c: CandidateRow) => {
     setForm({
-      id: c.id, name: c.name, email: c.email, phone: c.phone || "", position: c.position || "",
+      id: c.id, name: c.name, email: c.email, password: "", phone: c.phone || "", position: c.position || "",
       birth_date: c.birth_date || "", education: c.education || "", gender: c.gender || "Laki-laki", photo_url: c.photo_url,
     });
     setShowForm(true);
@@ -172,23 +188,81 @@ const Candidates = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim()) {
-      Swal.fire({ icon: "warning", title: "Lengkapi data", text: "Nama dan email wajib diisi.", ...SWAL_THEME() });
+    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
+      Swal.fire({ icon: "warning", title: "Lengkapi data", text: "Nama, email, dan password wajib diisi.", ...SWAL_THEME() });
       return;
     }
     setSaving(true);
-    const payload = {
-      name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(),
-      position: form.position.trim(), birth_date: form.birth_date || null,
-      education: form.education.trim() || null, gender: form.gender, photo_url: form.photo_url,
-    };
-    const { error } = form.id
-      ? await supabase.from("candidates").update(payload as any).eq("id", form.id)
-      : await supabase.from("candidates").insert(payload as any);
-    setSaving(false);
-    if (error) { Swal.fire({ icon: "error", title: "Gagal menyimpan", text: error.message, ...SWAL_THEME() }); return; }
-    setShowForm(false); setForm(emptyForm); await load();
-    Swal.fire({ icon: "success", title: form.id ? "Berhasil diperbarui" : "Kandidat ditambahkan", timer: 1400, showConfirmButton: false, ...SWAL_THEME() });
+    
+    try {
+      if (form.id) {
+        // Update existing candidate
+        const payload = {
+          name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(),
+          position: form.position.trim(), birth_date: form.birth_date || null,
+          education: form.education.trim() || null, gender: form.gender, photo_url: form.photo_url,
+        };
+        const { error } = await supabase.from("candidates").update(payload as any).eq("id", form.id);
+        if (error) throw error;
+      } else {
+        // Create new candidate with auth user
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email: form.email.trim(),
+          password: form.password.trim(),
+          email_confirm: true,
+          user_metadata: {
+            name: form.name.trim(),
+            role: 'candidate'
+          }
+        });
+        
+        if (authError) throw authError;
+        
+        // Create candidate profile
+        const { error: profileError } = await supabase.from("candidate_profiles").insert({
+          user_id: authData.user.id,
+          full_name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim() || null,
+          birth_date: form.birth_date || null,
+          gender: form.gender,
+          education_level: form.education.trim() || null,
+          created_at: new Date().toISOString()
+        });
+        
+        if (profileError) throw profileError;
+        
+        // Create candidate record
+        const payload = {
+          name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(),
+          position: form.position.trim(), birth_date: form.birth_date || null,
+          education: form.education.trim() || null, gender: form.gender, photo_url: form.photo_url,
+        };
+        const { error: candidateError } = await supabase.from("candidates").insert(payload as any);
+        if (candidateError) throw candidateError;
+      }
+      
+      setSaving(false);
+      setShowForm(false); 
+      setForm(emptyForm); 
+      await load();
+      Swal.fire({ 
+        icon: "success", 
+        title: form.id ? "Berhasil diperbarui" : "Kandidat ditambahkan", 
+        text: form.id ? undefined : "Akun kandidat berhasil dibuat dan email sudah terverifikasi.",
+        timer: 2000, 
+        showConfirmButton: false, 
+        ...SWAL_THEME() 
+      });
+    } catch (error: any) {
+      setSaving(false);
+      Swal.fire({ 
+        icon: "error", 
+        title: "Gagal menyimpan", 
+        text: error.message || "Terjadi kesalahan saat menyimpan data kandidat", 
+        ...SWAL_THEME() 
+      });
+    }
   };
 
   const handleView = async (c: CandidateRow) => {
@@ -415,19 +489,24 @@ const Candidates = () => {
         {activeView === 'new' && (
           <div className="glass rounded-2xl p-6 glow-border">
             <h2 className="text-lg font-bold text-foreground mb-4">Tambah Kandidat Baru</h2>
-            <p className="text-sm text-muted-foreground mb-6">Buat akun kandidat baru dengan verifikasi email otomatis.</p>
+            <p className="text-sm text-muted-foreground mb-6">Buat akun kandidat baru untuk login ke halaman kandidat. Hanya nama, email, dan password yang wajib diisi.</p>
             
             <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Nama Lengkap</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Nama Lengkap *</label>
                   <input type="text" required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} 
-                    className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm" placeholder="Nama sesuai KTP" />
+                    className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm" placeholder="Nama lengkap" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Email *</label>
                   <input type="email" required value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} 
                     className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm" placeholder="email@contoh.com" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Password *</label>
+                  <input type="password" required value={form.password} onChange={e => setForm(f => ({...f, password: e.target.value}))} 
+                    className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm" placeholder="Password untuk login" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">No. Telepon</label>
@@ -454,9 +533,18 @@ const Candidates = () => {
                 </div>
               </div>
               
+              <div className="bg-muted/30 rounded-lg p-4 mt-4">
+                <p className="text-xs text-muted-foreground mb-2">
+                  <strong>Catatan:</strong> Data lengkapan lainnya dapat diedit langsung oleh kandidat setelah login.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Email akan otomatis terverifikasi dan kandidat dapat langsung login.
+                </p>
+              </div>
+              
               <div className="flex items-center gap-3 pt-4">
                 <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all disabled:opacity-50">
-                  <Plus className="h-4 w-4" /> {saving ? 'Menyimpan...' : 'Simpan Kandidat'}
+                  <Plus className="h-4 w-4" /> {saving ? 'Menyimpan...' : 'Buat Akun Kandidat'}
                 </button>
                 <button type="button" onClick={() => navigate('/admin/candidates')} className="rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
                   Batal

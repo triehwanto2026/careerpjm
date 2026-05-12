@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Workflow, Search, Filter, Download, Eye, Mail, Phone, Calendar, Briefcase, MapPin, GraduationCap, Award, CheckCircle, XCircle, Clock, AlertCircle, ChevronRight, Users, FileText } from "lucide-react";
+import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface JobVacancy {
   id: string;
@@ -41,6 +42,31 @@ interface JobApplication {
     skills: string[];
     strengths: string;
     created_at: string;
+    marital_status?: string;
+    religion?: string;
+    nationality?: string;
+    height?: string;
+    weight?: string;
+    blood_type?: string;
+    id_card_number?: string;
+    passport_number?: string;
+    driving_license?: string;
+    family_members?: any[];
+    education_history?: any[];
+    work_experience?: any[];
+    expected_salary?: string;
+    salary_negotiable?: boolean;
+    available_start_date?: string;
+    willing_to_relocate?: boolean;
+    languages?: any[];
+    hobbies?: string[];
+    references?: any[];
+    social_media?: any;
+    additional_info?: string;
+    photo_url?: string;
+    cv_url?: string;
+    certificates?: string[];
+    portfolio_url?: string;
   };
 }
 
@@ -53,6 +79,7 @@ export default function RecruitmentProcess() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     loadActiveJobs();
@@ -97,74 +124,92 @@ export default function RecruitmentProcess() {
     try {
       console.log("Loading applications for job:", jobId);
       
-      // Load applications with candidate profiles using user_id relationship
+      // Load applications first, then get candidate profiles separately
       const { data: applicationsData, error: applicationsError } = await supabase
         .from("job_applications")
-        .select(`
-          *,
-          candidate_profiles!inner(
-            id,
-            user_id,
-            full_name,
-            email,
-            phone,
-            birth_date,
-            gender,
-            address,
-            education_level,
-            education_institution,
-            major,
-            graduation_year,
-            experience_years,
-            current_position,
-            current_company,
-            skills,
-            strengths,
-            created_at
-          )
-        `)
+        .select("*")
         .eq("vacancy_id", jobId)
         .order("applied_at", { ascending: false });
-
-      console.log("Applications data:", applicationsData);
-      console.log("Applications error:", applicationsError);
 
       if (applicationsError) {
         console.error("Applications error:", applicationsError);
         throw applicationsError;
       }
 
-      // Map data with proper candidate profiles
-      const mappedData = (applicationsData || []).map((app: any) => ({
-        id: app.id,
-        vacancy_id: app.vacancy_id,
-        user_id: app.user_id,
-        status: app.status,
-        applied_at: app.applied_at,
-        candidate_profile: app.candidate_profiles || {
-          id: '',
-          user_id: app.user_id,
-          full_name: 'Unknown',
-          email: 'Unknown',
-          phone: 'Unknown',
-          birth_date: '',
-          gender: '',
-          address: '',
-          education_level: '',
-          education_institution: '',
-          major: '',
-          graduation_year: '',
-          experience_years: '',
-          current_position: '',
-          current_company: '',
-          skills: [],
-          strengths: '',
-          created_at: ''
-        }
-      }));
-      
-      console.log("Final mapped data:", mappedData);
-      setApplications(mappedData);
+      // Get candidate profiles for each application
+      const applicationsWithProfiles = await Promise.all(
+        (applicationsData || []).map(async (application: any) => {
+          const { data: profileData, error: profileError } = await supabase
+            .from("candidate_profiles")
+            .select("*")
+            .eq("user_id", application.user_id)
+            .single();
+
+          return {
+            ...application,
+            candidate_profile: profileData || {
+              id: '',
+              user_id: application.user_id,
+              full_name: 'Unknown',
+              email: 'Unknown',
+              phone: 'Unknown',
+              birth_date: '',
+              birth_place: '',
+              gender: '',
+              address: '',
+              city: '',
+              bio: '',
+              education_level: '',
+              education_institution: '',
+              major: '',
+              graduation_year: '',
+              experience_years: '',
+              current_position: '',
+              current_company: '',
+              skills: [],
+              strengths: '',
+              created_at: '',
+              updated_at: '',
+              applications: [],
+              has_applied: false,
+              photo_url: '',
+              cv_url: '',
+              certificates: [],
+              portfolio_url: '',
+              marital_status: '',
+              religion: '',
+              nationality: '',
+              height: '',
+              weight: '',
+              blood_type: '',
+              father_name: '',
+              mother_name: '',
+              spouse_name: '',
+              number_of_children: '',
+              emergency_contact_name: '',
+              emergency_contact_relation: '',
+              emergency_contact_phone: '',
+              hobbies: '',
+              vehicle_license: '',
+              has_vehicle: false,
+              source_info: '',
+              willing_relocate: false,
+              willing_overtime: false,
+              willing_shift: false,
+              expected_salary: '',
+              salary_negotiable: false,
+              available_from: '',
+              notice_period: '',
+              additional_info: '',
+              social_media: {},
+              references: []
+            }
+          };
+        })
+      );
+
+      console.log("Final mapped data:", applicationsWithProfiles);
+      setApplications(applicationsWithProfiles);
     } catch (error) {
       console.error("Error loading applications:", error);
       setApplications([]);
@@ -201,6 +246,11 @@ export default function RecruitmentProcess() {
     setShowDetailModal(true);
   };
 
+  const viewCandidateProfile = (application: JobApplication) => {
+    setSelectedApplication(application);
+    setShowProfileModal(true);
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -212,25 +262,47 @@ export default function RecruitmentProcess() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'applied': return 'bg-blue-100 text-blue-700';
-      case 'screening': return 'bg-yellow-100 text-yellow-700';
-      case 'interview': return 'bg-purple-100 text-purple-700';
-      case 'offer': return 'bg-green-100 text-green-700';
-      case 'rejected': return 'bg-red-100 text-red-700';
-      case 'hired': return 'bg-emerald-100 text-emerald-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'applied':
+        return 'bg-blue-100 text-blue-700';
+      case 'screening':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'psychology_test':
+        return 'bg-purple-100 text-purple-700';
+      case 'hr_interview':
+        return 'bg-orange-100 text-orange-700';
+      case 'user_interview':
+        return 'bg-indigo-100 text-indigo-700';
+      case 'offer':
+        return 'bg-pink-100 text-pink-700';
+      case 'hired':
+        return 'bg-green-100 text-green-700';
+      case 'rejected':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'applied': return 'Lamaran Diterima';
-      case 'screening': return 'Screening CV';
-      case 'interview': return 'Wawancara';
-      case 'offer': return 'Penawaran';
-      case 'rejected': return 'Ditolak';
-      case 'hired': return 'Diterima';
-      default: return status;
+      case 'applied':
+        return '1. Lamaran Diterima';
+      case 'screening':
+        return '2. Screening CV';
+      case 'psychology_test':
+        return '3. Tes Psikologi';
+      case 'hr_interview':
+        return '4. Wawancara HR';
+      case 'user_interview':
+        return '5. Wawancara User';
+      case 'offer':
+        return '6. Penawaran';
+      case 'hired':
+        return '7. Diterima';
+      case 'rejected':
+        return '8. Ditolak';
+      default:
+        return status;
     }
   };
 
@@ -363,14 +435,16 @@ export default function RecruitmentProcess() {
             </div>
 
             {/* Status Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4">
               {[
-                { status: 'applied', label: 'Lamaran Diterima', icon: CheckCircle },
-                { status: 'screening', label: 'Screening CV', icon: AlertCircle },
-                { status: 'interview', label: 'Wawancara', icon: Users },
-                { status: 'offer', label: 'Penawaran', icon: Award },
-                { status: 'hired', label: 'Diterima', icon: CheckCircle },
-                { status: 'rejected', label: 'Ditolak', icon: XCircle },
+                { status: 'applied', label: '1. Lamaran Diterima', icon: CheckCircle },
+                { status: 'screening', label: '2. Screening CV', icon: AlertCircle },
+                { status: 'psychology_test', label: '3. Tes Psikologi', icon: Users },
+                { status: 'hr_interview', label: '4. Wawancara HR', icon: Users },
+                { status: 'user_interview', label: '5. Wawancara User', icon: Users },
+                { status: 'offer', label: '6. Penawaran', icon: Award },
+                { status: 'hired', label: '7. Diterima', icon: CheckCircle },
+                { status: 'rejected', label: '8. Ditolak', icon: XCircle },
               ].map(({ status, label, icon: Icon }) => (
                 <div key={status} className="bg-card border border-border rounded-lg p-4 text-center">
                   <Icon className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
@@ -378,6 +452,13 @@ export default function RecruitmentProcess() {
                     {applications.filter(app => app.status === status).length}
                   </div>
                   <div className="text-xs text-muted-foreground">{label}</div>
+                  {applications.filter(app => app.status === status).length > 0 && (
+                    <div className="mt-2 text-xs text-green-600 font-medium">
+                      {applications.filter(app => app.status === status)[0]?.applied_at && 
+                        formatDate(applications.filter(app => app.status === status)[0].applied_at)
+                      }
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -446,11 +527,12 @@ export default function RecruitmentProcess() {
                               <button
                                 onClick={() => viewApplicationDetail(application)}
                                 className="p-1 rounded hover:bg-muted transition"
-                                title="Lihat Detail"
+                                title="Lihat Detail Lamaran"
                               >
                                 <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                               </button>
                               <button
+                                onClick={() => viewCandidateProfile(application)}
                                 className="p-1 rounded hover:bg-muted transition"
                                 title="Lihat Profil Kandidat"
                               >
@@ -461,12 +543,14 @@ export default function RecruitmentProcess() {
                                 onChange={(e) => updateApplicationStatus(application.id, e.target.value)}
                                 className="text-sm border border-border rounded px-2 py-1 bg-background"
                               >
-                                <option value="applied">Lamaran Diterima</option>
-                                <option value="screening">Screening CV</option>
-                                <option value="interview">Wawancara</option>
-                                <option value="offer">Penawaran</option>
-                                <option value="hired">Diterima</option>
-                                <option value="rejected">Ditolak</option>
+                                <option value="applied">1. Lamaran Diterima</option>
+                                <option value="screening">2. Screening CV</option>
+                                <option value="psychology_test">3. Tes Psikologi</option>
+                                <option value="hr_interview">4. Wawancara HR</option>
+                                <option value="user_interview">5. Wawancara User</option>
+                                <option value="offer">6. Penawaran</option>
+                                <option value="hired">7. Diterima</option>
+                                <option value="rejected">8. Ditolak</option>
                               </select>
                             </div>
                           </td>
@@ -480,10 +564,10 @@ export default function RecruitmentProcess() {
           </div>
         )}
 
-        {/* Detail Modal */}
+        {/* Detail Modal - Application Info */}
         {showDetailModal && selectedApplication && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-card border border-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-card border border-border rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
               <div className="p-6 border-b border-border">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-foreground">Detail Lamaran</h2>
@@ -496,67 +580,611 @@ export default function RecruitmentProcess() {
                 </div>
               </div>
               
-              <div className="p-6 space-y-6">
-                {/* Candidate Info */}
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Informasi Pelamar</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-muted-foreground">Nama Lengkap</label>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.full_name}</p>
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+                {/* Job Information */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                    Informasi Lowongan
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Posisi</p>
+                      <p className="font-medium text-foreground">{selectedJob?.title || '-'}</p>
                     </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Email</label>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.email}</p>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Departemen</p>
+                      <p className="font-medium text-foreground">{selectedJob?.department || '-'}</p>
                     </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Telepon</label>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.phone}</p>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Lokasi</p>
+                      <p className="font-medium text-foreground">{selectedJob?.location || '-'}</p>
                     </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Pendidikan</label>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.education_level}</p>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Tipe Kerja</p>
+                      <p className="font-medium text-foreground">{selectedJob?.employment_type || '-'}</p>
                     </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Posisi Saat Ini</label>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.current_position}</p>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Tutup Lowongan</p>
+                      <p className="font-medium text-foreground">{formatDate(selectedJob?.closes_at || '')}</p>
                     </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Pengalaman</label>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.experience_years} tahun</p>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Status Lowongan</p>
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Aktif</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Application Status */}
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Status Lamaran</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Status Saat Ini</span>
-                      <span className={`px-3 py-1 text-sm rounded-full ${getStatusColor(selectedApplication.status)}`}>
+                {/* Application Information */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Informasi Lamaran
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Nama Pelamar</p>
+                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.full_name}</p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Email</p>
+                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.email}</p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Telepon</p>
+                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.phone}</p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Tanggal Lamar</p>
+                      <p className="font-medium text-foreground">{formatDate(selectedApplication.applied_at)}</p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Status Saat Ini</p>
+                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedApplication.status)}`}>
                         {getStatusLabel(selectedApplication.status)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Tanggal Lamar</span>
-                      <span className="text-sm text-foreground">{formatDate(selectedApplication.applied_at)}</span>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Pendidikan Terakhir</p>
+                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.education_level}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex justify-end gap-3">
+                {/* Recruitment Process Timeline */}
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    Proses Rekrutmen
+                  </h3>
+                  <div className="space-y-3">
+                    {[
+                      { status: 'applied', label: '1. Lamaran Diterima', icon: '📥' },
+                      { status: 'screening', label: '2. Screening CV', icon: '📋' },
+                      { status: 'psychology_test', label: '3. Tes Psikologi', icon: '🧠' },
+                      { status: 'hr_interview', label: '4. Wawancara HR', icon: '👔' },
+                      { status: 'user_interview', label: '5. Wawancara User', icon: '👤' },
+                      { status: 'offer', label: '6. Penawaran', icon: '📄' },
+                      { status: 'hired', label: '7. Diterima', icon: '✅' },
+                      { status: 'rejected', label: '8. Ditolak', icon: '❌' }
+                    ].map((step) => {
+                      const isCurrentStep = selectedApplication.status === step.status;
+                      const isCompleted = ['applied', 'screening', 'psychology_test', 'hr_interview', 'user_interview', 'offer', 'hired'].indexOf(step.status) < 
+                                        ['applied', 'screening', 'psychology_test', 'hr_interview', 'user_interview', 'offer', 'hired'].indexOf(selectedApplication.status);
+                      
+                      return (
+                        <div 
+                          key={step.status}
+                          className={`flex items-center gap-3 p-3 rounded-lg border ${
+                            isCurrentStep 
+                              ? 'bg-primary/10 border-primary/20' 
+                              : isCompleted 
+                                ? 'bg-muted/30 border-border' 
+                                : 'bg-muted/10 border-border/50'
+                          }`}
+                        >
+                          <span className="text-xl">{step.icon}</span>
+                          <div className="flex-1">
+                            <p className={`font-medium ${isCurrentStep ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {step.label}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {isCurrentStep ? 'Sedang berjalan' : isCompleted ? 'Selesai' : 'Menunggu'}
+                            </p>
+                          </div>
+                          {isCurrentStep && (
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Profile Modal - Candidate Details */}
+        {showProfileModal && selectedApplication && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-card border border-border rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-foreground">Profil Kandidat</h2>
                   <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-4 py-2 border border-border rounded-lg hover:bg-muted transition"
+                    onClick={() => setShowProfileModal(false)}
+                    className="p-1 rounded hover:bg-muted transition"
                   >
-                    Tutup
-                  </button>
-                  <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition">
-                    Hubungi Pelamar
+                    <XCircle className="h-5 w-5 text-muted-foreground" />
                   </button>
                 </div>
+              </div>
+              
+              <div className="flex flex-col h-[calc(90vh-8rem)]">
+                {/* Profile Header */}
+                <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b border-border">
+                  <div className="flex items-center gap-6">
+                    <div className="h-20 w-20 bg-primary/20 rounded-full flex items-center justify-center">
+                      <span className="text-2xl font-bold text-primary">
+                        {selectedApplication.candidate_profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-foreground">{selectedApplication.candidate_profile.full_name}</h3>
+                      <p className="text-muted-foreground">{selectedApplication.candidate_profile.email}</p>
+                      <p className="text-muted-foreground">{selectedApplication.candidate_profile.phone}</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <span className={`px-3 py-1 text-sm rounded-full ${getStatusColor(selectedApplication.status)}`}>
+                          {getStatusLabel(selectedApplication.status)}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          Lamar: {formatDate(selectedApplication.applied_at)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition-all">
+                        <Mail className="h-4 w-4" />
+                        Hubungi Pelamar
+                      </button>
+                      <button className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-all">
+                        <Download className="h-4 w-4" />
+                        Download Resume
+                      </button>
+                      <button className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-all">
+                        <Phone className="h-4 w-4" />
+                        Catatan Telepon
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabs Content */}
+                <div className="flex-1 overflow-y-auto">
+                  <Tabs defaultValue="personal" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4 gap-2 p-4 bg-muted/30 border-b border-border">
+                      <div className="space-y-2">
+                        <TabsTrigger value="personal" className="w-full justify-start">
+                          <Users className="h-4 w-4 mr-2" />
+                          Data Diri
+                        </TabsTrigger>
+                        <TabsTrigger value="family" className="w-full justify-start">
+                          <Heart className="h-4 w-4 mr-2" />
+                          Keluarga
+                        </TabsTrigger>
+                        <TabsTrigger value="education" className="w-full justify-start">
+                          <GraduationCap className="h-4 w-4 mr-2" />
+                          Pendidikan
+                        </TabsTrigger>
+                        <TabsTrigger value="skills" className="w-full justify-start">
+                          <Star className="h-4 w-4 mr-2" />
+                          Keahlian & Kepribadian
+                        </TabsTrigger>
+                      </div>
+                      <div className="space-y-2">
+                        <TabsTrigger value="experience" className="w-full justify-start">
+                          <Briefcase className="h-4 w-4 mr-2" />
+                          Pengalaman Kerja
+                        </TabsTrigger>
+                        <TabsTrigger value="salary" className="w-full justify-start">
+                          <Target className="h-4 w-4 mr-2" />
+                          Ekspektasi Gaji
+                        </TabsTrigger>
+                        <TabsTrigger value="documents" className="w-full justify-start">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Dokumen
+                        </TabsTrigger>
+                        <TabsTrigger value="additional" className="w-full justify-start">
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Info Tambahan
+                        </TabsTrigger>
+                      </div>
+                    </TabsList>
+
+                    {/* Personal Info Tab */}
+                    <TabsContent value="personal" className="p-6 space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Users className="h-5 w-5 text-primary" />
+                            Informasi Pribadi
+                          </h3>
+                          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm text-muted-foreground">Nama Lengkap</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.full_name || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Email</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.email || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Telepon</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.phone || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Tanggal Lahir</label>
+                                <p className="font-medium text-foreground">{formatDate(selectedApplication.candidate_profile.birth_date)}</p>
+                              </div>
+                                                            <div>
+                                <label className="text-sm text-muted-foreground">Jenis Kelamin</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.gender || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Status Pernikahan</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.marital_status || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Agama</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.religion || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Kewarganegaraan</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.nationality || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Golongan Darah</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.blood_type || '-'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <CreditCard className="h-5 w-5 text-primary" />
+                            Identitas & Fisik
+                          </h3>
+                          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm text-muted-foreground">No. KTP</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.id_card_number || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">No. Passport</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.passport_number || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">SIM</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.driving_license || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Tinggi Badan</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.height || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Berat Badan</label>
+                                <p className="font-medium text-foreground">{selectedApplication.candidate_profile.weight || '-'}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Home className="h-5 w-5 text-primary" />
+                            Alamat
+                          </h3>
+                          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+                            <div>
+                              <label className="text-sm text-muted-foreground">Alamat Lengkap</label>
+                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.address || '-'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Family Tab */}
+                    <TabsContent value="family" className="p-6 space-y-6">
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
+                          <Heart className="h-5 w-5 text-primary" />
+                          Data Keluarga
+                        </h3>
+                        {selectedApplication.candidate_profile.family_members && selectedApplication.candidate_profile.family_members.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                              <thead>
+                                <tr className="bg-muted/50">
+                                  <th className="border border-border px-4 py-2 text-left text-sm font-medium">Hubungan</th>
+                                  <th className="border border-border px-4 py-2 text-left text-sm font-medium">Nama</th>
+                                  <th className="border border-border px-4 py-2 text-left text-sm font-medium">Jenis Kelamin</th>
+                                  <th className="border border-border px-4 py-2 text-left text-sm font-medium">Usia</th>
+                                  <th className="border border-border px-4 py-2 text-left text-sm font-medium">Pendidikan</th>
+                                  <th className="border border-border px-4 py-2 text-left text-sm font-medium">Pekerjaan</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {selectedApplication.candidate_profile.family_members.map((member: any, index: number) => (
+                                  <tr key={index} className="hover:bg-muted/20">
+                                    <td className="border border-border px-4 py-2 text-sm">{member.relation || '-'}</td>
+                                    <td className="border border-border px-4 py-2 text-sm font-medium">{member.name || '-'}</td>
+                                    <td className="border border-border px-4 py-2 text-sm">{member.gender || '-'}</td>
+                                    <td className="border border-border px-4 py-2 text-sm">{member.age || '-'}</td>
+                                    <td className="border border-border px-4 py-2 text-sm">{member.education || '-'}</td>
+                                    <td className="border border-border px-4 py-2 text-sm">{member.occupation || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Heart className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p>Belum ada data keluarga</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    {/* Education Tab */}
+                    <TabsContent value="education" className="p-6 space-y-6">
+                      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                          <GraduationCap className="h-5 w-5 text-primary" />
+                          Pendidikan Terakhir
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm text-muted-foreground">Tingkat Pendidikan</label>
+                            <p className="font-medium text-foreground">{selectedApplication.candidate_profile.education_level || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Institusi Pendidikan</label>
+                            <p className="font-medium text-foreground">{selectedApplication.candidate_profile.education_institution || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Jurusan/Program Studi</label>
+                            <p className="font-medium text-foreground">{selectedApplication.candidate_profile.major || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Tahun Lulus</label>
+                            <p className="font-medium text-foreground">{selectedApplication.candidate_profile.graduation_year || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Skills Tab */}
+                    <TabsContent value="skills" className="p-6 space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Star className="h-5 w-5 text-primary" />
+                            Keahlian & Kompetensi
+                          </h3>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Skills</label>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {(selectedApplication.candidate_profile.skills || []).map((skill, index) => (
+                                <span key={index} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                                  {skill}
+                                </span>
+                              )) || <span className="text-muted-foreground">Tidak ada data</span>}
+                            </div>
+                          </div>
+                          {selectedApplication.candidate_profile.strengths && (
+                            <div>
+                              <label className="text-sm text-muted-foreground">Kelebihan</label>
+                              <p className="text-foreground mt-2 whitespace-pre-line">{selectedApplication.candidate_profile.strengths}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Languages className="h-5 w-5 text-primary" />
+                            Bahasa & Hobi
+                          </h3>
+                          {selectedApplication.candidate_profile.languages && selectedApplication.candidate_profile.languages.length > 0 && (
+                            <div>
+                              <label className="text-sm text-muted-foreground">Bahasa</label>
+                              <div className="space-y-2 mt-2">
+                                {selectedApplication.candidate_profile.languages.map((lang: any, index: number) => (
+                                  <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded">
+                                    <span className="text-sm font-medium">{lang.language || '-'}</span>
+                                    <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{lang.level || '-'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {selectedApplication.candidate_profile.hobbies && selectedApplication.candidate_profile.hobbies.length > 0 && (
+                            <div>
+                              <label className="text-sm text-muted-foreground">Hobi</label>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {selectedApplication.candidate_profile.hobbies.map((hobby, index) => (
+                                  <span key={index} className="px-2 py-1 bg-muted/50 text-muted-foreground rounded text-sm">
+                                    {hobby}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Experience Tab */}
+                    <TabsContent value="experience" className="p-6 space-y-6">
+                      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                          <Briefcase className="h-5 w-5 text-primary" />
+                          Pengalaman Kerja Saat Ini
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm text-muted-foreground">Posisi Saat Ini</label>
+                            <p className="font-medium text-foreground">{selectedApplication.candidate_profile.current_position || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Perusahaan</label>
+                            <p className="font-medium text-foreground">{selectedApplication.candidate_profile.current_company || '-'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground">Lama Pengalaman</label>
+                            <p className="font-medium text-foreground">{selectedApplication.candidate_profile.experience_years ? `${selectedApplication.candidate_profile.experience_years} Tahun` : 'Tidak ada data'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Salary Tab */}
+                    <TabsContent value="salary" className="p-6 space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Target className="h-5 w-5 text-primary" />
+                            Ekspektasi Gaji
+                          </h3>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-sm text-muted-foreground">Gaji yang Diharapkan</label>
+                              <p className="font-medium text-foreground text-lg">{selectedApplication.candidate_profile.expected_salary || '-'}</p>
+                            </div>
+                            <div>
+                              <label className="text-sm text-muted-foreground">Negotiable</label>
+                              <p className="font-medium text-foreground">
+                                {selectedApplication.candidate_profile.salary_negotiable ? 'Ya' : 'Tidak'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Calendar className="h-5 w-5 text-primary" />
+                            Ketersediaan
+                          </h3>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-sm text-muted-foreground">Tanggal Mulai Tersedia</label>
+                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.available_start_date || '-'}</p>
+                            </div>
+                            <div>
+                              <label className="text-sm text-muted-foreground">Bersedia Relokasi</label>
+                              <p className="font-medium text-foreground">
+                                {selectedApplication.candidate_profile.willing_to_relocate ? 'Ya' : 'Tidak'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Documents Tab */}
+                    <TabsContent value="documents" className="p-6 space-y-6">
+                      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-primary" />
+                          Dokumen & Portofolio
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {selectedApplication.candidate_profile.cv_url && (
+                            <div>
+                              <label className="text-sm text-muted-foreground">CV</label>
+                              <a href={selectedApplication.candidate_profile.cv_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                                <Eye className="h-4 w-4" />
+                                Lihat CV
+                              </a>
+                            </div>
+                          )}
+                          {selectedApplication.candidate_profile.portfolio_url && (
+                            <div>
+                              <label className="text-sm text-muted-foreground">Portfolio</label>
+                              <a href={selectedApplication.candidate_profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                                <Eye className="h-4 w-4" />
+                                Lihat Portfolio
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Additional Info Tab */}
+                    <TabsContent value="additional" className="p-6 space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <MessageSquare className="h-5 w-5 text-primary" />
+                            Informasi Tambahan
+                          </h3>
+                          {selectedApplication.candidate_profile.additional_info && (
+                            <div>
+                              <label className="text-sm text-muted-foreground">Informasi Tambahan</label>
+                              <p className="text-foreground mt-2 whitespace-pre-line">{selectedApplication.candidate_profile.additional_info}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Link2 className="h-5 w-5 text-primary" />
+                            Social Media & Referensi
+                          </h3>
+                          {selectedApplication.candidate_profile.social_media && (
+                            <div>
+                              <label className="text-sm text-muted-foreground">Social Media</label>
+                              <div className="space-y-2 mt-2">
+                                {Object.entries(selectedApplication.candidate_profile.social_media).map(([platform, url]: [string, any]) => (
+                                  <div key={platform} className="flex items-center gap-2 p-2 bg-muted/20 rounded">
+                                    <span className="text-sm font-medium capitalize">{platform}:</span>
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                                      {url}
+                                    </a>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="sticky bottom-0 flex items-center justify-between border-t border-border bg-card/95 backdrop-blur-xl px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition-all">
+                    <Mail className="h-4 w-4" />
+                    Kirim Email
+                  </button>
+                  <button className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-all">
+                    <Download className="h-4 w-4" />
+                    Download CV
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  className="rounded-lg border border-border bg-card px-5 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  Tutup
+                </button>
               </div>
             </div>
           </div>
