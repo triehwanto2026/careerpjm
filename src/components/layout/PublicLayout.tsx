@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Building2, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const PublicLayout = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -34,10 +35,18 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="outline" asChild className="hidden md:inline-flex">
+            <Button 
+              variant={location.pathname === "/register" ? "default" : "outline"} 
+              asChild 
+              className="hidden md:inline-flex"
+            >
               <Link to="/register">Daftar</Link>
             </Button>
-            <Button asChild className="hidden md:inline-flex">
+            <Button 
+              variant={location.pathname === "/login" ? "default" : "outline"} 
+              asChild 
+              className="hidden md:inline-flex"
+            >
               <Link to="/login">Login</Link>
             </Button>
             <button
@@ -74,10 +83,18 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
                 >
                   Tentang Kami
                 </Link>
-                <Button asChild className="w-full" variant="outline">
+                <Button 
+                  variant={location.pathname === "/register" ? "default" : "outline"} 
+                  asChild 
+                  className="w-full"
+                >
                   <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Daftar</Link>
                 </Button>
-                <Button asChild className="w-full">
+                <Button 
+                  variant={location.pathname === "/login" ? "default" : "outline"} 
+                  asChild 
+                  className="w-full"
+                >
                   <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
                 </Button>
               </nav>
