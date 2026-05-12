@@ -5,12 +5,14 @@ CREATE TABLE IF NOT EXISTS job_vacancies (
   department TEXT NOT NULL,
   location TEXT NOT NULL,
   employment_type TEXT NOT NULL DEFAULT 'Full-time',
+  min_salary INTEGER,
+  max_salary INTEGER,
   salary_range TEXT,
   description TEXT,
   qualifications TEXT,
   requirements TEXT,
   benefits TEXT,
-  deadline TIMESTAMP WITH TIME ZONE,
+  closes_at TIMESTAMP WITH TIME ZONE,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('active', 'closed', 'draft')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -76,15 +78,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_job_vacancies_updated_at ON job_vacancies;
 CREATE TRIGGER update_job_vacancies_updated_at
   BEFORE UPDATE ON job_vacancies
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Insert sample data
-INSERT INTO job_vacancies (title, department, location, employment_type, salary_range, description, qualifications, status) VALUES
-  ('Senior Frontend Developer', 'Engineering', 'Jakarta', 'Full-time', 'Rp 15-25 juta', 'Kami mencari Senior Frontend Developer berpengalaman untuk membangun antarmuka web yang modern dan responsif.', 'Minimal 3 tahun pengalaman dengan React/Next.js\nPaham TypeScript\nPengalaman dengan state management (Redux, Zustand)', 'active'),
-  ('UI/UX Designer', 'Design', 'Bandung', 'Full-time', 'Rp 10-18 juta', 'Bertanggung jawab atas desain antarmuka pengguna dan pengalaman pengguna aplikasi web dan mobile.', 'Minimal 2 tahun pengalaman sebagai UI/UX Designer\nPaham Figma, Adobe XD\nPortofolio yang kuat', 'active'),
-  ('Marketing Specialist', 'Marketing', 'Jakarta', 'Full-time', 'Rp 8-15 juta', 'Mengembangkan dan mengeksekusi strategi marketing untuk meningkatkan brand awareness dan akuisisi user.', 'Pengalaman minimal 2 tahun di digital marketing\nPaham SEO, SEM, social media marketing\nKemampuan analisis data', 'active'),
-  ('Data Analyst', 'Data', 'Surabaya', 'Full-time', 'Rp 12-20 juta', 'Menganalisis data untuk memberikan insight yang dapat membantu pengambilan keputusan bisnis.', 'Paham SQL, Python, atau R\nPengalaman dengan data visualization tools (Tableau, Power BI)\nKemampuan komunikasi yang baik', 'draft'),
-  ('HR Manager', 'Human Resources', 'Jakarta', 'Full-time', 'Rp 18-30 juta', 'Memimpin tim HR dan mengelola seluruh proses rekrutmen, training, dan employee relations.', 'Minimal 5 tahun pengalaman di HR\nPaham HRIS dan employment law\nKemampuan leadership yang kuat', 'active');
+-- Insert sample data (only if table is empty)
+INSERT INTO job_vacancies (title, department, location, employment_type, min_salary, max_salary, description, status)
+SELECT * FROM (VALUES
+  ('Senior Frontend Developer', 'Engineering', 'Jakarta', 'Full-time', 15000000, 25000000, 'Kami mencari Senior Frontend Developer berpengalaman untuk membangun antarmuka web yang modern dan responsif.', 'active'),
+  ('UI/UX Designer', 'Design', 'Bandung', 'Full-time', 10000000, 18000000, 'Bertanggung jawab atas desain antarmuka pengguna dan pengalaman pengguna aplikasi web dan mobile.', 'active'),
+  ('Marketing Specialist', 'Marketing', 'Jakarta', 'Full-time', 8000000, 15000000, 'Mengembangkan dan mengeksekusi strategi marketing untuk meningkatkan brand awareness dan akuisisi user.', 'active'),
+  ('Data Analyst', 'Data', 'Surabaya', 'Full-time', 12000000, 20000000, 'Menganalisis data untuk memberikan insight yang dapat membantu pengambilan keputusan bisnis.', 'draft'),
+  ('HR Manager', 'Human Resources', 'Jakarta', 'Full-time', 18000000, 30000000, 'Memimpin tim HR dan mengelola seluruh proses rekrutmen, training, dan employee relations.', 'active')
+) AS t(title, department, location, employment_type, min_salary, max_salary, description, status)
+WHERE NOT EXISTS (SELECT 1 FROM job_vacancies LIMIT 1);
