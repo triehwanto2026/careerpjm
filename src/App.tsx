@@ -33,6 +33,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import JobsPage from "./pages/Jobs";
 import JobDetail from "./pages/JobDetail";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,10 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/jobs" element={<JobsPage />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/test" element={<TestPage />} />
+            <Route path="/test" element={<TestPage />} />
+            <Route path="/test" element={<TestPage />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<Dashboard />} />

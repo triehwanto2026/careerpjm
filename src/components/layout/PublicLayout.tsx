@@ -27,8 +27,8 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
             <Link to="/jobs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Lowongan
             </Link>
-            <Link to="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Login
+            <Link to="/about" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Tentang Kami
             </Link>
           </nav>
 
@@ -46,37 +46,37 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border bg-card">
-            <nav className="container px-4 py-4 space-y-3">
-              <Link
-                to="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Beranda
-              </Link>
-              <Link
-                to="/jobs"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Lowongan
-              </Link>
-              <Link
-                to="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Login
-              </Link>
-              <Button asChild className="w-full">
-                <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Masuk</Link>
-              </Button>
-            </nav>
-          </div>
-        )}
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-border bg-card">
+              <nav className="container px-4 py-4 space-y-3">
+                <Link
+                  to="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Beranda
+                </Link>
+                <Link
+                  to="/jobs"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Lowongan
+                </Link>
+                <Link
+                  to="/about"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Tentang Kami
+                </Link>
+                <Button asChild className="w-full">
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Masuk</Link>
+                </Button>
+              </nav>
+            </div>
+          )}
       </header>
 
       {/* Main Content */}
