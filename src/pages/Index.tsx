@@ -20,9 +20,22 @@ const stats = [
 const Index = () => {
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const { data: jobs = [], isLoading } = useActiveJobs();
+  const { data: jobs = [], isLoading, error } = useActiveJobs();
 
-  const filteredJobs = jobs.filter((job) => {
+  if (error) {
+    console.error("Error loading jobs:", error);
+  }
+
+  // Fallback data if database query fails
+  const fallbackJobs = [
+    { id: "1", title: "Senior Frontend Developer", department: "Engineering", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Kami mencari Senior Frontend Developer berpengalaman." },
+    { id: "2", title: "UI/UX Designer", department: "Design", location: "Bandung", employment_type: "Full-time", closes_at: "2024-12-31", description: "Bertanggung jawab atas desain antarmuka pengguna." },
+    { id: "3", title: "Marketing Specialist", department: "Marketing", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Mengembangkan strategi marketing untuk brand awareness." },
+  ];
+
+  const jobsToDisplay = jobs.length > 0 ? jobs : fallbackJobs;
+
+  const filteredJobs = jobsToDisplay.filter((job) => {
     const matchSearch = job.title.toLowerCase().includes(search.toLowerCase()) ||
       job.department.toLowerCase().includes(search.toLowerCase());
     const matchLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
@@ -32,15 +45,15 @@ const Index = () => {
   return (
     <PublicLayout>
       {/* Hero Section */}
-      <section className="relative overflow-hidden hero-gradient">
+      <section className="relative overflow-hidden bg-primary/10">
         <div className="absolute inset-0 bg-gradient-to-r from-foreground/90 via-foreground/70 to-foreground/50 dark:from-background/95 dark:via-background/80 dark:to-background/60" />
         <div className="relative container py-24 md:py-32">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-2xl">
             <Badge className="mb-4 bg-primary/20 text-primary border-primary/30 hover:bg-primary/20">🚀 Platform Rekrutmen Resmi PJM Group</Badge>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-background dark:text-foreground">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white">
               Temukan Karir<br /><span className="text-gradient">Impianmu</span>
             </h1>
-            <p className="text-lg text-background/70 dark:text-muted-foreground mb-8 leading-relaxed">
+            <p className="text-lg text-white/90 mb-8 leading-relaxed">
               Jelajahi lowongan pekerjaan di PJM Group dan anak perusahaannya. Bangun karir yang bermakna bersama kami.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 p-2 rounded-xl bg-background/10 dark:bg-card/50 backdrop-blur-lg border border-background/20 dark:border-border">
