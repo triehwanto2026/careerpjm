@@ -52,7 +52,58 @@ const LoginPage = () => {
           navigate("/admin/dashboard");
         });
       } else {
-        // Candidate login via activation code
+        // Try candidate login via email/password first (for admin-created accounts)
+        if (!activationCode && email && password) {
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (!authError && authData.user) {
+            // Check if user exists in candidates table
+            const { data: candidate } = await supabase
+              .from("candidates")
+              .select("id, name, email, position, photo_url, phone, birth_date, education, gender")
+              .eq("email", email)
+              .maybeSingle();
+
+            if (candidate) {
+              sessionStorage.setItem("psytest_auth", "true");
+              sessionStorage.setItem("psytest_candidate", JSON.stringify({
+                id: candidate.id,
+                name: candidate.name,
+                email: candidate.email,
+                position: candidate.position || "",
+                activationCodeId: null,
+                assignedTests: [],
+                photo_url: candidate.photo_url || null,
+                phone: candidate.phone || "",
+                birth_date: candidate.birth_date || "",
+                education: candidate.education || "",
+                gender: candidate.gender || "",
+              }));
+
+              Swal.fire({
+                icon: "success",
+                title: "Selamat Datang",
+                text: candidate.name,
+                timer: 1500,
+                showConfirmButton: false,
+                background: "hsl(var(--card))",
+                color: "hsl(var(--foreground))",
+              }).then(() => {
+                navigate("/test");
+              });
+              return;
+            }
+          }
+        }
+
+        // Fallback to activation code login
+        if (!activationCode) {
+          throw new Error("Masukkan kode aktivasi atau gunakan email dan password.");
+        }
+
         const { data, error } = await supabase
           .from("activation_codes")
           .select("*")
@@ -207,16 +258,15 @@ const LoginPage = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    Kode Aktivasi
+                    Email
                   </label>
                   <input
-                    type="text"
-                    value={activationCode}
-                    onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
-                    placeholder="Masukkan kode aktivasi"
-                    className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors font-mono tracking-wider"
-                    maxLength={20}
-                    autoComplete="off"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@contoh.com"
+                    className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+                    autoComplete="email"
                   />
                 </div>
 
@@ -231,8 +281,7 @@ const LoginPage = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Masukkan password"
                       className="w-full rounded-lg border border-border bg-muted px-4 py-3 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
-                      maxLength={50}
-                      autoComplete="off"
+                      autoComplete="current-password"
                     />
                     <button
                       type="button"
@@ -243,11 +292,29 @@ const LoginPage = () => {
                     </button>
                   </div>
                 </div>
+
+                <div className="border-t pt-4">
+                  <p className="text-xs text-muted-foreground mb-2 text-center">ATAU</p>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Kode Aktivasi
+                    </label>
+                    <input
+                      type="text"
+                      value={activationCode}
+                      onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+                      placeholder="Masukkan kode aktivasi"
+                      className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors font-mono tracking-wider"
+                      maxLength={20}
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="mt-4 text-center">
                 <p className="text-xs text-muted-foreground">
-                  Belum punya kode?{" "}
+                  Belum punya akun?{" "}
                   <a href="/candidate/register" className="text-primary hover:underline">
                     Daftar disini
                   </a>

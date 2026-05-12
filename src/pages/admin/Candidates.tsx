@@ -499,8 +499,31 @@ const Candidates = () => {
         if (error) throw error;
       } else {
         console.log('Creating new candidate...');
-        // Create new candidate using service role key or direct database approach
-        // First, create candidate record without auth user
+        // Create new candidate with Supabase Auth first
+        console.log('Creating new candidate with auth...');
+        
+        // Create auth user first
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: form.email.trim(),
+          password: 'tempPassword123!', // Temporary password, user will change it
+          options: {
+            emailRedirectTo: `${window.location.origin}/candidate/profile`,
+            data: { 
+              full_name: form.name.trim(),
+              created_by_admin: true
+            },
+          },
+        });
+        
+        console.log('Auth data:', authData);
+        console.log('Auth error:', authError);
+        
+        if (authError) {
+          console.error('Auth creation failed:', authError);
+          // Continue with database-only approach if auth fails
+        }
+        
+        // Create candidate record
         const { data: candidateData, error: candidateError } = await supabase.from("candidates").insert({
           name: form.name.trim(),
           email: form.email.trim(),
@@ -513,9 +536,9 @@ const Candidates = () => {
         
         if (candidateError) throw candidateError;
         
-        // Create candidate profile without user_id constraint
+        // Create candidate profile
         const { data: profileData, error: profileError } = await supabase.from("candidate_profiles").insert({
-          user_id: candidateData.id, // Use candidate ID as user_id to satisfy constraint
+          user_id: authData?.user?.id || candidateData.id, // Use auth user ID if available, otherwise candidate ID
           full_name: form.name.trim(),
           email: form.email.trim(),
           phone: form.phone.trim() || null,
