@@ -1,183 +1,119 @@
+import { Link } from "react-router-dom";
+import { PublicLayout } from "@/components/layout/PublicLayout";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Search, MapPin, Building2, Clock, ArrowRight, Users, Briefcase,
+  Shield, ChevronRight, TrendingUp,
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Shield, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
-import Swal from "sweetalert2";
-import { supabase } from "@/integrations/supabase/client";
-import ThemeToggle from "@/components/ThemeToggle";
+import heroBg from "@/assets/hero-bg.jpg";
+import { useActiveJobs } from "@/hooks/useJobs";
+
+const stats = [
+  { label: "Lowongan Aktif", value: "24+", icon: Briefcase },
+  { label: "Kandidat Bergabung", value: "1,200+", icon: Users },
+  { label: "Tingkat Keberhasilan", value: "92%", icon: TrendingUp },
+  { label: "Perusahaan Partner", value: "50+", icon: Shield },
+];
 
 const Index = () => {
-  const [activationCode, setActivationCode] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const { data: jobs = [], isLoading } = useActiveJobs();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!activationCode.trim() || !password.trim()) {
-      Swal.fire({
-        icon: "warning", title: "Peringatan", text: "Silakan isi kode aktivasi dan password.",
-        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-      });
-      return;
-    }
-
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("activation_codes")
-      .select("*")
-      .eq("code", activationCode.trim())
-      .eq("password", password.trim())
-      .maybeSingle();
-
-    if (error || !data) {
-      setLoading(false);
-      Swal.fire({
-        icon: "error", title: "Akses Ditolak",
-        text: "Kode aktivasi atau password salah.",
-        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-      });
-      return;
-    }
-
-    // Check if code is still valid
-    const now = new Date();
-    const isExpired = data.expires_at && new Date(data.expires_at) < now;
-    const status = (data as any).status || 'active';
-    
-    if (isExpired) {
-      setLoading(false);
-      Swal.fire({
-        icon: "error", title: "Kode Kadaluarsa",
-        text: "Kode aktivasi telah kadaluarsa. Silakan hubungi admin.",
-        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-      });
-      return;
-    }
-
-    if (status === 'completed') {
-      setLoading(false);
-      Swal.fire({
-        icon: "error", title: "Tes Selesai",
-        text: "Tes untuk kode aktivasi ini sudah selesai. Kode tidak dapat digunakan lagi.",
-        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-      });
-      return;
-    }
-
-    if (status === 'invalid') {
-      setLoading(false);
-      Swal.fire({
-        icon: "error", title: "Kode Tidak Valid",
-        text: "Kode aktivasi tidak valid. Silakan hubungi admin.",
-        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-      });
-      return;
-    }
-
-    // Code is valid, proceed with login
-    await supabase.from("activation_codes").update({ status: 'active' } as any).eq("id", data.id);
-    // Find or create candidate
-    const { data: existing } = await supabase.from("candidates").select("id, photo_url, phone, birth_date, education, gender")
-      .eq("email", data.candidate_email).maybeSingle();
-    let candidateId = existing?.id || null;
-    const photoUrl = existing?.photo_url || null;
-    if (!candidateId) {
-      const { data: newCand } = await supabase.from("candidates").insert({
-        name: data.candidate_name, email: data.candidate_email, position: data.position,
-        status: "in_progress", activation_code_id: data.id,
-      } as any).select("id").single();
-      candidateId = newCand?.id || null;
-    } else {
-      await supabase.from("candidates").update({ status: "in_progress", activation_code_id: data.id } as any).eq("id", candidateId);
-    }
-
-    Swal.fire({
-      icon: "success", title: "Akses Diberikan",
-      text: `Selamat datang, ${data.candidate_name}!`,
-      background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-      timer: 1500, showConfirmButton: false,
-    }).then(() => {
-      sessionStorage.setItem("psytest_auth", "true");
-      sessionStorage.setItem("psytest_candidate", JSON.stringify({
-        id: candidateId,
-        name: data.candidate_name, email: data.candidate_email, position: data.position,
-        activationCodeId: data.id, assignedTests: data.assigned_tests || [],
-        photo_url: photoUrl,
-        phone: existing?.phone || "", birth_date: existing?.birth_date || "",
-        education: existing?.education || "", gender: existing?.gender || "",
-      }));
-      navigate("/test");
-    });
-  };
+  const filteredJobs = jobs.filter((job) => {
+    const title = (job as any).title || (job as any).position || "";
+    const department = (job as any).department || (job as any).category || "";
+    const location = (job as any).location || "";
+    const matchSearch = title.toLowerCase().includes(search.toLowerCase()) ||
+      department.toLowerCase().includes(search.toLowerCase());
+    const matchLocation = !locationFilter || location.toLowerCase().includes(locationFilter.toLowerCase());
+    return matchSearch && matchLocation;
+  }).slice(0, 6);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-accent/5 blur-3xl" />
-      </div>
-
-      <div className="fixed top-4 right-4 z-50"><ThemeToggle /></div>
-
-      <div className="relative w-full max-w-md animate-fade-in">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 glow-primary">
-            <Shield className="h-8 w-8 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Tes Psikologi <span className="text-gradient">Rekrutmen</span>
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">Masukkan kode aktivasi untuk memulai tes</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="glass space-y-5 rounded-2xl p-6 glow-border md:p-8">
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <KeyRound className="h-4 w-4 text-primary" />Kode Aktivasi
-            </label>
-            <input type="text" value={activationCode} onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
-              placeholder="Masukkan kode aktivasi"
-              className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors font-mono tracking-wider"
-              maxLength={20} autoComplete="off" />
-          </div>
-
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Lock className="h-4 w-4 text-primary" />Password
-            </label>
-            <div className="relative">
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="Masukkan password"
-                className="w-full rounded-lg border border-border bg-muted px-4 py-3 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
-                maxLength={50} autoComplete="off" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+    <PublicLayout>
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroBg})` }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-foreground/90 via-foreground/70 to-foreground/50 dark:from-background/95 dark:via-background/80 dark:to-background/60" />
+        <div className="relative container py-24 md:py-32">
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-2xl">
+            <Badge className="mb-4 bg-primary/20 text-primary border-primary/30 hover:bg-primary/20">🚀 Platform Rekrutmen Resmi PJM Group</Badge>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-background dark:text-foreground">
+              Temukan Karir<br /><span className="text-gradient">Impianmu</span>
+            </h1>
+            <p className="text-lg text-background/70 dark:text-muted-foreground mb-8 leading-relaxed">
+              Jelajahi lowongan pekerjaan di PJM Group dan anak perusahaannya. Bangun karir yang bermakna bersama kami.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 p-2 rounded-xl bg-background/10 dark:bg-card/50 backdrop-blur-lg border border-background/20 dark:border-border">
+              <div className="flex-1 flex items-center gap-2 px-4 py-2 rounded-lg bg-background dark:bg-background">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input type="text" placeholder="Cari posisi atau departemen..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-background dark:bg-background sm:w-48">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input type="text" placeholder="Lokasi..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} />
+              </div>
+              <Button size="lg" className="sm:px-8"><Search className="h-4 w-4 mr-2" />Cari</Button>
             </div>
-          </div>
-
-          <button type="submit" disabled={loading}
-            className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed glow-primary">
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-                Memverifikasi...
-              </span>
-            ) : "Masuk ke Tes"}
-          </button>
-
-          <p className="text-center text-xs text-muted-foreground">Hubungi HRD jika Anda belum menerima kode aktivasi</p>
-        </form>
-
-        <div className="mt-6 flex flex-col items-center gap-2">
-          <a href="/admin" className="text-xs text-primary hover:underline">🔐 Admin Panel</a>
-          <p className="text-xs text-muted-foreground/60">© 2024 PsyTest Recruitment Platform • Secure & Confidential</p>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      {/* Stats */}
+      <section className="container -mt-8 relative z-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {stats.map((stat, i) => (
+            <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.1, duration: 0.4 }} className="stat-card">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><stat.icon className="h-5 w-5 text-primary" /></div>
+                <div><p className="text-2xl font-bold">{stat.value}</p><p className="text-xs text-muted-foreground">{stat.label}</p></div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Job Listings */}
+      <section className="container py-16">
+        <div className="flex items-center justify-between mb-8">
+          <div><h2 className="text-2xl font-bold">Lowongan Terbaru</h2><p className="text-muted-foreground mt-1">Temukan posisi yang sesuai dengan keahlianmu</p></div>
+          <Button variant="ghost" asChild><Link to="/jobs">Lihat Semua <ChevronRight className="h-4 w-4 ml-1" /></Link></Button>
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1,2,3].map(i => <div key={i} className="card-elevated p-6 h-48 animate-pulse bg-muted/30" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredJobs.map((job, i) => (
+              <motion.div key={job.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * i, duration: 0.4 }}>
+                <Link to={`/jobs/${job.id}`} className="block card-elevated p-6 h-full group">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>
+                    <Badge variant="secondary" className="text-xs">{(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
+                  </div>
+                  <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors">{(job as any).title || (job as any).position}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{(job as any).department || (job as any).category}</p>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{(job as any).description || "Klik untuk melihat detail lowongan ini."}</p>
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {(job as any).location || "-"}</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {(job as any).deadline ? new Date((job as any).deadline).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Open"}</span>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </section>
+    </PublicLayout>
   );
 };
 

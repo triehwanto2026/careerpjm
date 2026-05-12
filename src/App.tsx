@@ -22,12 +22,17 @@ import RoleManagement from "./pages/admin/RoleManagement";
 import Profile from "./pages/admin/Profile";
 import Jobs from "./pages/admin/Jobs";
 import Recruitment from "./pages/admin/Recruitment";
+import HRJobs from "./pages/admin/HRJobs";
 import CandidateLogin from "./pages/candidate/CandidateLogin";
 import CandidateRegister from "./pages/candidate/CandidateRegister";
 import CandidateProfile from "./pages/candidate/CandidateProfile";
 import CandidateJobs from "./pages/candidate/CandidateJobs";
 import CandidateApplications from "./pages/candidate/CandidateApplications";
 import CandidateTests from "./pages/candidate/CandidateTests";
+import Index from "./pages/Index";
+import Login from "./pages/Login";
+import JobsPage from "./pages/Jobs";
+import JobDetail from "./pages/JobDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,8 +45,10 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/:id" element={<JobDetail />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<Dashboard />} />
@@ -59,6 +66,7 @@ const App = () => (
             <Route path="/admin/roles" element={<RoleManagement />} />
             <Route path="/admin/profile" element={<Profile />} />
             <Route path="/admin/jobs" element={<Jobs />} />
+            <Route path="/admin/hr-jobs" element={<HRJobs />} />
             <Route path="/admin/recruitment" element={<Recruitment />} />
             <Route path="/candidate/login" element={<CandidateLogin />} />
             <Route path="/candidate/register" element={<CandidateRegister />} />
