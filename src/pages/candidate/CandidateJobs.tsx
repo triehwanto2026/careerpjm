@@ -29,7 +29,7 @@ export default function CandidateJobs() {
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) setUserId(session.user.id);
-    const { data } = await supabase.from("job_vacancies").select("*").eq("status", "open").order("created_at", { ascending: false });
+    const { data } = await supabase.from("job_vacancies").select("*").eq("status", "active").order("created_at", { ascending: false });
     setVacancies((data as any) || []);
     if (session) {
       const { data: apps } = await supabase.from("job_applications").select("vacancy_id").eq("user_id", session.user.id);

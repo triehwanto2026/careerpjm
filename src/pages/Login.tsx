@@ -7,6 +7,7 @@ import { Mail, Lock, Building2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,12 +23,17 @@ const Login = () => {
       return;
     }
     setLoading(true);
-    // TODO: Implement actual login logic with Supabase
-    setTimeout(() => {
-      setLoading(false);
-      toast({ title: "✅ Login Berhasil", description: "Selamat datang kembali!" });
-      navigate("/", { replace: true });
-    }, 1000);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: "❌ Login Gagal", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "✅ Login Berhasil", description: "Selamat datang kembali!" });
+    navigate("/candidate/profile", { replace: true });
   };
 
   return (

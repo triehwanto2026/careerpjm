@@ -26,8 +26,17 @@ export default function CandidateTests() {
     if (!session?.user.email) return;
     const { data: c } = await supabase.from("activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
     setCodes((c as any) || []);
-    const { data: r } = await supabase.from("test_results").select("*").order("completed_at", { ascending: false });
-    // Filter by candidate_name match (best-effort) - or use email matching via profile
+    
+    // Get candidate profile to get candidate_id
+    const { data: profile } = await supabase.from("candidate_profiles").select("*").eq("email", session.user.email).maybeSingle();
+    const candidateId = profile?.id;
+    
+    // Filter test results by candidate_id if available
+    let query = supabase.from("test_results").select("*").order("completed_at", { ascending: false });
+    if (candidateId) {
+      query = query.eq("candidate_id", candidateId);
+    }
+    const { data: r } = await query;
     setResults((r as any) || []);
   };
 
@@ -54,8 +63,13 @@ export default function CandidateTests() {
             {codes.map((c) => {
               const done = c.test_completed_at || c.status === "completed";
               const expired = c.expires_at && new Date(c.expires_at) < new Date();
+              const canStart = !done && !expired;
               return (
-                <div key={c.id} className="bg-card border border-border rounded-2xl p-5">
+                <div
+                  key={c.id}
+                  className={`bg-card border border-border rounded-2xl p-5 ${canStart ? 'cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors' : ''}`}
+                  onClick={() => canStart && navigate("/test", { state: { code: c.code } })}
+                >
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -71,9 +85,9 @@ export default function CandidateTests() {
                         {done && <span className="flex items-center gap-1 text-green-500"><CheckCircle2 className="h-3 w-3" />Selesai: {fmtDate(c.test_completed_at)}</span>}
                       </div>
                     </div>
-                    {!done && !expired && (
+                    {canStart && (
                       <button
-                        onClick={() => navigate("/test", { state: { code: c.code } })}
+                        onClick={(e) => { e.stopPropagation(); navigate("/test", { state: { code: c.code } }); }}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110"
                       >
                         <Play className="h-4 w-4" /> Mulai Tes
