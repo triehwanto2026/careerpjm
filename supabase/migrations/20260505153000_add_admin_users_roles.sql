@@ -1,5 +1,5 @@
 -- Admin Roles table
-CREATE TABLE public.admin_roles (
+CREATE TABLE IF NOT EXISTS public.admin_roles (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   description TEXT NOT NULL DEFAULT '',
@@ -9,7 +9,7 @@ CREATE TABLE public.admin_roles (
 );
 
 -- Admin Users table
-CREATE TABLE public.admin_users (
+CREATE TABLE IF NOT EXISTS public.admin_users (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL UNIQUE,
@@ -79,46 +79,42 @@ INSERT INTO public.admin_roles (name, description, permissions) VALUES (
     "/admin/results",
     "/admin/answer-keys",
     "/admin/interpretations",
-    "/admin/settings",
-    "/admin/users",
-    "/admin/roles"
-  ]'
-);
-
--- Insert default Admin role with limited permissions (no user/role management)
-INSERT INTO public.admin_roles (name, description, permissions) VALUES (
-  'Admin',
-  'Akses ke halaman operasional tanpa manajemen user/role',
-  '[
+INSERT INTO public.admin_roles (name, description, permissions) 
+SELECT 'Super Admin', 'Full system access with all permissions', '[
     "/admin/dashboard",
-    "/admin/activation-codes",
-    "/admin/test-instruments",
     "/admin/candidates",
     "/admin/results",
-    "/admin/answer-keys",
-    "/admin/interpretations",
-    "/admin/settings"
-  ]'
-);
+    "/admin/settings",
+    "/admin/users",
+    "/admin/roles",
+    "/admin/jobs",
+    "/admin/applications",
+    "/admin/process"
+  ]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM public.admin_roles WHERE name = 'Super Admin');
 
--- Insert default Viewer role (read-only)
-INSERT INTO public.admin_roles (name, description, permissions) VALUES (
-  'Viewer',
-  'Hanya dapat melihat hasil dan kandidat',
-  '[
+INSERT INTO public.admin_roles (name, description, permissions) 
+SELECT 'Admin', 'Administrative access with limited permissions', '[
+    "/admin/dashboard",
+    "/admin/candidates",
+    "/admin/results",
+    "/admin/jobs",
+    "/admin/applications",
+    "/admin/process"
+  ]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM public.admin_roles WHERE name = 'Admin');
+
+INSERT INTO public.admin_roles (name, description, permissions) 
+SELECT 'Viewer', 'Hanya dapat melihat hasil dan kandidat', '[
     "/admin/dashboard",
     "/admin/candidates",
     "/admin/results"
-  ]'
-);
+  ]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM public.admin_roles WHERE name = 'Viewer');
 
--- Insert default Super Admin user (password: admin123)
+-- Insert default Super Admin user (password: admin123) (only if not exists)
 -- Password hash generated with simple SHA-256 for demo: admin123
-INSERT INTO public.admin_users (username, email, password_hash, full_name, role_id, is_active) VALUES (
-  'superadmin',
-  'superadmin@psytest.id',
-  '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
-  'Super Administrator',
-  (SELECT id FROM public.admin_roles WHERE name = 'Super Admin'),
-  true
-);
+INSERT INTO public.admin_users (username, email, password_hash, full_name, role_id, is_active) 
+SELECT 'superadmin', 'superadmin@psytest.id', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'Super Administrator', 
+  (SELECT id FROM public.admin_roles WHERE name = 'Super Admin'), true
+WHERE NOT EXISTS (SELECT 1 FROM public.admin_users WHERE username = 'superadmin');
