@@ -54,10 +54,14 @@ const LoginPage = () => {
       } else {
         // Try candidate login via email/password first (for admin-created accounts)
         if (!activationCode && email && password) {
+          console.log('Trying candidate login with:', { email, hasPassword: !!password });
+          
           const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
+
+          console.log('Auth result:', { authData, authError });
 
           if (!authError && authData.user) {
             // Check if user exists in candidates table
@@ -66,6 +70,8 @@ const LoginPage = () => {
               .select("id, name, email, position, photo_url, phone, birth_date, education, gender")
               .eq("email", email)
               .maybeSingle();
+
+            console.log('Candidate data:', candidate);
 
             if (candidate) {
               sessionStorage.setItem("psytest_auth", "true");
@@ -95,7 +101,11 @@ const LoginPage = () => {
                 navigate("/test");
               });
               return;
+            } else {
+              console.log('No candidate found for email:', email);
             }
+          } else {
+            console.log('Auth failed:', authError?.message);
           }
         }
 

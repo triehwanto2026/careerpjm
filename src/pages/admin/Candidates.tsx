@@ -814,22 +814,30 @@ const Candidates = () => {
     
     if (r.isConfirmed) {
       try {
-        // Find auth user by email
+        // Use admin API to list users and find the candidate
         const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-        if (authError) throw authError;
         
+        if (authError) {
+          console.error('Error listing users:', authError);
+          throw new Error("Tidak dapat mengakses daftar pengguna. Pastikan Anda memiliki akses admin.");
+        }
+        
+        // Find the user by email
         const user = (authUsers as any).users.find((u: any) => u.email === candidate.email);
         if (!user) {
           throw new Error("User tidak ditemukan");
         }
         
-        // Update password
+        // Update the user's password
         const { error: updateError } = await supabase.auth.admin.updateUserById(
           user.id,
           { password: '123456' }
         );
         
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Error updating password:', updateError);
+          throw new Error("Gagal mengupdate password. Pastikan Anda memiliki izin untuk mereset password.");
+        }
         
         await Swal.fire({ 
           icon: "success", 
@@ -840,10 +848,11 @@ const Candidates = () => {
           ...SWAL_THEME() 
         });
       } catch (error: any) {
+        console.error('Reset password error:', error);
         await Swal.fire({ 
           icon: "error", 
           title: "Gagal Reset", 
-          text: error.message || "Terjadi kesalahan saat reset password", 
+          text: error.message || "Terjadi kesalahan saat reset password. Pastikan Anda login sebagai admin dan memiliki izin yang cukup.",
           ...SWAL_THEME() 
         });
       }
