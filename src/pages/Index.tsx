@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { PublicLayout } from "@/components/layout/PublicLayout";
+import PublicLayout from "@/components/layout/PublicLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import heroBg from "@/assets/hero-bg.jpg";
 import { useActiveJobs } from "@/hooks/useJobs";
 
 const stats = [
@@ -24,20 +23,16 @@ const Index = () => {
   const { data: jobs = [], isLoading } = useActiveJobs();
 
   const filteredJobs = jobs.filter((job) => {
-    const title = (job as any).title || (job as any).position || "";
-    const department = (job as any).department || (job as any).category || "";
-    const location = (job as any).location || "";
-    const matchSearch = title.toLowerCase().includes(search.toLowerCase()) ||
-      department.toLowerCase().includes(search.toLowerCase());
-    const matchLocation = !locationFilter || location.toLowerCase().includes(locationFilter.toLowerCase());
+    const matchSearch = job.title.toLowerCase().includes(search.toLowerCase()) ||
+      job.department.toLowerCase().includes(search.toLowerCase());
+    const matchLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
     return matchSearch && matchLocation;
   }).slice(0, 6);
 
   return (
     <PublicLayout>
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroBg})` }} />
+      <section className="relative overflow-hidden hero-gradient">
         <div className="absolute inset-0 bg-gradient-to-r from-foreground/90 via-foreground/70 to-foreground/50 dark:from-background/95 dark:via-background/80 dark:to-background/60" />
         <div className="relative container py-24 md:py-32">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-2xl">
@@ -95,15 +90,15 @@ const Index = () => {
                 <Link to={`/jobs/${job.id}`} className="block card-elevated p-6 h-full group">
                   <div className="flex items-start justify-between mb-3">
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>
-                    <Badge variant="secondary" className="text-xs">{(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
+                    <Badge variant="secondary" className="text-xs">{job.employment_type}</Badge>
                   </div>
-                  <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors">{(job as any).title || (job as any).position}</h3>
-                  <p className="text-sm text-muted-foreground mb-3">{(job as any).department || (job as any).category}</p>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{(job as any).description || "Klik untuk melihat detail lowongan ini."}</p>
+                  <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors">{job.title}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{job.department}</p>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{job.description || "Klik untuk melihat detail lowongan ini."}</p>
                   <div className="flex items-center justify-between pt-3 border-t border-border">
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {(job as any).location || "-"}</span>
-                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {(job as any).deadline ? new Date((job as any).deadline).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Open"}</span>
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {job.location}</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {job.closes_at ? new Date(job.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Open"}</span>
                     </div>
                     <ArrowRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>

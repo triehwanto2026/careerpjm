@@ -26,7 +26,7 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
   { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
-  { path: "/admin/jobs", label: "Lowongan", icon: Briefcase },
+  { path: "/admin/hr-jobs", label: "Lowongan", icon: Briefcase },
   { path: "/admin/recruitment", label: "Rekrutmen", icon: Workflow },
   {
     label: "Manajemen Kandidat",
@@ -118,6 +118,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         currentPath === "/admin" ||
         currentPath === "/admin/test-instruments" ||
         currentPath === "/admin/jobs" ||
+        currentPath === "/admin/hr-jobs" ||
         currentPath === "/admin/recruitment";
 
       const isSubRoute = currentPath.startsWith("/admin/test-instruments/");
