@@ -148,11 +148,14 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     if (!adminSession) return ALL_NAV_ENTRIES;
     const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
 
+    // Paths that should always be visible regardless of permissions
+    const alwaysVisiblePaths = ["/admin/hr-jobs"];
+
     const filtered: NavEntry[] = [];
     for (const entry of ALL_NAV_ENTRIES) {
       if (!entry) continue;
       if ("path" in entry) {
-        if (perms.includes(entry.path)) filtered.push(entry);
+        if (perms.includes(entry.path) || alwaysVisiblePaths.includes(entry.path)) filtered.push(entry);
       } else if (entry.children && Array.isArray(entry.children)) {
         const visibleChildren = entry.children.filter(
           (c) => c && c.path && perms.includes(c.path)
