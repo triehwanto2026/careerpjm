@@ -51,7 +51,7 @@ const HRJobs = () => {
         description: newJob.description || undefined,
         qualifications: newJob.qualifications || undefined,
         deadline: newJob.deadline || undefined,
-        status: "draft",
+        status: "active",
       });
       setNewJob({ title: "", department: "", location: "", type: "", salary: "", deadline: "", description: "", qualifications: "" });
       setDialogOpen(false);

@@ -26,13 +26,13 @@ const Login = () => {
     setTimeout(() => {
       setLoading(false);
       toast({ title: "✅ Login Berhasil", description: "Selamat datang kembali!" });
-      navigate("/admin/dashboard", { replace: true });
+      navigate("/", { replace: true });
     }, 1000);
   };
 
   return (
     <PublicLayout>
-      <div className="container flex items-center justify-center min-h-[calc(100vh-16rem)] py-12">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
@@ -44,35 +44,49 @@ const Login = () => {
             <p className="text-muted-foreground mt-2">Masuk ke akun Recruit PJM GROUP Anda</p>
           </div>
 
-          <div className="card-elevated p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="email" type="email" placeholder="nama@email.com" className="pl-10" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="nama@email.com"
+                  className="pl-10"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="password" type="password" placeholder="••••••••" className="pl-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading ? "Memproses..." : "Masuk"}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Belum punya akun?{" "}
-                <Link to="/register" className="text-primary font-medium hover:underline">Daftar Sekarang</Link>
-              </p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="pl-10"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Memproses..." : "Masuk"}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            Belum punya akun?{" "}
+            <Link to="/register" className="text-primary hover:underline font-medium">
+              Daftar Sekarang
+            </Link>
           </div>
         </motion.div>
       </div>

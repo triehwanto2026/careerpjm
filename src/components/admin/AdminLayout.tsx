@@ -42,6 +42,7 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
       { path: "/admin/settings", label: "Pengaturan Aplikasi", icon: SettingsIcon },
       { path: "/admin/users", label: "Manajemen User", icon: UserCog },
       { path: "/admin/roles", label: "Manajemen Role", icon: Shield },
+      { path: "/admin/candidate-settings", label: "Manajemen Kandidat", icon: Users },
     ],
   },
 ];
@@ -146,7 +147,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
 
     // Paths that should always be visible regardless of permissions
-    const alwaysVisiblePaths = ["/admin/hr-jobs"];
+    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/candidate-settings"];
 
     const filtered: NavEntry[] = [];
     for (const entry of ALL_NAV_ENTRIES) {

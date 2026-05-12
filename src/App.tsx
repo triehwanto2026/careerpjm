@@ -23,6 +23,7 @@ import Profile from "./pages/admin/Profile";
 import Jobs from "./pages/admin/Jobs";
 import Recruitment from "./pages/admin/Recruitment";
 import HRJobs from "./pages/admin/HRJobs";
+import CandidateSettings from "./pages/admin/CandidateSettings";
 import CandidateLogin from "./pages/candidate/CandidateLogin";
 import CandidateRegister from "./pages/candidate/CandidateRegister";
 import CandidateProfile from "./pages/candidate/CandidateProfile";
@@ -70,6 +71,7 @@ const App = () => (
             <Route path="/admin/settings" element={<Settings />} />
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/roles" element={<RoleManagement />} />
+            <Route path="/admin/candidate-settings" element={<CandidateSettings />} />
             <Route path="/admin/profile" element={<Profile />} />
             <Route path="/admin/jobs" element={<Jobs />} />
             <Route path="/admin/hr-jobs" element={<HRJobs />} />
