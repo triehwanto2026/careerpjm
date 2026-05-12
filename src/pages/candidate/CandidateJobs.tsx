@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Briefcase, MapPin, Building2, Clock, Send } from "lucide-react";
+import { Briefcase, MapPin, Building2, Clock, Send, X, Calendar, DollarSign, Users, FileText } from "lucide-react";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
@@ -17,6 +17,12 @@ interface Vacancy {
   max_salary: number | null;
   closes_at: string | null;
   created_at: string;
+  company_name?: string;
+  experience_level?: string;
+  education_level?: string;
+  skills_required?: string;
+  benefits?: string;
+  work_schedule?: string;
 }
 
 export default function CandidateJobs() {
@@ -86,6 +92,12 @@ export default function CandidateJobs() {
                     <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{v.description}</p>
                   </div>
                   <div className="flex flex-col gap-2 md:items-end">
+                    <button 
+                      onClick={() => setSelected(v)} 
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/80"
+                    >
+                      <Briefcase className="h-4 w-4" /> Detail
+                    </button>
                     {applied.has(v.id) ? (
                       <span className="px-3 py-1.5 rounded-full bg-green-500/15 text-green-500 text-xs font-semibold">✓ Sudah Dilamar</span>
                     ) : (
@@ -101,48 +113,138 @@ export default function CandidateJobs() {
         )}
       </div>
 
-      {/* Modal lamar */}
+      {/* Modal Detail Lowongan */}
       {selected && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-1">{selected.title}</h2>
-            <div className="text-xs text-muted-foreground mb-4">{selected.department} • {selected.location}</div>
-
-            {selected.description && (
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold mb-1">Deskripsi</h3>
-                <p className="text-sm whitespace-pre-line text-muted-foreground">{selected.description}</p>
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{selected.title}</h2>
+                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                  {selected.company_name && <span className="flex items-center gap-1"><Building2 className="h-4 w-4" />{selected.company_name}</span>}
+                  {selected.department && <span className="flex items-center gap-1"><Briefcase className="h-4 w-4" />{selected.department}</span>}
+                  {selected.location && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{selected.location}</span>}
+                  {selected.employment_type && <span className="flex items-center gap-1"><Clock className="h-4 w-4" />{selected.employment_type.replace("_", " ")}</span>}
+                  {selected.experience_level && <span className="flex items-center gap-1"><Users className="h-4 w-4" />{selected.experience_level}</span>}
+                </div>
               </div>
-            )}
-            {selected.responsibilities && (
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold mb-1">Tanggung Jawab</h3>
-                <p className="text-sm whitespace-pre-line text-muted-foreground">{selected.responsibilities}</p>
-              </div>
-            )}
-            {selected.requirements && (
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold mb-1">Persyaratan</h3>
-                <p className="text-sm whitespace-pre-line text-muted-foreground">{selected.requirements}</p>
-              </div>
-            )}
-
-            <div className="mb-4">
-              <label className="text-sm font-semibold mb-1 block">Surat Pengantar (opsional)</label>
-              <textarea
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                rows={4}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Ceritakan mengapa Anda cocok untuk posisi ini..."
-              />
+              <button onClick={() => setSelected(null)} className="p-2 hover:bg-muted rounded-lg transition">
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setSelected(null)} className="px-4 py-2 rounded-lg border border-border text-sm font-semibold">Batal</button>
-              <button onClick={apply} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                <Send className="h-4 w-4" /> Kirim Lamaran
+            {/* Salary Info */}
+            {(selected.min_salary || selected.max_salary) && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 text-primary font-bold text-lg">
+                  <DollarSign className="h-5 w-5" />
+                  {fmtRp(selected.min_salary)}{selected.max_salary ? ` - ${fmtRp(selected.max_salary)}` : ""}
+                </div>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              {/* Left Column */}
+              <div className="space-y-6">
+                {selected.description && (
+                  <div>
+                    <h3 className="text-base font-semibold mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Deskripsi Pekerjaan</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{selected.description}</p>
+                  </div>
+                )}
+
+                {selected.responsibilities && (
+                  <div>
+                    <h3 className="text-base font-semibold mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Tanggung Jawab</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{selected.responsibilities}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-6">
+                {selected.requirements && (
+                  <div>
+                    <h3 className="text-base font-semibold mb-3 flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Persyaratan</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{selected.requirements}</p>
+                  </div>
+                )}
+
+                {selected.skills_required && (
+                  <div>
+                    <h3 className="text-base font-semibold mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Keahlian yang Dibutuhkan</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{selected.skills_required}</p>
+                  </div>
+                )}
+
+                {selected.benefits && (
+                  <div>
+                    <h3 className="text-base font-semibold mb-3 flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" /> Benefit</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{selected.benefits}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="grid md:grid-cols-3 gap-4 mb-6 bg-muted/30 rounded-xl p-4">
+              {selected.education_level && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-1">Pendidikan Minimal</h4>
+                  <p className="text-sm font-medium">{selected.education_level}</p>
+                </div>
+              )}
+              {selected.work_schedule && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-1">Jam Kerja</h4>
+                  <p className="text-sm font-medium">{selected.work_schedule}</p>
+                </div>
+              )}
+              {selected.closes_at && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-1">Deadline Lamaran</h4>
+                  <p className="text-sm font-medium flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {new Date(selected.closes_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Application Form */}
+            {!applied.has(selected.id) && (
+              <div className="border-t border-border pt-6">
+                <h3 className="text-base font-semibold mb-4">Lamar Posisi Ini</h3>
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-2 block">Surat Pengantar (opsional)</label>
+                  <textarea
+                    value={coverLetter}
+                    onChange={(e) => setCoverLetter(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    placeholder="Ceritakan mengapa Anda cocok untuk posisi ini dan pengalaman relevan Anda..."
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 justify-end pt-4 border-t border-border">
+              <button 
+                onClick={() => setSelected(null)} 
+                className="px-6 py-3 rounded-xl border border-border text-sm font-semibold hover:bg-muted transition"
+              >
+                Tutup
               </button>
+              {!applied.has(selected.id) && (
+                <button 
+                  onClick={apply} 
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition"
+                >
+                  <Send className="h-4 w-4" /> Kirim Lamaran
+                </button>
+              )}
             </div>
           </div>
         </div>

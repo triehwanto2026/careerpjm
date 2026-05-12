@@ -30,6 +30,10 @@ import CandidateProfile from "./pages/candidate/CandidateProfile";
 import CandidateJobs from "./pages/candidate/CandidateJobs";
 import CandidateApplications from "./pages/candidate/CandidateApplications";
 import CandidateTests from "./pages/candidate/CandidateTests";
+import CandidateProfileSettings from "./pages/candidate/CandidateProfileSettings";
+import SimpleCandidateLogin from "./pages/admin/SimpleCandidateLogin";
+import Applicants from "./pages/admin/Applicants";
+import RecruitmentProcess from "./pages/admin/RecruitmentProcess";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import JobsPage from "./pages/Jobs";
@@ -82,6 +86,11 @@ const App = () => (
             <Route path="/candidate/jobs" element={<CandidateJobs />} />
             <Route path="/candidate/applications" element={<CandidateApplications />} />
             <Route path="/candidate/tests" element={<CandidateTests />} />
+            <Route path="/candidate/settings" element={<CandidateProfileSettings />} />
+            <Route path="/admin/candidate-settings" element={<CandidateSettings />} />
+            <Route path="/admin/candidate-login" element={<SimpleCandidateLogin />} />
+            <Route path="/admin/applicants" element={<Applicants />} />
+            <Route path="/admin/recruitment-process" element={<RecruitmentProcess />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

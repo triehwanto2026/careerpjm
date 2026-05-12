@@ -46,11 +46,18 @@ export default function CandidateTests() {
 
   return (
     <CandidateLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold">Tes Psikologi</h1>
-          <p className="text-sm text-muted-foreground">Daftar paket tes yang ditugaskan untuk Anda.</p>
+      <div className="min-h-screen flex flex-col">
+        {/* Header */}
+        <div className="bg-card border-b border-border px-4 py-4">
+          <div className="max-w-6xl mx-auto">
+            <h1 className="text-2xl font-bold">Tes Psikologi</h1>
+            <p className="text-sm text-muted-foreground">Daftar paket tes yang ditugaskan untuk Anda.</p>
+          </div>
         </div>
+
+        {/* Main Content */}
+        <div className="flex-1 w-full px-4 py-6">
+          <div className="max-w-6xl mx-auto space-y-4">
 
         {codes.length === 0 ? (
           <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground">
@@ -118,6 +125,8 @@ export default function CandidateTests() {
           </div>
         )}
       </div>
+      </div>
+    </div>
     </CandidateLayout>
   );
 }

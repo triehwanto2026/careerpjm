@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { User, Briefcase, FileText, ClipboardList, LogOut, Brain, Menu, X } from "lucide-react";
+import { User, Briefcase, FileText, ClipboardList, LogOut, Brain, Menu, X, Bell, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -9,6 +9,7 @@ const nav = [
   { to: "/candidate/jobs", label: "Lowongan", icon: Briefcase },
   { to: "/candidate/applications", label: "Lamaran Saya", icon: ClipboardList },
   { to: "/candidate/tests", label: "Tes Psikologi", icon: Brain },
+  { to: "/candidate/settings", label: "Pengaturan", icon: Settings },
 ];
 
 export default function CandidateLayout({ children }: { children: ReactNode }) {
@@ -16,6 +17,8 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [email, setEmail] = useState<string>("");
   const [open, setOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -86,7 +89,112 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <div className="text-sm font-semibold">Selamat datang di Portal Kandidat</div>
-          <ThemeToggle />
+          
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-3">
+            {/* Notifications */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 rounded-md hover:bg-muted relative"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+              </button>
+              
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50">
+                  <div className="p-4 border-b border-border">
+                    <h3 className="font-semibold text-sm">Notifikasi</h3>
+                    <p className="text-xs text-muted-foreground">2 notifikasi baru</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    <div className="p-3 hover:bg-muted cursor-pointer border-b border-border">
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Bell className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold">Status Lamaran Diperbarui</h4>
+                          <p className="text-xs text-muted-foreground">Lamaran Anda telah berpindah ke tahap screening</p>
+                          <p className="text-xs text-muted-foreground mt-1">2 jam yang lalu</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3 hover:bg-muted cursor-pointer">
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <Bell className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold">Tes Psikologi Tersedia</h4>
+                          <p className="text-xs text-muted-foreground">Paket tes telah ditugaskan untuk Anda</p>
+                          <p className="text-xs text-muted-foreground mt-1">1 hari yang lalu</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-3 border-t border-border">
+                    <button className="w-full text-center text-sm text-primary hover:underline">
+                      Lihat Semua Notifikasi
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Profile Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center gap-2 p-2 rounded-md hover:bg-muted"
+              >
+                <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
+                  <User className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-sm font-medium hidden sm:inline">Profil</span>
+              </button>
+              
+              {/* Profile Dropdown */}
+              {showProfileMenu && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-50">
+                  <div className="p-2">
+                    <button
+                      onClick={() => {
+                        navigate("/candidate/settings");
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-muted transition"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>Pengaturan Profil</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate("/candidate/profile");
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-muted transition"
+                    >
+                      <User className="h-4 w-4" />
+                      <span>Data Profil</span>
+                    </button>
+                    <div className="border-t border-border my-2"></div>
+                    <button
+                      onClick={logout}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Keluar</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <ThemeToggle />
+          </div>
         </header>
         <main className="flex-1 p-4 lg:p-6 overflow-auto">{children}</main>
       </div>

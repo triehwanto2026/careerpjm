@@ -26,7 +26,15 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
   { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
-  { path: "/admin/hr-jobs", label: "Lowongan Kerja", icon: Briefcase },
+  {
+    label: "Kelola Lowongan",
+    icon: Briefcase,
+    children: [
+      { path: "/admin/hr-jobs", label: "Lowongan", icon: Briefcase },
+      { path: "/admin/applicants", label: "Pelamar", icon: Users },
+      { path: "/admin/recruitment-process", label: "Proses", icon: Workflow },
+    ],
+  },
   {
     label: "Manajemen Kandidat",
     icon: Users,
@@ -147,7 +155,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
 
     // Paths that should always be visible regardless of permissions
-    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/candidate-settings"];
+    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/candidate-settings"];
 
     const filtered: NavEntry[] = [];
     for (const entry of ALL_NAV_ENTRIES) {
@@ -156,7 +164,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         if (perms.includes(entry.path) || alwaysVisiblePaths.includes(entry.path)) filtered.push(entry);
       } else if (entry.children && Array.isArray(entry.children)) {
         const visibleChildren = entry.children.filter(
-          (c) => c && c.path && perms.includes(c.path)
+          (c) => c && c.path && (perms.includes(c.path) || alwaysVisiblePaths.includes(c.path))
         );
         if (visibleChildren.length > 0) {
           filtered.push({ label: entry.label, icon: entry.icon, children: visibleChildren });
@@ -182,6 +190,11 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Expandable groups state
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    "Kelola Lowongan": location.pathname.startsWith("/admin/hr-jobs") ||
+                      location.pathname === "/admin/applicants" ||
+                      location.pathname === "/admin/recruitment-process",
+    "Manajemen Kandidat": location.pathname.startsWith("/admin/candidates") ||
+                         location.pathname === "/admin/results",
     Pengaturan: location.pathname.startsWith("/admin/settings") ||
                 location.pathname === "/admin/users" ||
                 location.pathname === "/admin/roles",

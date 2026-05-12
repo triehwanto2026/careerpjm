@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Shield, Check, X, Save } from "lucide-react";
+import { Plus, Edit2, Trash2, Shield, Check, X, Save, RefreshCw, Search, Filter } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,9 @@ const AVAILABLE_PAGES = [
   { path: "/admin/dashboard", label: "Dashboard" },
   { path: "/admin/activation-codes", label: "Kode Aktivasi" },
   { path: "/admin/test-instruments", label: "Alat Tes" },
+  { path: "/admin/hr-jobs", label: "Lowongan" },
+  { path: "/admin/applicants", label: "Pelamar" },
+  { path: "/admin/recruitment-process", label: "Proses" },
   { path: "/admin/candidates", label: "Kandidat" },
   { path: "/admin/results", label: "Hasil Tes" },
   { path: "/admin/answer-keys", label: "Kunci Jawaban" },
@@ -23,6 +26,7 @@ const AVAILABLE_PAGES = [
   { path: "/admin/settings", label: "Pengaturan" },
   { path: "/admin/users", label: "Manajemen User" },
   { path: "/admin/roles", label: "Manajemen Role" },
+  { path: "/admin/candidate-settings", label: "Manajemen Kandidat" },
 ];
 
 const SWAL_THEME = {
@@ -36,6 +40,8 @@ const RoleManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRole, setEditingRole] = useState<AdminRole | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -281,23 +287,108 @@ const RoleManagement = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Manajemen Role</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Atur role dan hak akses halaman untuk admin
             </p>
           </div>
-          <button
-            onClick={() => {
-              resetForm();
-              setShowForm(!showForm);
-            }}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all"
-          >
-            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {showForm ? "Batal" : "Tambah Role"}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => loadRoles()}
+              className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition"
+              title="Refresh data"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+            <button
+              onClick={() => {
+                resetForm();
+                setShowForm(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition"
+            >
+              <Plus className="h-4 w-4" />
+              Tambah Role
+            </button>
+          </div>
+        </div>
+
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Cari nama role atau deskripsi..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+          <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition">
+            <Filter className="h-4 w-4" />
+            Filter
           </button>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Role</p>
+                <p className="text-2xl font-bold text-foreground">{roles.length}</p>
+              </div>
+              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <Shield className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Halaman</p>
+                <p className="text-2xl font-bold text-foreground">{AVAILABLE_PAGES.length}</p>
+              </div>
+              <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                <Check className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Role Aktif</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {roles.filter((r) => r.permissions.length > 0).length}
+                </p>
+              </div>
+              <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
+                <Check className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Rata-rata Akses</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {roles.length > 0
+                    ? Math.round(
+                        roles.reduce((acc, r) => acc + r.permissions.length, 0) / roles.length
+                      )
+                    : 0}
+                </p>
+              </div>
+              <div className="h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <Shield className="h-5 w-5 text-orange-600" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Form */}
@@ -415,7 +506,12 @@ const RoleManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {roles.map((role) => (
+                {roles
+                  .filter(role => 
+                    role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    role.description.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((role) => (
                   <tr
                     key={role.id}
                     className="border-b border-border hover:bg-muted/30 transition-colors"
@@ -470,10 +566,13 @@ const RoleManagement = () => {
                     </td>
                   </tr>
                 ))}
-                {roles.length === 0 && (
+                {roles.filter(role => 
+                  role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  role.description.toLowerCase().includes(searchTerm.toLowerCase())
+                ).length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                      Belum ada role. Klik "Tambah Role" untuk membuat role baru.
+                      {searchTerm ? "Tidak ada hasil pencarian" : "Belum ada role. Klik \"Tambah Role\" untuk membuat role baru."}
                     </td>
                   </tr>
                 )}
