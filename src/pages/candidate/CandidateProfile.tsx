@@ -177,16 +177,38 @@ export default function CandidateProfile() {
         const skillsData = safeParseJSON(pData.skills, []);
         const languagesData = safeParseJSON(pData.languages, []);
         
-        // Split family data into regular family and immediate family
-        const regularFamily = familyData.filter((member: any) => 
-          ['Ayah', 'Ibu', 'Kakak', 'Adik', 'Saudara'].includes(member.relation)
-        );
-        const immediateFamilyData = familyData.filter((member: any) => 
-          ['Suami', 'Istri', 'Anak'].includes(member.relation)
-        );
+        // Try to load from new separated fields first, fallback to family_members
+        const familyDataNew = safeParseJSON(pData.family_data, []);
+        const immediateFamilyDataNew = safeParseJSON(pData.immediate_family_data, []);
         
-        setFamilyMembers(regularFamily);
-        setImmediateFamily(immediateFamilyData);
+        console.log('Loading family data - family_data:', familyDataNew);
+        console.log('Loading family data - immediate_family_data:', immediateFamilyDataNew);
+        console.log('Loading family data - original family_members:', familyData);
+        
+        if (familyDataNew.length > 0 || immediateFamilyDataNew.length > 0) {
+          // Use new separated data if available
+          console.log('Using new separated family data');
+          setFamilyMembers(familyDataNew);
+          setImmediateFamily(immediateFamilyDataNew);
+        } else {
+          // Fallback to old family_members field and split data
+          console.log('Using fallback to family_members field');
+          const regularFamily = familyData.filter((member: any) => {
+            const relation = member.relation || member.relationship || '';
+            console.log('Filtering family member:', member, 'relation:', relation);
+            return ['Ayah', 'Ibu', 'Bapak', 'Kakak', 'Adik', 'Saudara'].includes(relation);
+          });
+          const immediateFamilyData = familyData.filter((member: any) => {
+            const relation = member.relation || member.relationship || '';
+            return ['Suami', 'Istri', 'Anak'].includes(relation);
+          });
+          
+          console.log('Filtered regular family:', regularFamily);
+          console.log('Filtered immediate family:', immediateFamilyData);
+          
+          setFamilyMembers(regularFamily);
+          setImmediateFamily(immediateFamilyData);
+        }
         setEducationHistory(educationData);
         setInformalEducation(informalEducationData);
         setWorkExperience(workExperienceData);
@@ -233,6 +255,8 @@ export default function CandidateProfile() {
   const handleCancelEdit = () => {
     setProfile({ ...originalProfile });
     setIsEditing(false);
+    // Reload family data to reset to original state
+    load();
   };
 
   const addFamilyMember = () => {
@@ -240,8 +264,10 @@ export default function CandidateProfile() {
   };
 
   const updateFamilyMember = (index: number, field: string, value: any) => {
+    console.log('Updating family member:', { index, field, value, currentMember: familyMembers[index] });
     const updated = [...familyMembers];
     updated[index] = { ...updated[index], [field]: value };
+    console.log('Updated family member:', updated[index]);
     setFamilyMembers(updated);
   };
 
@@ -386,7 +412,10 @@ export default function CandidateProfile() {
         ...profile, 
         user_id: userId, 
         is_complete: progress >= 50,
-        // Combine all family members for saving
+        // Save family data to separate columns
+        family_data: JSON.stringify(familyMembers || []),
+        immediate_family_data: JSON.stringify(immediateFamily || []),
+        // Keep family_members for backward compatibility
         family_members: JSON.stringify([...familyMembers, ...immediateFamily] || []),
         education_history: JSON.stringify(educationHistory || []),
         informal_education: JSON.stringify(informalEducation || []),
@@ -401,6 +430,10 @@ export default function CandidateProfile() {
       console.log('Saving payload with work_experience:', payload.work_experience);
       console.log('Skills array being saved:', skills);
       console.log('Work experience array being saved:', workExperience);
+      console.log('Family members being saved:', familyMembers);
+      console.log('Immediate family being saved:', immediateFamily);
+      console.log('Combined family data:', [...familyMembers, ...immediateFamily]);
+      console.log('Family members JSON:', payload.family_members);
       
       const { error } = await supabase.from("candidate_profiles").upsert(payload, { onConflict: "user_id" });
       
@@ -637,7 +670,7 @@ export default function CandidateProfile() {
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
                             <div className="w-24">
                               <label className={lbl}>Hubungan</label>
-                              <select className={isEditing ? inp : inpDisabled} value={member.relation} onChange={(e) => isEditing && updateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
+                              <select className={isEditing ? inp : inpDisabled} value={member.relation || ''} onChange={(e) => isEditing && updateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
                                 <option value="Bapak">Bapak</option>
                                 <option value="Ibu">Ibu</option>
