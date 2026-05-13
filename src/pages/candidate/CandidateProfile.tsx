@@ -136,6 +136,7 @@ export default function CandidateProfile() {
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [immediateFamily, setImmediateFamily] = useState<any[]>([]);
   const [educationHistory, setEducationHistory] = useState<any[]>([]);
   const [informalEducation, setInformalEducation] = useState<any[]>([]);
   const [workExperience, setWorkExperience] = useState<any[]>([]);
@@ -176,7 +177,16 @@ export default function CandidateProfile() {
         const skillsData = safeParseJSON(pData.skills, []);
         const languagesData = safeParseJSON(pData.languages, []);
         
-        setFamilyMembers(familyData);
+        // Split family data into regular family and immediate family
+        const regularFamily = familyData.filter((member: any) => 
+          ['Ayah', 'Ibu', 'Kakak', 'Adik', 'Saudara'].includes(member.relation)
+        );
+        const immediateFamilyData = familyData.filter((member: any) => 
+          ['Suami', 'Istri', 'Anak'].includes(member.relation)
+        );
+        
+        setFamilyMembers(regularFamily);
+        setImmediateFamily(immediateFamilyData);
         setEducationHistory(educationData);
         setInformalEducation(informalEducationData);
         setWorkExperience(workExperienceData);
@@ -186,6 +196,7 @@ export default function CandidateProfile() {
         console.error('Error parsing array data:', error);
         // Set empty arrays if parsing fails
         setFamilyMembers([]);
+        setImmediateFamily([]);
         setEducationHistory([]);
         setInformalEducation([]);
         setWorkExperience([]);
@@ -199,6 +210,7 @@ export default function CandidateProfile() {
       
       // Set empty arrays for new profile
       setFamilyMembers([]);
+      setImmediateFamily([]);
       setEducationHistory([]);
       setInformalEducation([]);
       setWorkExperience([]);
@@ -235,6 +247,20 @@ export default function CandidateProfile() {
 
   const removeFamilyMember = (index: number) => {
     setFamilyMembers(familyMembers.filter((_, i) => i !== index));
+  };
+
+  const addImmediateFamilyMember = () => {
+    setImmediateFamily([...immediateFamily, { relation: '', name: '', gender: '', age: '', education: '', occupation: '', company: '' }]);
+  };
+
+  const updateImmediateFamilyMember = (index: number, field: string, value: any) => {
+    const updated = [...immediateFamily];
+    updated[index] = { ...updated[index], [field]: value };
+    setImmediateFamily(updated);
+  };
+
+  const removeImmediateFamilyMember = (index: number) => {
+    setImmediateFamily(immediateFamily.filter((_, i) => i !== index));
   };
 
   const addEducation = () => {
@@ -337,7 +363,7 @@ export default function CandidateProfile() {
     const personalProgress = (personalFilled / personalFields.length) * 40;
 
     // Required fields for Keluarga (20%)
-    const familyProgress = familyMembers.length > 0 ? 20 : 0;
+    const familyProgress = (familyMembers.length > 0 || immediateFamily.length > 0) ? 20 : 0;
 
     // Required fields for Pendidikan (20%)
     const educationProgress = educationHistory.length > 0 ? 20 : 0;
@@ -360,8 +386,8 @@ export default function CandidateProfile() {
         ...profile, 
         user_id: userId, 
         is_complete: progress >= 50,
-        // Include array fields as JSON strings
-        family_members: JSON.stringify(familyMembers || []),
+        // Combine all family members for saving
+        family_members: JSON.stringify([...familyMembers, ...immediateFamily] || []),
         education_history: JSON.stringify(educationHistory || []),
         informal_education: JSON.stringify(informalEducation || []),
         work_experience: JSON.stringify(workExperience || []),
@@ -429,7 +455,7 @@ export default function CandidateProfile() {
   const [progress, setProgress] = useState(0);
 
   
-  useEffect(() => { calculateProgress(); }, [profile, docs, familyMembers, educationHistory]);
+  useEffect(() => { calculateProgress(); }, [profile, docs, familyMembers, immediateFamily, educationHistory]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -613,13 +639,9 @@ export default function CandidateProfile() {
                               <label className={lbl}>Hubungan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.relation} onChange={(e) => isEditing && updateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
-                                <option value="Ayah">Ayah</option>
+                                <option value="Bapak">Bapak</option>
                                 <option value="Ibu">Ibu</option>
-                                <option value="Kakak">Kakak</option>
-                                <option value="Adik">Adik</option>
-                                <option value="Suami">Suami</option>
-                                <option value="Istri">Istri</option>
-                                <option value="Anak">Anak</option>
+                                <option value="Saudara">Saudara</option>
                               </select>
                             </div>
                             <div className="flex-1 min-w-[120px]">
@@ -671,6 +693,93 @@ export default function CandidateProfile() {
               {isEditing && (
                 <button onClick={addFamilyMember} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
                   <Plus className="h-4 w-4" /> Tambah Anggota Keluarga
+                </button>
+              )}
+            </section>
+
+            {/* Keluarga Inti */}
+            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+              <h2 className="font-semibold mb-4 flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Keluarga Inti</h2>
+              <div className="overflow-x-auto">
+                <div className="min-w-full">
+                  {immediateFamily.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-2 opacity-40" />
+                      <p>Belum ada data keluarga inti yang ditambahkan.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {immediateFamily.map((member, index) => (
+                        <div key={index} className="bg-background rounded-lg border border-border p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium">Anggota Keluarga Inti #{index + 1}</h4>
+                            {isEditing && (
+                              <button onClick={() => removeImmediateFamilyMember(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
+                            <div className="w-24">
+                              <label className={lbl}>Hubungan</label>
+                              <select className={isEditing ? inp : inpDisabled} value={member.relation} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
+                                <option value="">Pilih...</option>
+                                <option value="Suami">Suami</option>
+                                <option value="Istri">Istri</option>
+                                <option value="Anak">Anak</option>
+                              </select>
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                              <label className={lbl}>Nama</label>
+                              <input className={isEditing ? inp : inpDisabled} value={member.name} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'name', e.target.value)} disabled={!isEditing} />
+                            </div>
+                            <div className="w-16">
+                              <label className={lbl}>Jenis Kelamin</label>
+                              <select className={isEditing ? inp : inpDisabled} value={member.gender} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'gender', e.target.value)} disabled={!isEditing}>
+                                <option value="">Pilih...</option>
+                                <option value="L">L</option>
+                                <option value="P">P</option>
+                              </select>
+                            </div>
+                            <div className="w-16">
+                              <label className={lbl}>Usia</label>
+                              <input type="number" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'age', e.target.value)} disabled={!isEditing} />
+                            </div>
+                            <div className="w-32">
+                              <label className={lbl}>Pendidikan</label>
+                              <select className={isEditing ? inp : inpDisabled} value={member.education} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'education', e.target.value)} disabled={!isEditing}>
+                                <option value="">Pilih...</option>
+                                <option value="Tidak tamat SD">Tidak tamat SD</option>
+                                <option value="SD">SD</option>
+                                <option value="SMP">SMP</option>
+                                <option value="SMA/SMK">SMA/SMK</option>
+                                <option value="D1">D1</option>
+                                <option value="D2">D2</option>
+                                <option value="D3">D3</option>
+                                <option value="D4">D4</option>
+                                <option value="S1">S1</option>
+                                <option value="S2">S2</option>
+                                <option value="S3">S3</option>
+                              </select>
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                              <label className={lbl}>Pekerjaan</label>
+                              <input className={isEditing ? inp : inpDisabled} value={member.occupation} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'occupation', e.target.value)} disabled={!isEditing} />
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                              <label className={lbl}>Perusahaan</label>
+                              <input className={isEditing ? inp : inpDisabled} value={member.company} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'company', e.target.value)} disabled={!isEditing} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {isEditing && (
+                <button onClick={addImmediateFamilyMember} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
+                  <Plus className="h-4 w-4" /> Tambah Anggota Keluarga Inti
                 </button>
               )}
             </section>

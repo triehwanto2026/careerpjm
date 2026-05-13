@@ -247,8 +247,8 @@ export default function RecruitmentProcess() {
   };
 
   const viewCandidateProfile = (application: JobApplication) => {
-    setSelectedApplication(application);
-    setShowProfileModal(true);
+    // Redirect to Applicants page with candidate filter
+    window.location.href = `/admin/applicants?candidate=${application.candidate_profile.user_id}`;
   };
 
   const formatDate = (dateString: string) => {

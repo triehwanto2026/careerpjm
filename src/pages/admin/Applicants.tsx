@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Users, Search, Filter, Download, Eye, Mail, Phone, Calendar, Briefcase, MapPin, GraduationCap, Award, CheckCircle, XCircle, Clock, AlertCircle, FileText, MoreVertical, Edit, Trash2, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -7,14 +8,9 @@ import { motion } from "framer-motion";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../../integrations/supabase/client";
 import Swal from "sweetalert2";
-
-const SWAL_THEME = () => ({
-  background: "hsl(var(--card))",
-  color: "hsl(var(--foreground))",
-  confirmButtonColor: "hsl(174, 72%, 46%)",
-});
+import StandardResume from "../../components/admin/StandardResume";
 
 interface CandidateProfile {
   id: string;
@@ -75,10 +71,27 @@ export default function Applicants() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showStandardResume, setShowStandardResume] = useState(false);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     loadCandidates();
   }, []);
+
+  useEffect(() => {
+    // Check for candidate parameter from RecruitmentProcess
+    const candidateId = searchParams.get('candidate');
+    if (candidateId && candidates.length > 0) {
+      const candidate = candidates.find(c => c.user_id === candidateId);
+      if (candidate) {
+        viewCandidateDetail(candidate);
+        // Remove the parameter from URL
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('candidate');
+        window.history.replaceState({}, '', `${window.location.pathname}?${newSearchParams.toString()}`);
+      }
+    }
+  }, [searchParams, candidates]);
 
   const loadCandidates = async () => {
     try {
@@ -764,12 +777,12 @@ export default function Applicants() {
                       Tutup
                     </Button>
                     <Button
-                      onClick={() => handleDownloadResume(selectedCandidate)}
+                      onClick={() => setShowStandardResume(true)}
                       className="bg-gradient-to-r from-primary to-accent"
                       size="sm"
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Resume
+                      <FileText className="h-4 w-4 mr-2" />
+                      Standard Resume
                     </Button>
                   </div>
                 </div>
@@ -1437,6 +1450,14 @@ export default function Applicants() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Standard Resume Modal */}
+        {showStandardResume && selectedCandidate && (
+          <StandardResume
+            candidate={selectedCandidate}
+            onClose={() => setShowStandardResume(false)}
+          />
         )}
       </div>
     </AdminLayout>
