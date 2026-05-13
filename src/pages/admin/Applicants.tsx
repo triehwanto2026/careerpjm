@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "../../integrations/supabase/client";
 import Swal from "sweetalert2";
-import StandardResume from "../../components/admin/StandardResume";
+import ProfessionalResume from "../../components/admin/ProfessionalResume";
 
 interface CandidateProfile {
   id: string;
@@ -71,7 +71,7 @@ export default function Applicants() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showStandardResume, setShowStandardResume] = useState(false);
+  const [showResume, setShowResume] = useState(false);
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -777,12 +777,12 @@ export default function Applicants() {
                       Tutup
                     </Button>
                     <Button
-                      onClick={() => setShowStandardResume(true)}
+                      onClick={() => setShowResume(true)}
                       className="bg-gradient-to-r from-primary to-accent"
                       size="sm"
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      Standard Resume
+                      Resume
                     </Button>
                   </div>
                 </div>
@@ -1510,11 +1510,11 @@ export default function Applicants() {
           </div>
         )}
 
-        {/* Standard Resume Modal */}
-        {showStandardResume && selectedCandidate && (
-          <StandardResume
+        {/* Resume Preview Modal */}
+        {showResume && selectedCandidate && (
+          <ProfessionalResume
             candidate={selectedCandidate}
-            onClose={() => setShowStandardResume(false)}
+            onClose={() => setShowResume(false)}
           />
         )}
       </div>
