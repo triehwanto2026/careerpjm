@@ -883,10 +883,6 @@ export default function Applicants() {
                       <div className="space-y-4">
                         {/* Single Container Layout */}
                         <div className="space-y-2">
-                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                            <CreditCard className="h-5 w-5 text-primary" />
-                            Informasi Pribadi
-                          </h3>
                           <div className="bg-card border border-border rounded-lg p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {/* Data Fisik - Kiri */}
