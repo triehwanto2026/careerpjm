@@ -12,7 +12,7 @@ interface Vacancy {
   employment_type: string;
   description: string;
   requirements: string;
-  responsibilities: string;
+  qualifications: string;
   min_salary: number | null;
   max_salary: number | null;
   status: string;
@@ -20,9 +20,9 @@ interface Vacancy {
 }
 
 const blank: Vacancy = {
-  title: "", department: "", location: "", employment_type: "full_time",
-  description: "", requirements: "", responsibilities: "",
-  min_salary: null, max_salary: null, status: "open", closes_at: null,
+  title: "", department: "", location: "", employment_type: "Full-time",
+  description: "", requirements: "", qualifications: "",
+  min_salary: null, max_salary: null, status: "active", closes_at: null,
 };
 
 export default function Jobs() {
@@ -43,12 +43,28 @@ export default function Jobs() {
   const save = async () => {
     if (!edit) return;
     if (!edit.title) { Swal.fire({ icon: "warning", title: "Judul wajib diisi" }); return; }
+    
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      Swal.fire({ icon: "error", title: "Sesi habis", text: "Silakan login kembali" });
+      return;
+    }
+    
     const payload: any = { ...edit };
     if (edit.id) {
-      await supabase.from("job_vacancies").update(payload).eq("id", edit.id);
+      const { error } = await supabase.from("job_vacancies").update(payload).eq("id", edit.id);
+      if (error) {
+        Swal.fire({ icon: "error", title: "Gagal menyimpan", text: error.message });
+        return;
+      }
     } else {
       delete payload.id;
-      await supabase.from("job_vacancies").insert(payload);
+      const { error } = await supabase.from("job_vacancies").insert(payload);
+      if (error) {
+        Swal.fire({ icon: "error", title: "Gagal menambahkan", text: error.message });
+        return;
+      }
     }
     setEdit(null);
     load();
@@ -98,7 +114,7 @@ export default function Jobs() {
                   <td className="px-4 py-3 text-muted-foreground">{v.location || "-"}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      v.status === "open" ? "bg-green-500/15 text-green-500" :
+                      v.status === "active" ? "bg-green-500/15 text-green-500" :
                       v.status === "closed" ? "bg-red-500/15 text-red-500" : "bg-gray-500/15 text-gray-500"
                     }`}>{v.status}</span>
                   </td>
@@ -131,19 +147,19 @@ export default function Jobs() {
                 <div>
                   <label className={lbl}>Tipe</label>
                   <select className={inp} value={edit.employment_type} onChange={(e) => setEdit({ ...edit, employment_type: e.target.value })}>
-                    <option value="full_time">Full Time</option><option value="part_time">Part Time</option><option value="contract">Kontrak</option><option value="internship">Magang</option>
+                    <option value="Full-time">Full Time</option><option value="Part-time">Part Time</option><option value="Contract">Kontrak</option><option value="Internship">Magang</option>
                   </select>
                 </div>
                 <div>
                   <label className={lbl}>Status</label>
                   <select className={inp} value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
-                    <option value="draft">Draft</option><option value="open">Open</option><option value="closed">Closed</option>
+                    <option value="draft">Draft</option><option value="active">Active</option><option value="closed">Closed</option>
                   </select>
                 </div>
                 <div><label className={lbl}>Gaji Min (Rp)</label><input type="number" className={inp} value={edit.min_salary || ""} onChange={(e) => setEdit({ ...edit, min_salary: parseInt(e.target.value) || null })} /></div>
                 <div><label className={lbl}>Gaji Max (Rp)</label><input type="number" className={inp} value={edit.max_salary || ""} onChange={(e) => setEdit({ ...edit, max_salary: parseInt(e.target.value) || null })} /></div>
                 <div className="md:col-span-2"><label className={lbl}>Deskripsi</label><textarea rows={3} className={inp} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></div>
-                <div className="md:col-span-2"><label className={lbl}>Tanggung Jawab</label><textarea rows={3} className={inp} value={edit.responsibilities} onChange={(e) => setEdit({ ...edit, responsibilities: e.target.value })} /></div>
+                <div className="md:col-span-2"><label className={lbl}>Kualifikasi</label><textarea rows={3} className={inp} value={edit.qualifications} onChange={(e) => setEdit({ ...edit, qualifications: e.target.value })} /></div>
                 <div className="md:col-span-2"><label className={lbl}>Persyaratan</label><textarea rows={3} className={inp} value={edit.requirements} onChange={(e) => setEdit({ ...edit, requirements: e.target.value })} /></div>
                 <div><label className={lbl}>Tanggal Tutup</label><input type="datetime-local" className={inp} value={edit.closes_at?.slice(0, 16) || ""} onChange={(e) => setEdit({ ...edit, closes_at: e.target.value || null })} /></div>
               </div>

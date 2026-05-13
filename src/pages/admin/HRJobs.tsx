@@ -24,8 +24,8 @@ const HRJobs = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [newJob, setNewJob] = useState({ title: "", department: "", location: "", type: "", salary: "", deadline: "", description: "", qualifications: "" });
-  const [editJob, setEditJob] = useState({ id: "", title: "", department: "", location: "", type: "", salary: "", deadline: "", description: "", qualifications: "", status: "" });
+  const [newJob, setNewJob] = useState({ title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", qualifications: "" });
+  const [editJob, setEditJob] = useState({ id: "", title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", qualifications: "", status: "" });
 
   const { data: jobs = [], isLoading } = useJobs();
   const createJob = useCreateJob();
@@ -51,14 +51,15 @@ const HRJobs = () => {
         title: newJob.title,
         department: newJob.department || "General",
         location: newJob.location || "Jakarta",
-        type: newJob.type || "Full-time",
-        salary: newJob.salary || undefined,
+        employment_type: newJob.employment_type || "Full-time",
+        min_salary: newJob.min_salary ? parseInt(newJob.min_salary) : undefined,
+        max_salary: newJob.max_salary ? parseInt(newJob.max_salary) : undefined,
         description: newJob.description || undefined,
         qualifications: newJob.qualifications || undefined,
-        deadline: newJob.deadline || undefined,
+        closes_at: newJob.closes_at || undefined,
         status: "active",
       });
-      setNewJob({ title: "", department: "", location: "", type: "", salary: "", deadline: "", description: "", qualifications: "" });
+      setNewJob({ title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", qualifications: "" });
       setDialogOpen(false);
       toast({ title: "✅ Lowongan Dibuat", description: `${newJob.title} berhasil ditambahkan.` });
     } catch (err: any) {
@@ -82,9 +83,10 @@ const HRJobs = () => {
       title: job.title,
       department: job.department,
       location: job.location,
-      type: job.type,
-      salary: job.salary || "",
-      deadline: job.deadline || "",
+      employment_type: job.employment_type,
+      min_salary: job.min_salary?.toString() || "",
+      max_salary: job.max_salary?.toString() || "",
+      closes_at: job.closes_at || "",
       description: job.description || "",
       qualifications: job.qualifications || "",
       status: job.status
@@ -100,11 +102,12 @@ const HRJobs = () => {
         title: editJob.title,
         department: editJob.department,
         location: editJob.location,
-        type: editJob.type,
-        salary: editJob.salary || undefined,
+        employment_type: editJob.employment_type,
+        min_salary: editJob.min_salary ? parseInt(editJob.min_salary) : undefined,
+        max_salary: editJob.max_salary ? parseInt(editJob.max_salary) : undefined,
         description: editJob.description || undefined,
         qualifications: editJob.qualifications || undefined,
-        deadline: editJob.deadline || undefined,
+        closes_at: editJob.closes_at || undefined,
         status: editJob.status
       });
       setEditDialogOpen(false);
@@ -134,10 +137,11 @@ const HRJobs = () => {
                   <div className="space-y-2"><Label>Lokasi</Label><Input placeholder="Jakarta" value={newJob.location} onChange={(e) => setNewJob({ ...newJob, location: e.target.value })} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Tipe Pekerjaan</Label><Select value={newJob.type} onValueChange={(v) => setNewJob({ ...newJob, type: v })}><SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger><SelectContent><SelectItem value="Full-time">Full-time</SelectItem><SelectItem value="Part-time">Part-time</SelectItem><SelectItem value="Contract">Contract</SelectItem><SelectItem value="Internship">Internship</SelectItem></SelectContent></Select></div>
-                  <div className="space-y-2"><Label>Range Gaji</Label><Input placeholder="Rp 15-25 juta" value={newJob.salary} onChange={(e) => setNewJob({ ...newJob, salary: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Tipe Pekerjaan</Label><Select value={newJob.employment_type} onValueChange={(v) => setNewJob({ ...newJob, employment_type: v })}><SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger><SelectContent><SelectItem value="Full-time">Full-time</SelectItem><SelectItem value="Part-time">Part-time</SelectItem><SelectItem value="Contract">Contract</SelectItem><SelectItem value="Internship">Internship</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-2"><Label>Gaji Min (Rp)</Label><Input type="number" placeholder="15000000" value={newJob.min_salary} onChange={(e) => setNewJob({ ...newJob, min_salary: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Gaji Max (Rp)</Label><Input type="number" placeholder="25000000" value={newJob.max_salary} onChange={(e) => setNewJob({ ...newJob, max_salary: e.target.value })} /></div>
                 </div>
-                <div className="space-y-2"><Label>Deadline</Label><Input type="date" value={newJob.deadline} onChange={(e) => setNewJob({ ...newJob, deadline: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Deadline</Label><Input type="date" value={newJob.closes_at} onChange={(e) => setNewJob({ ...newJob, closes_at: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Deskripsi Pekerjaan</Label><Textarea placeholder="Jelaskan tanggung jawab dan deskripsi pekerjaan..." rows={4} value={newJob.description} onChange={(e) => setNewJob({ ...newJob, description: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Kualifikasi</Label><Textarea placeholder="Satu kualifikasi per baris..." rows={3} value={newJob.qualifications} onChange={(e) => setNewJob({ ...newJob, qualifications: e.target.value })} /></div>
               </div>
@@ -283,14 +287,14 @@ const HRJobs = () => {
                           <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center">
                             <Clock className="h-4 w-4" />
                           </div>
-                          <span>{job.type}</span>
+                          <span>{job.employment_type}</span>
                         </div>
-                        {job.deadline && (
+                        {job.closes_at && (
                           <div className="flex items-center gap-3 text-sm text-muted-foreground">
                             <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center">
                               <Users className="h-4 w-4" />
                             </div>
-                            <span>Deadline: {new Date(job.deadline).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
+                            <span>Deadline: {new Date(job.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
                           </div>
                         )}
                       </div>
@@ -380,14 +384,14 @@ const HRJobs = () => {
                               <div className="h-6 w-6 rounded-lg bg-muted/50 flex items-center justify-center">
                                 <Clock className="h-3 w-3" />
                               </div>
-                              <span>{job.type}</span>
+                              <span>{job.employment_type}</span>
                             </div>
-                            {job.deadline && (
+                            {job.closes_at && (
                               <div className="flex items-center gap-2">
                                 <div className="h-6 w-6 rounded-lg bg-muted/50 flex items-center justify-center">
                                   <Users className="h-3 w-3" />
                                 </div>
-                                <span>Deadline: {new Date(job.deadline).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
+                                <span>Deadline: {new Date(job.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
                               </div>
                             )}
                           </div>
@@ -467,22 +471,28 @@ const HRJobs = () => {
                 </div>
                 <div>
                   <Label>Tipe Pekerjaan</Label>
-                  <p className="font-medium">{selectedJob.type}</p>
+                  <p className="font-medium">{selectedJob.employment_type}</p>
                 </div>
                 <div>
                   <Label>Status</Label>
                   <span className={`status-badge ${statusBadge[selectedJob.status]}`}>{statusLabel[selectedJob.status]}</span>
                 </div>
-                {selectedJob.salary && (
+                {selectedJob.min_salary && (
                   <div>
-                    <Label>Range Gaji</Label>
-                    <p className="font-medium">{selectedJob.salary}</p>
+                    <Label>Gaji Min</Label>
+                    <p className="font-medium">Rp {parseInt(selectedJob.min_salary).toLocaleString('id-ID')}</p>
                   </div>
                 )}
-                {selectedJob.deadline && (
+                {selectedJob.max_salary && (
+                  <div>
+                    <Label>Gaji Max</Label>
+                    <p className="font-medium">Rp {parseInt(selectedJob.max_salary).toLocaleString('id-ID')}</p>
+                  </div>
+                )}
+                {selectedJob.closes_at && (
                   <div>
                     <Label>Deadline</Label>
-                    <p className="font-medium">{new Date(selectedJob.deadline).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+                    <p className="font-medium">{new Date(selectedJob.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
                   </div>
                 )}
               </div>
@@ -551,7 +561,7 @@ const HRJobs = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipe Pekerjaan</Label>
-                <Select value={editJob.type} onValueChange={(v) => setEditJob({ ...editJob, type: v })}>
+                <Select value={editJob.employment_type} onValueChange={(v) => setEditJob({ ...editJob, employment_type: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Full-time">Full-time</SelectItem>
@@ -562,11 +572,21 @@ const HRJobs = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Range Gaji</Label>
+                <Label>Gaji Min (Rp)</Label>
                 <Input 
-                  placeholder="Rp 15-25 juta" 
-                  value={editJob.salary} 
-                  onChange={(e) => setEditJob({ ...editJob, salary: e.target.value })} 
+                  type="number"
+                  placeholder="15000000" 
+                  value={editJob.min_salary} 
+                  onChange={(e) => setEditJob({ ...editJob, min_salary: e.target.value })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Gaji Max (Rp)</Label>
+                <Input 
+                  type="number"
+                  placeholder="25000000" 
+                  value={editJob.max_salary} 
+                  onChange={(e) => setEditJob({ ...editJob, max_salary: e.target.value })} 
                 />
               </div>
             </div>
@@ -575,8 +595,8 @@ const HRJobs = () => {
                 <Label>Deadline</Label>
                 <Input 
                   type="date" 
-                  value={editJob.deadline} 
-                  onChange={(e) => setEditJob({ ...editJob, deadline: e.target.value })} 
+                  value={editJob.closes_at} 
+                  onChange={(e) => setEditJob({ ...editJob, closes_at: e.target.value })} 
                 />
               </div>
               <div className="space-y-2">

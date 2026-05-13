@@ -32,11 +32,11 @@ interface Job {
   created_at: string;
   description: string;
   requirements: string;
-  responsibilities: string;
-  min_salary: number;
-  max_salary: number;
+  qualifications?: string;
+  min_salary?: number;
+  max_salary?: number;
   status: string;
-  closes_at: string;
+  closes_at?: string;
 }
 
 const HomePage = () => {
@@ -54,7 +54,7 @@ const HomePage = () => {
     const { data } = await supabase
       .from("job_vacancies")
       .select("*")
-      .eq("status", "open")
+      .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(6);
     setJobs(data || []);

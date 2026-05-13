@@ -52,7 +52,7 @@ const JobDetail = () => {
                 <Badge variant="secondary" className="gap-1.5"><MapPin className="h-3 w-3" /> {(job as any).location || "-"}</Badge>
                 <Badge variant="secondary" className="gap-1.5"><Briefcase className="h-3 w-3" /> {(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
                 <Badge variant="secondary" className="gap-1.5"><Banknote className="h-3 w-3" /> {(job as any).salary_range || (job as any).salary || "Negotiable"}</Badge>
-                {(job as any).deadline && <Badge variant="secondary" className="gap-1.5"><Clock className="h-3 w-3" /> Deadline: {new Date((job as any).deadline).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</Badge>}
+                {(job as any).closes_at && <Badge variant="secondary" className="gap-1.5"><Clock className="h-3 w-3" /> Deadline: {new Date((job as any).closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</Badge>}
               </div>
             </div>
 
