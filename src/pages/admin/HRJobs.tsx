@@ -32,6 +32,13 @@ const HRJobs = () => {
   const updateJob = useUpdateJob();
   const deleteJob = useDeleteJob();
 
+  const formatDateForInput = (value: string | null | undefined) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 10);
+  };
+
   const filtered = jobs.filter((j: any) => {
     const matchSearch = j.title.toLowerCase().includes(search.toLowerCase()) || j.department.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || j.status === statusFilter;
@@ -86,7 +93,7 @@ const HRJobs = () => {
       employment_type: job.employment_type,
       min_salary: job.min_salary?.toString() || "",
       max_salary: job.max_salary?.toString() || "",
-      closes_at: job.closes_at || "",
+      closes_at: formatDateForInput(job.closes_at),
       description: job.description || "",
       requirements: job.requirements || "",
       status: job.status
