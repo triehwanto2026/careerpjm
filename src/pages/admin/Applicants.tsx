@@ -881,56 +881,85 @@ export default function Applicants() {
                       </div>
 
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                          <CreditCard className="h-5 w-5 text-primary" />
-                          Identitas & Fisik
-                        </h3>
-                        <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm text-muted-foreground">No. KTP</label>
-                              <p className="font-medium text-foreground">{selectedCandidate.id_card_number || '-'}</p>
+                        {/* Grid Layout untuk Container Simetris */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Informasi Pribadi Container - Kiri */}
+                          <div className="space-y-2">
+                            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                              <CreditCard className="h-5 w-5 text-primary" />
+                              Informasi Pribadi
+                            </h3>
+                            <div className="bg-card border border-border rounded-lg p-6">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-1 gap-3">
+                                  <div className="flex justify-between items-center py-2 border-b border-border/50">
+                                    <label className="text-sm text-muted-foreground">No. KTP</label>
+                                    <p className="font-medium text-foreground text-right">{(selectedCandidate as any).nik || '-'}</p>
+                                  </div>
+                                  <div className="flex justify-between items-center py-2 border-b border-border/50">
+                                    <label className="text-sm text-muted-foreground">SIM</label>
+                                    <p className="font-medium text-foreground text-right">{(selectedCandidate as any).vehicle_license || '-'}</p>
+                                  </div>
+                                  <div className="flex justify-between items-center py-2 border-b border-border/50">
+                                    <label className="text-sm text-muted-foreground">Tinggi Badan</label>
+                                    <p className="font-medium text-foreground text-right">{(selectedCandidate as any).height_cm ? `${(selectedCandidate as any).height_cm} cm` : '-'}</p>
+                                  </div>
+                                  <div className="flex justify-between items-center py-2">
+                                    <label className="text-sm text-muted-foreground">Berat Badan</label>
+                                    <p className="font-medium text-foreground text-right">{(selectedCandidate as any).weight_kg ? `${(selectedCandidate as any).weight_kg} kg` : '-'}</p>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <label className="text-sm text-muted-foreground">No. Passport</label>
-                              <p className="font-medium text-foreground">{selectedCandidate.passport_number || '-'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm text-muted-foreground">SIM</label>
-                              <p className="font-medium text-foreground">{selectedCandidate.driving_license || '-'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm text-muted-foreground">Tinggi Badan</label>
-                              <p className="font-medium text-foreground">{selectedCandidate.height || '-'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm text-muted-foreground">Berat Badan</label>
-                              <p className="font-medium text-foreground">{selectedCandidate.weight || '-'}</p>
+                          </div>
+
+                          {/* Foto Container - Kanan */}
+                          <div className="space-y-2">
+                            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                              <Camera className="h-5 w-5 text-primary" />
+                              Foto
+                            </h3>
+                            <div className="bg-card border border-border rounded-lg p-6">
+                              <div className="flex justify-center">
+                                {(selectedCandidate as any).photo_url ? (
+                                  <div className="relative">
+                                    <img
+                                      src={(selectedCandidate as any).photo_url}
+                                      alt={`Foto ${selectedCandidate.full_name}`}
+                                      className="w-40 h-40 rounded-xl object-cover border-4 border-primary/20 shadow-lg"
+                                    />
+                                    <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground rounded-full p-2">
+                                      <Camera className="w-4 h-4" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-40 h-40 rounded-xl bg-muted border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center hover:bg-muted/50 transition-colors">
+                                    <User className="w-16 h-16 text-muted-foreground/50 mb-2" />
+                                    <p className="text-xs text-muted-foreground/50 text-center">Belum ada foto</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
 
-                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                          <Home className="h-5 w-5 text-primary" />
-                          Alamat
-                        </h3>
-                        <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-                          <div>
-                            <label className="text-sm text-muted-foreground">Alamat Lengkap</label>
-                            <p className="font-medium text-foreground">{selectedCandidate.address || '-'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm text-muted-foreground">Kota</label>
-                            <p className="font-medium text-foreground">{selectedCandidate.city || '-'}</p>
-                          </div>
-                          {selectedCandidate.bio && (
-                            <div>
-                              <label className="text-sm text-muted-foreground">Bio</label>
-                              <p className="font-medium text-foreground whitespace-pre-line">{selectedCandidate.bio}</p>
+                        {/* Alamat Container - Full Width */}
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Home className="h-5 w-5 text-primary" />
+                            Alamat
+                          </h3>
+                          <div className="bg-card border border-border rounded-lg p-6">
+                            <div className="space-y-2">
+                              <label className="text-sm text-muted-foreground">Alamat Lengkap</label>
+                              <p className="text-sm text-foreground leading-relaxed">
+                                {selectedCandidate.address ? `${selectedCandidate.address}, ${(selectedCandidate as any).city || ''}, ${(selectedCandidate as any).province || ''} ${(selectedCandidate as any).postal_code || ''}`.replace(/,\s*$/, '') : '-'}
+                              </p>
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
+
+                                              </div>
                     </div>
                   </TabsContent>
 
@@ -985,22 +1014,89 @@ export default function Applicants() {
                         Pendidikan Terakhir
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm text-muted-foreground">Tingkat Pendidikan</label>
-                          <p className="font-medium text-foreground">{selectedCandidate.education_level || '-'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Institusi Pendidikan</label>
-                          <p className="font-medium text-foreground">{selectedCandidate.education_institution || '-'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Jurusan/Program Studi</label>
-                          <p className="font-medium text-foreground">{selectedCandidate.major || '-'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Tahun Lulus</label>
-                          <p className="font-medium text-foreground">{selectedCandidate.graduation_year || '-'}</p>
-                        </div>
+                        {(() => {
+                          // Helper function to get latest education
+                          const getLatestEducation = () => {
+                            if (!selectedCandidate.education_history) return null;
+                            
+                            let educationArray = [];
+                            
+                            // Parse education_history if it's a string
+                            if (typeof selectedCandidate.education_history === 'string') {
+                              try {
+                                educationArray = JSON.parse(selectedCandidate.education_history);
+                              } catch (e) {
+                                educationArray = [];
+                              }
+                            } else if (Array.isArray(selectedCandidate.education_history)) {
+                              educationArray = selectedCandidate.education_history;
+                            }
+                            
+                            if (educationArray.length === 0) return null;
+                            
+                            // Sort by education level priority: S3 > S2 > S1 > D4 > D3 > D2 > D1 > SMA/SMK > SMP > SD
+                            const educationPriority = {
+                              'S3': 8, 'S2': 7, 'S1': 6, 'D4': 5, 'D3': 4, 'D2': 3, 'D1': 2,
+                              'SMA/SMK': 1, 'SMK': 1, 'SMA': 1, 'SMP': 0, 'SD': -1
+                            };
+                            
+                            return educationArray.reduce((latest, current) => {
+                              const latestPriority = educationPriority[latest.level] || 0;
+                              const currentPriority = educationPriority[current.level] || 0;
+                              
+                              // If same level, compare end year
+                              if (latestPriority === currentPriority) {
+                                const latestYear = parseInt(latest.end_year || '0') || 0;
+                                const currentYear = parseInt(current.end_year || '0') || 0;
+                                return currentYear > latestYear ? current : latest;
+                              }
+                              
+                              return currentPriority > latestPriority ? current : latest;
+                            });
+                          };
+                          
+                          const latestEducation = getLatestEducation();
+                          
+                          return latestEducation ? (
+                            <>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Tingkat Pendidikan</label>
+                                <p className="font-medium text-foreground">{latestEducation.level || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Institusi Pendidikan</label>
+                                <p className="font-medium text-foreground">{latestEducation.school || latestEducation.institution || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Jurusan/Program Studi</label>
+                                <p className="font-medium text-foreground">{latestEducation.major || latestEducation.field_of_study || '-'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Tahun Lulus</label>
+                                <p className="font-medium text-foreground">{latestEducation.end_year || latestEducation.graduation_year || '-'}</p>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Tingkat Pendidikan</label>
+                                <p className="font-medium text-foreground">-</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Institusi Pendidikan</label>
+                                <p className="font-medium text-foreground">-</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Jurusan/Program Studi</label>
+                                <p className="font-medium text-foreground">-</p>
+                              </div>
+                              <div>
+                                <label className="text-sm text-muted-foreground">Tahun Lulus</label>
+                                <p className="font-medium text-foreground">-</p>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -1135,27 +1231,7 @@ export default function Applicants() {
 
                   {/* Experience Tab */}
                   <TabsContent value="experience" className="p-6 space-y-6">
-                    <div className="bg-card border border-border rounded-lg p-4 space-y-4">
-                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                        <Briefcase className="h-5 w-5 text-primary" />
-                        Pengalaman Kerja Saat Ini
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm text-muted-foreground">Posisi Saat Ini</label>
-                          <p className="font-medium text-foreground">{selectedCandidate.current_position || '-'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Perusahaan</label>
-                          <p className="font-medium text-foreground">{selectedCandidate.current_company || '-'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Lama Pengalaman</label>
-                          <p className="font-medium text-foreground">{selectedCandidate.experience_years ? `${selectedCandidate.experience_years} Tahun` : 'Tidak ada data'}</p>
-                        </div>
-                      </div>
-                    </div>
-
+                    
                     {selectedCandidate.work_experience && Array.isArray(selectedCandidate.work_experience) && selectedCandidate.work_experience.length > 0 && (
                       <div className="bg-card border border-border rounded-lg p-4">
                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
