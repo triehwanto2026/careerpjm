@@ -24,8 +24,8 @@ const HRJobs = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [newJob, setNewJob] = useState({ title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", qualifications: "" });
-  const [editJob, setEditJob] = useState({ id: "", title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", qualifications: "", status: "" });
+  const [newJob, setNewJob] = useState({ title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", requirements: "" });
+  const [editJob, setEditJob] = useState({ id: "", title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", requirements: "", status: "" });
 
   const { data: jobs = [], isLoading } = useJobs();
   const createJob = useCreateJob();
@@ -55,11 +55,11 @@ const HRJobs = () => {
         min_salary: newJob.min_salary ? parseInt(newJob.min_salary) : undefined,
         max_salary: newJob.max_salary ? parseInt(newJob.max_salary) : undefined,
         description: newJob.description || undefined,
-        qualifications: newJob.qualifications || undefined,
+        requirements: newJob.requirements || undefined,
         closes_at: newJob.closes_at || undefined,
         status: "active",
       });
-      setNewJob({ title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", qualifications: "" });
+      setNewJob({ title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", requirements: "" });
       setDialogOpen(false);
       toast({ title: "✅ Lowongan Dibuat", description: `${newJob.title} berhasil ditambahkan.` });
     } catch (err: any) {
@@ -88,7 +88,7 @@ const HRJobs = () => {
       max_salary: job.max_salary?.toString() || "",
       closes_at: job.closes_at || "",
       description: job.description || "",
-      qualifications: job.qualifications || "",
+      requirements: job.requirements || "",
       status: job.status
     });
     setEditDialogOpen(true);
@@ -106,7 +106,7 @@ const HRJobs = () => {
         min_salary: editJob.min_salary ? parseInt(editJob.min_salary) : undefined,
         max_salary: editJob.max_salary ? parseInt(editJob.max_salary) : undefined,
         description: editJob.description || undefined,
-        qualifications: editJob.qualifications || undefined,
+        requirements: editJob.requirements || undefined,
         closes_at: editJob.closes_at || undefined,
         status: editJob.status
       });
@@ -143,7 +143,7 @@ const HRJobs = () => {
                 </div>
                 <div className="space-y-2"><Label>Deadline</Label><Input type="date" value={newJob.closes_at} onChange={(e) => setNewJob({ ...newJob, closes_at: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Deskripsi Pekerjaan</Label><Textarea placeholder="Jelaskan tanggung jawab dan deskripsi pekerjaan..." rows={4} value={newJob.description} onChange={(e) => setNewJob({ ...newJob, description: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Kualifikasi</Label><Textarea placeholder="Satu kualifikasi per baris..." rows={3} value={newJob.qualifications} onChange={(e) => setNewJob({ ...newJob, qualifications: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Kualifikasi</Label><Textarea placeholder="Satu kualifikasi per baris..." rows={3} value={newJob.requirements} onChange={(e) => setNewJob({ ...newJob, requirements: e.target.value })} /></div>
               </div>
               <DialogFooter>
                 <DialogClose asChild><Button variant="outline">Batal</Button></DialogClose>
@@ -502,10 +502,10 @@ const HRJobs = () => {
                   <p className="text-sm text-muted-foreground whitespace-pre-line">{selectedJob.description}</p>
                 </div>
               )}
-              {selectedJob.qualifications && (
+              {selectedJob.requirements && (
                 <div>
                   <Label>Kualifikasi</Label>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{selectedJob.qualifications}</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line">{selectedJob.requirements}</p>
                 </div>
               )}
             </div>
@@ -625,8 +625,8 @@ const HRJobs = () => {
               <Textarea 
                 placeholder="Satu kualifikasi per baris..." 
                 rows={3} 
-                value={editJob.qualifications} 
-                onChange={(e) => setEditJob({ ...editJob, qualifications: e.target.value })} 
+                value={editJob.requirements} 
+                onChange={(e) => setEditJob({ ...editJob, requirements: e.target.value })} 
               />
             </div>
           </div>

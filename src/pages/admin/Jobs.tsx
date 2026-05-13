@@ -12,7 +12,6 @@ interface Vacancy {
   employment_type: string;
   description: string;
   requirements: string;
-  qualifications: string;
   min_salary: number | null;
   max_salary: number | null;
   status: string;
@@ -21,7 +20,7 @@ interface Vacancy {
 
 const blank: Vacancy = {
   title: "", department: "", location: "", employment_type: "Full-time",
-  description: "", requirements: "", qualifications: "",
+  description: "", requirements: "",
   min_salary: null, max_salary: null, status: "active", closes_at: null,
 };
 
@@ -159,8 +158,7 @@ export default function Jobs() {
                 <div><label className={lbl}>Gaji Min (Rp)</label><input type="number" className={inp} value={edit.min_salary || ""} onChange={(e) => setEdit({ ...edit, min_salary: parseInt(e.target.value) || null })} /></div>
                 <div><label className={lbl}>Gaji Max (Rp)</label><input type="number" className={inp} value={edit.max_salary || ""} onChange={(e) => setEdit({ ...edit, max_salary: parseInt(e.target.value) || null })} /></div>
                 <div className="md:col-span-2"><label className={lbl}>Deskripsi</label><textarea rows={3} className={inp} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></div>
-                <div className="md:col-span-2"><label className={lbl}>Kualifikasi</label><textarea rows={3} className={inp} value={edit.qualifications} onChange={(e) => setEdit({ ...edit, qualifications: e.target.value })} /></div>
-                <div className="md:col-span-2"><label className={lbl}>Persyaratan</label><textarea rows={3} className={inp} value={edit.requirements} onChange={(e) => setEdit({ ...edit, requirements: e.target.value })} /></div>
+                <div className="md:col-span-2"><label className={lbl}>Kualifikasi</label><textarea rows={3} className={inp} value={edit.requirements} onChange={(e) => setEdit({ ...edit, requirements: e.target.value })} /></div>
                 <div><label className={lbl}>Tanggal Tutup</label><input type="datetime-local" className={inp} value={edit.closes_at?.slice(0, 16) || ""} onChange={(e) => setEdit({ ...edit, closes_at: e.target.value || null })} /></div>
               </div>
 

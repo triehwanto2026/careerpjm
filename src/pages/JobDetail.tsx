@@ -31,7 +31,7 @@ const JobDetail = () => {
   if (isLoading) return <PublicLayout><div className="container py-16 text-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" /></div></PublicLayout>;
   if (!job) return <PublicLayout><div className="container py-16 text-center"><h2 className="text-xl font-bold">Lowongan tidak ditemukan</h2><Button asChild className="mt-4"><Link to="/jobs">Kembali</Link></Button></div></PublicLayout>;
 
-  const qualifications = (job as any).qualifications?.split("\n").filter(Boolean) || ["Sesuai dengan kualifikasi yang dibutuhkan"];
+  const requirements = (job as any).requirements?.split("\n").filter(Boolean) || ["Sesuai dengan kualifikasi yang dibutuhkan"];
 
   return (
     <PublicLayout>
@@ -64,7 +64,7 @@ const JobDetail = () => {
             <div className="card-elevated p-6">
               <h2 className="text-lg font-semibold mb-4">Kualifikasi</h2>
               <ul className="space-y-2.5">
-                {qualifications.map((q: string, i: number) => (
+                {requirements.map((q: string, i: number) => (
                   <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />{q}</li>
                 ))}
               </ul>

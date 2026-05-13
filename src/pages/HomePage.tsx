@@ -32,7 +32,6 @@ interface Job {
   created_at: string;
   description: string;
   requirements: string;
-  qualifications?: string;
   min_salary?: number;
   max_salary?: number;
   status: string;
