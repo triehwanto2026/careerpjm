@@ -881,15 +881,15 @@ export default function Applicants() {
                       </div>
 
                       <div className="space-y-4">
-                        {/* Grid Layout untuk Container Simetris */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Informasi Pribadi Container - Kiri */}
-                          <div className="space-y-2">
-                            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                              <CreditCard className="h-5 w-5 text-primary" />
-                              Informasi Pribadi
-                            </h3>
-                            <div className="bg-card border border-border rounded-lg p-6">
+                        {/* Single Container Layout */}
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <CreditCard className="h-5 w-5 text-primary" />
+                            Informasi Pribadi
+                          </h3>
+                          <div className="bg-card border border-border rounded-lg p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {/* Data Fisik - Kiri */}
                               <div className="space-y-4">
                                 <div className="grid grid-cols-1 gap-3">
                                   <div className="flex justify-between items-center py-2 border-b border-border/50">
@@ -910,17 +910,9 @@ export default function Applicants() {
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
 
-                          {/* Foto Container - Kanan */}
-                          <div className="space-y-2">
-                            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                              <Camera className="h-5 w-5 text-primary" />
-                              Foto
-                            </h3>
-                            <div className="bg-card border border-border rounded-lg p-6">
-                              <div className="flex justify-center">
+                              {/* Foto - Kanan Atas */}
+                              <div className="flex justify-start md:justify-end">
                                 {(selectedCandidate as any).photo_url ? (
                                   <div className="relative">
                                     <img
@@ -940,21 +932,15 @@ export default function Applicants() {
                                 )}
                               </div>
                             </div>
-                          </div>
-                        </div>
 
-                        {/* Alamat Container - Full Width */}
-                        <div className="space-y-2">
-                          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                            <Home className="h-5 w-5 text-primary" />
-                            Alamat
-                          </h3>
-                          <div className="bg-card border border-border rounded-lg p-6">
-                            <div className="space-y-2">
-                              <label className="text-sm text-muted-foreground">Alamat Lengkap</label>
-                              <p className="text-sm text-foreground leading-relaxed">
-                                {selectedCandidate.address ? `${selectedCandidate.address}, ${(selectedCandidate as any).city || ''}, ${(selectedCandidate as any).province || ''} ${(selectedCandidate as any).postal_code || ''}`.replace(/,\s*$/, '') : '-'}
-                              </p>
+                            {/* Alamat - Full Width */}
+                            <div className="mt-6 pt-6 border-t border-border">
+                              <div className="space-y-2">
+                                <label className="text-sm text-muted-foreground">Alamat Lengkap</label>
+                                <p className="text-sm text-foreground leading-relaxed">
+                                  {selectedCandidate.address ? `${selectedCandidate.address}, ${(selectedCandidate as any).city || ''}, ${(selectedCandidate as any).province || ''} ${(selectedCandidate as any).postal_code || ''}`.replace(/,\s*$/, '') : '-'}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
