@@ -23,7 +23,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Formulir Lamaran Kerja - ${candidate.full_name || 'Candidate'}</title>
+          <title>Personal History Card (PHC) - ${candidate.full_name || 'Candidate'}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @page {
@@ -256,7 +256,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             {/* Header Section */}
             <div className="container-shadow bg-white rounded-xl p-6 border-2 border-blue-900">
               <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-blue-900 mb-2">FORMULIR LAMARAN KERJA</h1>
+                <h1 className="text-3xl font-bold text-blue-900 mb-2">PERSONAL HISTORY CARD (PHC)</h1>
                 <p className="text-gray-600">Data Pelamar Lengkap</p>
               </div>
               
@@ -502,6 +502,24 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
                           <label className="text-sm font-semibold text-blue-900">Gaji Terakhir</label>
                           <p className="text-gray-800">{work.salary_end || work.salary || '-'}</p>
                         </div>
+                        {work.industry && (
+                          <div>
+                            <label className="text-sm font-semibold text-blue-900">Industri</label>
+                            <p className="text-gray-800">{work.industry}</p>
+                          </div>
+                        )}
+                        {work.company_size && (
+                          <div>
+                            <label className="text-sm font-semibold text-blue-900">Ukuran Perusahaan</label>
+                            <p className="text-gray-800">{work.company_size}</p>
+                          </div>
+                        )}
+                        {work.reason_for_leaving && (
+                          <div className="md:col-span-2">
+                            <label className="text-sm font-semibold text-blue-900">Alasan Keluar</label>
+                            <p className="text-gray-800">{work.reason_for_leaving}</p>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="text-sm font-semibold text-blue-900">Deskripsi Pekerjaan</label>
@@ -511,6 +529,18 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
                         <div className="mt-2">
                           <label className="text-sm font-semibold text-blue-900">Pencapaian</label>
                           <p className="text-gray-800 text-sm mt-1">{work.achievements}</p>
+                        </div>
+                      )}
+                      {work.supervisor_name && (
+                        <div className="mt-2">
+                          <label className="text-sm font-semibold text-blue-900">Nama Atasan</label>
+                          <p className="text-gray-800 text-sm">{work.supervisor_name}</p>
+                        </div>
+                      )}
+                      {work.supervisor_contact && (
+                        <div className="mt-2">
+                          <label className="text-sm font-semibold text-blue-900">Kontak Atasan</label>
+                          <p className="text-gray-800 text-sm">{work.supervisor_contact}</p>
                         </div>
                       )}
                     </div>
@@ -523,9 +553,29 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
                     <p className="text-gray-800">{candidate.current_company || '-'}</p>
                   </div>
                   <div>
+                    <label className="text-sm font-semibold text-blue-900">Posisi Saat Ini</label>
+                    <p className="text-gray-800">{candidate.current_position || '-'}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-semibold text-blue-900">Lama Pengalaman</label>
                     <p className="text-gray-800">{candidate.experience_years ? `${candidate.experience_years} Tahun` : '-'}</p>
                   </div>
+                  <div>
+                    <label className="text-sm font-semibold text-blue-900">Gaji Saat Ini</label>
+                    <p className="text-gray-800">{(candidate as any).salary_expectation || '-'}</p>
+                  </div>
+                  {(candidate as any).industry && (
+                    <div>
+                      <label className="text-sm font-semibold text-blue-900">Industri</label>
+                      <p className="text-gray-800">{(candidate as any).industry || '-'}</p>
+                    </div>
+                  )}
+                  {(candidate as any).company_size && (
+                    <div>
+                      <label className="text-sm font-semibold text-blue-900">Ukuran Perusahaan</label>
+                      <p className="text-gray-800">{(candidate as any).company_size || '-'}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -677,10 +727,6 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
                     </div>
                   </div>
                 )}
-                
-                {!candidate.cv_url && certificates.length === 0 && !candidate.portfolio_url && (
-                  <p className="text-center text-gray-500 py-4">Belum ada dokumen yang diunggah</p>
-                )}
               </div>
             </div>
 
@@ -693,35 +739,114 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
                 </h2>
               </div>
               
-              <div className="space-y-4">
-                {candidate.bio && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  {candidate.bio && (
+                    <div>
+                      <label className="text-sm font-semibold text-blue-900 mb-2 block">Bio / Tentang Saya</label>
+                      <p className="text-gray-800 whitespace-pre-line">{candidate.bio}</p>
+                    </div>
+                  )}
+                  
+                  {candidate.additional_info && (
+                    <div>
+                      <label className="text-sm font-semibold text-blue-900 mb-2 block">Informasi Tambahan</label>
+                      <p className="text-gray-800 whitespace-pre-line">{candidate.additional_info}</p>
+                    </div>
+                  )}
+                  
                   <div>
-                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Bio / Tentang Saya</label>
-                    <p className="text-gray-800 whitespace-pre-line">{candidate.bio}</p>
-                  </div>
-                )}
-                
-                {candidate.additional_info && (
-                  <div>
-                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Informasi Tambahan</label>
-                    <p className="text-gray-800 whitespace-pre-line">{candidate.additional_info}</p>
-                  </div>
-                )}
-                
-                {references.length > 0 && (
-                  <div>
-                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Referensi</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {references.map((ref: any, index: number) => (
-                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                          <p className="font-medium text-gray-800">{ref.name || '-'}</p>
-                          <p className="text-sm text-gray-600">{ref.position || '-'}</p>
-                          <p className="text-sm text-gray-600">{ref.contact || '-'}</p>
-                        </div>
-                      ))}
+                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Hobi</label>
+                    <div className="flex flex-wrap gap-2">
+                      {hobbies.length > 0 ? hobbies.map((hobby: any, index: number) => (
+                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
+                          {typeof hobby === 'string' ? hobby : hobby.name || '-'}
+                        </span>
+                      )) : <span className="text-gray-500">-</span>}
                     </div>
                   </div>
-                )}
+                  
+                  <div>
+                    <label className="text-sm font-semibold text-blue-900 mb-2 block">SIM yang Dimiliki</label>
+                    <p className="text-gray-800">{candidate.vehicle_license || '-'}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Alamat Domisili</label>
+                    <p className="text-gray-800 whitespace-pre-line">{(candidate as any).alamat_domisili || '-'}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-blue-900">Memiliki Kendaraan:</span>
+                    <span className="text-gray-800">{(candidate as any).has_vehicle ? 'Ya' : 'Tidak'}</span>
+                  </div>
+                  
+                  {(candidate as any).has_vehicle && (
+                    <>
+                      <div>
+                        <label className="text-sm font-semibold text-blue-900 mb-2 block">Jenis Kendaraan</label>
+                        <p className="text-gray-800">{(candidate as any).vehicle_type || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-semibold text-blue-900 mb-2 block">Merk Kendaraan</label>
+                        <p className="text-gray-800">{(candidate as any).vehicle_brand || '-'}</p>
+                      </div>
+                    </>
+                  )}
+                  
+                  <div>
+                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Status Kepemilikan Rumah</label>
+                    <p className="text-gray-800">{(candidate as any).home_ownership || '-'}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Telepon Rumah</label>
+                    <p className="text-gray-800">{(candidate as any).home_phone || '-'}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Sumber Informasi Lowongan</label>
+                    <p className="text-gray-800">{(candidate as any).source_info || '-'}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-semibold text-blue-900 mb-2 block">Aktivitas Sosial/Organisasi</label>
+                    <p className="text-gray-800 whitespace-pre-line">{(candidate as any).social_activities || '-'}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  {candidate.social_media && Object.keys(candidate.social_media).length > 0 && (
+                    <div>
+                      <label className="text-sm font-semibold text-blue-900 mb-2 block">Social Media</label>
+                      <div className="space-y-2">
+                        {Object.entries(candidate.social_media).map(([platform, url]: [string, any]) => (
+                          <div key={platform} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                            <span className="text-sm font-medium capitalize">{platform}:</span>
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-900 hover:underline">
+                              {url}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {references.length > 0 && (
+                    <div>
+                      <label className="text-sm font-semibold text-blue-900 mb-2 block">Referensi</label>
+                      <div className="space-y-2">
+                        {references.map((ref: any, index: number) => (
+                          <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                            <p className="font-medium text-gray-800">{ref.name || '-'}</p>
+                            <p className="text-sm text-gray-600">{ref.position || '-'}</p>
+                            <p className="text-sm text-gray-600">{ref.contact || '-'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

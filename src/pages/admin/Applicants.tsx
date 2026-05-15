@@ -815,15 +815,7 @@ export default function Applicants() {
                       size="sm"
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      Formulir Lengkap
-                    </Button>
-                    <Button
-                      onClick={() => setShowResume(true)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Resume
+                      Personal History Card (PHC)
                     </Button>
                   </div>
                 </div>
