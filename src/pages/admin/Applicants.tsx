@@ -11,6 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "../../integrations/supabase/client";
 import Swal from "sweetalert2";
 import ProfessionalResume from "../../components/admin/ProfessionalResume";
+import ProfessionalApplicationForm from "../../components/admin/ProfessionalApplicationForm";
+
+const SWAL_THEME = () => ({
+  background: "hsl(var(--card))",
+  color: "hsl(var(--foreground))",
+  confirmButtonColor: "hsl(174, 72%, 46%)",
+});
 
 interface CandidateProfile {
   id: string;
@@ -49,6 +56,7 @@ interface CandidateProfile {
   weight?: string;
   blood_type?: string;
   id_card_number?: string;
+  nik?: string;
   passport_number?: string;
   driving_license?: string;
   family_members?: any[];
@@ -63,6 +71,26 @@ interface CandidateProfile {
   references?: any[];
   social_media?: any;
   additional_info?: string;
+  // Additional extended fields
+  height_cm?: number;
+  weight_kg?: number;
+  vehicle_license?: string;
+  has_vehicle?: boolean;
+  vehicle_type?: string;
+  vehicle_brand?: string;
+  home_ownership?: string;
+  home_phone?: string;
+  alamat_domisili?: string;
+  source_info?: string;
+  social_activities?: string;
+  available_from?: string;
+  notice_period?: number;
+  willing_overtime?: boolean;
+  willing_shift?: boolean;
+  salary_exp_base?: string;
+  salary_exp_allowances?: string;
+  salary_exp_benefits?: string;
+  salary_expectation?: string;
 }
 
 export default function Applicants() {
@@ -72,6 +100,7 @@ export default function Applicants() {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showResume, setShowResume] = useState(false);
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -781,8 +810,16 @@ export default function Applicants() {
                       Tutup
                     </Button>
                     <Button
-                      onClick={() => setShowResume(true)}
+                      onClick={() => setShowApplicationForm(true)}
                       className="bg-gradient-to-r from-primary to-accent"
+                      size="sm"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Formulir Lengkap
+                    </Button>
+                    <Button
+                      onClick={() => setShowResume(true)}
+                      variant="outline"
                       size="sm"
                     >
                       <FileText className="h-4 w-4 mr-2" />
@@ -1519,6 +1556,14 @@ export default function Applicants() {
           <ProfessionalResume
             candidate={selectedCandidate}
             onClose={() => setShowResume(false)}
+          />
+        )}
+
+        {/* Professional Application Form Modal */}
+        {showApplicationForm && selectedCandidate && (
+          <ProfessionalApplicationForm
+            candidate={selectedCandidate}
+            onClose={() => setShowApplicationForm(false)}
           />
         )}
       </div>
