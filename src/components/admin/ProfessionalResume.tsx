@@ -55,29 +55,234 @@ const calculateAge = (birthDate: string) => {
   return `${age} Tahun`;
 };
 
+const buildResumeHtml = (candidate: any, contact: any, skills: string[], languages: string[], certifications: string[], hobbies: string[], workExperience: any[], educationHistory: any[], familyMembers: any[], references: any[]) => {
+  const formatItem = (item: any, field: string | string[]) => {
+    if (!item) return '-';
+    if (Array.isArray(field)) {
+      return field.map((key) => safeString(item[key])).filter((value) => value !== '-').join(' • ');
+    }
+    return safeString(item[field]);
+  };
+
+  const renderList = (items: string[]) => {
+    if (!items || items.length === 0) return '<li>-</li>';
+    return items.map((item) => `<li>${safeString(item)}</li>`).join('');
+  };
+
+  const renderSkills = (items: string[]) => {
+    if (!items || items.length === 0) return '<span class="tag">-</span>';
+    return items.map((item) => `<span class="tag">${safeString(item)}</span>`).join('');
+  };
+
+  const renderWork = (items: any[]) => {
+    if (!items || items.length === 0) return '<p class="text">No work experience available.</p>';
+    return items.map((item) => {
+      const title = formatItem(item, ['position', 'title', 'role']);
+      const company = formatItem(item, ['company_name', 'company', 'employer']);
+      const period = formatPeriod(item);
+      const description = formatItem(item, ['duties', 'description', 'summary']);
+      return `
+        <div class="section-block">
+          <div class="section-heading">
+            <div>
+              <h3>${title}</h3>
+              <p class="subtext">${company}</p>
+            </div>
+            <span class="meta">${period}</span>
+          </div>
+          <p class="text">${description}</p>
+        </div>
+      `;
+    }).join('');
+  };
+
+  const renderEducation = (items: any[]) => {
+    if (!items || items.length === 0) return '<p class="text">No education history available.</p>';
+    return items.map((item) => {
+      const place = formatItem(item, ['school', 'institution', 'university']);
+      const major = formatItem(item, ['major', 'field_of_study', 'program']);
+      const year = safeString(item.graduation_year || item.end_year || item.year || '-');
+      const degree = formatItem(item, ['level', 'degree']);
+      return `
+        <div class="section-block">
+          <div class="section-heading">
+            <div>
+              <h3>${place}</h3>
+              <p class="subtext">${major}</p>
+            </div>
+            <span class="meta">${year}</span>
+          </div>
+          <p class="text">${degree}</p>
+        </div>
+      `;
+    }).join('');
+  };
+
+  const renderFamilyMembers = (items: any[]) => {
+    if (!items || items.length === 0) return '<li>-</li>';
+    return items.map((member) => `<li>${safeString(member.name || member.nama)} – ${safeString(member.relation || member.hubungan || member.relationship)}</li>`).join('');
+  };
+
+  const renderReferences = (items: any[]) => {
+    if (!items || items.length === 0) return '<li>-</li>';
+    return items.map((ref) => `<li>${safeString(ref.name)} – ${safeString(ref.position)} – ${safeString(ref.contact)}</li>`).join('');
+  };
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume - ${safeString(candidate.full_name)}</title>
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f3f4f6; color: #0f172a; }
+    .page { max-width: 960px; margin: 0 auto; padding: 32px; }
+    .card { background: #ffffff; border-radius: 28px; box-shadow: 0 20px 60px rgba(15, 23, 42, .08); border: 1px solid #e2e8f0; overflow: hidden; }
+    .topbar { background: #0f172a; color: #f8fafc; padding: 28px 32px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between; }
+    .topbar h1 { margin: 0; font-size: 34px; line-height: 1.1; }
+    .topbar p { margin: 8px 0 0; color: #cbd5e1; }
+    .topbar .contact { font-size: 14px; color: #cbd5e1; }
+    .container { display: grid; gap: 24px; grid-template-columns: 1fr 320px; margin-top: 24px; }
+    .sidebar { padding: 28px; background: #0f172a; border-radius: 24px; color: #e2e8f0; }
+    .sidebar h3 { margin: 0 0 12px; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: #94a3b8; }
+    .sidebar ul { list-style: none; margin: 0; padding: 0; }
+    .sidebar li { margin-bottom: 10px; font-size: 14px; color: #cbd5e1; }
+    .sidebar .tag { display: inline-flex; background: #1e3a8a; color: white; border-radius: 9999px; padding: 6px 12px; font-size: 12px; margin: 4px 4px 0 0; }
+    .content { padding: 28px 0 0; }
+    .section { margin-bottom: 32px; }
+    .section-title { margin: 0 0 16px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .2em; color: #334155; }
+    .section-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .section-heading h3 { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+    .subtext { margin: 4px 0 0; font-size: 14px; color: #64748b; }
+    .meta { font-size: 13px; color: #475569; white-space: nowrap; }
+    .text { margin: 14px 0 0; line-height: 1.8; color: #475569; font-size: 14px; }
+    .details-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .detail { font-size: 14px; color: #475569; }
+    .detail strong { display: block; color: #0f172a; margin-bottom: 4px; }
+    .section-block { padding: 16px 0; border-bottom: 1px solid #e2e8f0; }
+    .section-block:last-child { border-bottom: none; }
+    @media print { body { background: white; } .page { box-shadow: none; margin: 0; padding: 16px; } .no-print { display: none !important; } }
+    @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="topbar">
+        <div>
+          <h1>${safeString(candidate.full_name)}</h1>
+          <p>${safeString(candidate.current_position || candidate.current_company || 'Professional Candidate')}</p>
+        </div>
+        <div class="contact">
+          <div>${contact.email}</div>
+          <div>${contact.phone}</div>
+          <div>${contact.location}</div>
+          <div>${contact.website}</div>
+        </div>
+      </div>
+      <div class="container">
+        <div class="content">
+          <div class="section">
+            <p class="section-title">Summary</p>
+            <p class="text">${safeString(candidate.bio || candidate.additional_info || 'A motivated professional with a strong background and readiness to contribute immediately to the team.')}</p>
+          </div>
+
+          <div class="section">
+            <p class="section-title">Work Experience</p>
+            ${renderWork(workExperience)}
+          </div>
+
+          <div class="section">
+            <p class="section-title">Education</p>
+            ${renderEducation(educationHistory)}
+          </div>
+
+          <div class="section">
+            <p class="section-title">Additional Information</p>
+            <div class="details-grid">
+              <div class="detail"><strong>Expected Salary</strong>${safeString(candidate.expected_salary)}</div>
+              <div class="detail"><strong>Available Start</strong>${safeString(candidate.available_start_date)}</div>
+              <div class="detail"><strong>Relocate</strong>${candidate.willing_to_relocate ? 'Yes' : 'No'}</div>
+              <div class="detail"><strong>Negotiable</strong>${candidate.salary_negotiable ? 'Yes' : 'No'}</div>
+            </div>
+            <p class="text">${safeString(candidate.strengths || 'No additional strengths provided.')}</p>
+          </div>
+
+          <div class="section">
+            <p class="section-title">Family & References</p>
+            <div class="section-block">
+              <h3 class="subtext">Family Members</h3>
+              <ul>${renderFamilyMembers(familyMembers)}</ul>
+            </div>
+            <div class="section-block">
+              <h3 class="subtext">References</h3>
+              <ul>${renderReferences(references)}</ul>
+            </div>
+          </div>
+        </div>
+
+        <aside class="sidebar">
+          <div>
+            <h3>Personal Details</h3>
+            <ul>
+              <li><strong>Birth Date:</strong> ${safeString(candidate.birth_date)}</li>
+              <li><strong>Birth Place:</strong> ${safeString(candidate.birth_place)}</li>
+              <li><strong>Gender:</strong> ${safeString(candidate.gender)}</li>
+              <li><strong>Marital Status:</strong> ${safeString(candidate.marital_status)}</li>
+              <li><strong>Religion:</strong> ${safeString(candidate.religion)}</li>
+              <li><strong>Nationality:</strong> ${safeString(candidate.nationality)}</li>
+              <li><strong>Height:</strong> ${safeString(candidate.height)}</li>
+              <li><strong>Weight:</strong> ${safeString(candidate.weight)}</li>
+              <li><strong>Blood Type:</strong> ${safeString(candidate.blood_type)}</li>
+              <li><strong>ID:</strong> ${safeString(candidate.id_card_number || candidate.nik)}</li>
+            </ul>
+          </div>
+
+          <div>
+            <h3>Skills</h3>
+            <div>${renderSkills(skills)}</div>
+          </div>
+
+          <div>
+            <h3>Languages</h3>
+            <ul>${renderList(languages)}</ul>
+          </div>
+
+          <div>
+            <h3>Certifications</h3>
+            <ul>${renderList(certifications)}</ul>
+          </div>
+
+          <div>
+            <h3>Hobbies</h3>
+            <ul>${renderList(hobbies)}</ul>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+};
+
 export default function ProfessionalResume({ candidate, onClose }: ProfessionalResumeProps) {
   const contact = parseContact(candidate);
   const skills = safeArray(candidate.skills).map((skill: any) => {
     if (!skill) return '-';
     return typeof skill === 'string' ? skill : skill.name || skill.skill || String(skill);
   });
-  const languages = safeArray(candidate.languages);
-  const certifications = safeArray(candidate.certifications);
+  const languages = safeArray(candidate.languages).map((language: any) => (typeof language === 'string' ? language : language.name || language.language || String(language)));
+  const certifications = safeArray(candidate.certifications).map((cert: any) => (typeof cert === 'string' ? cert : cert.name || String(cert)));
   const workExperience = safeArray(candidate.work_experience);
   const educationHistory = safeArray(candidate.education_history);
   const familyMembers = safeArray(candidate.family_members);
-  const hobbies = safeArray(candidate.hobbies);
+  const hobbies = safeArray(candidate.hobbies).map((hobby: any) => (typeof hobby === 'string' ? hobby : hobby.name || String(hobby)));
   const references = safeArray(candidate.references);
-
-  const buildResumeHtml = () => {
-    const content = document.getElementById('professional-resume-content')?.innerHTML || '';
-    return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Resume - ${safeString(candidate.full_name)}</title><style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f8fafc;color:#0f172a;} .page{max-width:960px;margin:0 auto;padding:32px;background:#fff;} .section-title{font-size:14px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#64748b;margin-bottom:16px;} .header{display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;} .name{font-size:38px;font-weight:700;margin:0;} .subtitle{font-size:16px;color:#475569;margin-top:8px;} .badge{display:inline-flex;padding:8px 14px;border-radius:9999px;background:#e2e8f0;color:#334155;font-size:12px;margin-right:8px;margin-bottom:8px;} .grid{display:grid;grid-template-columns:300px 1fr;gap:24px;} .panel{background:#0f172a;color:#e2e8f0;padding:28px;border-radius:28px;} .panel h3{margin-top:0;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.2em;} .panel p, .panel li{font-size:14px;line-height:1.8;} .card{background:#fff;padding:28px;border-radius:28px;box-shadow:0 18px 60px rgba(15,23,42,.08);border:1px solid #e2e8f0;} .section{margin-bottom:32px;} .resume-list{list-style:none;padding:0;margin:0;} .resume-list li{margin-bottom:12px;} .resume-row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;} .resume-row strong{color:#0f172a;} @media print{body{background:#fff;} .no-print{display:none!important;} .page{box-shadow:none;margin:0;} }</style></head><body><div class="page">${content}</div></body></html>`;
-  };
 
   const handlePrint = () => window.print();
 
   const handleDownload = () => {
-    const html = buildResumeHtml();
+    const html = buildResumeHtml(candidate, contact, skills, languages, certifications, hobbies, workExperience, educationHistory, familyMembers, references);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -127,7 +332,7 @@ export default function ProfessionalResume({ candidate, onClose }: ProfessionalR
                 </div>
 
                 <div>
-                  <h3>Contact</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Contact</h3>
                   <ul className="resume-list mt-4 space-y-3 text-sm text-slate-300">
                     <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-slate-500" /> {contact.email}</li>
                     <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-slate-500" /> {contact.phone}</li>
@@ -137,21 +342,21 @@ export default function ProfessionalResume({ candidate, onClose }: ProfessionalR
                 </div>
 
                 <div>
-                  <h3>Key Skills</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Key Skills</h3>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {skills.length > 0 ? skills.map((skill, index) => (
                       <span key={index} className="badge">{skill}</span>
                     )) : (
-                      <p className="text-sm text-slate-500">No skills available</p>
+                      <p className="text-sm text-slate-500">No skills listed.</p>
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <h3>Languages</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Languages</h3>
                   <ul className="resume-list mt-4 text-sm text-slate-300">
-                    {languages.length > 0 ? languages.map((language: any, index: number) => (
-                      <li key={index}>{typeof language === 'string' ? language : language.name || language.language || '-'}</li>
+                    {languages.length > 0 ? languages.map((language, index) => (
+                      <li key={index}>{language}</li>
                     )) : (
                       <li>-</li>
                     )}
@@ -159,10 +364,10 @@ export default function ProfessionalResume({ candidate, onClose }: ProfessionalR
                 </div>
 
                 <div>
-                  <h3>Certifications</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Certifications</h3>
                   <ul className="resume-list mt-4 text-sm text-slate-300">
-                    {certifications.length > 0 ? certifications.map((cert: any, index: number) => (
-                      <li key={index}>{typeof cert === 'string' ? cert : cert.name || String(cert)}</li>
+                    {certifications.length > 0 ? certifications.map((cert, index) => (
+                      <li key={index}>{cert}</li>
                     )) : (
                       <li>-</li>
                     )}
@@ -170,10 +375,10 @@ export default function ProfessionalResume({ candidate, onClose }: ProfessionalR
                 </div>
 
                 <div>
-                  <h3>Hobbies</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Hobbies</h3>
                   <ul className="resume-list mt-4 text-sm text-slate-300">
-                    {hobbies.length > 0 ? hobbies.map((hobby: any, index: number) => (
-                      <li key={index}>{typeof hobby === 'string' ? hobby : hobby.name || hobby}</li>
+                    {hobbies.length > 0 ? hobbies.map((hobby, index) => (
+                      <li key={index}>{hobby}</li>
                     )) : (
                       <li>-</li>
                     )}
@@ -184,78 +389,40 @@ export default function ProfessionalResume({ candidate, onClose }: ProfessionalR
 
             <main className="space-y-6">
               <section className="card">
-                <div className="header">
+                <p className="section-title">Professional Summary</p>
+                <div className="grid gap-4 md:grid-cols-[1fr_auto]">
                   <div>
-                    <p className="section-title">Professional Summary</p>
-                    <h2 className="text-2xl font-semibold text-slate-900">About the Candidate</h2>
+                    <h2 className="text-2xl font-semibold text-slate-900">{candidate.full_name || 'Candidate Name'}</h2>
+                    <p className="mt-2 text-sm text-slate-500">{candidate.current_position || candidate.current_company || 'Professional Candidate'}</p>
                   </div>
-                  <div className="text-sm text-slate-500">
-                    <p>{candidate.current_position || candidate.current_company || 'Professional Candidate'}</p>
-                    <p>{candidate.experience_years ? `${candidate.experience_years} years experience` : '-'}</p>
+                  <div className="text-right text-sm text-slate-500">
+                    <p>{calculateAge(candidate.birth_date)}</p>
+                    <p>{safeString(candidate.gender)}</p>
                   </div>
                 </div>
-                <div className="mt-6 text-slate-700 leading-7">
-                  {candidate.bio || candidate.additional_info || 'A dependable professional with strong experience, ready to contribute in a new role.'}
+                <div className="mt-6 text-slate-700 leading-7 whitespace-pre-line">
+                  {candidate.bio || candidate.additional_info || 'A motivated professional with a strong background and readiness to contribute immediately to the team.'}
                 </div>
               </section>
 
               <section className="card">
                 <p className="section-title">Personal Details</p>
                 <div className="grid gap-4 md:grid-cols-2 text-sm text-slate-700">
-                  <div>
-                    <strong>Full Name</strong>
-                    <p>{safeString(candidate.full_name)}</p>
-                  </div>
-                  <div>
-                    <strong>Birth Date</strong>
-                    <p>{safeString(candidate.birth_date)}</p>
-                  </div>
-                  <div>
-                    <strong>Birth Place</strong>
-                    <p>{safeString(candidate.birth_place)}</p>
-                  </div>
-                  <div>
-                    <strong>Age</strong>
-                    <p>{calculateAge(candidate.birth_date)}</p>
-                  </div>
-                  <div>
-                    <strong>Gender</strong>
-                    <p>{safeString(candidate.gender)}</p>
-                  </div>
-                  <div>
-                    <strong>Marital Status</strong>
-                    <p>{safeString(candidate.marital_status)}</p>
-                  </div>
-                  <div>
-                    <strong>Religion</strong>
-                    <p>{safeString(candidate.religion)}</p>
-                  </div>
-                  <div>
-                    <strong>Nationality</strong>
-                    <p>{safeString(candidate.nationality)}</p>
-                  </div>
-                  <div>
-                    <strong>Height</strong>
-                    <p>{safeString(candidate.height)}</p>
-                  </div>
-                  <div>
-                    <strong>Weight</strong>
-                    <p>{safeString(candidate.weight)}</p>
-                  </div>
-                  <div>
-                    <strong>Blood Type</strong>
-                    <p>{safeString(candidate.blood_type)}</p>
-                  </div>
-                  <div>
-                    <strong>ID Card</strong>
-                    <p>{safeString((candidate as any).id_card_number || (candidate as any).nik)}</p>
-                  </div>
+                  <div><strong>Birth Date</strong><p>{safeString(candidate.birth_date)}</p></div>
+                  <div><strong>Birth Place</strong><p>{safeString(candidate.birth_place)}</p></div>
+                  <div><strong>Gender</strong><p>{safeString(candidate.gender)}</p></div>
+                  <div><strong>Marital Status</strong><p>{safeString(candidate.marital_status)}</p></div>
+                  <div><strong>Religion</strong><p>{safeString(candidate.religion)}</p></div>
+                  <div><strong>Nationality</strong><p>{safeString(candidate.nationality)}</p></div>
+                  <div><strong>Height</strong><p>{safeString(candidate.height)}</p></div>
+                  <div><strong>Weight</strong><p>{safeString(candidate.weight)}</p></div>
+                  <div><strong>Blood Type</strong><p>{safeString(candidate.blood_type)}</p></div>
                 </div>
               </section>
 
               <section className="card">
                 <p className="section-title">Work Experience</p>
-                <div className="space-y-6 mt-5">
+                <div className="space-y-5 mt-5">
                   {workExperience.length > 0 ? workExperience.map((item: any, index: number) => (
                     <div key={index} className="space-y-3">
                       <div className="resume-row">
@@ -296,22 +463,10 @@ export default function ProfessionalResume({ candidate, onClose }: ProfessionalR
               <section className="card">
                 <p className="section-title">Additional Information</p>
                 <div className="grid gap-4 md:grid-cols-2 mt-5 text-sm text-slate-700">
-                  <div className="space-y-2">
-                    <p className="font-semibold text-slate-900">Expected Salary</p>
-                    <p>{safeString(candidate.expected_salary)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-semibold text-slate-900">Available Start</p>
-                    <p>{safeString(candidate.available_start_date)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-semibold text-slate-900">Willing to Relocate</p>
-                    <p>{candidate.willing_to_relocate ? 'Yes' : 'No'}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-semibold text-slate-900">Salary Negotiable</p>
-                    <p>{candidate.salary_negotiable ? 'Yes' : 'No'}</p>
-                  </div>
+                  <div><strong>Expected Salary</strong><p>{safeString(candidate.expected_salary)}</p></div>
+                  <div><strong>Available Start</strong><p>{safeString(candidate.available_start_date)}</p></div>
+                  <div><strong>Relocate</strong><p>{candidate.willing_to_relocate ? 'Yes' : 'No'}</p></div>
+                  <div><strong>Salary Negotiable</strong><p>{candidate.salary_negotiable ? 'Yes' : 'No'}</p></div>
                 </div>
                 <div className="mt-6 text-sm text-slate-700 leading-7 whitespace-pre-line">
                   {candidate.strengths || 'No additional strengths provided.'}

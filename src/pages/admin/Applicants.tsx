@@ -348,116 +348,120 @@ export default function Applicants() {
   };
 
   const generateResumeContent = (candidate: CandidateProfile) => {
+    const parseArray = (value: any) => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : value.split(/[,;]\s*/).filter(Boolean);
+        } catch {
+          return value.split(/[,;]\s*/).filter(Boolean);
+        }
+      }
+      return [];
+    };
+
+    const safePrint = (value: any) => {
+      if (value == null || value === '') return '-';
+      return String(value);
+    };
+
+    const skills = parseArray(candidate.skills);
+    const languages = parseArray(candidate.languages);
+    const bio = safePrint(candidate.bio || 'Tidak ada bio tersedia');
+    const strengths = safePrint(candidate.strengths || 'Tidak ada keunggulan yang dituliskan');
+
+    const renderList = (items: string[]) => {
+      if (!items || items.length === 0) return '<li>-</li>';
+      return items.map((item) => `<li>${safePrint(item)}</li>`).join('');
+    };
+
+    const renderTags = (items: string[]) => {
+      if (!items || items.length === 0) return '<span class="tag">-</span>';
+      return items.map((item) => `<span class="tag">${safePrint(item)}</span>`).join('');
+    };
+
     return `
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resume - ${candidate.full_name}</title>
+    <title>Resume - ${safePrint(candidate.full_name)}</title>
     <style>
-        body { font-family: 'Inter', sans-serif; margin: 0; padding: 20px; background: #f8f9fa; }
-        .resume { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header { text-align: center; border-bottom: 2px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px; }
-        .name { font-size: 32px; font-weight: bold; color: #1e40af; margin: 0; }
-        .position { font-size: 18px; color: #64748b; margin: 5px 0; }
-        .contact { font-size: 14px; color: #64748b; }
-        .section { margin-bottom: 30px; }
-        .section-title { font-size: 20px; font-weight: bold; color: #1e40af; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin-bottom: 15px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .item { margin-bottom: 10px; }
-        .label { font-weight: bold; color: #374151; }
-        .value { color: #6b7280; }
-        .skills { display: flex; flex-wrap: wrap; gap: 8px; }
-        .skill { background: #1e40af; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        body { font-family: 'Inter', sans-serif; margin: 0; padding: 20px; background: #f8fafc; color: #0f172a; }
+        .resume { max-width: 840px; margin: 0 auto; background: white; padding: 40px; border-radius: 16px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08); }
+        .header { text-align: center; border-bottom: 3px solid #1e40af; padding-bottom: 24px; margin-bottom: 34px; }
+        .name { font-size: 36px; font-weight: 800; color: #0f172a; margin: 0; }
+        .position { font-size: 18px; color: #475569; margin: 8px 0 0; }
+        .contact { margin-top: 12px; font-size: 14px; color: #64748b; line-height: 1.8; }
+        .section { margin-bottom: 28px; }
+        .section-title { font-size: 16px; font-weight: 700; color: #1e40af; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.15em; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .item { margin-bottom: 14px; }
+        .label { display: block; font-size: 13px; color: #475569; font-weight: 700; margin-bottom: 4px; }
+        .value { font-size: 14px; color: #475569; }
+        .skills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .tag { display: inline-flex; background: #1e40af; color: white; padding: 6px 12px; border-radius: 9999px; font-size: 12px; }
+        .list { list-style: none; margin: 0; padding: 0; }
+        .list li { margin-bottom: 8px; font-size: 14px; color: #475569; }
+        .text { font-size: 14px; color: #475569; line-height: 1.8; }
+        @media print { body { background: white; } .resume { box-shadow: none; margin: 0; padding: 16px; border-radius: 0; } }
+        @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="resume">
         <div class="header">
-            <h1 class="name">${candidate.full_name}</h1>
-            <p class="position">${candidate.current_position || 'Professional'}</p>
-            <div class="contact">
-                ${candidate.email} | ${candidate.phone || 'No Phone'} | ${candidate.city || 'No City'}
-            </div>
+            <h1 class="name">${safePrint(candidate.full_name)}</h1>
+            <p class="position">${safePrint(candidate.current_position || 'Professional Candidate')}</p>
+            <p class="contact">${safePrint(candidate.email)}${candidate.phone ? ` | ${safePrint(candidate.phone)}` : ''}${candidate.city ? ` | ${safePrint(candidate.city)}` : ''}</p>
         </div>
 
         <div class="section">
             <h2 class="section-title">Tentang Saya</h2>
-            <p class="value">${candidate.bio || 'Tidak ada bio tersedia'}</p>
+            <p class="text">${bio}</p>
         </div>
 
         <div class="section">
             <h2 class="section-title">Informasi Pribadi</h2>
             <div class="grid">
-                <div class="item">
-                    <span class="label">Tanggal Lahir:</span>
-                    <span class="value">${formatDate(candidate.birth_date)}</span>
-                </div>
-                <div class="item">
-                    <span class="label">Tempat Lahir:</span>
-                    <span class="value">${candidate.birth_place || '-'}</span>
-                </div>
-                <div class="item">
-                    <span class="label">Jenis Kelamin:</span>
-                    <span class="value">${candidate.gender || '-'}</span>
-                </div>
-                <div class="item">
-                    <span class="label">Alamat:</span>
-                    <span class="value">${candidate.address || '-'}</span>
-                </div>
+                <div class="item"><span class="label">Tanggal Lahir</span><span class="value">${safePrint(formatDate(candidate.birth_date))}</span></div>
+                <div class="item"><span class="label">Tempat Lahir</span><span class="value">${safePrint(candidate.birth_place)}</span></div>
+                <div class="item"><span class="label">Jenis Kelamin</span><span class="value">${safePrint(candidate.gender)}</span></div>
+                <div class="item"><span class="label">Alamat</span><span class="value">${safePrint(candidate.address)}</span></div>
+                <div class="item"><span class="label">Status</span><span class="value">${safePrint(candidate.marital_status)}</span></div>
+                <div class="item"><span class="label">No. KTP / NIK</span><span class="value">${safePrint(candidate.id_card_number || candidate.nik)}</span></div>
             </div>
         </div>
 
         <div class="section">
             <h2 class="section-title">Pendidikan</h2>
-            <div class="item">
-                <span class="label">Tingkat Pendidikan:</span>
-                <span class="value">${candidate.education_level || '-'}</span>
-            </div>
-            <div class="item">
-                <span class="label">Institusi:</span>
-                <span class="value">${candidate.education_institution || '-'}</span>
-            </div>
-            <div class="item">
-                <span class="label">Jurusan:</span>
-                <span class="value">${candidate.major || '-'}</span>
-            </div>
-            <div class="item">
-                <span class="label">Tahun Lulus:</span>
-                <span class="value">${candidate.graduation_year || '-'}</span>
+            <div class="grid">
+                <div class="item"><span class="label">Tingkat Pendidikan</span><span class="value">${safePrint(candidate.education_level)}</span></div>
+                <div class="item"><span class="label">Institusi</span><span class="value">${safePrint(candidate.education_institution)}</span></div>
+                <div class="item"><span class="label">Jurusan</span><span class="value">${safePrint(candidate.major)}</span></div>
+                <div class="item"><span class="label">Tahun Lulus</span><span class="value">${safePrint(candidate.graduation_year)}</span></div>
             </div>
         </div>
 
         <div class="section">
             <h2 class="section-title">Pengalaman Kerja</h2>
-            <div class="item">
-                <span class="label">Posisi Saat Ini:</span>
-                <span class="value">${candidate.current_position || '-'}</span>
-            </div>
-            <div class="item">
-                <span class="label">Perusahaan:</span>
-                <span class="value">${candidate.current_company || '-'}</span>
-            </div>
-            <div class="item">
-                <span class="label">Pengalaman:</span>
-                <span class="value">${candidate.experience_years ? `${candidate.experience_years} Tahun` : 'Tidak ada data'}</span>
-            </div>
+            <div class="item"><span class="label">Posisi Saat Ini</span><span class="value">${safePrint(candidate.current_position)}</span></div>
+            <div class="item"><span class="label">Perusahaan</span><span class="value">${safePrint(candidate.current_company)}</span></div>
+            <div class="item"><span class="label">Lama Pengalaman</span><span class="value">${safePrint(candidate.experience_years ? `${candidate.experience_years} Tahun` : '')}</span></div>
         </div>
 
         <div class="section">
             <h2 class="section-title">Keahlian</h2>
-            <div class="skills">
-                ${(Array.isArray(candidate.skills) ? candidate.skills : JSON.parse(candidate.skills || '[]')).map(skill => `<span class="skill">${skill}</span>`).join('')}
-            </div>
+            <div class="skills">${renderTags(skills)}</div>
         </div>
 
-        ${candidate.strengths ? `
         <div class="section">
             <h2 class="section-title">Keunggulan</h2>
-            <p class="value">${candidate.strengths}</p>
+            <p class="text">${strengths}</p>
         </div>
-        ` : ''}
     </div>
 </body>
 </html>
