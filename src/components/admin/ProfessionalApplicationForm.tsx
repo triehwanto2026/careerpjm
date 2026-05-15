@@ -8,277 +8,18 @@ interface ProfessionalApplicationFormProps {
 }
 
 export default function ProfessionalApplicationForm({ candidate, onClose }: ProfessionalApplicationFormProps) {
-  const handleDownload = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const content = document.getElementById('application-form-content')?.innerHTML || '';
-      
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html lang="id">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Personal History Card (PHC) - ${candidate.full_name || 'Candidate'}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 1.5cm 1.5cm 1.5cm 1.5cm;
-            }
-            
-            * {
-              box-sizing: border-box;
-            }
-            
-            @media print {
-              body { 
-                print-color-adjust: exact; 
-                -webkit-print-color-adjust: exact; 
-                background: white !important;
-                margin: 0;
-                padding: 0;
-              }
-              .no-print { 
-                display: none !important; 
-              }
-              .page-break {
-                page-break-before: always;
-              }
-              .avoid-break {
-                page-break-inside: avoid;
-              }
-              .section-card {
-                page-break-inside: avoid;
-                margin-bottom: 16px;
-              }
-              table {
-                page-break-inside: auto;
-                width: 100%;
-                border-collapse: collapse;
-              }
-              thead {
-                page-break-inside: avoid;
-                page-break-after: auto;
-              }
-              tbody {
-                page-break-inside: auto;
-              }
-              tr {
-                page-break-inside: avoid;
-                page-break-after: auto;
-              }
-              td {
-                page-break-inside: avoid;
-                page-break-after: auto;
-                word-wrap: break-word;
-                word-break: break-word;
-              }
-              th {
-                page-break-inside: avoid;
-                page-break-after: auto;
-              }
-            }
-            
-            body {
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              background: white;
-              margin: 0;
-              padding: 0;
-              color: #1f2937;
-              font-size: 11px;
-            }
-            
-            .container-shadow {
-              box-shadow: none;
-            }
-            
-            .table-border {
-              border: 1px solid #1e3a8a;
-              border-collapse: collapse;
-              width: 100%;
-            }
-            
-            .table-cell {
-              border: 1px solid #1e3a8a;
-              padding: 4px;
-              font-size: 10px;
-            }
-            
-            .section-header {
-              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-              color: white;
-              padding: 8px;
-              font-weight: bold;
-              text-align: center;
-              border-radius: 4px;
-              margin-bottom: 12px;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-              font-size: 12px;
-            }
-            
-            .photo-container {
-              width: 100px;
-              height: 120px;
-              border: 2px solid #1e3a8a;
-              border-radius: 4px;
-              overflow: hidden;
-              background: #f9fafb;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-            
-            .photo-container img {
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-            }
-            
-            .label {
-              font-size: 9px;
-              font-weight: 600;
-              color: #1e3a8a;
-              margin-bottom: 2px;
-            }
-            
-            .value {
-              font-size: 10px;
-              color: #374151;
-              margin-bottom: 4px;
-            }
-            
-            .section-card {
-              background: white;
-              border-radius: 4px;
-              padding: 8px;
-              margin-bottom: 12px;
-              border: 1px solid #1e3a8a;
-              box-shadow: none;
-            }
-            
-            .header-section {
-              text-align: center;
-              padding: 12px;
-              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-              color: white;
-              border-radius: 4px;
-              margin-bottom: 12px;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            
-            .header-section h1 {
-              font-size: 16px;
-              font-weight: bold;
-              margin: 0 0 4px 0;
-            }
-            
-            .header-section p {
-              font-size: 10px;
-              margin: 0;
-              opacity: 0.9;
-            }
-            
-            .info-grid {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 6px;
-            }
-            
-            .grid-cols-1 {
-              grid-template-columns: 1fr;
-            }
-            
-            .grid-cols-2 {
-              grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .grid-cols-3 {
-              grid-template-columns: repeat(3, 1fr);
-            }
-            
-            .grid-cols-1\\:md\\:col-span-2,
-            .md\\:col-span-2 {
-              grid-column: span 2;
-            }
-            
-            .grid-cols-1\\:md\\:col-span-3,
-            .md\\:col-span-3 {
-              grid-column: span 3;
-            }
-            
-            /* Force grid layout for all grid classes */
-            [class*="grid"] {
-              display: grid;
-            }
-            
-            /* Specific grid layouts from the preview */
-            .grid {
-              display: grid;
-            }
-            
-            .grid-cols-1 {
-              grid-template-columns: repeat(1, minmax(0, 1fr));
-            }
-            
-            .grid-cols-2 {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-            
-            .grid-cols-3 {
-              grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-            
-            .gap-4 {
-              gap: 1rem;
-            }
-            
-            .gap-6 {
-              gap: 1.5rem;
-            }
-            
-            .gap-2 {
-              gap: 0.5rem;
-            }
-            
-            .gap-3 {
-              gap: 0.75rem;
-            }
-            
-            .gap-8 {
-              gap: 2rem;
-            }
-            
-            .gap-12 {
-              gap: 3rem;
-            }
-            
-            @media (max-width: 768px) {
-              .info-grid {
-                grid-template-columns: repeat(2, 1fr);
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div style="max-width: 100%; margin: 0;">
-            ${content}
-          </div>
-          
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 500);
-            };
-          </script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
+  const safeParseArray = (value: any) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
     }
+    return [];
   };
 
   const calculateAge = (birthDate: string) => {
@@ -306,18 +47,420 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
     });
   };
 
-  const safeParseArray = (value: any) => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
+  const handleDownload = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      const familyMembers = safeParseArray(candidate.family_members);
+      const educationHistory = safeParseArray(candidate.education_history);
+      const workExperience = safeParseArray(candidate.work_experience);
+      const skills = safeParseArray(candidate.skills);
+      const languages = safeParseArray(candidate.languages);
+      const certificates = safeParseArray(candidate.certificates);
+      const references = safeParseArray(candidate.references);
+      const hobbies = safeParseArray(candidate.hobbies);
+
+      const buildPersonalInfoTable = () => {
+        const fields = [
+          { label: 'Tempat, Tanggal Lahir', value: `${candidate.birth_place || '-'}, ${formatDate(candidate.birth_date)}` },
+          { label: 'Usia', value: calculateAge(candidate.birth_date) + ' tahun' },
+          { label: 'Jenis Kelamin', value: candidate.gender || '-' },
+          { label: 'Status Pernikahan', value: candidate.marital_status || '-' },
+          { label: 'Agama', value: candidate.religion || '-' },
+          { label: 'Kewarganegaraan', value: candidate.nationality || '-' },
+          { label: 'No. KTP / NIK', value: candidate.nik || candidate.id_card_number || '-' },
+          { label: 'No. SIM', value: candidate.vehicle_license || '-' },
+          { label: 'Golongan Darah', value: candidate.blood_type || '-' },
+          { label: 'Tinggi Badan', value: candidate.height_cm ? `${candidate.height_cm} cm` : '-' },
+          { label: 'Berat Badan', value: candidate.weight_kg ? `${candidate.weight_kg} kg` : '-' },
+          { label: 'Alamat Lengkap', value: candidate.address || '-' },
+        ];
+
+        let html = '<table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">';
+        html += '<tr>';
+        fields.forEach((field, index) => {
+          if (index % 3 === 0 && index !== 0) {
+            html += '</tr><tr>';
+          }
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; width: 33.33%; vertical-align: top;">`;
+          html += `<div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">${field.label}</div>`;
+          html += `<div style="font-size: 10px; color: #374151;">${field.value}</div>`;
+          html += '</td>';
+        });
+        html += '</tr></table>';
+        return html;
+      };
+
+      const buildFamilyTable = () => {
+        if (familyMembers.length === 0) return '<p style="text-align: center; color: #6b7280; padding: 8px;">Belum ada data keluarga</p>';
+        
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<thead><tr style="background: #f3f4f6;">';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Hubungan</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Nama</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Jenis Kelamin</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Usia</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Pendidikan</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Pekerjaan</th>';
+        html += '</tr></thead><tbody>';
+        
+        familyMembers.forEach((member: any, index: number) => {
+          html += `<tr style="${index % 2 === 0 ? 'background: white;' : 'background: #f9fafb;'}">`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${member.relation || member.relationship || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${member.name || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${member.gender || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${member.age || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${member.education || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${member.occupation || '-'}</td>`;
+          html += '</tr>';
+        });
+        
+        html += '</tbody></table>';
+        return html;
+      };
+
+      const buildEducationTable = () => {
+        if (educationHistory.length === 0) {
+          return `
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="border: 1px solid #1e3a8a; padding: 4px; width: 50%; vertical-align: top;">
+                  <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Tingkat Pendidikan</div>
+                  <div style="font-size: 10px; color: #374151;">${candidate.education_level || '-'}</div>
+                </td>
+                <td style="border: 1px solid #1e3a8a; padding: 4px; width: 50%; vertical-align: top;">
+                  <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Institusi</div>
+                  <div style="font-size: 10px; color: #374151;">${candidate.education_institution || '-'}</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #1e3a8a; padding: 4px; width: 50%; vertical-align: top;">
+                  <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Jurusan</div>
+                  <div style="font-size: 10px; color: #374151;">${candidate.major || '-'}</div>
+                </td>
+                <td style="border: 1px solid #1e3a8a; padding: 4px; width: 50%; vertical-align: top;">
+                  <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Tahun Lulus</div>
+                  <div style="font-size: 10px; color: #374151;">${candidate.graduation_year || '-'}</div>
+                </td>
+              </tr>
+            </table>
+          `;
+        }
+
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<thead><tr style="background: #f3f4f6;">';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Tingkat</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Sekolah/Universitas</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Jurusan</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Tahun Mulai</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Tahun Selesai</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Nilai/Grade</th>';
+        html += '<th style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px; text-align: left;">Status</th>';
+        html += '</tr></thead><tbody>';
+        
+        educationHistory.forEach((edu: any, index: number) => {
+          html += `<tr style="${index % 2 === 0 ? 'background: white;' : 'background: #f9fafb;'}">`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${edu.level || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${edu.school || edu.institution || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${edu.major || edu.field_of_study || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${edu.start_year || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${edu.end_year || edu.graduation_year || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${edu.grade || edu.gpa || '-'}</td>`;
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; font-size: 9px;">${edu.status || '-'}</td>`;
+          html += '</tr>';
+        });
+        
+        html += '</tbody></table>';
+        return html;
+      };
+
+      const buildSkillsTable = () => {
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<tr>';
+        html += '<td style="border: 1px solid #1e3a8a; padding: 4px; width: 50%; vertical-align: top;">';
+        html += '<div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 4px;">Skills</div>';
+        if (skills.length > 0) {
+          html += '<div style="display: flex; flex-wrap: wrap; gap: 4px;">';
+          skills.forEach((skill: any) => {
+            const skillName = typeof skill === 'string' ? skill : skill.name || skill.skill || '-';
+            html += `<span style="display: inline-block; background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 9999px; font-size: 8px;">${skillName}</span>`;
+          });
+          html += '</div>';
+        } else {
+          html += '<span style="font-size: 9px; color: #6b7280;">Tidak ada data</span>';
+        }
+        html += '</td>';
+        
+        html += '<td style="border: 1px solid #1e3a8a; padding: 4px; width: 50%; vertical-align: top;">';
+        html += '<div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 4px;">Bahasa</div>';
+        if (languages.length > 0) {
+          html += '<div style="display: flex; flex-direction: column; gap: 2px;">';
+          languages.forEach((lang: any) => {
+            html += `<div style="display: flex; justify-content: space-between; padding: 2px; background: #f3f4f6; border-radius: 2px;">`;
+            html += `<span style="font-size: 9px;">${lang.language || lang.name || '-'}</span>`;
+            html += `<span style="font-size: 8px; background: #dbeafe; color: #1e40af; padding: 1px 4px; border-radius: 9999px;">${lang.level || '-'}</span>`;
+            html += '</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<span style="font-size: 9px; color: #6b7280;">Tidak ada data</span>';
+        }
+        html += '</td>';
+        html += '</tr>';
+        html += '</table>';
+        return html;
+      };
+
+      const buildExpectationsTable = () => {
+        const fields = [
+          { label: 'Gaji yang Diharapkan', value: candidate.expected_salary || (candidate as any).salary_exp_base || '-' },
+          { label: 'Gaji Saat Ini', value: (candidate as any).salary_expectation || '-' },
+          { label: 'Tanggal Mulai Tersedia', value: (candidate as any).available_from || '-' },
+          { label: 'Periode Notice', value: (candidate as any).notice_period ? `${(candidate as any).notice_period} hari` : '-' },
+          { label: 'Bersedia Relokasi', value: (candidate as any).willing_relocate ? 'Ya' : 'Tidak' },
+          { label: 'Bersedia Lembur', value: (candidate as any).willing_overtime ? 'Ya' : 'Tidak' },
+          { label: 'Bersedia Shift', value: (candidate as any).willing_shift ? 'Ya' : 'Tidak' },
+          { label: 'Negosiasi Gaji', value: candidate.salary_negotiable ? 'Ya' : 'Tidak' },
+        ];
+
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<tr>';
+        fields.forEach((field, index) => {
+          if (index % 2 === 0 && index !== 0) {
+            html += '</tr><tr>';
+          }
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; width: 50%; vertical-align: top;">`;
+          html += `<div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">${field.label}</div>`;
+          html += `<div style="font-size: 10px; color: #374151;">${field.value}</div>`;
+          html += '</td>';
+        });
+        html += '</tr></table>';
+        return html;
+      };
+
+      const buildAdditionalInfoTable = () => {
+        const fields = [
+          { label: 'Hobi', value: hobbies.length > 0 ? hobbies.map((h: any) => typeof h === 'string' ? h : h.name).join(', ') : '-' },
+          { label: 'SIM yang Dimiliki', value: candidate.vehicle_license || '-' },
+          { label: 'Alamat Domisili', value: (candidate as any).alamat_domisili || '-' },
+          { label: 'Memiliki Kendaraan', value: (candidate as any).has_vehicle ? 'Ya' : 'Tidak' },
+          { label: 'Status Kepemilikan Rumah', value: (candidate as any).home_ownership || '-' },
+          { label: 'Telepon Rumah', value: (candidate as any).home_phone || '-' },
+          { label: 'Sumber Informasi Lowongan', value: (candidate as any).source_info || '-' },
+        ];
+
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<tr>';
+        fields.forEach((field, index) => {
+          if (index % 3 === 0 && index !== 0) {
+            html += '</tr><tr>';
+          }
+          html += `<td style="border: 1px solid #1e3a8a; padding: 4px; width: 33.33%; vertical-align: top;">`;
+          html += `<div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">${field.label}</div>`;
+          html += `<div style="font-size: 10px; color: #374151;">${field.value}</div>`;
+          html += '</td>';
+        });
+        html += '</tr></table>';
+        return html;
+      };
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="id">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Personal History Card (PHC) - ${candidate.full_name || 'Candidate'}</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 1.5cm 1.5cm 1.5cm 1.5cm;
+            }
+            
+            * {
+              box-sizing: border-box;
+            }
+            
+            @media print {
+              body { 
+                print-color-adjust: exact; 
+                -webkit-print-color-adjust: exact; 
+                background: white !important;
+                margin: 0;
+                padding: 0;
+              }
+              table {
+                page-break-inside: auto;
+                width: 100%;
+                border-collapse: collapse;
+              }
+              tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+              }
+              td {
+                page-break-inside: avoid;
+                page-break-after: auto;
+                word-wrap: break-word;
+                word-break: break-word;
+              }
+            }
+            
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              background: white;
+              margin: 0;
+              padding: 0;
+              color: #1f2937;
+              font-size: 11px;
+            }
+            
+            .section-card {
+              background: white;
+              border-radius: 4px;
+              padding: 8px;
+              margin-bottom: 12px;
+              border: 1px solid #1e3a8a;
+              page-break-inside: avoid;
+            }
+            
+            .section-header {
+              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+              color: white;
+              padding: 8px;
+              font-weight: bold;
+              text-align: center;
+              border-radius: 4px;
+              margin-bottom: 12px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              font-size: 12px;
+            }
+            
+            .header-section {
+              text-align: center;
+              padding: 12px;
+              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+              color: white;
+              border-radius: 4px;
+              margin-bottom: 12px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            
+            .header-section h1 {
+              font-size: 16px;
+              font-weight: bold;
+              margin: 0 0 4px 0;
+            }
+            
+            .header-section p {
+              font-size: 10px;
+              margin: 0;
+              opacity: 0.9;
+            }
+          </style>
+        </head>
+        <body>
+          <div style="max-width: 100%; margin: 0;">
+            <div class="section-card">
+              <div class="header-section">
+                <h1>PERSONAL HISTORY CARD (PHC)</h1>
+                <p>Data Pelamar Lengkap</p>
+              </div>
+              
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
+                <tr>
+                  <td style="border: 1px solid #1e3a8a; padding: 8px; width: 120px; vertical-align: top;">
+                    <div style="width: 100px; height: 120px; border: 2px solid #1e3a8a; border-radius: 4px; overflow: hidden; background: #f9fafb; display: flex; align-items: center; justify-content: center;">
+                      ${candidate.photo_url ? `<img src="${candidate.photo_url}" alt="${candidate.full_name}" style="width: 100%; height: 100%; object-fit: cover;" />` : '<span style="font-size: 9px; color: #6b7280;">No Photo</span>'}
+                    </div>
+                  </td>
+                  <td style="border: 1px solid #1e3a8a; padding: 8px; vertical-align: top;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                      <tr>
+                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
+                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Nama Lengkap</div>
+                          <div style="font-size: 10px; color: #374151;">${candidate.full_name || '-'}</div>
+                        </td>
+                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
+                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Email</div>
+                          <div style="font-size: 10px; color: #374151;">${candidate.email || '-'}</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
+                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Telepon</div>
+                          <div style="font-size: 10px; color: #374151;">${candidate.phone || '-'}</div>
+                        </td>
+                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
+                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Posisi yang Dilamar</div>
+                          <div style="font-size: 10px; color: #374151;">${candidate.current_position || '-'}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">DATA PRIBADI</div>
+              ${buildPersonalInfoTable()}
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">DATA KELUARGA</div>
+              ${buildFamilyTable()}
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">RIWAYAT PENDIDIKAN</div>
+              ${buildEducationTable()}
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">KEAHLIAN & KOMPETENSI</div>
+              ${buildSkillsTable()}
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">EKSPETASI & PREFERENSI</div>
+              ${buildExpectationsTable()}
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">INFORMASI TAMBAHAN</div>
+              ${buildAdditionalInfoTable()}
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">PERNYATAAN</div>
+              <p style="font-size: 10px; color: #374151; margin-bottom: 8px; line-height: 1.5;">
+                Dengan ini saya menyatakan bahwa seluruh data yang saya berikan adalah benar dan dapat dipertanggungjawabkan. 
+                Apabila di kemudian hari terdapat ketidaksesuaian dengan kenyataan, saya bersedia menerima sanksi dan 
+                pembatalan proses rekrutmen ini tanpa tuntutan apapun.
+              </p>
+              <div style="text-align: right; margin-top: 16px;">
+                <p style="font-size: 9px; color: #374151; margin-bottom: 2px;">Surabaya, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                <div style="height: 48px;"></div>
+                <p style="font-size: 10px; font-weight: bold; color: #374151;">( ${candidate.full_name || 'Nama Pelamar'} )</p>
+              </div>
+            </div>
+          </div>
+          
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
     }
-    return [];
   };
 
   const familyMembers = safeParseArray(candidate.family_members);
