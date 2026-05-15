@@ -19,6 +19,15 @@ const statusMap: Record<string, { label: string; cls: string }> = {
   expired: { label: "Kadaluarsa", cls: "bg-destructive/10 text-destructive" },
 };
 
+const generateStrongPassword = (length = 14) => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}<>?";
+  let password = "";
+  for (let i = 0; i < length; i += 1) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+};
+
 interface CandidateRow {
   id: string; name: string; email: string; phone: string; position: string;
   status: string; birth_date: string | null; education: string | null; gender: string | null;
@@ -122,7 +131,7 @@ const Candidates = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordCandidate, setPasswordCandidate] = useState<CandidateRow | null>(null);
   const [passwordMode, setPasswordMode] = useState<"default" | "custom">("default");
-  const [newCandidatePassword, setNewCandidatePassword] = useState("123456");
+  const [newCandidatePassword, setNewCandidatePassword] = useState(generateStrongPassword());
   const [authActionLoading, setAuthActionLoading] = useState(false);
 
   // Edit modal states
@@ -527,10 +536,11 @@ const Candidates = () => {
     } catch (error: any) {
       const userMissing = String(error.message || "").toLowerCase().includes("user auth");
       if (userMissing) {
+        const strongPassword = generateStrongPassword();
         const create = await Swal.fire({
           icon: "question",
           title: "Akun Login Belum Ada",
-          text: `Buat akun login untuk ${candidate.name} dengan password default 123456 dan langsung aktifkan?`,
+          html: `Buat akun login untuk ${candidate.name} dengan password yang aman dan langsung aktifkan?<br/><br/><strong>Password:</strong> <code>${strongPassword}</code>`,
           showCancelButton: true,
           confirmButtonText: "Buat & Aktifkan",
           cancelButtonText: "Batal",
@@ -540,7 +550,7 @@ const Candidates = () => {
         if (create.isConfirmed) {
           setAuthActionLoading(true);
           try {
-            const data = await runCandidateAuthAction("reset_password", candidate, "123456");
+            const data = await runCandidateAuthAction("reset_password", candidate, strongPassword);
             await load();
             Swal.fire({
               icon: "success",
@@ -1331,14 +1341,14 @@ const Candidates = () => {
   const handleResetPassword = async (candidate: CandidateRow) => {
     setPasswordCandidate(candidate);
     setPasswordMode("default");
-    setNewCandidatePassword("123456");
+    setNewCandidatePassword(generateStrongPassword());
     setShowPasswordModal(true);
   };
 
   const submitPasswordReset = async () => {
     if (!passwordCandidate) return;
 
-    const password = passwordMode === "default" ? "123456" : newCandidatePassword.trim();
+    const password = newCandidatePassword.trim();
     if (password.length < 6) {
       Swal.fire({ icon: "warning", title: "Password terlalu pendek", text: "Minimal 6 karakter.", ...SWAL_THEME() });
       return;
@@ -2123,14 +2133,14 @@ const Candidates = () => {
                   type="button"
                   onClick={() => {
                     setPasswordMode("default");
-                    setNewCandidatePassword("123456");
+                    setNewCandidatePassword(generateStrongPassword());
                   }}
                   className={`rounded-xl border p-4 text-left transition-colors ${
                     passwordMode === "default" ? "border-primary bg-primary/10" : "border-border bg-card hover:bg-muted"
                   }`}
                 >
-                  <span className="block text-sm font-semibold text-foreground">Reset ke 123456</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">Gunakan password default.</span>
+                  <span className="block text-sm font-semibold text-foreground">Gunakan password kuat otomatis</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">Password dibuat secara otomatis dan aman.</span>
                 </button>
                 <button
                   type="button"
@@ -2148,7 +2158,7 @@ const Candidates = () => {
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Password Baru</label>
                 <input
                   type="text"
-                  value={passwordMode === "default" ? "123456" : newCandidatePassword}
+                  value={newCandidatePassword}
                   disabled={passwordMode === "default" || authActionLoading}
                   onChange={(e) => setNewCandidatePassword(e.target.value)}
                   className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-70"

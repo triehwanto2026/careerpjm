@@ -38,10 +38,17 @@ BEGIN
     updated_at = now()
   WHERE id = target_user_id;
 
+  WITH target_profile AS (
+    SELECT id
+    FROM public.candidate_profiles
+    WHERE lower(email) = lower(trim(candidate_email))
+      AND (user_id = target_user_id OR user_id IS NULL)
+    ORDER BY (user_id = target_user_id) DESC, updated_at DESC NULLS LAST, created_at DESC
+    LIMIT 1
+  )
   UPDATE public.candidate_profiles
   SET user_id = target_user_id, updated_at = now()
-  WHERE lower(email) = lower(trim(candidate_email))
-    AND (user_id IS NULL OR user_id = target_user_id);
+  WHERE id IN (SELECT id FROM target_profile);
 
   RETURN 'SUCCESS: Password kandidat berhasil direset dan login sudah aktif';
 END;
@@ -78,10 +85,17 @@ BEGIN
     updated_at = now()
   WHERE id = target_user_id;
 
+  WITH target_profile AS (
+    SELECT id
+    FROM public.candidate_profiles
+    WHERE lower(email) = lower(trim(candidate_email))
+      AND (user_id = target_user_id OR user_id IS NULL)
+    ORDER BY (user_id = target_user_id) DESC, updated_at DESC NULLS LAST, created_at DESC
+    LIMIT 1
+  )
   UPDATE public.candidate_profiles
   SET user_id = target_user_id, updated_at = now()
-  WHERE lower(email) = lower(trim(candidate_email))
-    AND (user_id IS NULL OR user_id = target_user_id);
+  WHERE id IN (SELECT id FROM target_profile);
 
   RETURN 'SUCCESS: Login kandidat berhasil diaktivasi';
 END;
@@ -139,13 +153,13 @@ BEGIN
   END IF;
 
   IF to_regclass('public.test_sessions') IS NOT NULL THEN
-    DELETE FROM public.test_sessions
-    WHERE lower(candidate_email) = normalized_email;
+    DELETE FROM public.test_sessions ts
+    WHERE lower(ts.candidate_email) = normalized_email;
   END IF;
 
   IF to_regclass('public.activation_codes') IS NOT NULL THEN
-    DELETE FROM public.activation_codes
-    WHERE lower(candidate_email) = normalized_email;
+    DELETE FROM public.activation_codes ac
+    WHERE lower(ac.candidate_email) = normalized_email;
   END IF;
 
   IF target_user_id IS NOT NULL THEN
@@ -189,11 +203,9 @@ BEGIN
       DELETE FROM public.activity_logs WHERE user_id = target_user_id;
     END IF;
 
-    IF to_regclass('storage.objects') IS NOT NULL THEN
-      DELETE FROM storage.objects
-      WHERE bucket_id IN ('candidate-documents', 'candidate-photos')
-        AND (name LIKE target_user_id::TEXT || '/%' OR name LIKE '%' || target_user_id::TEXT || '%');
-    END IF;
+    -- Storage objects cannot be deleted directly from storage internal tables.
+    -- Use the Storage API for removing files from buckets instead.
+    -- Skipping direct storage.objects deletion here.
   END IF;
 
   DELETE FROM public.candidate_profiles
