@@ -22,7 +22,9 @@ const statusMap: Record<string, { label: string; cls: string }> = {
 interface CandidateRow {
   id: string; name: string; email: string; phone: string; position: string;
   status: string; birth_date: string | null; education: string | null; gender: string | null;
-  photo_url: string | null; created_at: string; city?: string;
+  photo_url: string | null; created_at: string; city?: string; province?: string;
+  profile_id?: string; user_id?: string | null; is_complete?: boolean;
+  current_company?: string | null; experience_years?: number | null;
 }
 
 interface FormState {
@@ -50,6 +52,36 @@ const emptyForm: FormState = {
   education: "", 
   gender: "Laki-laki", 
   photo_url: null 
+};
+
+const safeParseArray = (value: any) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "object") return [value];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const getLatestEducationLabel = (profile: any, fallback?: string | null) => {
+  const educationRows = safeParseArray(profile?.education_history);
+  const latest = educationRows[educationRows.length - 1];
+
+  if (latest) {
+    const parts = [
+      latest.level,
+      latest.major,
+      latest.institution,
+      latest.year ? `Lulus ${latest.year}` : "",
+    ].filter(Boolean);
+
+    if (parts.length > 0) return parts.join(" - ");
+  }
+
+  return profile?.education_level || fallback || null;
 };
 
 const Candidates = () => {
@@ -87,6 +119,11 @@ const Candidates = () => {
   const [candidateResults, setCandidateResults] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<"personal" | "family" | "education" | "skills" | "experience" | "salary" | "documents" | "additional">("personal");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordCandidate, setPasswordCandidate] = useState<CandidateRow | null>(null);
+  const [passwordMode, setPasswordMode] = useState<"default" | "custom">("default");
+  const [newCandidatePassword, setNewCandidatePassword] = useState("123456");
+  const [authActionLoading, setAuthActionLoading] = useState(false);
 
   // Edit modal states
   const [showEditModal, setShowEditModal] = useState(false);
@@ -170,8 +207,68 @@ const Candidates = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const load = async () => {
-    const { data } = await supabase.from("candidates").select("*").order("created_at", { ascending: false });
-    setCandidates((data as CandidateRow[]) || []);
+    setLoading(true);
+    const [{ data: candidateRows, error: candidateError }, { data: profileRows, error: profileError }] = await Promise.all([
+      supabase.from("candidates").select("*").order("created_at", { ascending: false }),
+      supabase.from("candidate_profiles").select("*").order("created_at", { ascending: false }),
+    ]);
+
+    if (candidateError) console.error("Error loading candidates:", candidateError);
+    if (profileError) console.error("Error loading candidate profiles:", profileError);
+
+    const profilesByEmail = new Map<string, any>();
+    (profileRows || []).forEach((profile: any) => {
+      if (profile.email) profilesByEmail.set(profile.email.toLowerCase(), profile);
+    });
+
+    const usedProfileEmails = new Set<string>();
+    const mergedCandidates = ((candidateRows || []) as any[]).map((candidate) => {
+      const profile = profilesByEmail.get(candidate.email?.toLowerCase());
+      if (profile?.email) usedProfileEmails.add(profile.email.toLowerCase());
+
+      return {
+        ...candidate,
+        profile_id: profile?.id,
+        user_id: profile?.user_id,
+        name: profile?.full_name || candidate.name,
+        phone: profile?.phone || candidate.phone || "",
+        position: profile?.current_position || candidate.position || "",
+        birth_date: profile?.birth_date || candidate.birth_date || null,
+        education: getLatestEducationLabel(profile, candidate.education),
+        gender: profile?.gender || candidate.gender || null,
+        photo_url: profile?.photo_url || candidate.photo_url || null,
+        city: profile?.city || candidate.city || "",
+        province: profile?.province || "",
+        is_complete: Boolean(profile?.is_complete),
+        current_company: profile?.current_company || null,
+        experience_years: profile?.experience_years ?? null,
+      } as CandidateRow;
+    });
+
+    const profileOnlyCandidates = ((profileRows || []) as any[])
+      .filter((profile) => profile.email && !usedProfileEmails.has(profile.email.toLowerCase()))
+      .map((profile) => ({
+        id: profile.id,
+        profile_id: profile.id,
+        user_id: profile.user_id,
+        name: profile.full_name || profile.email,
+        email: profile.email,
+        phone: profile.phone || "",
+        position: profile.current_position || "",
+        status: "pending",
+        birth_date: profile.birth_date || null,
+        education: getLatestEducationLabel(profile),
+        gender: profile.gender || null,
+        photo_url: profile.photo_url || null,
+        created_at: profile.created_at,
+        city: profile.city || "",
+        province: profile.province || "",
+        is_complete: Boolean(profile.is_complete),
+        current_company: profile.current_company || null,
+        experience_years: profile.experience_years ?? null,
+      } as CandidateRow));
+
+    setCandidates([...mergedCandidates, ...profileOnlyCandidates]);
     setLoading(false);
   };
 
@@ -294,17 +391,89 @@ const Candidates = () => {
   
   const loadUnverifiedCandidates = async () => {
     setLoadingUnverified(true);
-    // Fetch candidates with email_confirmed = false or null
+    // Auth confirmation status is handled by Edge Function. The table lists profiles
+    // so admin can activate login directly without requiring candidate email action.
     const { data } = await supabase
       .from('candidate_profiles')
-      .select('*, user:user_id(email, email_confirmed_at)')
-      .is('user.email_confirmed_at', null)
+      .select('*')
       .order('created_at', { ascending: false });
     setUnverifiedCandidates(data || []);
     setLoadingUnverified(false);
   };
+
+  const runCandidateAuthAction = async (
+    action: "activate_login" | "reset_password" | "create_or_update_user",
+    candidate: Pick<CandidateRow, "email" | "name">,
+    password?: string
+  ) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-candidate-auth", {
+        body: {
+          action,
+          email: candidate.email,
+          full_name: candidate.name,
+          password,
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+
+      return data as { message?: string; user_id?: string; created?: boolean };
+    } catch (edgeError) {
+      console.warn("Edge Function unavailable, falling back to RPC:", edgeError);
+
+      if (action === "reset_password") {
+        const { data, error } = await (supabase as any).rpc("admin_reset_candidate_password", {
+          candidate_email: candidate.email,
+          new_password: password || "123456",
+        });
+        if (error) {
+          const authUserMissing = String(error.message || "").toLowerCase().includes("user auth");
+          if (!authUserMissing) throw new Error(error.message);
+
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: candidate.email,
+            password: password || "123456",
+            options: {
+              data: { full_name: candidate.name, created_by_admin: true },
+            },
+          });
+
+          if (signUpError) throw new Error(`Gagal membuat akun login kandidat: ${signUpError.message}`);
+
+          const { error: activateError } = await (supabase as any).rpc("admin_activate_candidate_login", {
+            candidate_email: candidate.email,
+          });
+          if (activateError) throw new Error(activateError.message);
+
+          if (signUpData.session) await supabase.auth.signOut();
+
+          return {
+            message: "Akun login kandidat dibuat, password diset, dan login sudah aktif",
+            user_id: signUpData.user?.id,
+            created: true,
+          };
+        }
+        if (typeof data === "string" && data.trim() === "SUCCESS: Password berhasil direset") {
+          throw new Error("Function reset password di database masih versi lama dan belum mengubah password. Jalankan migration terbaru 20260515070000_fix_candidate_auth_admin_functions.sql di Supabase.");
+        }
+        return { message: data || "Password kandidat berhasil direset", created: false };
+      }
+
+      if (action === "activate_login") {
+        const { data, error } = await (supabase as any).rpc("admin_activate_candidate_login", {
+          candidate_email: candidate.email,
+        });
+        if (error) throw new Error(error.message);
+        return { message: data || "Login kandidat berhasil diaktivasi", created: false };
+      }
+
+      throw new Error("Edge Function belum tersedia. Deploy `admin-candidate-auth` untuk membuat user auth baru dari admin.");
+    }
+  };
   
-  const handleVerifyEmail = async (userId: string) => {
+  const handleVerifyEmail = async (candidate: any) => {
     const result = await Swal.fire({
       icon: 'question',
       title: 'Verifikasi Email?',
@@ -316,17 +485,92 @@ const Candidates = () => {
     });
     
     if (result.isConfirmed) {
-      // Update user to confirm email
-      const { error } = await supabase.auth.admin.updateUserById(userId, {
-        email_confirm: true
-      });
-      
-      if (error) {
-        Swal.fire({ icon: 'error', title: 'Gagal', text: error.message, ...SWAL_THEME() });
-      } else {
+      try {
+        await runCandidateAuthAction("activate_login", {
+          email: candidate.email,
+          name: candidate.full_name || candidate.email,
+        });
         Swal.fire({ icon: 'success', title: 'Terverifikasi!', timer: 1500, showConfirmButton: false, ...SWAL_THEME() });
         loadUnverifiedCandidates();
+      } catch (error: any) {
+        Swal.fire({ icon: 'error', title: 'Gagal', text: error.message, ...SWAL_THEME() });
       }
+    }
+  };
+
+  const handleActivateLogin = async (candidate: CandidateRow) => {
+    const r = await Swal.fire({
+      icon: "question",
+      title: "Aktivasi Login?",
+      text: `Aktifkan login untuk ${candidate.name} tanpa perlu membuka email notifikasi?`,
+      showCancelButton: true,
+      confirmButtonText: "Ya, Aktifkan",
+      cancelButtonText: "Batal",
+      ...SWAL_THEME(),
+    });
+
+    if (!r.isConfirmed) return;
+
+    setAuthActionLoading(true);
+    try {
+      const data = await runCandidateAuthAction("activate_login", candidate);
+      await load();
+      if (activeView === "verify") await loadUnverifiedCandidates();
+      Swal.fire({
+        icon: "success",
+        title: "Login Aktif",
+        text: data.message || "Login kandidat sudah aktif tanpa email notifikasi.",
+        timer: 2200,
+        showConfirmButton: false,
+        ...SWAL_THEME(),
+      });
+    } catch (error: any) {
+      const userMissing = String(error.message || "").toLowerCase().includes("user auth");
+      if (userMissing) {
+        const create = await Swal.fire({
+          icon: "question",
+          title: "Akun Login Belum Ada",
+          text: `Buat akun login untuk ${candidate.name} dengan password default 123456 dan langsung aktifkan?`,
+          showCancelButton: true,
+          confirmButtonText: "Buat & Aktifkan",
+          cancelButtonText: "Batal",
+          ...SWAL_THEME(),
+        });
+
+        if (create.isConfirmed) {
+          setAuthActionLoading(true);
+          try {
+            const data = await runCandidateAuthAction("reset_password", candidate, "123456");
+            await load();
+            Swal.fire({
+              icon: "success",
+              title: "Login Aktif",
+              text: data.message || "Akun login kandidat sudah dibuat dan aktif.",
+              timer: 2200,
+              showConfirmButton: false,
+              ...SWAL_THEME(),
+            });
+          } catch (resetError: any) {
+            Swal.fire({
+              icon: "error",
+              title: "Gagal Membuat Login",
+              text: resetError.message || "Tidak bisa membuat akun login kandidat.",
+              ...SWAL_THEME(),
+            });
+          } finally {
+            setAuthActionLoading(false);
+          }
+        }
+        return;
+      }
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Aktivasi",
+        text: error.message || "Tidak bisa mengaktifkan login kandidat.",
+        ...SWAL_THEME(),
+      });
+    } finally {
+      setAuthActionLoading(false);
     }
   };
 
@@ -354,7 +598,10 @@ const Candidates = () => {
   const filtered = candidates.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.email.toLowerCase().includes(search.toLowerCase()) ||
-    c.position?.toLowerCase().includes(search.toLowerCase())
+    c.position?.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone?.toLowerCase().includes(search.toLowerCase()) ||
+    c.city?.toLowerCase().includes(search.toLowerCase()) ||
+    c.education?.toLowerCase().includes(search.toLowerCase())
   ).filter((c) => {
     if (filterStatus !== "all" && c.status !== filterStatus) return false;
     if (filterGender !== "all" && c.gender !== filterGender) return false;
@@ -441,35 +688,69 @@ const Candidates = () => {
     try {
       // Update candidate profile
       const updateData: any = {
-        full_name: editForm.full_name,
-        email: editForm.email,
-        phone: editForm.phone,
-        birth_date: editForm.birth_date,
-        gender: editForm.gender,
-        education_level: editForm.education_level,
+        full_name: editForm.full_name || "",
+        email: editForm.email || "",
+        phone: editForm.phone || "",
+        birth_date: editForm.birth_date || null,
+        birth_place: editForm.birth_place || "",
+        gender: editForm.gender || "",
+        education_level: editForm.education_level || "",
+        education_institution: editForm.education_institution || "",
+        education_major: editForm.education_major || editForm.major || "",
+        education_year: editForm.education_year ? Number(editForm.education_year) : null,
+        gpa: editForm.gpa ? Number(editForm.gpa) : null,
+        current_position: editForm.current_position || "",
+        current_company: editForm.current_company || "",
+        experience_years: editForm.experience_years ? Number(editForm.experience_years) : 0,
+        expected_salary: editForm.expected_salary ? Number(editForm.expected_salary) : null,
+        bio: editForm.bio || "",
+        photo_url: editForm.photo_url || null,
+        linkedin_url: editForm.linkedin_url || null,
+        address: editForm.address || "",
+        city: editForm.city || "",
+        province: editForm.province || "",
+        postal_code: editForm.postal_code || "",
+        marital_status: editForm.marital_status || "",
+        religion: editForm.religion || "",
+        nationality: editForm.nationality || "Indonesia",
+        updated_at: new Date().toISOString(),
       };
       
-      // Only add fields that exist in the database
-      if (editForm.nik) updateData.nik = editForm.nik;
-      if (editForm.npwp) updateData.npwp = editForm.npwp;
-      if (editForm.nickname) updateData.nickname = editForm.nickname;
-      if (editForm.birth_place) updateData.birth_place = editForm.birth_place;
-      if (editForm.blood_type) updateData.blood_type = editForm.blood_type;
-      if (editForm.marital_status) updateData.marital_status = editForm.marital_status;
-      if (editForm.religion) updateData.religion = editForm.religion;
-      if (editForm.ethnicity) updateData.ethnicity = editForm.ethnicity;
-      if (editForm.height_cm) updateData.height_cm = editForm.height_cm;
-      if (editForm.weight_kg) updateData.weight_kg = editForm.weight_kg;
-      if (editForm.medical_history) updateData.medical_history = editForm.medical_history;
-      if (editForm.emergency_contact_name) updateData.emergency_contact_name = editForm.emergency_contact_name;
-      if (editForm.emergency_contact_relation) updateData.emergency_contact_relation = editForm.emergency_contact_relation;
-      if (editForm.emergency_contact_phone) updateData.emergency_contact_phone = editForm.emergency_contact_phone;
-      if (editForm.address) updateData.address = editForm.address;
-      if (editForm.city) updateData.city = editForm.city;
-      if (editForm.province) updateData.province = editForm.province;
-      if (editForm.postal_code) updateData.postal_code = editForm.postal_code;
-      if (editForm.bpjs_kesehatan) updateData.bpjs_kesehatan = editForm.bpjs_kesehatan;
-      if (editForm.bpjs_ketenagakerjaan) updateData.bpjs_ketenagakerjaan = editForm.bpjs_ketenagakerjaan;
+      const extendedFields = [
+        "nik", "npwp", "nickname", "blood_type", "ethnicity", "medical_history",
+        "emergency_contact_name", "emergency_contact_relation", "emergency_contact_phone",
+        "bpjs_kesehatan", "bpjs_ketenagakerjaan", "father_name", "mother_name",
+        "spouse_name", "number_of_children", "hobbies", "vehicle_license",
+        "source_info", "available_from", "notice_period", "additional_info",
+        "social_media", "candidate_references", "strengths", "weaknesses",
+        "hobbies", "personal_interests", "organizations", "achievements",
+        "computer_skills", "other_skills", "salary_exp_base",
+        "salary_exp_allowances", "salary_exp_benefits", "expected_salary_range",
+        "salary_currency", "salary_requirements", "benefits_requirements",
+      ];
+
+      extendedFields.forEach((field) => {
+        if (field in editForm) updateData[field] = editForm[field] ?? "";
+      });
+
+      ["height_cm", "weight_kg"].forEach((field) => {
+        if (field in editForm) updateData[field] = editForm[field] ? Number(editForm[field]) : null;
+      });
+
+      ["has_vehicle", "willing_relocate", "willing_overtime", "willing_shift", "salary_negotiable"].forEach((field) => {
+        if (field in editForm) updateData[field] = Boolean(editForm[field]);
+      });
+
+      const regularFamily = familyMembers.filter((member) => !["Suami", "Istri", "Anak"].includes(member.relation || member.relationship || ""));
+      const immediateFamily = familyMembers.filter((member) => ["Suami", "Istri", "Anak"].includes(member.relation || member.relationship || ""));
+
+      updateData.family_data = JSON.stringify(regularFamily);
+      updateData.immediate_family_data = JSON.stringify(immediateFamily);
+      updateData.family_members = JSON.stringify(familyMembers || []);
+      updateData.education_history = JSON.stringify(educationHistory || []);
+      updateData.work_experience = JSON.stringify(workExperience || []);
+      updateData.skills = JSON.stringify(skills || []);
+      updateData.languages = JSON.stringify(languages || []);
       
       // First check if profile exists, if not create it
       const { data: existingProfile } = await supabase
@@ -488,7 +769,7 @@ const Candidates = () => {
         const { error } = await supabase.from("candidate_profiles").insert({
           ...updateData,
           created_at: new Date().toISOString()
-        });
+        } as any);
         profileError = error;
       }
       
@@ -505,6 +786,8 @@ const Candidates = () => {
         birth_date: editForm.birth_date,
         education: editForm.education_level,
         gender: editForm.gender,
+        position: editForm.current_position,
+        photo_url: editForm.photo_url,
       }).eq("id", editForm.id);
       
       if (candidateError) throw candidateError;
@@ -611,35 +894,13 @@ const Candidates = () => {
         console.log('Creating new candidate...');
         
         try {
-          // Create auth user with admin API - auto-confirm email for immediate login
-          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: form.email.trim(),
-            password: form.password.trim(),
-            email_confirm: true, // Auto-confirm email
-            user_metadata: { 
-              full_name: form.name.trim(),
-              created_by_admin: true
-            },
-          });
-          
-          if (authError) {
-            console.error('Auth creation failed:', authError);
-            throw new Error(`Gagal membuat user: ${authError.message}`);
-          }
-          
-          if (!authData?.user) {
-            throw new Error('User creation returned no user data');
-          }
-
-          // Attempt to confirm email using updateUserById if not already confirmed
-          try {
-            await supabase.auth.admin.updateUserById(authData.user.id, {
-              email_confirm: true
-            });
-            console.log('Email confirmed for user:', authData.user.id);
-          } catch (confirmErr) {
-            console.warn('Email confirmation update failed:', confirmErr);
-          }
+          // Create or update Supabase Auth user through Edge Function.
+          // This keeps the service-role key off the browser and confirms email immediately.
+          const authData = await runCandidateAuthAction(
+            "create_or_update_user",
+            { email: form.email.trim(), name: form.name.trim() },
+            form.password.trim()
+          );
 
           // Create candidate record
           const { data: candidateData, error: candidateError } = await supabase
@@ -664,8 +925,8 @@ const Candidates = () => {
           // Create candidate profile
           const { error: profileError } = await supabase
             .from("candidate_profiles")
-            .insert({
-              user_id: authData.user.id,
+            .upsert({
+              user_id: authData.user_id,
               full_name: form.name.trim(),
               email: form.email.trim(),
               phone: form.phone.trim() || null,
@@ -675,7 +936,7 @@ const Candidates = () => {
               nik: form.nik || null,
               nickname: form.nickname || null,
               created_at: new Date().toISOString(),
-            } as any);
+            } as any, { onConflict: "user_id" });
           
           if (profileError) {
             console.error('Profile creation error:', profileError);
@@ -767,9 +1028,73 @@ const Candidates = () => {
     setDetailLoading(false);
   };
 
-  const handleDelete = async (id: string) => {
-    const r = await Swal.fire({ icon: "warning", title: "Hapus Kandidat?", showCancelButton: true, confirmButtonText: "Ya, Hapus", cancelButtonText: "Batal", ...SWAL_THEME(), confirmButtonColor: "hsl(0, 72%, 51%)" });
-    if (r.isConfirmed) { await supabase.from("candidates").delete().eq("id", id); await load(); }
+  const handleDelete = async (candidate: CandidateRow) => {
+    const r = await Swal.fire({
+      icon: "warning",
+      title: "Hapus Kandidat?",
+      html: `
+        <div style="text-align:left;line-height:1.7">
+          <p>Data <b>${candidate.name}</b> akan dihapus dari seluruh database terkait.</p>
+          <p style="font-size:12px;color:#888">Termasuk profil, hasil tes, sesi tes, lamaran, dokumen, kode aktivasi, dan akun login jika ada.</p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Ya, Hapus Semua",
+      cancelButtonText: "Batal",
+      ...SWAL_THEME(),
+      confirmButtonColor: "hsl(0, 72%, 51%)",
+    });
+
+    if (!r.isConfirmed) return;
+
+    try {
+      let data = "Data kandidat berhasil dihapus seluruhnya.";
+      const { data: rpcData, error } = await (supabase as any).rpc("admin_delete_candidate_account", {
+        candidate_email: candidate.email,
+      });
+
+      if (error) {
+        const schemaCacheMiss = String(error.message || "").includes("schema cache");
+        if (!schemaCacheMiss) throw error;
+
+        console.warn("Delete RPC not in schema cache, using table fallback:", error);
+        const email = candidate.email;
+        const userId = candidate.user_id;
+
+        if (userId) {
+          await supabase.from("job_applications").delete().eq("user_id", userId);
+          await supabase.from("candidate_documents").delete().eq("user_id", userId);
+          await supabase.from("notifications").delete().eq("user_id", userId);
+          await supabase.from("activity_logs").delete().eq("user_id", userId);
+        }
+
+        await supabase.from("test_sessions").delete().eq("candidate_email", email);
+        await supabase.from("activation_codes").delete().eq("candidate_email", email);
+        await supabase.from("candidate_profiles").delete().eq("email", email);
+        await supabase.from("candidates").delete().eq("email", email);
+        data = "Data kandidat dihapus dari tabel aplikasi. Akun auth akan ikut terhapus setelah function database terbaca schema cache.";
+      } else {
+        data = rpcData || data;
+      }
+
+      setCandidates((prev) => prev.filter((item) => item.email.toLowerCase() !== candidate.email.toLowerCase()));
+      await load();
+      Swal.fire({
+        icon: "success",
+        title: "Kandidat Dihapus",
+        text: data || "Data kandidat berhasil dihapus seluruhnya.",
+        timer: 1800,
+        showConfirmButton: false,
+        ...SWAL_THEME(),
+      });
+    } catch (error: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Menghapus",
+        text: error.message || "Pastikan function admin_delete_candidate_account sudah dijalankan di Supabase SQL Editor.",
+        ...SWAL_THEME(),
+      });
+    }
   };
 
   const handleEdit = async (candidate: CandidateRow) => {
@@ -788,48 +1113,107 @@ const Candidates = () => {
       if (profileError) {
         console.error('Error fetching profile:', profileError);
       }
+
+      const profileAny = (profileData || {}) as any;
+      const familyData = safeParseArray(profileAny.family_data);
+      const immediateFamilyData = safeParseArray(profileAny.immediate_family_data);
+      const fallbackFamilyData = safeParseArray(profileAny.family_members);
+      const mergedFamilyData = familyData.length || immediateFamilyData.length
+        ? [...familyData, ...immediateFamilyData]
+        : fallbackFamilyData;
+
+      setFamilyMembers(mergedFamilyData);
+      setEducationHistory(safeParseArray(profileAny.education_history));
+      setWorkExperience(safeParseArray(profileAny.work_experience));
+      setSkills(safeParseArray(profileAny.skills));
+      setLanguages(safeParseArray(profileAny.languages));
+
+      if (profileAny.user_id) {
+        const { data: docsData } = await supabase
+          .from("candidate_documents")
+          .select("*")
+          .eq("user_id", profileAny.user_id)
+          .order("created_at", { ascending: false });
+        setCandidateDocs(docsData || []);
+      } else {
+        setCandidateDocs([]);
+      }
       
       // Set edit form with candidate data - only use existing fields
       setEditForm({
+        ...(profileData || {}),
         id: candidate.id,
-        full_name: candidate.name,
-        email: candidate.email,
-        phone: candidate.phone || '',
-        birth_date: candidate.birth_date || '',
-        gender: candidate.gender || 'Laki-laki',
-        education_level: candidate.education || '',
-        current_position: candidate.position || '',
-        // Only include fields that exist in candidate_profiles table
+        profile_id: profileData?.id || null,
+        user_id: profileData?.user_id || null,
+        full_name: profileData?.full_name || candidate.name,
+        email: profileData?.email || candidate.email,
+        phone: profileData?.phone || candidate.phone || '',
+        birth_date: profileData?.birth_date || candidate.birth_date || '',
+        gender: profileData?.gender || candidate.gender || 'Laki-laki',
+        education_level: profileData?.education_level || candidate.education || '',
+        current_position: profileData?.current_position || candidate.position || '',
         address: profileData?.address || '',
         city: profileData?.city || '',
         province: profileData?.province || '',
         postal_code: profileData?.postal_code || '',
         bio: profileData?.bio || '',
         education_institution: profileData?.education_institution || '',
+        education_major: profileData?.education_major || '',
         education_year: profileData?.education_year || null,
+        gpa: profileData?.gpa || null,
         experience_years: profileData?.experience_years || 0,
         current_company: profileData?.current_company || '',
         skills: profileData?.skills || '',
         marital_status: profileData?.marital_status || '',
         religion: profileData?.religion || '',
         nationality: profileData?.nationality || 'Indonesia',
-        photo_url: profileData?.photo_url || null,
+        photo_url: profileData?.photo_url || candidate.photo_url || null,
         linkedin_url: profileData?.linkedin_url || null,
-        // Add placeholder values for new fields
-        nik: '',
-        npwp: '',
-        nickname: '',
-        birth_place: '',
-        blood_type: '',
-        ethnicity: '',
-        height_cm: null,
-        weight_kg: null,
-        medical_history: '',
-        emergency_contact_name: '',
-        emergency_contact_relation: '',
-        emergency_contact_phone: '',
-        bpjs_kesehatan: '',
-        bpjs_ketenagakerjaan: ''
+        nik: profileData?.nik || '',
+        npwp: profileData?.npwp || '',
+        nickname: profileData?.nickname || '',
+        birth_place: profileData?.birth_place || '',
+        blood_type: profileData?.blood_type || '',
+        ethnicity: profileData?.ethnicity || '',
+        height_cm: profileData?.height_cm || null,
+        weight_kg: profileData?.weight_kg || null,
+        medical_history: profileData?.medical_history || '',
+        emergency_contact_name: profileData?.emergency_contact_name || '',
+        emergency_contact_relation: profileData?.emergency_contact_relation || '',
+        emergency_contact_phone: profileData?.emergency_contact_phone || '',
+        bpjs_kesehatan: profileData?.bpjs_kesehatan || '',
+        bpjs_ketenagakerjaan: profileData?.bpjs_ketenagakerjaan || '',
+        father_name: profileData?.father_name || '',
+        mother_name: profileData?.mother_name || '',
+        spouse_name: profileData?.spouse_name || '',
+        number_of_children: profileData?.number_of_children || 0,
+        hobbies: profileData?.hobbies || '',
+        vehicle_license: profileData?.vehicle_license || '',
+        has_vehicle: profileData?.has_vehicle || false,
+        source_info: profileData?.source_info || '',
+        willing_relocate: profileData?.willing_relocate || false,
+        willing_overtime: profileData?.willing_overtime || false,
+        willing_shift: profileData?.willing_shift || false,
+        expected_salary: profileData?.expected_salary || null,
+        salary_negotiable: profileData?.salary_negotiable || false,
+        salary_exp_base: profileData?.salary_exp_base || '',
+        salary_exp_allowances: profileData?.salary_exp_allowances || '',
+        salary_exp_benefits: profileData?.salary_exp_benefits || '',
+        expected_salary_range: profileData?.expected_salary_range || '',
+        current_salary: profileData?.current_salary || null,
+        salary_currency: profileData?.salary_currency || 'IDR',
+        salary_requirements: profileData?.salary_requirements || '',
+        benefits_requirements: profileData?.benefits_requirements || '',
+        available_from: profileData?.available_from || '',
+        notice_period: profileData?.notice_period || null,
+        additional_info: profileData?.additional_info || '',
+        social_media: profileData?.social_media || '',
+        candidate_references: profileData?.candidate_references || '',
+        personal_interests: profileData?.personal_interests || '',
+        organizations: profileData?.organizations || '',
+        achievements: profileData?.achievements || '',
+        computer_skills: profileData?.computer_skills || '',
+        other_skills: profileData?.other_skills || '',
       });
 
       setEditLoading(false);
@@ -945,114 +1329,50 @@ const Candidates = () => {
   };
 
   const handleResetPassword = async (candidate: CandidateRow) => {
-    const r = await Swal.fire({ 
-      icon: "warning", 
-      title: "Reset Password?", 
-      text: `Reset password untuk ${candidate.name} menjadi "123456"?`,
-      showCancelButton: true, 
-      confirmButtonText: "Ya, Reset", 
-      cancelButtonText: "Batal", 
-      ...SWAL_THEME(), 
-      confirmButtonColor: "hsl(174, 72%, 46%)" 
-    });
-    
-    if (r.isConfirmed) {
-      try {
-        console.log('Attempting to reset password for:', candidate.email);
-        
-        // Check current user session
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Current session:', session?.user?.email);
-        
-        // Try to use service role through RPC function
-        const { data: resetResult, error: rpcError } = await supabase.rpc('admin_reset_candidate_password', {
-          candidate_email: candidate.email,
-          new_password: '123456'
-        });
-        
-        console.log('RPC result:', { resetResult, rpcError });
-        
-        if (rpcError) {
-          console.log('RPC failed, trying direct admin API...');
-          
-          // Fallback: Try direct admin API
-          const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-          
-          console.log('Admin API result:', { authUsers, authError });
-          
-          if (authError) {
-            console.error('Admin API failed:', authError);
-            throw new Error(`Tidak dapat mengakses daftar pengguna. Error: ${authError.message}. Pastikan Anda menggunakan service role key atau memiliki admin privileges.`);
-          }
-          
-          // Find the user by email
-          const user = (authUsers as any).users.find((u: any) => u.email === candidate.email);
-          if (!user) {
-            throw new Error(`User dengan email ${candidate.email} tidak ditemukan di auth.users`);
-          }
-          
-          console.log('Found user:', user.id);
-          
-          // Update the user's password with force update
-          const { error: updateError } = await supabase.auth.admin.updateUserById(
-            user.id,
-            { 
-              password: '123456',
-              email_confirm: true, // Force email confirmation
-              phone_confirm: true  // Force phone confirmation if exists
-            }
-          );
-          
-          if (updateError) {
-            console.error('Update password failed:', updateError);
-            throw new Error(`Gagal mengupdate password. Error: ${updateError.message}`);
-          }
-          
-          console.log('Password update successful, waiting for propagation...');
-          
-          // Wait a moment for Supabase to propagate the password change
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Verify password was updated by trying to sign in
-          console.log('Verifying password update...');
-          const { error: verifyError } = await supabase.auth.signInWithPassword({
-            email: candidate.email,
-            password: '123456'
-          });
-          
-          if (verifyError) {
-            console.error('Password verification failed:', verifyError);
-            console.log('Attempting to refresh user session...');
-            
-            // Try to get fresh user data
-            const { data: freshUserData, error: refreshError } = await supabase.auth.admin.getUserById(user.id);
-            console.log('Fresh user data:', { freshUserData, refreshError });
-            
-            throw new Error(`Password berhasil diupdate tapi verifikasi gagal. Error: ${verifyError.message}. Silakan coba lagi dalam beberapa saat.`);
-          } else {
-            // Sign out after verification
-            await supabase.auth.signOut();
-            console.log('Password verification successful');
-          }
-        }
-        
-        await Swal.fire({ 
-          icon: "success", 
-          title: "Password Direset", 
-          text: `Password untuk ${candidate.name} berhasil direset menjadi "123456"`,
-          timer: 2000, 
-          showConfirmButton: false, 
-          ...SWAL_THEME() 
-        });
-      } catch (error: any) {
-        console.error('Reset password error:', error);
-        await Swal.fire({ 
-          icon: "error", 
-          title: "Gagal Reset", 
-          text: error.message || "Terjadi kesalahan saat reset password. Pastikan Anda login sebagai superadmin dan menggunakan service role key.",
-          ...SWAL_THEME() 
-        });
-      }
+    setPasswordCandidate(candidate);
+    setPasswordMode("default");
+    setNewCandidatePassword("123456");
+    setShowPasswordModal(true);
+  };
+
+  const submitPasswordReset = async () => {
+    if (!passwordCandidate) return;
+
+    const password = passwordMode === "default" ? "123456" : newCandidatePassword.trim();
+    if (password.length < 6) {
+      Swal.fire({ icon: "warning", title: "Password terlalu pendek", text: "Minimal 6 karakter.", ...SWAL_THEME() });
+      return;
+    }
+
+    setAuthActionLoading(true);
+    try {
+      const data = await runCandidateAuthAction("reset_password", passwordCandidate, password);
+      await load();
+      if (activeView === "verify") await loadUnverifiedCandidates();
+      setShowPasswordModal(false);
+      await Swal.fire({
+        icon: "success",
+        title: "Password Direset",
+        html: `
+          <div style="text-align:left;line-height:1.8">
+            <p>Password untuk <b>${passwordCandidate.name}</b> berhasil direset.</p>
+            <p>Email: <code style="background:#f0f0f0;padding:2px 6px;border-radius:4px">${passwordCandidate.email}</code></p>
+            <p>Password: <code style="background:#f0f0f0;padding:2px 6px;border-radius:4px">${password}</code></p>
+            <p style="font-size:12px;color:#777;margin-top:8px">Login sudah diaktivasi tanpa perlu membuka email notifikasi.</p>
+          </div>
+        `,
+        ...SWAL_THEME(),
+      });
+      console.log(data?.message);
+    } catch (error: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Reset",
+        text: error.message || "Terjadi kesalahan saat reset password.",
+        ...SWAL_THEME(),
+      });
+    } finally {
+      setAuthActionLoading(false);
     }
   };
 
@@ -1153,13 +1473,14 @@ const Candidates = () => {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Foto & Nama & Email</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden sm:table-cell">Jenis Kelamin & Usia</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden sm:table-cell">Tgl Join & Pendidikan</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Posisi & Status</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Telp & Kota</th>
                 <th className="px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat data...</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat data...</td></tr>
               ) : paginatedCandidates.map((c, index) => (
                 <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 text-center text-sm text-muted-foreground w-12">
@@ -1175,6 +1496,9 @@ const Candidates = () => {
                       <div>
                         <p className="font-medium text-foreground">{c.name}</p>
                         <p className="text-xs text-muted-foreground">{c.email}</p>
+                        {c.is_complete && (
+                          <span className="mt-1 inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">Profil lengkap</span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -1190,10 +1514,19 @@ const Candidates = () => {
                       <p className="text-xs">{c.education || "-"}</p>
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell">
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">{c.position || "-"}</p>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${statusMap[c.status]?.cls || "bg-muted text-muted-foreground"}`}>
+                        {statusMap[c.status]?.label || c.status || "-"}
+                      </span>
+                      {c.current_company && <p>{c.current_company}</p>}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
                     <div className="space-y-1">
                       <p className="font-medium">{c.phone || "-"}</p>
-                      <p>{c.city || "-"}</p>
+                      <p>{[c.city, c.province].filter(Boolean).join(", ") || "-"}</p>
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -1207,7 +1540,10 @@ const Candidates = () => {
                       <button onClick={() => handleResetPassword(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-500 transition-colors" title="Reset Password">
                         <Key className="h-4 w-4" />
                       </button>
-                      <button onClick={() => handleDelete(c.id)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus">
+                      <button onClick={() => handleActivateLogin(c)} disabled={authActionLoading} className="rounded-md p-1.5 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors disabled:opacity-50" title="Aktivasi Login Tanpa Email">
+                        <CheckCircle className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => handleDelete(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -1215,7 +1551,7 @@ const Candidates = () => {
                 </tr>
               ))}
               {!loading && paginatedCandidates.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">Tidak ada data ditemukan</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">Tidak ada data ditemukan</td></tr>
               )}
             </tbody>
           </table>
@@ -1273,6 +1609,90 @@ const Candidates = () => {
           </div>
         )}
         </div>
+        )}
+
+        {/* VIEW: Aktivasi Login */}
+        {activeView === 'verify' && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Aktivasi Login Kandidat</h2>
+                  <p className="text-sm text-muted-foreground">Aktifkan login kandidat tanpa harus membuka email notifikasi.</p>
+                </div>
+                <button
+                  onClick={loadUnverifiedCandidates}
+                  disabled={loadingUnverified}
+                  className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  {loadingUnverified ? "Memuat..." : "Muat Ulang"}
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nama</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Email</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingUnverified ? (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">Memuat data...</td></tr>
+                  ) : unverifiedCandidates.length === 0 ? (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">Belum ada profil kandidat.</td></tr>
+                  ) : unverifiedCandidates.map((candidate) => (
+                    <tr key={candidate.id} className="border-b border-border/50 hover:bg-muted/30">
+                      <td className="px-4 py-3 font-medium text-foreground">{candidate.full_name || "-"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{candidate.email}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-500">
+                          Siap dicek
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleVerifyEmail(candidate)}
+                            disabled={authActionLoading}
+                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Aktivasi
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword({
+                              id: candidate.id,
+                              name: candidate.full_name || candidate.email,
+                              email: candidate.email,
+                              phone: candidate.phone || "",
+                              position: candidate.current_position || "",
+                              status: "pending",
+                              birth_date: candidate.birth_date || null,
+                              education: candidate.education_level || null,
+                              gender: candidate.gender || null,
+                              photo_url: candidate.photo_url || null,
+                              created_at: candidate.created_at,
+                              city: candidate.city || "",
+                            })}
+                            disabled={authActionLoading}
+                            className="inline-flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-500 hover:bg-amber-500/20 disabled:opacity-50"
+                          >
+                            <Key className="h-4 w-4" />
+                            Reset
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
         
         {/* VIEW: Add New Candidate */}
@@ -1431,6 +1851,38 @@ const Candidates = () => {
                         Profil Lengkap
                       </span>
                     )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Shield className="h-4 w-4 text-primary" />
+                      Akses Login Kandidat
+                    </h4>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Aktivasi login tanpa email notifikasi atau reset password kandidat.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleActivateLogin(selectedCandidate)}
+                      disabled={authActionLoading}
+                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Aktivasi Login
+                    </button>
+                    <button
+                      onClick={() => handleResetPassword(selectedCandidate)}
+                      disabled={authActionLoading}
+                      className="inline-flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-500 hover:bg-amber-500/20 disabled:opacity-50"
+                    >
+                      <Key className="h-4 w-4" />
+                      Reset Password
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1640,6 +2092,88 @@ const Candidates = () => {
             <div className="sticky bottom-0 flex items-center justify-end border-t border-border bg-card/95 backdrop-blur-xl px-6 py-3">
               <button onClick={() => setShowDetailModal(false)} className="rounded-lg border border-border bg-card px-5 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {showPasswordModal && passwordCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm animate-fade-in" onClick={() => setShowPasswordModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="glass w-full max-w-lg rounded-2xl glow-border">
+            <div className="flex items-center justify-between border-b border-border bg-card/95 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Reset Password Kandidat</h2>
+                <p className="text-xs text-muted-foreground">Login akan otomatis diaktivasi tanpa email notifikasi.</p>
+              </div>
+              <button type="button" onClick={() => setShowPasswordModal(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <div className="rounded-xl border border-border bg-muted/30 p-4">
+                <p className="text-sm font-semibold text-foreground">{passwordCandidate.name}</p>
+                <p className="text-xs text-muted-foreground">{passwordCandidate.email}</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPasswordMode("default");
+                    setNewCandidatePassword("123456");
+                  }}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    passwordMode === "default" ? "border-primary bg-primary/10" : "border-border bg-card hover:bg-muted"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-foreground">Reset ke 123456</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">Gunakan password default.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPasswordMode("custom")}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    passwordMode === "custom" ? "border-primary bg-primary/10" : "border-border bg-card hover:bg-muted"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-foreground">Isi Password Baru</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">Tentukan password sendiri.</span>
+                </button>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Password Baru</label>
+                <input
+                  type="text"
+                  value={passwordMode === "default" ? "123456" : newCandidatePassword}
+                  disabled={passwordMode === "default" || authActionLoading}
+                  onChange={(e) => setNewCandidatePassword(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-70"
+                  placeholder="Minimal 6 karakter"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-border bg-card/95 px-6 py-3">
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(false)}
+                disabled={authActionLoading}
+                className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={submitPasswordReset}
+                disabled={authActionLoading}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50"
+              >
+                <Key className="h-4 w-4" />
+                {authActionLoading ? "Memproses..." : "Reset Password"}
               </button>
             </div>
           </div>
@@ -2213,23 +2747,22 @@ const Candidates = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Gaji Minimum yang Diharapkan</label>
-                        <input type="number" className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Masukkan gaji minimum" />
+                        <input type="number" className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.salary_exp_base || ''} onChange={(e) => setEditForm({...editForm, salary_exp_base: e.target.value})} placeholder="Masukkan gaji minimum" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Gaji Maximum yang Diharapkan</label>
-                        <input type="number" className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Masukkan gaji maximum" />
+                        <input type="number" className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.expected_salary || ''} onChange={(e) => setEditForm({...editForm, expected_salary: e.target.value ? Number(e.target.value) : null})} placeholder="Masukkan gaji maximum" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Negotiable</label>
-                        <select className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
-                          <option value="">Pilih...</option>
+                        <select className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.salary_negotiable ? "yes" : "no"} onChange={(e) => setEditForm({...editForm, salary_negotiable: e.target.value === "yes"})}>
                           <option value="yes">Ya</option>
                           <option value="no">Tidak</option>
                         </select>
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Periode Gaji</label>
-                        <select className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        <select className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.expected_salary_range || ''} onChange={(e) => setEditForm({...editForm, expected_salary_range: e.target.value})}>
                           <option value="">Pilih...</option>
                           <option value="monthly">Bulanan</option>
                           <option value="yearly">Tahunan</option>
@@ -2237,11 +2770,11 @@ const Candidates = () => {
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Catatan Gaji</label>
-                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} placeholder="Catatan tambahan mengenai ekspektasi gaji"></textarea>
+                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} value={editForm?.salary_requirements || ''} onChange={(e) => setEditForm({...editForm, salary_requirements: e.target.value})} placeholder="Catatan tambahan mengenai ekspektasi gaji"></textarea>
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Benefit yang Diharapkan</label>
-                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} placeholder="BPJS, tunjangan, bonus, dll"></textarea>
+                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} value={editForm?.salary_exp_benefits || editForm?.benefits_requirements || ''} onChange={(e) => setEditForm({...editForm, salary_exp_benefits: e.target.value, benefits_requirements: e.target.value})} placeholder="BPJS, tunjangan, bonus, dll"></textarea>
                       </div>
                     </div>
                   </div>
@@ -2314,23 +2847,26 @@ const Candidates = () => {
                     <div className="mt-4">
                       <h4 className="font-medium text-sm text-foreground mb-3">Dokumen yang Telah Diunggah</h4>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
-                          <div className="flex items-center gap-3">
-                            <FileText className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm font-medium">CV_TriEhwanto.pdf</p>
-                              <p className="text-xs text-muted-foreground">2.3 MB - Diunggah 12 Mei 2026</p>
+                        {candidateDocs.length === 0 ? (
+                          <div className="rounded-lg border border-border bg-background p-4 text-center text-sm text-muted-foreground">
+                            Belum ada dokumen yang diunggah.
+                          </div>
+                        ) : candidateDocs.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-5 w-5 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm font-medium">{doc.file_name}</p>
+                                <p className="text-xs text-muted-foreground">{doc.document_type} - {doc.created_at ? formatDate(doc.created_at) : "-"}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="px-3 py-1 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80">
+                                Lihat
+                              </a>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button className="px-3 py-1 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80">
-                              Lihat
-                            </button>
-                            <button className="px-3 py-1 rounded-lg bg-red-500/10 text-red-500 text-xs font-medium hover:bg-red-500/20">
-                              Hapus
-                            </button>
-                          </div>
-                        </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -2347,43 +2883,43 @@ const Candidates = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Hobi</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Masukkan hobi" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.hobbies || ''} onChange={(e) => setEditForm({...editForm, hobbies: e.target.value})} placeholder="Masukkan hobi" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Minat</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Masukkan minat" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.personal_interests || ''} onChange={(e) => setEditForm({...editForm, personal_interests: e.target.value})} placeholder="Masukkan minat" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Organisasi</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Masukkan organisasi" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.organizations || ''} onChange={(e) => setEditForm({...editForm, organizations: e.target.value})} placeholder="Masukkan organisasi" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Prestasi</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Masukkan prestasi" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.achievements || ''} onChange={(e) => setEditForm({...editForm, achievements: e.target.value})} placeholder="Masukkan prestasi" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Kemampuan Bahasa</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Contoh: Bahasa Inggris, Mandarin" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={languages.map((lang) => [lang.name, lang.level].filter(Boolean).join(" - ")).join(", ")} onChange={(e) => setLanguages(e.target.value.split(",").map((item) => ({ name: item.trim(), level: "" })).filter((item) => item.name))} placeholder="Contoh: Bahasa Inggris, Mandarin" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Kemampuan Komputer</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Contoh: MS Office, Adobe Photoshop" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.computer_skills || ''} onChange={(e) => setEditForm({...editForm, computer_skills: e.target.value})} placeholder="Contoh: MS Office, Adobe Photoshop" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Sosial Media</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="LinkedIn, Instagram, dll" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.social_media || ''} onChange={(e) => setEditForm({...editForm, social_media: e.target.value})} placeholder="LinkedIn, Instagram, dll" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Website/Portfolio</label>
-                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="https://portfolio.com" />
+                        <input className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" value={editForm?.linkedin_url || ''} onChange={(e) => setEditForm({...editForm, linkedin_url: e.target.value})} placeholder="https://portfolio.com" />
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Referensi</label>
-                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} placeholder="Nama, jabatan, perusahaan, dan kontak referensi"></textarea>
+                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} value={editForm?.candidate_references || ''} onChange={(e) => setEditForm({...editForm, candidate_references: e.target.value})} placeholder="Nama, jabatan, perusahaan, dan kontak referensi"></textarea>
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Catatan Tambahan</label>
-                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} placeholder="Informasi tambahan lainnya"></textarea>
+                        <textarea className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" rows={3} value={editForm?.additional_info || ''} onChange={(e) => setEditForm({...editForm, additional_info: e.target.value})} placeholder="Informasi tambahan lainnya"></textarea>
                       </div>
                     </div>
                   </div>
