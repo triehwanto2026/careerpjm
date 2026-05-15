@@ -23,40 +23,105 @@ export default function CandidateRegister() {
       return;
     }
     setLoading(true);
-    const { error, data } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/candidate/profile`,
-        data: { full_name: fullName },
-      },
-    });
-    setLoading(false);
-    if (error) {
-      Swal.fire({ icon: "error", title: "Pendaftaran gagal", text: error.message });
-      return;
-    }
-
-    // Insert candidate data into candidates table for admin management
-    if (data.user) {
-      const { error: insertError } = await supabase.from("candidates").insert({
-        name: fullName,
-        email: email,
-        status: "pending",
-        created_at: new Date().toISOString(),
-      });
+    
+    try {
+      let user: any = null;
+      let userId: string | null = null;
       
-      if (insertError) {
-        console.error("Error inserting candidate to candidates table:", insertError);
-        // Don't fail the registration if this fails, just log it
-      }
-    }
+      // Try to create user using admin API with auto-confirmed email
+      const { data: adminData, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true, // Attempt to auto-confirm
+        user_metadata: {
+          full_name: fullName,
+        },
+      });
 
-    Swal.fire({
-      icon: "success",
-      title: "Pendaftaran berhasil!",
-      text: "Silakan cek email Anda untuk verifikasi sebelum login.",
-    }).then(() => navigate("/login"));
+      if (!authError && adminData?.user) {
+        // Admin API succeeded
+        user = adminData.user;
+        userId = adminData.user.id;
+        console.log('User created via admin API:', userId);
+      } else {
+        console.error('Admin API failed, trying signUp:', authError);
+        // If admin API fails, try regular sign up
+        const { error: signUpError, data: signUpData } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName },
+          },
+        });
+
+        if (signUpError) {
+          Swal.fire({ icon: "error", title: "Pendaftaran gagal", text: signUpError.message });
+          setLoading(false);
+          return;
+        }
+        
+        if (signUpData?.user) {
+          user = signUpData.user;
+          userId = signUpData.user.id;
+          console.log('User created via signUp:', userId);
+          
+          // Try to manually confirm email for the newly created user
+          try {
+            await supabase.auth.admin.updateUserById(userId, {
+              email_confirm: true
+            });
+            console.log('Email confirmed for user:', userId);
+          } catch (updateErr) {
+            console.warn('Could not auto-confirm email:', updateErr);
+          }
+        }
+      }
+
+      // Insert candidate data into candidates table for admin management
+      if (user && userId) {
+        console.log('Inserting candidate:', { name: fullName, email, userId });
+        
+        const { error: insertError } = await supabase.from("candidates").insert({
+          name: fullName,
+          email: email,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        });
+        
+        if (insertError) {
+          console.error("Error inserting candidate to candidates table:", insertError);
+        } else {
+          console.log('Candidate inserted successfully');
+        }
+
+        // Create candidate profile
+        const { error: profileError } = await supabase.from("candidate_profiles").insert({
+          user_id: userId,
+          full_name: fullName,
+          email: email,
+          created_at: new Date().toISOString(),
+        });
+        
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+        } else {
+          console.log('Candidate profile created successfully');
+        }
+      } else {
+        console.error('No user created, skipping candidate insertion');
+      }
+
+      setLoading(false);
+      Swal.fire({
+        icon: "success",
+        title: "Pendaftaran berhasil!",
+        text: "Akun Anda siap digunakan. Silakan login untuk melanjutkan.",
+      }).then(() => navigate("/login"));
+    } catch (error: any) {
+      setLoading(false);
+      console.error('Registration error:', error);
+      Swal.fire({ icon: "error", title: "Pendaftaran gagal", text: error.message || "Terjadi kesalahan" });
+    }
   };
 
   return (

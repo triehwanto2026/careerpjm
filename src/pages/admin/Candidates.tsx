@@ -175,6 +175,116 @@ const Candidates = () => {
     setLoading(false);
   };
 
+  const syncMissingCandidates = async () => {
+    try {
+      setLoading(true);
+      
+      // Get all candidate profiles (these are synced from auth users)
+      const { data: profiles, error: profileError } = await supabase
+        .from("candidate_profiles")
+        .select("user_id, email, full_name")
+        .order("created_at", { ascending: false });
+      
+      if (profileError) {
+        console.error('Error fetching profiles:', profileError);
+        Swal.fire({ 
+          icon: "error", 
+          title: "Gagal", 
+          text: "Tidak bisa mengakses data profil kandidat",
+          ...SWAL_THEME() 
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!profiles || profiles.length === 0) {
+        Swal.fire({ 
+          icon: "info", 
+          title: "Tidak Ada Data", 
+          text: "Belum ada profil kandidat yang tersimpan",
+          ...SWAL_THEME() 
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Get all emails in candidates table
+      const { data: existingCandidates, error: dbError } = await supabase
+        .from("candidates")
+        .select("email");
+      
+      if (dbError) {
+        Swal.fire({ 
+          icon: "error", 
+          title: "Gagal", 
+          text: "Tidak bisa mengakses data kandidat",
+          ...SWAL_THEME() 
+        });
+        setLoading(false);
+        return;
+      }
+
+      const existingEmails = new Set((existingCandidates || []).map(c => c.email));
+      
+      // Find profiles not in candidates table
+      const missingProfiles = (profiles as any[]).filter(p => 
+        p.email && !existingEmails.has(p.email)
+      );
+
+      if (missingProfiles.length === 0) {
+        Swal.fire({ 
+          icon: "success", 
+          title: "Sudah Sinkron", 
+          text: "Semua profil sudah tercatat di tabel kandidat",
+          ...SWAL_THEME() 
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Add missing profiles to candidates table
+      const newCandidates = (missingProfiles as any[]).map(p => ({
+        name: p.full_name || p.email.split('@')[0] || 'Unknown',
+        email: p.email,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      }));
+
+      const { error: insertError } = await supabase
+        .from("candidates")
+        .insert(newCandidates);
+      
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        Swal.fire({ 
+          icon: "error", 
+          title: "Gagal Sinkron", 
+          text: insertError.message,
+          ...SWAL_THEME() 
+        });
+      } else {
+        Swal.fire({ 
+          icon: "success", 
+          title: "Sinkron Berhasil", 
+          html: `<div>${missingProfiles.length} kandidat ditambahkan:<br/><br/>${missingProfiles.map(p => `<small>• ${p.email}</small>`).join('<br/>')}</div>`,
+          ...SWAL_THEME() 
+        });
+        await load();
+      }
+      
+      setLoading(false);
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      Swal.fire({ 
+        icon: "error", 
+        title: "Error", 
+        text: error.message,
+        ...SWAL_THEME() 
+      });
+      setLoading(false);
+    }
+  };
+
   useEffect(() => { 
     load(); 
     if (activeView === 'verify') {
@@ -499,137 +609,97 @@ const Candidates = () => {
         if (error) throw error;
       } else {
         console.log('Creating new candidate...');
-        // Create new candidate with Supabase Auth first
-        console.log('Creating new candidate with auth...');
         
-        // Create auth user first
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: form.email.trim(),
-          password: 'tempPassword123!', // Temporary password, user will change it
-          options: {
-            emailRedirectTo: undefined, // Disable email redirect for admin-created accounts
-            data: { 
+        try {
+          // Create auth user with admin API - auto-confirm email for immediate login
+          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: form.email.trim(),
+            password: form.password.trim(),
+            email_confirm: true, // Auto-confirm email
+            user_metadata: { 
               full_name: form.name.trim(),
               created_by_admin: true
             },
-          },
-        });
-        
-        console.log('Auth data:', authData);
-        console.log('Auth error:', authError);
-        
-        if (authError) {
-          console.error('Auth creation failed:', authError);
+          });
           
-          // If auth fails, try to create user without email verification
-          if (authError.message.includes('email')) {
-            console.log('Trying to create user without email verification...');
-            
-            // Try admin API to create user directly
-            try {
-              const { data: adminData, error: adminError } = await supabase.auth.admin.createUser({
-                email: form.email.trim(),
-                password: 'tempPassword123!',
-                email_confirm: true, // Auto-confirm email
-                user_metadata: {
-                  full_name: form.name.trim(),
-                  created_by_admin: true
-                }
-              });
-              
-              console.log('Admin create result:', { adminData, adminError });
-              
-              if (!adminError && adminData.user) {
-                // Use admin-created user data
-                const userData = adminData.user;
-                
-                // Create candidate record
-                const { data: candidateData, error: candidateError } = await supabase.from("candidates").insert({
-                  name: form.name.trim(),
-                  email: form.email.trim(),
-                  status: "pending",
-                  created_at: new Date().toISOString(),
-                }).select().single();
-                
-                if (candidateError) throw candidateError;
-                
-                // Create candidate profile
-                const { data: profileData, error: profileError } = await supabase.from("candidate_profiles").insert({
-                  user_id: userData.id,
-                  full_name: form.name.trim(),
-                  email: form.email.trim(),
-                  phone: form.phone.trim() || null,
-                  birth_date: form.birth_date || null,
-                  gender: form.gender,
-                  education_level: form.education.trim() || null,
-                  nik: form.nik || null,
-                  nickname: form.nickname || null,
-                  created_at: new Date().toISOString(),
-                } as any).select().single();
-                
-                if (profileError) throw profileError;
-                
-                await Swal.fire({
-                  icon: "success",
-                  title: "Kandidat Berhasil Ditambahkan",
-                  html: `
-                    <div class="text-left">
-                      <p><strong>Login Information:</strong></p>
-                      <p>Email: ${form.email.trim()}</p>
-                      <p>Password: <strong>tempPassword123!</strong></p>
-                      <p class="text-sm text-amber-600 mt-2">Silakan berikan informasi login ini kepada kandidat.</p>
-                    </div>
-                  `,
-                  ...SWAL_THEME()
-                });
-                
-                setShowAddModal(false);
-                setForm(emptyForm);
-                setCandidates([]);
-                // Reload will happen automatically due to useEffect
-                return;
-              }
-            } catch (adminCreateError) {
-              console.error('Admin create also failed:', adminCreateError);
-            }
+          if (authError) {
+            console.error('Auth creation failed:', authError);
+            throw new Error(`Gagal membuat user: ${authError.message}`);
           }
           
-          // Continue with database-only approach if auth fails
-        }
-        
-        // Create candidate record
-        const { data: candidateData, error: candidateError } = await supabase.from("candidates").insert({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          status: "pending",
-          created_at: new Date().toISOString(),
-        }).select().single();
-        
-        console.log('Candidate data:', candidateData);
-        console.log('Candidate error:', candidateError);
-        
-        if (candidateError) throw candidateError;
-        
-        // Create candidate profile
-        const { data: profileData, error: profileError } = await supabase.from("candidate_profiles").insert({
-          user_id: authData?.user?.id || candidateData.id, // Use auth user ID if available, otherwise candidate ID
-          full_name: form.name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || null,
-          birth_date: form.birth_date || null,
-          gender: form.gender,
-          education_level: form.education.trim() || null,
-          nik: form.nik || null,
-          nickname: form.nickname || null,
-          created_at: new Date().toISOString(),
-        } as any).select().single();
-        
-        console.log('Profile data:', profileData);
-        console.log('Profile error:', profileError);
-        
-        if (profileError) {
-          console.error('Profile creation failed:', profileError);
-          // Don't fail the entire process if profile creation fails
+          if (!authData?.user) {
+            throw new Error('User creation returned no user data');
+          }
+
+          // Attempt to confirm email using updateUserById if not already confirmed
+          try {
+            await supabase.auth.admin.updateUserById(authData.user.id, {
+              email_confirm: true
+            });
+            console.log('Email confirmed for user:', authData.user.id);
+          } catch (confirmErr) {
+            console.warn('Email confirmation update failed:', confirmErr);
+          }
+
+          // Create candidate record
+          const { data: candidateData, error: candidateError } = await supabase
+            .from("candidates")
+            .insert({
+              name: form.name.trim(),
+              email: form.email.trim(),
+              phone: form.phone.trim() || null,
+              position: form.position.trim() || null,
+              birth_date: form.birth_date || null,
+              education: form.education.trim() || null,
+              gender: form.gender,
+              photo_url: form.photo_url,
+              status: "pending",
+              created_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+          
+          if (candidateError) throw candidateError;
+          
+          // Create candidate profile
+          const { error: profileError } = await supabase
+            .from("candidate_profiles")
+            .insert({
+              user_id: authData.user.id,
+              full_name: form.name.trim(),
+              email: form.email.trim(),
+              phone: form.phone.trim() || null,
+              birth_date: form.birth_date || null,
+              gender: form.gender,
+              education_level: form.education.trim() || null,
+              nik: form.nik || null,
+              nickname: form.nickname || null,
+              created_at: new Date().toISOString(),
+            } as any);
+          
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+            // Don't fail if profile creation fails
+          }
+          
+          // Show success message with login credentials
+          await Swal.fire({
+            icon: "success",
+            title: "Kandidat Berhasil Ditambahkan",
+            html: `
+              <div class="text-left">
+                <p><strong>📧 Login Credentials:</strong></p>
+                <p style="margin: 8px 0;">Email: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${form.email.trim()}</code></p>
+                <p style="margin: 8px 0;">Password: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${form.password.trim()}</code></p>
+                <p style="margin-top: 12px; font-size: 12px; color: #666;">✓ Email sudah terverifikasi dan siap login</p>
+                <p style="margin-top: 8px; font-size: 11px; color: #999;">Login di: /login</p>
+              </div>
+            `,
+            ...SWAL_THEME()
+          });
+        } catch (error: any) {
+          console.error('Create candidate error:', error);
+          throw error;
         }
       }
       
@@ -1010,13 +1080,24 @@ const Candidates = () => {
               <h1 className="text-xl font-bold text-foreground">Manajemen Kandidat</h1>
               <p className="text-sm text-muted-foreground">Kelola data peserta tes</p>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-primary text-primary-foreground hover:brightness-110"
-            >
-              <UserPlus className="h-4 w-4" />
-              Tambah Kandidat
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={syncMissingCandidates}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border border-border bg-card text-foreground hover:bg-muted disabled:opacity-50"
+                title="Sinkronisasi kandidat yang belum tercatat"
+              >
+                <Users className="h-4 w-4" />
+                Sinkron Kandidat
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-primary text-primary-foreground hover:brightness-110"
+              >
+                <UserPlus className="h-4 w-4" />
+                Tambah Kandidat
+              </button>
+            </div>
           </div>
         </div>
         
