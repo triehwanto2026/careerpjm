@@ -198,12 +198,60 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
               grid-template-columns: repeat(3, 1fr);
             }
             
+            .grid-cols-1\\:md\\:col-span-2,
             .md\\:col-span-2 {
               grid-column: span 2;
             }
             
+            .grid-cols-1\\:md\\:col-span-3,
             .md\\:col-span-3 {
               grid-column: span 3;
+            }
+            
+            /* Force grid layout for all grid classes */
+            [class*="grid"] {
+              display: grid;
+            }
+            
+            /* Specific grid layouts from the preview */
+            .grid {
+              display: grid;
+            }
+            
+            .grid-cols-1 {
+              grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+            
+            .grid-cols-2 {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            
+            .grid-cols-3 {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+            
+            .gap-4 {
+              gap: 1rem;
+            }
+            
+            .gap-6 {
+              gap: 1.5rem;
+            }
+            
+            .gap-2 {
+              gap: 0.5rem;
+            }
+            
+            .gap-3 {
+              gap: 0.75rem;
+            }
+            
+            .gap-8 {
+              gap: 2rem;
+            }
+            
+            .gap-12 {
+              gap: 3rem;
             }
             
             @media (max-width: 768px) {
