@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, Download, X, User, Mail, Phone, MapPin, Calendar, GraduationCap, Briefcase, Award, FileText, Building2, Heart, Home, Car, CreditCard, Languages, Target, Star, MessageSquare, Link2, Globe, Camera, BookOpen, FolderOpen, AlertCircle, CheckCircle, Clock, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Save } from 'lucide-react';
+import { Download, X, User, Mail, Phone, MapPin, Calendar, GraduationCap, Briefcase, Award, FileText, Building2, Heart, Home, Car, CreditCard, Languages, Target, Star, MessageSquare, Link2, Globe, Camera, BookOpen, FolderOpen, AlertCircle, CheckCircle, Clock, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ProfessionalApplicationFormProps {
@@ -8,10 +8,6 @@ interface ProfessionalApplicationFormProps {
 }
 
 export default function ProfessionalApplicationForm({ candidate, onClose }: ProfessionalApplicationFormProps) {
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleDownload = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -24,11 +20,14 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Personal History Card (PHC) - ${candidate.full_name || 'Candidate'}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @page {
               size: A4;
               margin: 1.5cm 1.5cm 1.5cm 1.5cm;
+            }
+            
+            * {
+              box-sizing: border-box;
             }
             
             @media print {
@@ -52,6 +51,32 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
                 page-break-inside: avoid;
                 margin-bottom: 16px;
               }
+              table {
+                page-break-inside: auto;
+                width: 100%;
+                border-collapse: collapse;
+              }
+              thead {
+                page-break-inside: avoid;
+                page-break-after: auto;
+              }
+              tbody {
+                page-break-inside: auto;
+              }
+              tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+              }
+              td {
+                page-break-inside: avoid;
+                page-break-after: auto;
+                word-wrap: break-word;
+                word-break: break-word;
+              }
+              th {
+                page-break-inside: avoid;
+                page-break-after: auto;
+              }
             }
             
             body {
@@ -60,6 +85,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
               margin: 0;
               padding: 0;
               color: #1f2937;
+              font-size: 11px;
             }
             
             .container-shadow {
@@ -68,28 +94,32 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             
             .table-border {
               border: 1px solid #1e3a8a;
+              border-collapse: collapse;
+              width: 100%;
             }
             
             .table-cell {
               border: 1px solid #1e3a8a;
-              padding: 6px;
+              padding: 4px;
+              font-size: 10px;
             }
             
             .section-header {
               background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
               color: white;
-              padding: 10px;
+              padding: 8px;
               font-weight: bold;
               text-align: center;
               border-radius: 4px;
               margin-bottom: 12px;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
+              font-size: 12px;
             }
             
             .photo-container {
-              width: 120px;
-              height: 150px;
+              width: 100px;
+              height: 120px;
               border: 2px solid #1e3a8a;
               border-radius: 4px;
               overflow: hidden;
@@ -106,46 +136,46 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             }
             
             .label {
-              font-size: 11px;
+              font-size: 9px;
               font-weight: 600;
               color: #1e3a8a;
               margin-bottom: 2px;
             }
             
             .value {
-              font-size: 12px;
+              font-size: 10px;
               color: #374151;
-              margin-bottom: 6px;
+              margin-bottom: 4px;
             }
             
             .section-card {
               background: white;
               border-radius: 4px;
-              padding: 12px;
-              margin-bottom: 16px;
+              padding: 8px;
+              margin-bottom: 12px;
               border: 1px solid #1e3a8a;
               box-shadow: none;
             }
             
             .header-section {
               text-align: center;
-              padding: 16px;
+              padding: 12px;
               background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
               color: white;
               border-radius: 4px;
-              margin-bottom: 16px;
+              margin-bottom: 12px;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
             
             .header-section h1 {
-              font-size: 20px;
+              font-size: 16px;
               font-weight: bold;
               margin: 0 0 4px 0;
             }
             
             .header-section p {
-              font-size: 12px;
+              font-size: 10px;
               margin: 0;
               opacity: 0.9;
             }
@@ -153,7 +183,27 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             .info-grid {
               display: grid;
               grid-template-columns: repeat(3, 1fr);
-              gap: 8px;
+              gap: 6px;
+            }
+            
+            .grid-cols-1 {
+              grid-template-columns: 1fr;
+            }
+            
+            .grid-cols-2 {
+              grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .grid-cols-3 {
+              grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .md\\:col-span-2 {
+              grid-column: span 2;
+            }
+            
+            .md\\:col-span-3 {
+              grid-column: span 3;
             }
             
             @media (max-width: 768px) {
@@ -241,11 +291,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             <p className="text-blue-200 text-sm">{candidate.full_name || 'Nama Kandidat'}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={handlePrint} className="bg-white text-blue-900 hover:bg-gray-100">
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-            <Button onClick={handleDownload} variant="outline" className="border-white text-white hover:bg-white hover:text-blue-900">
+            <Button onClick={handleDownload} className="bg-white text-blue-900 hover:bg-gray-100">
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </Button>
