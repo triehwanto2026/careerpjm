@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Brain, Play, CheckCircle2, Clock, KeyRound } from "lucide-react";
+import { Brain, Play, CheckCircle2, Clock, KeyRound, X } from "lucide-react";
+import Swal from "sweetalert2";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -13,19 +14,52 @@ interface Code {
   status: string;
   expires_at: string | null;
   test_completed_at: string | null;
+  password: string;
   assigned_tests: string[] | null;
+  created_at?: string;
 }
 
 export default function CandidateTests() {
   const navigate = useNavigate();
   const [codes, setCodes] = useState<Code[]>([]);
   const [results, setResults] = useState<any[]>([]);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [selectedCode, setSelectedCode] = useState<Code | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginCode, setLoginCode] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const chooseBestActivationCode = (codes: Code[]) => {
+    if (!codes.length) return [];
+    const now = new Date();
+    const activeCodes = codes.filter((code) => {
+      const expires = code.expires_at ? new Date(code.expires_at) : null;
+      const expired = expires ? expires < now : false;
+      return !expired && code.status !== "completed" && code.status !== "invalid";
+    });
+
+    if (activeCodes.length > 0) {
+      return [activeCodes.sort((a, b) => {
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTime - aTime;
+      })[0]];
+    }
+
+    const completedCodes = codes.filter((code) => code.status === "completed" || !!code.test_completed_at);
+    if (completedCodes.length > 0) {
+      return [completedCodes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]];
+    }
+
+    return [codes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]];
+  };
 
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user.email) return;
     const { data: c } = await supabase.from("activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
-    setCodes((c as any) || []);
+    setCodes(chooseBestActivationCode((c as any) || []));
     
     // Get candidate profile to get candidate_id
     const { data: profile } = await supabase.from("candidate_profiles").select("*").eq("email", session.user.email).maybeSingle();
@@ -41,6 +75,119 @@ export default function CandidateTests() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const openStartModal = (code: Code) => {
+    setSelectedCode(code);
+    setShowStartModal(true);
+  };
+
+  const closeStartModal = () => {
+    setShowStartModal(false);
+    setSelectedCode(null);
+  };
+
+  const openLoginModal = (code = "", password = "") => {
+    setLoginCode(code);
+    setLoginPassword(password);
+    setShowLoginModal(true);
+  };
+
+  const closeLoginModal = () => {
+    setShowLoginModal(false);
+    setLoginCode("");
+    setLoginPassword("");
+  };
+
+  const loginWithActivationCode = async (code: string, password: string) => {
+    setLoginLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("activation_codes")
+        .select("*")
+        .eq("code", code.trim())
+        .eq("password", password.trim())
+        .maybeSingle();
+
+      if (error || !data) {
+        throw new Error("Kode tes atau password salah.");
+      }
+
+      const now = new Date();
+      const isExpired = data.expires_at && new Date(data.expires_at) < now;
+      const status = (data as any).status || "active";
+
+      if (isExpired) throw new Error("Kode tes telah kadaluarsa.");
+      if (status === "completed") throw new Error("Tes sudah selesai.");
+      if (status === "invalid") throw new Error("Kode tidak valid.");
+
+      const { data: existing } = await supabase
+        .from("candidates")
+        .select("id, photo_url, phone, birth_date, education, gender")
+        .eq("email", data.candidate_email)
+        .maybeSingle();
+
+      let candidateId = existing?.id;
+      if (!candidateId) {
+        const { data: newCand, error: createError } = await supabase
+          .from("candidates")
+          .insert({
+            name: data.candidate_name,
+            email: data.candidate_email,
+            position: data.position,
+            status: "in_progress",
+            activation_code_id: data.id,
+          } as any)
+          .select("id")
+          .single();
+        if (createError || !newCand) {
+          throw createError || new Error("Gagal membuat kandidat.");
+        }
+        candidateId = newCand.id;
+      }
+
+      sessionStorage.setItem("psytest_auth", "true");
+      sessionStorage.setItem(
+        "psytest_candidate",
+        JSON.stringify({
+          id: candidateId,
+          name: data.candidate_name,
+          email: data.candidate_email,
+          position: data.position,
+          activationCodeId: data.id,
+          assignedTests: data.assigned_tests || [],
+          photo_url: existing?.photo_url || null,
+          phone: existing?.phone || "",
+          birth_date: existing?.birth_date || "",
+          education: existing?.education || "",
+          gender: existing?.gender || "",
+        })
+      );
+
+      Swal.fire({
+        icon: "success",
+        title: "Login Tes Berhasil",
+        text: data.candidate_name,
+        timer: 1400,
+        showConfirmButton: false,
+        background: "hsl(var(--card))",
+        color: "hsl(var(--foreground))",
+      });
+
+      closeLoginModal();
+      closeStartModal();
+      navigate("/test");
+    } catch (error: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Gagal masuk tes",
+        text: error?.message || "Silakan periksa kembali kode dan password.",
+        background: "hsl(var(--card))",
+        color: "hsl(var(--foreground))",
+      });
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
   const fmtDate = (s: string | null) => s ? new Date(s).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "—";
 
@@ -75,7 +222,7 @@ export default function CandidateTests() {
                 <div
                   key={c.id}
                   className={`bg-card border border-border rounded-2xl p-5 ${canStart ? 'cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors' : ''}`}
-                  onClick={() => canStart && navigate("/test", { state: { code: c.code } })}
+                      onClick={() => canStart && openStartModal(c)}
                 >
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="flex-1">
@@ -87,19 +234,44 @@ export default function CandidateTests() {
                         {!done && !expired && <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-500 text-[10px] font-semibold">SIAP DIKERJAKAN</span>}
                       </div>
                       <div className="text-sm font-semibold">{c.position || "Tes Psikologi"}</div>
-                      <div className="text-xs text-muted-foreground flex flex-wrap gap-3 mt-1">
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Password: <span className="font-semibold text-foreground">{c.password}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex flex-wrap gap-3 mt-2">
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />Berlaku hingga: {fmtDate(c.expires_at)}</span>
                         {done && <span className="flex items-center gap-1 text-green-500"><CheckCircle2 className="h-3 w-3" />Selesai: {fmtDate(c.test_completed_at)}</span>}
                       </div>
                     </div>
-                    {canStart && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigate("/test", { state: { code: c.code } }); }}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110"
-                      >
-                        <Play className="h-4 w-4" /> Mulai Tes
-                      </button>
-                    )}
+                        {done ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              disabled
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-muted text-muted-foreground text-sm font-semibold cursor-not-allowed"
+                            >
+                              Selesai
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); const el = document.getElementById('test-results'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                              className="px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
+                            >
+                              Lihat Hasil
+                            </button>
+                          </div>
+                        ) : expired ? (
+                          <button
+                            disabled
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-100 text-red-600 text-sm font-semibold cursor-not-allowed"
+                          >
+                            Kedaluwarsa
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openStartModal(c); }}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110"
+                          >
+                            <Play className="h-4 w-4" /> Masuk ke Tes
+                          </button>
+                        )}
                   </div>
                 </div>
               );
@@ -108,7 +280,7 @@ export default function CandidateTests() {
         )}
 
         {results.length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-5">
+          <div id="test-results" className="bg-card border border-border rounded-2xl p-5">
             <h2 className="font-semibold mb-3">Riwayat Hasil Tes Saya</h2>
             <p className="text-xs text-muted-foreground mb-3">Hasil detail dapat dilihat oleh admin/HR. Anda hanya melihat ringkasan.</p>
             <div className="space-y-2">
@@ -127,6 +299,92 @@ export default function CandidateTests() {
       </div>
       </div>
     </div>
+    {showStartModal && selectedCode && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
+          <div className="flex items-center justify-between p-5 border-b border-border">
+            <div>
+              <h2 className="text-lg font-semibold">Masuk ke Tes Psikologi</h2>
+              <p className="text-sm text-muted-foreground">Gunakan kode dan password berikut untuk login ke tes psikologi Anda.</p>
+            </div>
+            <button onClick={closeStartModal} className="p-2 rounded hover:bg-muted transition">
+              <X className="h-5 w-5 text-muted-foreground" />
+            </button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="rounded-2xl bg-muted p-4">
+              <div className="text-xs text-muted-foreground mb-2">Kode Aktivasi</div>
+              <div className="font-mono text-lg font-semibold">{selectedCode.code}</div>
+              <div className="text-xs text-muted-foreground mt-2">Password: <span className="font-semibold text-foreground">{selectedCode.password}</span></div>
+              <div className="text-xs text-muted-foreground mt-2">Berlaku hingga: {fmtDate(selectedCode.expires_at)}</div>
+            </div>
+            <div className="text-sm text-foreground">
+              Klik tombol di bawah untuk login dan masuk ke tes psikologi.
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
+            <button onClick={closeStartModal} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition">Batal</button>
+            <button
+              onClick={() => selectedCode && loginWithActivationCode(selectedCode.code, selectedCode.password)}
+              disabled={loginLoading}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loginLoading ? 'Memproses...' : 'Masuk Tes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {showLoginModal && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
+          <div className="flex items-center justify-between p-5 border-b border-border">
+            <div>
+              <h2 className="text-lg font-semibold">Login Kode Tes</h2>
+              <p className="text-sm text-muted-foreground">Masukkan kode dan password tes yang tampil di halaman ini.</p>
+            </div>
+            <button onClick={closeLoginModal} className="p-2 rounded hover:bg-muted transition">
+              <X className="h-5 w-5 text-muted-foreground" />
+            </button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid gap-4">
+              <label className="space-y-2 text-sm">
+                <span className="font-medium text-foreground">Kode Tes</span>
+                <input
+                  type="text"
+                  value={loginCode}
+                  onChange={(e) => setLoginCode(e.target.value)}
+                  placeholder="Masukkan kode tes"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="font-medium text-foreground">Password</span>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Masukkan password tes"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </label>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
+            <button onClick={closeLoginModal} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition">Batal</button>
+            <button
+              onClick={() => loginWithActivationCode(loginCode, loginPassword)}
+              disabled={loginLoading || !loginCode || !loginPassword}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loginLoading ? 'Memproses...' : 'Masuk Tes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </CandidateLayout>
   );
 }

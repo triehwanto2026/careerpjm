@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { Search, Eye, Download, Printer, FileText } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -26,8 +27,10 @@ interface AnswerRow {
 }
 
 const Results = () => {
+  const location = useLocation();
+  const initialSearch = (location.state as any)?.search || new URLSearchParams(location.search).get("q") || "";
   const [results, setResults] = useState<ResultRow[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [selectedResult, setSelectedResult] = useState<ResultRow | null>(null);
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [loading, setLoading] = useState(true);

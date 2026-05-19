@@ -1,6 +1,6 @@
 
 -- Activation codes table
-CREATE TABLE public.activation_codes (
+CREATE TABLE IF NOT EXISTS public.activation_codes (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL,
@@ -22,7 +22,7 @@ CREATE POLICY "Allow anon to read activation_codes for login"
   ON public.activation_codes FOR SELECT TO anon USING (true);
 
 -- Test instruments table
-CREATE TABLE public.test_instruments (
+CREATE TABLE IF NOT EXISTS public.test_instruments (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   name_en TEXT NOT NULL DEFAULT '',
@@ -47,7 +47,7 @@ CREATE POLICY "Allow anon to read active test_instruments"
   ON public.test_instruments FOR SELECT TO anon USING (is_active = true);
 
 -- Candidates table
-CREATE TABLE public.candidates (
+CREATE TABLE IF NOT EXISTS public.candidates (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
@@ -72,7 +72,7 @@ CREATE POLICY "Allow anon to insert candidates"
   ON public.candidates FOR INSERT TO anon WITH CHECK (true);
 
 -- Test results table
-CREATE TABLE public.test_results (
+CREATE TABLE IF NOT EXISTS public.test_results (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   candidate_id UUID REFERENCES public.candidates(id) ON DELETE CASCADE,
   candidate_name TEXT NOT NULL,
@@ -98,7 +98,7 @@ CREATE POLICY "Allow anon to insert test_results"
   ON public.test_results FOR INSERT TO anon WITH CHECK (true);
 
 -- Test answers table (jawaban per soal)
-CREATE TABLE public.test_answers (
+CREATE TABLE IF NOT EXISTS public.test_answers (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   test_result_id UUID NOT NULL REFERENCES public.test_results(id) ON DELETE CASCADE,
   question_number INTEGER NOT NULL,
@@ -129,14 +129,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
+DROP TRIGGER IF EXISTS update_activation_codes_updated_at ON public.activation_codes;
 CREATE TRIGGER update_activation_codes_updated_at
   BEFORE UPDATE ON public.activation_codes
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_test_instruments_updated_at ON public.test_instruments;
 CREATE TRIGGER update_test_instruments_updated_at
   BEFORE UPDATE ON public.test_instruments
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_candidates_updated_at ON public.candidates;
 CREATE TRIGGER update_candidates_updated_at
   BEFORE UPDATE ON public.candidates
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
