@@ -1,7 +1,7 @@
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, MoreVertical, Eye, Edit, Trash2, MapPin, Clock, Filter, Building2, ToggleLeft, ToggleRight, Grid, List, Briefcase, Users } from "lucide-react";
+import { Plus, Search, MoreVertical, Eye, Edit, Trash2, MapPin, Clock, Filter, Building2, ToggleLeft, ToggleRight, Grid, List, Briefcase, Users, Settings, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -23,9 +23,14 @@ const HRJobs = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [newJob, setNewJob] = useState({ title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", requirements: "" });
   const [editJob, setEditJob] = useState({ id: "", title: "", department: "", location: "", employment_type: "", min_salary: "", max_salary: "", closes_at: "", description: "", requirements: "", status: "" });
+  const [departments, setDepartments] = useState(["Engineering", "Design", "Marketing", "Human Resources", "Data", "Operations", "Finance"]);
+  const [employmentTypes, setEmploymentTypes] = useState(["Full-time", "Part-time", "Contract", "Internship"]);
+  const [newDepartment, setNewDepartment] = useState("");
+  const [newEmploymentType, setNewEmploymentType] = useState("");
 
   const { data: jobs = [], isLoading } = useJobs();
   const createJob = useCreateJob();
@@ -37,6 +42,32 @@ const HRJobs = () => {
     const date = new Date(value);
     if (isNaN(date.getTime())) return "";
     return date.toISOString().slice(0, 10);
+  };
+
+  const addDepartment = () => {
+    if (newDepartment.trim() && !departments.includes(newDepartment.trim())) {
+      setDepartments([...departments, newDepartment.trim()]);
+      setNewDepartment("");
+      toast({ title: "✅ Departemen Ditambah", description: `${newDepartment.trim()} berhasil ditambahkan.` });
+    }
+  };
+
+  const removeDepartment = (dept: string) => {
+    setDepartments(departments.filter(d => d !== dept));
+    toast({ title: "✅ Departemen Dihapus", description: `${dept} telah dihapus.` });
+  };
+
+  const addEmploymentType = () => {
+    if (newEmploymentType.trim() && !employmentTypes.includes(newEmploymentType.trim())) {
+      setEmploymentTypes([...employmentTypes, newEmploymentType.trim()]);
+      setNewEmploymentType("");
+      toast({ title: "✅ Tipe Pekerjaan Ditambah", description: `${newEmploymentType.trim()} berhasil ditambahkan.` });
+    }
+  };
+
+  const removeEmploymentType = (type: string) => {
+    setEmploymentTypes(employmentTypes.filter(t => t !== type));
+    toast({ title: "✅ Tipe Pekerjaan Dihapus", description: `${type} telah dihapus.` });
   };
 
   const filtered = jobs.filter((j: any) => {
@@ -133,31 +164,105 @@ const HRJobs = () => {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Kelola Lowongan</h1>
             <p className="text-muted-foreground">Buat dan kelola lowongan pekerjaan dengan sistem rekrutmen modern</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Buat Lowongan</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader><DialogTitle>Buat Lowongan Baru</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Judul Posisi <span className="text-destructive">*</span></Label><Input placeholder="Contoh: Senior Frontend Developer" value={newJob.title} onChange={(e) => setNewJob({ ...newJob, title: e.target.value })} /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Departemen</Label><Select value={newJob.department} onValueChange={(v) => setNewJob({ ...newJob, department: v })}><SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger><SelectContent><SelectItem value="Engineering">Engineering</SelectItem><SelectItem value="Design">Design</SelectItem><SelectItem value="Marketing">Marketing</SelectItem><SelectItem value="Human Resources">Human Resources</SelectItem><SelectItem value="Data">Data</SelectItem><SelectItem value="Operations">Operations</SelectItem><SelectItem value="Finance">Finance</SelectItem></SelectContent></Select></div>
-                  <div className="space-y-2"><Label>Lokasi</Label><Input placeholder="Jakarta" value={newJob.location} onChange={(e) => setNewJob({ ...newJob, location: e.target.value })} /></div>
+          <div className="flex items-center gap-2">
+            <Dialog open={settingsModalOpen} onOpenChange={setSettingsModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon" title="Pengaturan Departemen & Tipe Pekerjaan">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader><DialogTitle>Pengaturan Departemen & Tipe Pekerjaan</DialogTitle></DialogHeader>
+                <div className="space-y-6 py-4">
+                  {/* Departemen Section */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Departemen</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Tambah departemen baru..." 
+                        value={newDepartment} 
+                        onChange={(e) => setNewDepartment(e.target.value)}
+                        onKeyPress={(e) => e.key === "Enter" && addDepartment()}
+                      />
+                      <Button onClick={addDepartment} size="sm"><Plus className="h-4 w-4" /></Button>
+                    </div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {departments.map((dept) => (
+                        <div key={dept} className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                          <span className="text-sm font-medium">{dept}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => removeDepartment(dept)}
+                            className="text-destructive hover:bg-destructive/10"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Employment Type Section */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Tipe Pekerjaan</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Tambah tipe pekerjaan baru..." 
+                        value={newEmploymentType} 
+                        onChange={(e) => setNewEmploymentType(e.target.value)}
+                        onKeyPress={(e) => e.key === "Enter" && addEmploymentType()}
+                      />
+                      <Button onClick={addEmploymentType} size="sm"><Plus className="h-4 w-4" /></Button>
+                    </div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {employmentTypes.map((type) => (
+                        <div key={type} className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                          <span className="text-sm font-medium">{type}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => removeEmploymentType(type)}
+                            className="text-destructive hover:bg-destructive/10"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Tipe Pekerjaan</Label><Select value={newJob.employment_type} onValueChange={(v) => setNewJob({ ...newJob, employment_type: v })}><SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger><SelectContent><SelectItem value="Full-time">Full-time</SelectItem><SelectItem value="Part-time">Part-time</SelectItem><SelectItem value="Contract">Contract</SelectItem><SelectItem value="Internship">Internship</SelectItem></SelectContent></Select></div>
-                  <div className="space-y-2"><Label>Gaji Min (Rp)</Label><Input type="number" placeholder="15000000" value={newJob.min_salary} onChange={(e) => setNewJob({ ...newJob, min_salary: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>Gaji Max (Rp)</Label><Input type="number" placeholder="25000000" value={newJob.max_salary} onChange={(e) => setNewJob({ ...newJob, max_salary: e.target.value })} /></div>
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Tutup</Button></DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Buat Lowongan</Button></DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader><DialogTitle>Buat Lowongan Baru</DialogTitle></DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2"><Label>Judul Posisi <span className="text-destructive">*</span></Label><Input placeholder="Contoh: Senior Frontend Developer" value={newJob.title} onChange={(e) => setNewJob({ ...newJob, title: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Departemen</Label><Select value={newJob.department} onValueChange={(v) => setNewJob({ ...newJob, department: v })}><SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger><SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="space-y-2"><Label>Lokasi</Label><Input placeholder="Jakarta" value={newJob.location} onChange={(e) => setNewJob({ ...newJob, location: e.target.value })} /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Tipe Pekerjaan</Label><Select value={newJob.employment_type} onValueChange={(v) => setNewJob({ ...newJob, employment_type: v })}><SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger><SelectContent>{employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="space-y-2"><Label>Gaji Min (Rp)</Label><Input type="number" placeholder="15000000" value={newJob.min_salary} onChange={(e) => setNewJob({ ...newJob, min_salary: e.target.value })} /></div>
+                    <div className="space-y-2"><Label>Gaji Max (Rp)</Label><Input type="number" placeholder="25000000" value={newJob.max_salary} onChange={(e) => setNewJob({ ...newJob, max_salary: e.target.value })} /></div>
+                  </div>
+                  <div className="space-y-2"><Label>Deadline</Label><Input type="date" value={newJob.closes_at} onChange={(e) => setNewJob({ ...newJob, closes_at: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Deskripsi Pekerjaan</Label><Textarea placeholder="Jelaskan tanggung jawab dan deskripsi pekerjaan..." rows={4} value={newJob.description} onChange={(e) => setNewJob({ ...newJob, description: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Kualifikasi</Label><Textarea placeholder="Satu kualifikasi per baris..." rows={3} value={newJob.requirements} onChange={(e) => setNewJob({ ...newJob, requirements: e.target.value })} /></div>
                 </div>
-                <div className="space-y-2"><Label>Deadline</Label><Input type="date" value={newJob.closes_at} onChange={(e) => setNewJob({ ...newJob, closes_at: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Deskripsi Pekerjaan</Label><Textarea placeholder="Jelaskan tanggung jawab dan deskripsi pekerjaan..." rows={4} value={newJob.description} onChange={(e) => setNewJob({ ...newJob, description: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Kualifikasi</Label><Textarea placeholder="Satu kualifikasi per baris..." rows={3} value={newJob.requirements} onChange={(e) => setNewJob({ ...newJob, requirements: e.target.value })} /></div>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild><Button variant="outline">Batal</Button></DialogClose>
-                <Button onClick={handleCreateJob} disabled={createJob.isPending}>{createJob.isPending ? "Menyimpan..." : "Simpan Lowongan"}</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Batal</Button></DialogClose>
+                  <Button onClick={handleCreateJob} disabled={createJob.isPending}>{createJob.isPending ? "Menyimpan..." : "Simpan Lowongan"}</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -546,13 +651,7 @@ const HRJobs = () => {
                 <Select value={editJob.department} onValueChange={(v) => setEditJob({ ...editJob, department: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Engineering">Engineering</SelectItem>
-                    <SelectItem value="Design">Design</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="Human Resources">Human Resources</SelectItem>
-                    <SelectItem value="Data">Data</SelectItem>
-                    <SelectItem value="Operations">Operations</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
+                    {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -571,10 +670,7 @@ const HRJobs = () => {
                 <Select value={editJob.employment_type} onValueChange={(v) => setEditJob({ ...editJob, employment_type: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Full-time">Full-time</SelectItem>
-                    <SelectItem value="Part-time">Part-time</SelectItem>
-                    <SelectItem value="Contract">Contract</SelectItem>
-                    <SelectItem value="Internship">Internship</SelectItem>
+                    {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

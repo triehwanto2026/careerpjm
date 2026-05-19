@@ -97,6 +97,7 @@ export default function Applicants() {
   const [candidates, setCandidates] = useState<CandidateProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showResume, setShowResume] = useState(false);
@@ -218,10 +219,16 @@ export default function Applicants() {
     }
   };
 
+  const candidateMatchesStatusFilter = (candidate: CandidateProfile) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "not_applied") return !candidate.has_applied;
+    return candidate.applications?.some((app) => app.status === statusFilter);
+  };
+
   const filteredCandidates = candidates.filter(candidate =>
-    candidate.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.current_position?.toLowerCase().includes(searchTerm.toLowerCase())
+    (candidate.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      candidate.email?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    candidateMatchesStatusFilter(candidate)
   );
 
   const viewCandidateDetail = (candidate: CandidateProfile) => {
@@ -357,6 +364,39 @@ export default function Applicants() {
       month: 'long',
       year: 'numeric'
     });
+  };
+
+  const getLatestEducationInfo = (profile: any) => {
+    const safeParseJSON = (value: any, defaultValue: any) => {
+      if (!value) return defaultValue;
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'object') return value;
+      try { return JSON.parse(value); } catch { return defaultValue; }
+    };
+
+    const history = safeParseJSON(profile?.education_history, []);
+    if (!Array.isArray(history) || history.length === 0) {
+      return { level: profile?.education_level || null, major: profile?.major || null, institution: profile?.education_institution || null };
+    }
+
+    const educationPriority: Record<string, number> = { 'S3': 8, 'S2': 7, 'S1': 6, 'D4': 5, 'D3': 4, 'D2': 3, 'D1': 2, 'SMA/SMK': 1, 'SMK': 1, 'SMA': 1, 'SMP': 0, 'SD': -1 };
+
+    const latest = history.reduce((latest: any, current: any) => {
+      const lp = educationPriority[(latest.level || latest.education_level) as string] || 0;
+      const cp = educationPriority[(current.level || current.education_level) as string] || 0;
+      if (cp === lp) {
+        const ly = parseInt(latest.end_year || latest.graduation_year || '0') || 0;
+        const cy = parseInt(current.end_year || current.graduation_year || '0') || 0;
+        return cy > ly ? current : latest;
+      }
+      return cp > lp ? current : latest;
+    }, history[0]);
+
+    return {
+      level: latest.level || latest.education_level || null,
+      major: latest.major || latest.field_of_study || latest.education_major || null,
+      institution: latest.school || latest.institution || latest.education_institution || null,
+    };
   };
 
   const handleDownloadResume = (candidate: CandidateProfile) => {
@@ -564,16 +604,31 @@ export default function Applicants() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Cari nama, email, atau posisi..."
+              placeholder="Cari nama atau email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition">
-            <Filter className="h-4 w-4" />
-            Filter
-          </button>
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="all">Semua Status</option>
+              <option value="not_applied">Belum Melamar</option>
+              <option value="applied">Lamaran Diterima</option>
+              <option value="screening">Screening CV</option>
+              <option value="psychology_test">Tes Psikologi</option>
+              <option value="hr_interview">Wawancara HR</option>
+              <option value="user_interview">Wawancara User</option>
+              <option value="offer">Penawaran</option>
+              <option value="hired">Diterima</option>
+              <option value="rejected">Ditolak</option>
+            </select>
+            <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -639,8 +694,6 @@ export default function Applicants() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nama</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pendidikan</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Posisi</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pengalaman</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status Lamaran</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tanggal Daftar</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Aksi</th>
@@ -649,13 +702,13 @@ export default function Applicants() {
               <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                       Memuat data...
                     </td>
                   </tr>
                 ) : filteredCandidates.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                       {searchTerm ? "Tidak ada hasil pencarian" : "Belum ada data pelamar"}
                     </td>
                   </tr>
@@ -679,20 +732,18 @@ export default function Applicants() {
                         <div className="text-sm text-foreground">{candidate.email || '-'}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span>{getEducationIcon(candidate.education_level)}</span>
-                          <div>
-                            <div className="text-sm font-medium text-foreground">{candidate.education_level || '-'}</div>
-                            <div className="text-xs text-muted-foreground">{candidate.major || '-'}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-foreground">{candidate.current_position || '-'}</div>
-                        <div className="text-xs text-muted-foreground">{candidate.current_company || '-'}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-foreground">{candidate.experience_years ? `${candidate.experience_years} Tahun` : '-'}</div>
+                        {(() => {
+                          const ed = getLatestEducationInfo(candidate);
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span>{getEducationIcon(ed.level || '')}</span>
+                              <div>
+                                <div className="text-sm font-medium text-foreground">{ed.level || '-'}</div>
+                                <div className="text-xs text-muted-foreground">{ed.major || '-'}</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         {candidate.has_applied ? (

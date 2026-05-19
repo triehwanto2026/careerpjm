@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X, Settings as SettingsIcon,
-  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow, UserPlus, MailCheck,
+  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow, UserPlus, MailCheck, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -68,6 +68,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
   const [adminPanelName, setAdminPanelName] = useState("PsyAdmin");
   const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null);
@@ -225,19 +226,25 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform duration-300 md:static md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+      <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-card transition-all duration-300 md:static md:translate-x-0 ${
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      } ${sidebarCollapsed ? "md:w-20" : "w-64 md:w-64"}`}>
+        <div className={`flex items-center justify-between border-b border-border px-5 py-4 ${sidebarCollapsed ? "px-3" : ""}`}>
           <div className="flex items-center gap-2">
             {adminLogoUrl ? (
               <img src={adminLogoUrl} alt="Admin Logo" className="h-6 w-6 object-contain" />
             ) : (
               <ShieldCheck className="h-6 w-6 text-primary" />
             )}
-            <span className="text-lg font-bold text-foreground">
-              {adminPanelName}
-            </span>
+            {!sidebarCollapsed && (
+              <span className="text-lg font-bold text-foreground">
+                {adminPanelName}
+              </span>
+            )}
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="text-muted-foreground md:hidden"><X className="h-5 w-5" /></button>
+          <button onClick={() => setSidebarOpen(false)} className="text-muted-foreground md:hidden">
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
@@ -250,14 +257,15 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                   key={entry.path}
                   to={entry.path}
                   onClick={() => setSidebarOpen(false)}
+                  title={sidebarCollapsed ? entry.label : ""}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     active
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
+                  } ${sidebarCollapsed ? "justify-center" : ""}`}
                 >
                   <entry.icon className="h-4 w-4 shrink-0" />
-                  {entry.label}
+                  {!sidebarCollapsed && entry.label}
                 </Link>
               );
             } else {
@@ -271,23 +279,24 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                   <button
                     type="button"
                     onClick={() => toggleGroup(entry.label)}
+                    title={sidebarCollapsed ? entry.label : ""}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                       hasActiveChild
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
+                    } ${sidebarCollapsed ? "justify-center" : ""}`}
                   >
                     <span className="flex items-center gap-3">
                       <entry.icon className="h-4 w-4 shrink-0" />
-                      {entry.label}
+                      {!sidebarCollapsed && entry.label}
                     </span>
-                    {isExpanded ? (
+                    {!sidebarCollapsed && (isExpanded ? (
                       <ChevronDown className="h-3.5 w-3.5" />
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5" />
-                    )}
+                    ))}
                   </button>
-                  {isExpanded && (
+                  {isExpanded && !sidebarCollapsed && (
                     <div className="ml-6 space-y-0.5 border-l-2 border-border pl-2">
                       {entry.children.map((child) => {
                         const childActive = location.pathname === child.path;
@@ -316,7 +325,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         </nav>
 
         <div className="border-t border-border p-3 space-y-2">
-          {adminSession && (
+          {adminSession && !sidebarCollapsed && (
             <div className="rounded-lg bg-muted/50 px-3 py-2">
               <p className="text-xs font-medium text-foreground truncate">
                 {adminSession.full_name || adminSession.username}
@@ -327,15 +336,25 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
           )}
           <button onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
-            <LogOut className="h-4 w-4" />Keluar
+            title={sidebarCollapsed ? "Keluar" : ""}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors ${sidebarCollapsed ? "justify-center" : ""}`}>
+            <LogOut className="h-4 w-4" />{!sidebarCollapsed && "Keluar"}
           </button>
         </div>
       </aside>
 
       <div className="flex flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-card/80 backdrop-blur-xl px-4 py-3 md:px-6">
-          <button onClick={() => setSidebarOpen(true)} className="text-muted-foreground md:hidden"><Menu className="h-5 w-5" /></button>
+          <button onClick={() => setSidebarOpen(true)} className="text-muted-foreground md:hidden">
+            <Menu className="h-5 w-5" />
+          </button>
+          <button 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)} 
+            className="hidden md:flex text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted"
+            title={sidebarCollapsed ? "Perluas Sidebar" : "Perkecil Sidebar"}
+          >
+            {sidebarCollapsed ? <ChevronsRight className="h-5 w-5" /> : <ChevronsLeft className="h-5 w-5" />}
+          </button>
           <h2 className="flex-1 text-sm font-semibold text-foreground">
             {activePageLabel}
           </h2>

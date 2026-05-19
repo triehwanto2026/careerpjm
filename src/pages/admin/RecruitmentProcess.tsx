@@ -95,6 +95,7 @@ export default function RecruitmentProcess() {
   const [loading, setLoading] = useState(true);
   const [loadingApplications, setLoadingApplications] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -552,11 +553,14 @@ export default function RecruitmentProcess() {
     navigate('/admin/results', { state: { search: application.candidate_profile.full_name } });
   };
 
-  const filteredApplications = applications.filter(app =>
-    app.candidate_profile.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    app.candidate_profile.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    app.candidate_profile.current_position.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredApplications = applications.filter(app => {
+    const matchesSearch =
+      app.candidate_profile.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.candidate_profile.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.candidate_profile.current_position.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <AdminLayout>
@@ -674,10 +678,24 @@ export default function RecruitmentProcess() {
                   className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition">
-                <Filter className="h-4 w-4" />
-                Filter
-              </button>
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="applied">Lamaran Diterima</option>
+                  <option value="screening">Screening CV</option>
+                  <option value="psychology_test">Tes Psikologi</option>
+                  <option value="hr_interview">Wawancara HR</option>
+                  <option value="user_interview">Wawancara User</option>
+                  <option value="offer">Penawaran</option>
+                  <option value="hired">Diterima</option>
+                  <option value="rejected">Ditolak</option>
+                </select>
+                <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
             </div>
 
             {/* Status Summary */}
@@ -726,13 +744,13 @@ export default function RecruitmentProcess() {
                   <tbody className="divide-y divide-border">
                     {loadingApplications ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                           Memuat data lamaran...
                         </td>
                       </tr>
                     ) : filteredApplications.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                           {searchTerm ? "Tidak ada hasil pencarian" : "Belum ada lamaran untuk lowongan ini"}
                         </td>
                       </tr>
