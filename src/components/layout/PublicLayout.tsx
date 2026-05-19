@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
-import { Building2, Menu, X } from "lucide-react";
+import { Building2, Menu, X, UserPlus, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -39,6 +39,17 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
     };
 
     loadPublicSettings();
+
+    const channel = supabase
+      .channel("public-settings")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_settings" }, () => {
+        loadPublicSettings();
+      })
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, []);
 
   const companyName = publicSettings.app_name || publicSettings.landing_header_title || "PJM Recruitment";
@@ -79,14 +90,18 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
               asChild 
               className="hidden md:inline-flex"
             >
-              <Link to="/register">Daftar</Link>
+              <Link to="/register" className="inline-flex items-center gap-2">
+                <UserPlus className="h-4 w-4" /> Daftar
+              </Link>
             </Button>
             <Button 
               variant={location.pathname === "/login" ? "default" : "outline"} 
               asChild 
               className="hidden md:inline-flex"
             >
-              <Link to="/login">Login</Link>
+              <Link to="/login" className="inline-flex items-center gap-2">
+                <LogIn className="h-4 w-4" /> Login
+              </Link>
             </Button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -127,14 +142,18 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
                   asChild 
                   className="w-full"
                 >
-                  <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Daftar</Link>
+                  <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="inline-flex w-full items-center justify-center gap-2">
+                    <UserPlus className="h-4 w-4" /> Daftar
+                  </Link>
                 </Button>
                 <Button 
                   variant={location.pathname === "/login" ? "default" : "outline"} 
                   asChild 
                   className="w-full"
                 >
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="inline-flex w-full items-center justify-center gap-2">
+                    <LogIn className="h-4 w-4" /> Login
+                  </Link>
                 </Button>
               </nav>
             </div>

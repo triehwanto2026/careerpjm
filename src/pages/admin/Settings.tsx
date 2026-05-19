@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Home, Mail, Shield, Layout, Upload, X, Database, Download } from "lucide-react";
+import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Home, Mail, Shield, Layout, Upload, X, Database, Download, Plus } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,7 +75,6 @@ const Settings = () => {
     setFormData((prev) => {
       const next = { ...prev, [key]: value };
       // Check if any value differs from original
-      const original = settings.find((s) => s.key === key)?.value;
       const anyChanged = Object.entries(next).some(([k, v]) => {
         const orig = settings.find((s) => s.key === k)?.value;
         return v !== orig;
@@ -84,6 +83,38 @@ const Settings = () => {
       return next;
     });
   };
+
+  const parseJsonValue = (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const updateJsonList = (key: string, updater: (items: any[]) => any[]) => {
+    const currentValue = formData[key] ?? settings.find((s) => s.key === key)?.value ?? "[]";
+    const currentList = parseJsonValue(currentValue);
+    const nextList = updater(currentList);
+    handleFieldChange(key, JSON.stringify(nextList));
+  };
+
+  const landingMilestonesKey = "landing_about_milestones_items";
+  const landingValuesKey = "landing_about_values_items";
+
+  const landingMilestones = parseJsonValue(formData[landingMilestonesKey] ?? settings.find((s) => s.key === landingMilestonesKey)?.value ?? "[]");
+  const landingValues = parseJsonValue(formData[landingValuesKey] ?? settings.find((s) => s.key === landingValuesKey)?.value ?? "[]");
+
+  const addMilestone = () => updateJsonList(landingMilestonesKey, (items) => [...items, { year: "", description: "", icon: "" }]);
+  const removeMilestone = (index: number) => updateJsonList(landingMilestonesKey, (items) => items.filter((_: any, i: number) => i !== index));
+  const updateMilestone = (index: number, field: string, value: string) =>
+    updateJsonList(landingMilestonesKey, (items) => items.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
+
+  const addValueItem = () => updateJsonList(landingValuesKey, (items) => [...items, { name: "", description: "", icon: "" }]);
+  const removeValueItem = (index: number) => updateJsonList(landingValuesKey, (items) => items.filter((_: any, i: number) => i !== index));
+  const updateValueItem = (index: number, field: string, value: string) =>
+    updateJsonList(landingValuesKey, (items) => items.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
 
   const handleSave = async () => {
     setSaving(true);
@@ -409,6 +440,8 @@ const Settings = () => {
     "landing_about_milestones",
     "landing_about_values",
     "landing_hero_background_url",
+    "landing_about_milestones_items",
+    "landing_about_values_items",
   ];
 
   const categorySettings = settings.filter(s => {
@@ -417,7 +450,7 @@ const Settings = () => {
       return ["auto_backup_enabled", "auto_backup_period", "auto_backup_format", "backup_retention_days"].includes(s.key);
     }
     if (activeCategory === "landing") {
-      return landingKeys.includes(s.key);
+      return landingKeys.includes(s.key) && ![landingMilestonesKey, landingValuesKey, "landing_about_milestones", "landing_about_values"].includes(s.key);
     }
     if (activeCategory === "branding") {
       return s.category === "branding" && !landingKeys.includes(s.key);
@@ -600,6 +633,141 @@ const Settings = () => {
                       {renderField(setting)}
                     </div>
                   ))}
+
+                  <div className="rounded-xl border border-border bg-muted/40 p-5">
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">Milestone Halaman Depan</h3>
+                        <p className="text-sm text-muted-foreground">Tambahkan tahun dan keterangan milestone yang akan tampil di landing page.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addMilestone}
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition"
+                      >
+                        <Plus className="h-4 w-4" /> Tambah Baris
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      {landingMilestones.map((item, index) => (
+                        <div key={index} className="grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[120px_1fr]">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Tahun</label>
+                            <input
+                              type="text"
+                              value={item.year || ""}
+                              onChange={(e) => updateMilestone(index, "year", e.target.value)}
+                              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-4">
+                              <label className="text-sm font-medium text-foreground">Keterangan</label>
+                              <button
+                                type="button"
+                                onClick={() => removeMilestone(index)}
+                                className="text-sm text-destructive hover:text-destructive-foreground"
+                              >
+                                Hapus
+                              </button>
+                            </div>
+                            <textarea
+                              value={item.description || ""}
+                              onChange={(e) => updateMilestone(index, "description", e.target.value)}
+                              rows={3}
+                              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {landingMilestones.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Belum ada milestone. Tambahkan baris terlebih dahulu.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-muted/40 p-5">
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">Nilai Nilai</h3>
+                        <p className="text-sm text-muted-foreground">Tambahkan nama nilai, penjelasan, dan simbol/logo untuk setiap nilai.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addValueItem}
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition"
+                      >
+                        <Plus className="h-4 w-4" /> Tambah Baris
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      {landingValues.map((item, index) => (
+                        <div key={index} className="space-y-4 rounded-xl border border-border bg-card p-4">
+                          <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-4">
+                                <label className="text-sm font-medium text-foreground">Nama Nilai</label>
+                                <button
+                                  type="button"
+                                  onClick={() => removeValueItem(index)}
+                                  className="text-sm text-destructive hover:text-destructive-foreground"
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+                              <input
+                                type="text"
+                                value={item.name || ""}
+                                onChange={(e) => updateValueItem(index, "name", e.target.value)}
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-foreground">Simbol / Logo</label>
+                              <input
+                                type="text"
+                                value={item.icon || ""}
+                                onChange={(e) => updateValueItem(index, "icon", e.target.value)}
+                                placeholder="Emoji, nama icon Lucide, atau URL icon"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
+                                list="icon-suggestions"
+                              />
+                              <p className="text-xs text-muted-foreground">Kosongkan untuk ikon otomatis berdasarkan nama nilai.</p>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Penjelasan</label>
+                            <textarea
+                              value={item.description || ""}
+                              onChange={(e) => updateValueItem(index, "description", e.target.value)}
+                              rows={3}
+                              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {landingValues.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Belum ada nilai. Tambahkan baris terlebih dahulu.</p>
+                      )}
+                    <datalist id="icon-suggestions">
+                      {[
+                        "Building2",
+                        "Globe",
+                        "Zap",
+                        "Award",
+                        "Heart",
+                        "Users",
+                        "Shield",
+                        "Briefcase",
+                        "Sparkles",
+                        "Calendar",
+                        "Target",
+                      ].map((icon) => (
+                        <option key={icon} value={icon} />
+                      ))}
+                    </datalist>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

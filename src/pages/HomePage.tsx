@@ -44,10 +44,37 @@ const HomePage = () => {
   const [activeTab, setActiveTab] = useState("vision");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [landingContactSettings, setLandingContactSettings] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadJobs();
+    loadLandingContactSettings();
   }, []);
+
+  const loadLandingContactSettings = async () => {
+    const keys = [
+      "landing_contact_email",
+      "landing_contact_phone",
+      "landing_contact_address",
+    ];
+
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", keys);
+
+    if (error) {
+      console.error("Error loading landing contact settings:", error);
+      return;
+    }
+
+    setLandingContactSettings(
+      (data || []).reduce((acc, item) => {
+        acc[item.key] = item.value;
+        return acc;
+      }, {} as Record<string, string>)
+    );
+  };
 
   const loadJobs = async () => {
     const { data } = await supabase
@@ -93,7 +120,6 @@ const HomePage = () => {
               <a href="#about" className="text-sm text-muted-foreground hover:text-primary transition-colors">Tentang Kami</a>
               <a href="#vision" className="text-sm text-muted-foreground hover:text-primary transition-colors">Visi & Misi</a>
               <a href="#jobs" className="text-sm text-muted-foreground hover:text-primary transition-colors">Karir</a>
-              <a href="#contact" className="text-sm text-muted-foreground hover:text-primary transition-colors">Kontak</a>
             </div>
 
             {/* Right Side */}
@@ -132,7 +158,6 @@ const HomePage = () => {
               <a href="#about" className="block py-2 text-sm text-muted-foreground hover:text-primary">Tentang Kami</a>
               <a href="#vision" className="block py-2 text-sm text-muted-foreground hover:text-primary">Visi & Misi</a>
               <a href="#jobs" className="block py-2 text-sm text-muted-foreground hover:text-primary">Karir</a>
-              <a href="#contact" className="block py-2 text-sm text-muted-foreground hover:text-primary">Kontak</a>
               <button 
                 onClick={() => navigate("/login")}
                 className="w-full flex items-center justify-center gap-2 py-2 bg-primary text-primary-foreground rounded-lg mt-2"
@@ -353,74 +378,42 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section id="contact" className="py-20 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">Hubungi Kami</h2>
-            <p className="text-muted-foreground">Kami siap membantu kebutuhan rekrutmen Anda</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="glass rounded-xl p-6 text-center">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <MapPin className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Alamat</h3>
-              <p className="text-sm text-muted-foreground">
-                Jl. Sudirman No. 123<br />
-                Jakarta Pusat, 10220
-              </p>
-            </div>
-            <div className="glass rounded-xl p-6 text-center">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Phone className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Telepon</h3>
-              <p className="text-sm text-muted-foreground">
-                +62 21 1234 5678<br />
-                Senin - Jumat: 08:00 - 17:00
-              </p>
-            </div>
-            <div className="glass rounded-xl p-6 text-center">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Mail className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Email</h3>
-              <p className="text-sm text-muted-foreground">
-                info@psytest.id<br />
-                career@psytest.id
-              </p>
-            </div>
-            <div className="glass rounded-xl p-6 text-center">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Globe className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Website</h3>
-              <p className="text-sm text-muted-foreground">
-                www.psytest.id<br />
-                LinkedIn: PT. PsyTest
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Footer */}
-      <footer className="py-8 border-t border-border">
+      <footer className="py-12 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold text-foreground">PT. PsyTest</span>
+          <div className="grid gap-8 md:grid-cols-[1fr_1.2fr] items-start">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-6 w-6 text-primary" />
+                <span className="text-lg font-bold text-foreground">PT. PsyTest</span>
+              </div>
+              <p className="text-muted-foreground">© 2025 PT. PsyTest. All rights reserved.</p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © 2025 PT. PsyTest. All rights reserved.
-            </p>
-            <div className="flex items-center gap-4">
-              <a href="/login" className="text-sm text-primary hover:underline">Login</a>
-              <a href="/admin" className="text-sm text-primary hover:underline">Admin</a>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-2">Email</p>
+                <p className="text-sm text-muted-foreground">
+                  {landingContactSettings.landing_contact_email || "hrd@pjm-group.com"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-2">Telepon</p>
+                <p className="text-sm text-muted-foreground">
+                  {landingContactSettings.landing_contact_phone || "+62 21 1234 5678"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-2">Alamat</p>
+                <p className="text-sm text-muted-foreground">
+                  {landingContactSettings.landing_contact_address || "Surabaya, Indonesia"}
+                </p>
+              </div>
             </div>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-4">
+            <a href="/login" className="text-sm text-primary hover:underline">Login</a>
+            <a href="/admin" className="text-sm text-primary hover:underline">Admin</a>
           </div>
         </div>
       </footer>

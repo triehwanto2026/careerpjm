@@ -1,16 +1,73 @@
 import PublicLayout from "@/components/layout/PublicLayout";
-import { Building2, Target, Trophy, Users, Award, Globe, Heart, Zap } from "lucide-react";
+import { Building2, Target, Trophy, Heart, Zap } from "lucide-react";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const About = () => {
+  const [settings, setSettings] = useState<Record<string, string>>({});
+
+  const parseJsonValue = (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const keys = [
+        "landing_about_vision",
+        "landing_about_mission",
+        "landing_about_milestones_items",
+        "landing_about_values_items",
+      ];
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .in("key", keys);
+
+      if (error) {
+        console.error("Error loading about settings:", error);
+        return;
+      }
+
+      setSettings(
+        (data || []).reduce((acc, item) => {
+          acc[item.key] = item.value;
+          return acc;
+        }, {} as Record<string, string>)
+      );
+    };
+
+    loadSettings();
+  }, []);
+
+  const aboutVision = settings.landing_about_vision || "Visi kami adalah Tumbuh Bersama untuk Masa Depan Yang Lebih Baik";
+  const aboutMission = settings.landing_about_mission || "Visi kami adalah Tumbuh Bersama untuk Masa Depan Yang Lebih Baik";
+  const aboutMilestones = parseJsonValue(settings.landing_about_milestones_items || "[]");
+  const aboutValues = parseJsonValue(settings.landing_about_values_items || "[]");
+  const defaultMilestones = [
+    { year: "2018", description: "Berdiri sebagai platform rekrutmen inovatif." },
+    { year: "2022", description: "Melayani lebih dari 1.000 kandidat." },
+    { year: "2024", description: "Menjadi pilihan utama perusahaan dan talenta di Indonesia." },
+  ];
+  const defaultValues = [
+    { name: "Integritas", description: "Bertindak Jujur dan bertanggung jawab", icon: "🤝" },
+    { name: "Profesionalisme", description: "Menjaga kualitas kerja dan layanan profesional", icon: "💼" },
+    { name: "Inovasi", description: "Beradaptasi dan berkembang dengan teknologi terbaru", icon: "⚡" },
+  ];
+
   return (
     <PublicLayout>
       <div className="container py-16 md:py-24">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Tentang PJM Group</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Tentang Kami</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Membangun masa depan melalui inovasi dan kolaborasi yang berkelanjutan
+            Informasi visi, misi, milestone, dan nilai nilai PJM Recruitment.
           </p>
         </motion.div>
 
@@ -24,7 +81,7 @@ const About = () => {
               <h2 className="text-2xl font-bold">Visi</h2>
             </div>
             <p className="text-muted-foreground leading-relaxed">
-              Menjadi perusahaan terdepan dalam penyediaan solusi rekrutmen dan pengembangan SDM yang terintegrasi, berorientasi teknologi, dan berfokus pada kualitas untuk mendukung pertumbuhan bisnis di Indonesia.
+              {aboutVision}
             </p>
           </motion.div>
 
@@ -35,24 +92,32 @@ const About = () => {
               </div>
               <h2 className="text-2xl font-bold">Misi</h2>
             </div>
-            <ul className="text-muted-foreground space-y-2">
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>Menyediakan platform rekrutmen yang modern dan efisien</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>Menghubungkan talent terbaik dengan perusahaan yang tepat</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>Mendukung pengembangan karir dan profesionalisme</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>Inovasi berkelanjutan dalam solusi HR technology</span>
-              </li>
-            </ul>
+            {settings.landing_about_mission ? (
+              <div className="space-y-2 text-muted-foreground">
+                {aboutMission.split("\n").map((line, idx) => (
+                  <p key={idx}>{line}</p>
+                ))}
+              </div>
+            ) : (
+              <ul className="text-muted-foreground space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-1">•</span>
+                  <span>Menyediakan platform rekrutmen yang modern dan efisien</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-1">•</span>
+                  <span>Menghubungkan talent terbaik dengan perusahaan yang tepat</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-1">•</span>
+                  <span>Mendukung pengembangan karir dan profesionalisme</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-1">•</span>
+                  <span>Inovasi berkelanjutan dalam solusi HR technology</span>
+                </li>
+              </ul>
+            )}
           </motion.div>
         </div>
 
@@ -62,22 +127,17 @@ const About = () => {
           <div className="relative">
             <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-border"></div>
             <div className="space-y-12">
-              {[
-                { year: "2018", title: "Pendirian PJM Group", description: "Didirikan dengan visi untuk menyediakan solusi rekrutmen yang inovatif", icon: Building2 },
-                { year: "2020", title: "Ekspansi Layanan", description: "Memperluas layanan ke berbagai industri di Indonesia", icon: Globe },
-                { year: "2022", title: "Digital Transformation", description: "Meluncurkan platform rekrutmen berbasis teknologi", icon: Zap },
-                { year: "2024", title: "Milestone 1000+ Klien", description: "Mencapai 1000+ perusahaan klien dan 10,000+ penempatan", icon: Trophy },
-              ].map((milestone, i) => (
+              {(aboutMilestones.length > 0 ? aboutMilestones : defaultMilestones).map((milestone, i) => (
                 <div key={i} className={`relative flex items-center ${i % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
                   <div className={`flex-1 ${i % 2 === 0 ? 'text-right pr-8' : 'text-left pl-8'}`}>
                     <div className="card-elevated p-6 inline-block">
                       <span className="text-2xl font-bold text-primary">{milestone.year}</span>
-                      <h3 className="text-lg font-semibold mt-2">{milestone.title}</h3>
+                      <h3 className="text-lg font-semibold mt-2">{milestone.title || milestone.year}</h3>
                       <p className="text-sm text-muted-foreground mt-1">{milestone.description}</p>
                     </div>
                   </div>
                   <div className="absolute left-1/2 transform -translate-x-1/2 h-12 w-12 rounded-full bg-primary flex items-center justify-center z-10">
-                    <milestone.icon className="h-6 w-6 text-white" />
+                    <Building2 className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex-1"></div>
                 </div>
@@ -86,38 +146,16 @@ const About = () => {
           </div>
         </motion.div>
 
-        {/* Stats */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-20">
-          {[
-            { label: "Tahun Pengalaman", value: "6+", icon: Award },
-            { label: "Klien Perusahaan", value: "1000+", icon: Building2 },
-            { label: "Penempatan", value: "10,000+", icon: Users },
-            { label: "Industri", value: "50+", icon: Globe },
-          ].map((stat, i) => (
-            <div key={i} className="card-elevated p-6 text-center">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <stat.icon className="h-6 w-6 text-primary" />
-              </div>
-              <p className="text-3xl font-bold text-primary">{stat.value}</p>
-              <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
-            </div>
-          ))}
-        </motion.div>
-
         {/* Values */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
           <h2 className="text-3xl font-bold text-center mb-12">Nilai Kami</h2>
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { title: "Integritas", description: "Menjunjung kejujuran dan transparansi dalam setiap tindakan", icon: Heart },
-              { title: "Inovasi", description: "Terus berinovasi untuk memberikan solusi terbaik", icon: Zap },
-              { title: "Kolaborasi", description: "Bekerja sama untuk mencapai tujuan bersama", icon: Users },
-            ].map((value, i) => (
+            {(aboutValues.length > 0 ? aboutValues : defaultValues).map((value, i) => (
               <div key={i} className="card-elevated p-6 text-center">
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <value.icon className="h-7 w-7 text-primary" />
+                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-2xl">
+                  {value.icon || "⭐"}
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{value.title}</h3>
+                <h3 className="text-lg font-semibold mb-2">{value.name || `Nilai ${i + 1}`}</h3>
                 <p className="text-sm text-muted-foreground">{value.description}</p>
               </div>
             ))}
