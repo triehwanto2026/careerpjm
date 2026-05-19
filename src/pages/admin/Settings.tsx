@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Mail, Shield, Layout, Upload, X, Database, Download } from "lucide-react";
+import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Home, Mail, Shield, Layout, Upload, X, Database, Download } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ const Settings = () => {
 
   const categories = [
     { id: "branding", name: "Branding", icon: Palette, description: "Logo, warna, header, footer" },
+    { id: "landing", name: "Landing Page", icon: Home, description: "Konten halaman depan, kontak, dan background" },
     { id: "login", name: "Halaman Login", icon: Layout, description: "Tampilan halaman login" },
     { id: "system", name: "Sistem", icon: Shield, description: "Konfigurasi sistem" },
     { id: "backup", name: "Backup Database", icon: Database, description: "Backup dan restore database" },
@@ -397,10 +398,29 @@ const Settings = () => {
     }
   };
 
+  const landingKeys = [
+    "landing_header_title",
+    "landing_header_subtitle",
+    "landing_contact_email",
+    "landing_contact_phone",
+    "landing_contact_address",
+    "landing_about_vision",
+    "landing_about_mission",
+    "landing_about_milestones",
+    "landing_about_values",
+    "landing_hero_background_url",
+  ];
+
   const categorySettings = settings.filter(s => {
     if (activeCategory === "backup") {
       // Backup settings are stored in "system" category
       return ["auto_backup_enabled", "auto_backup_period", "auto_backup_format", "backup_retention_days"].includes(s.key);
+    }
+    if (activeCategory === "landing") {
+      return landingKeys.includes(s.key);
+    }
+    if (activeCategory === "branding") {
+      return s.category === "branding" && !landingKeys.includes(s.key);
     }
     return s.category === activeCategory;
   });

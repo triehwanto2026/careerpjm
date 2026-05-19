@@ -2,11 +2,50 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Building2, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const PublicLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadPublicSettings = async () => {
+      const keys = [
+        "app_name",
+        "landing_header_title",
+        "landing_header_subtitle",
+        "landing_contact_email",
+        "landing_contact_phone",
+        "landing_contact_address",
+      ];
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .in("key", keys);
+
+      if (error) {
+        console.error("Error loading public settings:", error);
+        return;
+      }
+
+      setPublicSettings(
+        (data || []).reduce((acc, item) => {
+          acc[item.key] = item.value;
+          return acc;
+        }, {} as Record<string, string>)
+      );
+    };
+
+    loadPublicSettings();
+  }, []);
+
+  const companyName = publicSettings.app_name || publicSettings.landing_header_title || "PJM Recruitment";
+  const brandSubtitle = publicSettings.landing_header_subtitle || "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
+  const contactEmail = publicSettings.landing_contact_email || "hr@pjmgroup.com";
+  const contactPhone = publicSettings.landing_contact_phone || "+62 21 1234 5678";
+  const contactAddress = publicSettings.landing_contact_address || "Jakarta, Indonesia";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -17,7 +56,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
-            <span className="text-lg font-bold text-foreground">PJM Recruitment</span>
+            <span className="text-lg font-bold text-foreground">{companyName}</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -114,10 +153,10 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Building2 className="h-5 w-5 text-primary" />
                 </div>
-                <span className="text-lg font-bold text-foreground">PJM Recruitment</span>
+                <span className="text-lg font-bold text-foreground">{companyName}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.
+                {brandSubtitle}
               </p>
             </div>
             <div>
@@ -143,9 +182,9 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
             <div>
               <h3 className="font-semibold text-foreground mb-4">Kontak</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>hr@pjmgroup.com</li>
-                <li>+62 21 1234 5678</li>
-                <li>Jakarta, Indonesia</li>
+                <li>{contactEmail}</li>
+                <li>{contactPhone}</li>
+                <li>{contactAddress}</li>
               </ul>
             </div>
           </div>
