@@ -25,7 +25,14 @@ type NavEntry = NavItem | NavGroup;
 const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
-  { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
+  {
+    label: "Alat Tes",
+    icon: ClipboardList,
+    children: [
+      { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
+      { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
+    ],
+  },
   {
     label: "Kelola Lowongan",
     icon: Briefcase,
@@ -40,7 +47,6 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
     icon: Users,
     children: [
       { path: "/admin/candidates", label: "Daftar Kandidat", icon: Users },
-      { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
     ],
   },
   {
