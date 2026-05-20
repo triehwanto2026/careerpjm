@@ -74,6 +74,11 @@
 }
 
 @layer base {
+  /* Fluid / responsive base font size (helps UI scale on low/high resolutions) */
+  html {
+    font-size: clamp(13px, 1.2vw, 16px);
+  }
+
   * {
     @apply border-border;
   }

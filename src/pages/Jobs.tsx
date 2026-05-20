@@ -35,8 +35,8 @@ const Jobs = () => {
     <PublicLayout>
       <section className="bg-gradient-to-br from-primary/5 to-primary/10 py-16">
         <div className="container">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-2xl mx-auto mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-3">Semua Lowongan</h1>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-2xl mx-auto mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">Semua Lowongan</h1>
             <p className="text-muted-foreground">Jelajahi {jobs.length} lowongan pekerjaan yang tersedia</p>
           </motion.div>
           <div className="max-w-3xl mx-auto">
@@ -61,22 +61,22 @@ const Jobs = () => {
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1,2,3,4,5,6].map(i => <div key={i} className="card-elevated p-6 h-48 animate-pulse bg-muted/30" />)}
+            {[1,2,3,4,5,6].map(i => <div key={i} className="card-elevated p-4 h-44 animate-pulse bg-muted/30" />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((job, i) => (
               <motion.div key={job.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                <Link to={`/jobs/${job.id}`} className="block card-elevated p-6 h-full group hover:shadow-lg transition-shadow">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><Building2 className="h-6 w-6 text-primary" /></div>
-                    <Badge className="bg-primary/10 text-primary hover:bg-primary/20">{(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
+                <Link to={`/jobs/${job.id}`} className="block card-elevated p-4 h-full group hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>
+                    <Badge className="bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5">{(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
                   </div>
-                  <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors">{(job as any).title || (job as any).position}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{(job as any).department || (job as any).category}</p>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{(job as any).description || ""}</p>
-                  <div className="flex items-center justify-between pt-4 border-t border-border text-xs text-muted-foreground">
-                    <div className="flex items-center gap-4">
+                  <h3 className="font-semibold text-base mb-1 group-hover:text-primary transition-colors">{(job as any).title || (job as any).position}</h3>
+                  <p className="text-xs text-muted-foreground mb-3">{(job as any).department || (job as any).category}</p>
+                  <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{(job as any).description || ""}</p>
+                  <div className="flex items-center justify-between pt-3 border-t border-border text-xs text-muted-foreground">
+                    <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{(job as any).location || "-"}</span>
                       <span className="flex items-center gap-1"><Banknote className="h-3 w-3" />{(job as any).salary_range || (job as any).salary || "Negotiable"}</span>
                     </div>

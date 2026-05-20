@@ -39,13 +39,13 @@ const JobDetail = () => {
         <Link to="/jobs" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"><ArrowLeft className="h-4 w-4" /> Kembali ke Lowongan</Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-6">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><Building2 className="h-6 w-6 text-primary" /></div>
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold">{(job as any).title || (job as any).position}</h1>
-                  <p className="text-muted-foreground">{(job as any).department || (job as any).category}</p>
+                  <h1 className="text-xl md:text-2xl font-bold">{(job as any).title || (job as any).position}</h1>
+                  <p className="text-xs md:text-sm text-muted-foreground">{(job as any).department || (job as any).category}</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -56,25 +56,25 @@ const JobDetail = () => {
               </div>
             </div>
 
-            <div className="card-elevated p-6">
-              <h2 className="text-lg font-semibold mb-3">Deskripsi Pekerjaan</h2>
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{(job as any).description || "Detail deskripsi pekerjaan akan segera diupdate."}</p>
+            <div className="card-elevated p-4">
+              <h2 className="text-base md:text-lg font-semibold mb-2">Deskripsi Pekerjaan</h2>
+              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{(job as any).description || "Detail deskripsi pekerjaan akan segera diupdate."}</p>
             </div>
 
-            <div className="card-elevated p-6">
-              <h2 className="text-lg font-semibold mb-4">Kualifikasi</h2>
-              <ul className="space-y-2.5">
+            <div className="card-elevated p-4">
+              <h2 className="text-base md:text-lg font-semibold mb-3">Kualifikasi</h2>
+              <ul className="space-y-2">
                 {requirements.map((q: string, i: number) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />{q}</li>
+                  <li key={i} className="flex items-start gap-2 text-sm md:text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />{q}</li>
                 ))}
               </ul>
             </div>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="space-y-4">
-            <div className="card-elevated p-6 sticky top-24">
-              <h3 className="font-semibold mb-4">Tertarik dengan posisi ini?</h3>
-              <p className="text-sm text-muted-foreground mb-6">Daftar atau masuk untuk melamar posisi ini. Pastikan profil kamu sudah lengkap.</p>
+            <div className="card-elevated p-4 sticky top-20">
+              <h3 className="font-semibold mb-3">Tertarik dengan posisi ini?</h3>
+              <p className="text-xs md:text-sm text-muted-foreground mb-4">Daftar atau masuk untuk melamar posisi ini. Pastikan profil kamu sudah lengkap.</p>
               <div className="space-y-3">
                 <Button className="w-full" size="lg" onClick={handleApplyDirect}><Send className="h-4 w-4 mr-2" /> Apply Now</Button>
                 <Button variant="outline" className="w-full" size="lg" asChild><Link to="/login">Sudah punya akun? Masuk</Link></Button>

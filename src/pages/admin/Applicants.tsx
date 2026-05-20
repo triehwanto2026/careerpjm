@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "../../integrations/supabase/client";
 import Swal from "sweetalert2";
 import ProfessionalResume from "../../components/admin/ProfessionalResume";
+import DocumentPreview from "@/components/DocumentPreview";
 import ProfessionalApplicationForm from "../../components/admin/ProfessionalApplicationForm";
 
 const SWAL_THEME = () => ({
@@ -101,8 +102,12 @@ export default function Applicants() {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showResume, setShowResume] = useState(false);
+  const [showDocPreview, setShowDocPreview] = useState(false);
+  const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
+  const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [searchParams] = useSearchParams();
+  const [selectedCandidateDocs, setSelectedCandidateDocs] = useState<any[]>([]);
 
   useEffect(() => {
     loadCandidates();
@@ -271,6 +276,23 @@ export default function Applicants() {
       
       setSelectedCandidate(parsedCandidate);
       setShowDetailModal(true);
+
+      // load candidate documents from candidate_documents table
+      (async () => {
+        try {
+          const { data: docsData, error: docsError } = await supabase.from('candidate_documents').select('*').eq('user_id', candidate.user_id);
+          if (docsError) {
+            console.warn('Failed to load candidate documents:', docsError);
+            setSelectedCandidateDocs([]);
+          } else {
+            setSelectedCandidateDocs(docsData || []);
+          }
+        } catch (e) {
+          console.error('Error fetching candidate documents:', e);
+          setSelectedCandidateDocs([]);
+        }
+      })();
+
     } catch (error) {
       console.error('Error parsing candidate data:', error);
       // Fallback to original candidate with empty arrays
@@ -1414,7 +1436,7 @@ export default function Applicants() {
                                 <p className="font-medium text-foreground">CV/Resume</p>
                                 <p className="text-sm text-muted-foreground">Dokumen CV pelamar</p>
                               </div>
-                              <Button variant="outline" size="sm">
+                              <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl(selectedCandidate.cv_url); setDocPreviewName('CV - ' + (selectedCandidate.full_name || 'cv')); setShowDocPreview(true); }}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 Preview
                               </Button>
@@ -1435,7 +1457,7 @@ export default function Applicants() {
                                     <p className="font-medium text-foreground">Sertifikat {index + 1}</p>
                                     <p className="text-sm text-muted-foreground">{cert}</p>
                                   </div>
-                                  <Button variant="outline" size="sm">
+                                  <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl(cert); setDocPreviewName(`Sertifikat ${index + 1}`); setShowDocPreview(true); }}>
                                     <Eye className="h-4 w-4 mr-2" />
                                     Preview
                                   </Button>
@@ -1446,29 +1468,29 @@ export default function Applicants() {
                         </div>
                       )}
 
-                      {selectedCandidate.portfolio_url && (
+                      {/* Additional documents from candidate_documents table */}
+                      {selectedCandidateDocs && selectedCandidateDocs.length > 0 && (
                         <div>
-                          <label className="text-sm text-muted-foreground">Portofolio</label>
-                          <div className="mt-2 p-4 border border-border rounded-lg bg-muted/20">
-                            <div className="flex items-center gap-3">
-                              <BookOpen className="h-8 w-8 text-primary" />
-                              <div className="flex-1">
-                                <p className="font-medium text-foreground">Portofolio</p>
-                                <p className="text-sm text-muted-foreground">{selectedCandidate.portfolio_url}</p>
+                          <label className="text-sm text-muted-foreground">Lainnya</label>
+                          <div className="mt-2 space-y-2">
+                            {selectedCandidateDocs.filter(d => d.document_type !== 'photo').map((doc, index) => (
+                              <div key={doc.id} className="p-3 border border-border rounded-lg bg-muted/20">
+                                <div className="flex items-center gap-3">
+                                  <FileText className="h-6 w-6 text-primary" />
+                                  <div className="flex-1">
+                                    <p className="font-medium text-foreground">{doc.file_name || `Dokumen ${index+1}`}</p>
+                                    <p className="text-sm text-muted-foreground truncate">{doc.document_type}</p>
+                                  </div>
+                                  <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl(doc.file_url); setDocPreviewName(doc.file_name); setShowDocPreview(true); }}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Preview
+                                  </Button>
+                                </div>
                               </div>
-                              <Button variant="outline" size="sm" asChild>
-                                <a href={selectedCandidate.portfolio_url} target="_blank" rel="noopener noreferrer">
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Lihat
-                                </a>
-                              </Button>
-                            </div>
+                            ))}
                           </div>
                         </div>
                       )}
-
-                      {!selectedCandidate.cv_url && !selectedCandidate.certificates?.length && !selectedCandidate.portfolio_url && (
-                        <div className="text-center py-8 text-muted-foreground">
                           <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
                           <p>Belum ada dokumen yang diunggah</p>
                         </div>
@@ -1594,12 +1616,47 @@ export default function Applicants() {
           </div>
         )}
 
+  // Upload candidate photo handler
+  const uploadCandidatePhoto = async (file: File) => {
+    if (!selectedCandidate) return;
+    try {
+      const userId = selectedCandidate.user_id;
+      const ext = file.name.split('.').pop();
+      const path = `${userId}/photo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('candidate-documents').upload(path, file, { upsert: true });
+      if (upErr) {
+        console.error('Upload error:', upErr);
+        return;
+      }
+      const { data: pub } = supabase.storage.from('candidate-documents').getPublicUrl(path);
+      const photoUrl = pub.publicUrl;
+      // update candidate_profiles
+      const { error: updErr } = await supabase.from('candidate_profiles').update({ photo_url: photoUrl }).eq('user_id', userId);
+      if (updErr) {
+        console.error('Failed to update photo_url:', updErr);
+        return;
+      }
+      // refresh candidates and selectedCandidate
+      await loadCandidates();
+      // reload candidate docs too
+      const { data: docsData } = await supabase.from('candidate_documents').select('*').eq('user_id', userId);
+      setSelectedCandidateDocs(docsData || []);
+      setSelectedCandidate((prev) => prev ? { ...prev, photo_url: photoUrl } : prev);
+    } catch (e) {
+      console.error('Error uploading candidate photo:', e);
+    }
+  }
+
         {/* Resume Preview Modal */}
         {showResume && selectedCandidate && (
           <ProfessionalResume
             candidate={selectedCandidate}
             onClose={() => setShowResume(false)}
           />
+        )}
+
+        {showDocPreview && docPreviewUrl && (
+          <DocumentPreview url={docPreviewUrl} name={docPreviewName} onClose={() => { setShowDocPreview(false); setDocPreviewUrl(null); setDocPreviewName(undefined); }} />
         )}
 
         {/* Professional Application Form Modal */}

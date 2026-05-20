@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import DocumentPreview from "@/components/DocumentPreview";
 import Swal from "sweetalert2";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -416,7 +417,28 @@ export default function RecruitmentProcess() {
   const viewCandidateProfile = (application: JobApplication) => {
     setSelectedApplication(application);
     setShowProfileModal(true);
+
+    // load candidate documents
+    (async () => {
+      try {
+        const { data: docsData, error: docsError } = await supabase.from('candidate_documents').select('*').eq('user_id', application.user_id);
+        if (docsError) {
+          console.warn('Failed to load candidate documents:', docsError);
+          setSelectedCandidateDocs([]);
+        } else {
+          setSelectedCandidateDocs(docsData || []);
+        }
+      } catch (e) {
+        console.error('Error fetching candidate documents:', e);
+        setSelectedCandidateDocs([]);
+      }
+    })();
   };
+
+  const [showDocPreview, setShowDocPreview] = useState(false);
+  const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
+  const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
+  const [selectedCandidateDocs, setSelectedCandidateDocs] = useState<any[]>([]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -1613,10 +1635,10 @@ export default function RecruitmentProcess() {
                                   <p className="font-medium text-foreground">CV/Resume</p>
                                   <p className="text-sm text-muted-foreground">Dokumen CV pelamar</p>
                                 </div>
-                                <a href={selectedApplication.candidate_profile.cv_url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                                <button onClick={() => { setDocPreviewUrl(selectedApplication.candidate_profile.cv_url); setDocPreviewName('CV - ' + (selectedApplication.candidate_profile.full_name || 'cv')); setShowDocPreview(true); }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors inline-flex items-center">
                                   <Eye className="h-4 w-4 mr-2 inline" />
                                   Preview
-                                </a>
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1634,10 +1656,10 @@ export default function RecruitmentProcess() {
                                       <p className="font-medium text-foreground">Sertifikat {index + 1}</p>
                                       <p className="text-sm text-muted-foreground">{cert}</p>
                                     </div>
-                                    <a href={typeof cert === 'string' ? cert : '#'} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                                    <button onClick={() => { setDocPreviewUrl(typeof cert === 'string' ? cert : undefined); setDocPreviewName(`Sertifikat ${index + 1}`); setShowDocPreview(true); }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors inline-flex items-center">
                                       <Eye className="h-4 w-4 mr-2 inline" />
                                       Preview
-                                    </a>
+                                    </button>
                                   </div>
                                 </div>
                               ))}
@@ -1655,16 +1677,40 @@ export default function RecruitmentProcess() {
                                   <p className="font-medium text-foreground">Portofolio</p>
                                   <p className="text-sm text-muted-foreground">Tautan portofolio</p>
                                 </div>
-                                <a href={selectedApplication.candidate_profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                                <button onClick={() => { setDocPreviewUrl(selectedApplication.candidate_profile.portfolio_url); setDocPreviewName('Portofolio - ' + (selectedApplication.candidate_profile.full_name || 'portfolio')); setShowDocPreview(true); }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors inline-flex items-center">
                                   <Eye className="h-4 w-4 mr-2 inline" />
                                   Lihat
-                                </a>
+                                </button>
                               </div>
                             </div>
                           </div>
                         )}
 
-                        {!selectedApplication.candidate_profile.cv_url && !(selectedApplication.candidate_profile.certificates && selectedApplication.candidate_profile.certificates.length > 0) && !selectedApplication.candidate_profile.portfolio_url && (
+                        {/* Additional documents from candidate_documents table */}
+                        {selectedCandidateDocs && selectedCandidateDocs.length > 0 && (
+                          <div>
+                            <label className="text-sm text-muted-foreground">Lainnya</label>
+                            <div className="mt-2 space-y-2">
+                              {selectedCandidateDocs.filter((d:any)=> d.document_type !== 'photo').map((doc:any, index:number) => (
+                                <div key={doc.id} className="p-3 border border-border rounded-lg bg-muted/20">
+                                  <div className="flex items-center gap-3">
+                                    <FileText className="h-6 w-6 text-primary" />
+                                    <div className="flex-1">
+                                      <p className="font-medium text-foreground">{doc.file_name || `Dokumen ${index+1}`}</p>
+                                      <p className="text-sm text-muted-foreground truncate">{doc.document_type}</p>
+                                    </div>
+                                    <button onClick={() => { setDocPreviewUrl(doc.file_url); setDocPreviewName(doc.file_name); setShowDocPreview(true); }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors inline-flex items-center">
+                                      <Eye className="h-4 w-4 mr-2 inline" />
+                                      Preview
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {!selectedApplication.candidate_profile.cv_url && !(selectedApplication.candidate_profile.certificates && selectedApplication.candidate_profile.certificates.length > 0) && !selectedApplication.candidate_profile.portfolio_url && (!selectedCandidateDocs || selectedCandidateDocs.length === 0) && (
                           <div className="text-center py-8 text-muted-foreground">
                             <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
                             <p>Belum ada dokumen yang diunggah</p>
@@ -1672,6 +1718,39 @@ export default function RecruitmentProcess() {
                         )}
                       </div>
                     </TabsContent>
+
+  // Upload candidate photo handler
+  const uploadCandidatePhoto = async (file: File) => {
+    if (!selectedApplication) return;
+    try {
+      const userId = selectedApplication.user_id;
+      const ext = file.name.split('.').pop();
+      const path = `${userId}/photo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('candidate-documents').upload(path, file, { upsert: true });
+      if (upErr) {
+        console.error('Upload error:', upErr);
+        return;
+      }
+      const { data: pub } = supabase.storage.from('candidate-documents').getPublicUrl(path);
+      const photoUrl = pub.publicUrl;
+      const { error: updErr } = await supabase.from('candidate_profiles').update({ photo_url: photoUrl }).eq('user_id', userId);
+      if (updErr) {
+        console.error('Failed to update photo_url:', updErr);
+        return;
+      }
+      // refresh applications for current job
+      if (selectedJob) await loadApplications(selectedJob.id);
+      const { data: docsData } = await supabase.from('candidate_documents').select('*').eq('user_id', userId);
+      setSelectedCandidateDocs(docsData || []);
+      setSelectedApplication((prev) => prev ? { ...prev, candidate_profile: { ...prev.candidate_profile, photo_url: photoUrl } } : prev);
+    } catch (e) {
+      console.error('Error uploading candidate photo:', e);
+    }
+  }
+
+                    {showDocPreview && docPreviewUrl && (
+                      <DocumentPreview url={docPreviewUrl} name={docPreviewName} onClose={() => { setShowDocPreview(false); setDocPreviewUrl(null); setDocPreviewName(undefined); }} />
+                    )}
 
                     {/* Additional Info Tab */}
                     <TabsContent value="additional" className="p-6 space-y-6">

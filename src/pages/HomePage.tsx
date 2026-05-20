@@ -313,12 +313,12 @@ const HomePage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {activities.map((activity, idx) => (
-              <div key={idx} className="glass rounded-xl p-6 hover:shadow-lg transition-all">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <activity.icon className="h-6 w-6 text-primary" />
+              <div key={idx} className="glass rounded-lg p-4 hover:shadow-lg transition-all">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+                  <activity.icon className="h-5 w-5 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">{activity.title}</h3>
-                <p className="text-sm text-muted-foreground">{activity.desc}</p>
+                <h3 className="text-base md:text-lg font-semibold text-foreground mb-1">{activity.title}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground">{activity.desc}</p>
               </div>
             ))}
           </div>
@@ -326,10 +326,10 @@ const HomePage = () => {
       </section>
 
       {/* Jobs Section */}
-      <section id="jobs" className="py-20">
+      <section id="jobs" className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">Lowongan Pekerjaan</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">Lowongan Pekerjaan</h2>
             <p className="text-muted-foreground">Bergabung dengan tim kami dan kembangkan karir Anda</p>
           </div>
 
@@ -341,29 +341,29 @@ const HomePage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {jobs.map((job) => (
-                <div key={job.id} className="glass rounded-xl p-6 hover:shadow-lg transition-all">
-                  <div className="flex items-start justify-between mb-4">
+                <div key={job.id} className="glass rounded-lg p-4 hover:shadow-lg transition-all">
+                  <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground">{job.title}</h3>
-                      <p className="text-sm text-muted-foreground">{job.department}</p>
+                      <h3 className="text-base md:text-lg font-semibold text-foreground">{job.title}</h3>
+                      <p className="text-xs md:text-sm text-muted-foreground">{job.department}</p>
                     </div>
-                    <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                    <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded-full">
                       {job.employment_type}
                     </span>
                   </div>
                   
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                  <div className="flex items-center gap-3 text-xs md:text-sm text-muted-foreground mb-3">
                     <span className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
+                      <MapPin className="h-3 w-3" />
                       {job.location}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
+                      <Calendar className="h-3 w-3" />
                       {new Date(job.created_at).toLocaleDateString('id-ID')}
                     </span>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{job.description}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground mb-3 line-clamp-2">{job.description}</p>
 
                   <button 
                     onClick={() => setSelectedJob(job)}
