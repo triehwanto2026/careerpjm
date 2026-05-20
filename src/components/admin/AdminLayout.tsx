@@ -25,14 +25,12 @@ type NavEntry = NavItem | NavGroup;
 const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
-  { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
   {
-    label: "Kelola Lowongan",
-    icon: Briefcase,
+    label: "Alat Tes",
+    icon: ClipboardList,
     children: [
-      { path: "/admin/hr-jobs", label: "Lowongan", icon: Briefcase },
-      { path: "/admin/applicants", label: "Pelamar", icon: Users },
-      { path: "/admin/recruitment-process", label: "Proses", icon: Workflow },
+      { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
+      { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
     ],
   },
   {
@@ -40,7 +38,9 @@ const ALL_NAV_ENTRIES: NavEntry[] = [
     icon: Users,
     children: [
       { path: "/admin/candidates", label: "Daftar Kandidat", icon: Users },
-      { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
+      { path: "/admin/hr-jobs", label: "Lowongan", icon: Briefcase },
+      { path: "/admin/applicants", label: "Pelamar", icon: Users },
+      { path: "/admin/recruitment-process", label: "Recruitment", icon: Workflow },
     ],
   },
   {
@@ -157,7 +157,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
 
     // Paths that should always be visible regardless of permissions
-    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/candidate-settings", "/admin/candidates"];
+    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/results", "/admin/candidate-settings", "/admin/candidates"];
 
     const filtered: NavEntry[] = [];
     for (const entry of ALL_NAV_ENTRIES) {
@@ -192,10 +192,10 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Expandable groups state
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    "Kelola Lowongan": location.pathname.startsWith("/admin/hr-jobs") ||
-                      location.pathname === "/admin/applicants" ||
-                      location.pathname === "/admin/recruitment-process",
     "Manajemen Kandidat": location.pathname.startsWith("/admin/candidates") ||
+                         location.pathname.startsWith("/admin/hr-jobs") ||
+                         location.pathname.startsWith("/admin/applicants") ||
+                         location.pathname === "/admin/recruitment-process" ||
                          location.pathname === "/admin/results",
     Pengaturan: location.pathname.startsWith("/admin/settings") ||
                 location.pathname === "/admin/users" ||
