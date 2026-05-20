@@ -75,6 +75,34 @@ const TestPage = () => {
   // Resume saved progress (answers + position) once instruments load
   const [resumed, setResumed] = useState(false);
 
+  const buildSavedSessionKey = (activationCodeId: string, email: string) =>
+    `psytest_session_${activationCodeId}_${email}`;
+
+  const saveSessionSnapshot = (activationCodeId: string, email: string, payload: Record<string, any>) => {
+    try {
+      localStorage.setItem(buildSavedSessionKey(activationCodeId, email), JSON.stringify(payload));
+    } catch {
+      // ignore localStorage failures
+    }
+  };
+
+  const loadSessionSnapshot = (activationCodeId: string, email: string) => {
+    try {
+      const snapshot = localStorage.getItem(buildSavedSessionKey(activationCodeId, email));
+      return snapshot ? JSON.parse(snapshot) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const clearSessionSnapshot = (activationCodeId: string, email: string) => {
+    try {
+      localStorage.removeItem(buildSavedSessionKey(activationCodeId, email));
+    } catch {
+      // ignore
+    }
+  };
+
   const persistSession = useCallback(async ({
     testIdx = currentTestIdx,
     qIdx = currentQIdx,
@@ -95,10 +123,27 @@ const TestPage = () => {
     const instrument = instruments[testIdx];
     if (!instrument) return;
 
-    const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    const defaultRemaining = Math.max(0, (instrument.duration_minutes || 30) * 60 - elapsed);
-    const remaining = remainingSecOverride ?? defaultRemaining;
+    let remaining: number;
+    if (remainingSecOverride !== undefined) {
+      // Jika override diberikan (e.g., test switch, time-up), gunakan itu
+      remaining = remainingSecOverride;
+    } else {
+      // Hitung remaining berdasarkan elapsed time dari psytest_started_at
+      const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const defaultRemaining = (instrument.duration_minutes || 30) * 60;
+      remaining = Math.max(0, defaultRemaining - elapsed);
+    }
+
+    const snapshotPayload = {
+      answers: answerState,
+      seconds_remaining: remaining,
+      current_test_idx: testIdx,
+      current_question_idx: qIdx,
+      completed_subtests: Array.from(completed),
+      last_active_at: new Date().toISOString(),
+    };
+    saveSessionSnapshot(cand.activationCodeId, cand.email, snapshotPayload);
 
     await supabase.from("test_sessions").upsert({
       activation_code_id: cand.activationCodeId,
@@ -119,24 +164,46 @@ const TestPage = () => {
     const cand = JSON.parse(candRaw);
     if (!cand.activationCodeId) { setResumed(true); return; }
     (async () => {
+      // Check if code was reactivated (status changed from 'completed' back to 'active')
+      const { data: codeData } = await supabase.from("activation_codes").select("status, is_code_deactivated").eq("id", cand.activationCodeId).maybeSingle();
+      const isReactivated = codeData?.status === 'active' && codeData?.is_code_deactivated;
+      
+      // If reactivated, delete old session to start fresh
+      if (isReactivated) {
+        await supabase.from("test_sessions").delete()
+          .eq("activation_code_id", cand.activationCodeId)
+          .eq("candidate_email", cand.email);
+        clearSessionSnapshot(cand.activationCodeId, cand.email);
+        setResumed(true);
+        return;
+      }
+
       const { data: session } = await supabase.from("test_sessions").select("*")
         .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email).maybeSingle();
+      const snapshot = loadSessionSnapshot(cand.activationCodeId, cand.email);
+      const useSnapshot = snapshot && (!session || new Date(snapshot.last_active_at || 0).getTime() >= new Date(session.last_active_at || 0).getTime());
+      const restoredSession = useSnapshot ? {
+        answers: snapshot.answers || {},
+        current_test_idx: snapshot.current_test_idx ?? 0,
+        current_question_idx: snapshot.current_question_idx ?? 0,
+        completed_subtests: snapshot.completed_subtests || [],
+        seconds_remaining: snapshot.seconds_remaining,
+        last_active_at: snapshot.last_active_at,
+      } : session;
 
-      const savedTestIdx = Math.min(session?.current_test_idx ?? 0, instruments.length - 1);
+      const savedTestIdx = Math.min(restoredSession?.current_test_idx ?? 0, instruments.length - 1);
       const restoredTest = instruments[savedTestIdx];
       const defaultDuration = (restoredTest?.duration_minutes || 30) * 60;
 
-      if (session) {
+      if (restoredSession) {
         // Restore saved progress
-        setAnswers((session.answers as Record<string, string>) || {});
+        setAnswers((restoredSession.answers as Record<string, string>) || {});
         setCurrentTestIdx(savedTestIdx);
-        setCurrentQIdx(session.current_question_idx || 0);
-        setCompletedSubtests(new Set(session.completed_subtests || []));
+        setCurrentQIdx(restoredSession.current_question_idx || 0);
+        setCompletedSubtests(new Set(restoredSession.completed_subtests || []));
 
-        // Sisa waktu test saat ini = nilai tersimpan DIKURANGI waktu yang berlalu sejak terakhir aktif
-        const lastActive = session.last_active_at ? new Date(session.last_active_at).getTime() : Date.now();
-        const elapsedSinceLastActive = Math.floor((Date.now() - lastActive) / 1000);
-        const remaining = Math.max(0, (session.seconds_remaining ?? defaultDuration) - elapsedSinceLastActive);
+        // Gunakan seconds_remaining yang tersimpan LANGSUNG (waktu BERHENTI saat keluar)
+        const remaining = Math.max(0, restoredSession.seconds_remaining ?? defaultDuration);
 
         if (remaining <= 0 && savedTestIdx < instruments.length - 1) {
           const nextTestIdx = savedTestIdx + 1;
@@ -149,11 +216,9 @@ const TestPage = () => {
           sessionStorage.setItem("psytest_started_at", String(startTime));
           await persistSession({ testIdx: nextTestIdx, qIdx: 0, remainingSecOverride: (nextTest.duration_minutes || 30) * 60 });
         } else {
+          // Set synthetic start time untuk countdown dari remaining seconds
           const syntheticStart = Date.now() - (defaultDuration - remaining) * 1000;
           sessionStorage.setItem("psytest_started_at", String(syntheticStart));
-          if (remaining <= 0) {
-            sessionStorage.setItem("psytest_should_auto_submit", "true");
-          }
         }
       } else {
         // First time
@@ -284,6 +349,7 @@ const TestPage = () => {
       } as any).eq("id", cand.activationCodeId);
       // Bersihkan localStorage lama (kompatibilitas)
       localStorage.removeItem(`psytest_start_${cand.activationCodeId}`);
+      clearSessionSnapshot(cand.activationCodeId, cand.email);
     }
     sessionStorage.removeItem("psytest_started_at");
   };
@@ -755,12 +821,31 @@ const TestPage = () => {
 
   const handleNextTestSync = () => {
     if (currentTestIdx < instruments.length - 1) {
-      const nextTestIdx = currentTestIdx + 1;
-      sessionStorage.setItem("psytest_started_at", String(Date.now()));
-      setCurrentTestIdx(nextTestIdx);
-      setCurrentQIdx(0);
-      setCompletedSubtests(new Set());
-      setCurrentSubtest(null);
+      // Hanya boleh lanjut ke test berikutnya jika test saat ini selesai (semua soal terjawab)
+      const currentTest = instruments[currentTestIdx];
+      const questionsInTest = currentTest.questions.map(q => `${currentTest.id}:${q.id}`);
+      const allAnswered = questionsInTest.every(key => key in answers);
+      
+      if (allAnswered) {
+        const nextTestIdx = currentTestIdx + 1;
+        sessionStorage.setItem("psytest_started_at", String(Date.now()));
+        setCurrentTestIdx(nextTestIdx);
+        setCurrentQIdx(0);
+        setCompletedSubtests(new Set());
+        setCurrentSubtest(null);
+      } else {
+        // Belum semua soal terjawab
+        const answered = questionsInTest.filter(key => key in answers).length;
+        const total = questionsInTest.length;
+        Swal.fire({
+          icon: "warning",
+          title: "Belum Selesai",
+          text: `Selesaikan semua ${total} soal di tes ini terlebih dahulu (${answered}/${total}).`,
+          ...SWAL_THEME,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
     }
   };
 
@@ -991,6 +1076,12 @@ const TestPage = () => {
 
   if (submitted) return null;
   const currentDuration = currentTest?.duration_minutes || 30;
+  
+  // Calculate remaining seconds for timer recovery
+  const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+  const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+  const initialSeconds = Math.max(0, currentDuration * 60 - elapsed);
+  
   const currentAnsKey = currentQuestion ? `${currentTest.id}:${currentQuestion.id}` : "";
   const currentAns = answers[currentAnsKey] as string | undefined;
 
@@ -1008,7 +1099,7 @@ const TestPage = () => {
             <span className="hidden text-sm font-semibold text-foreground sm:inline">PsyTest</span>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} onTimeUp={handleTimeUp} />
+            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} initialSeconds={initialSeconds} onTimeUp={handleTimeUp} />
             <button onClick={() => setShowEnglish(!showEnglish)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${showEnglish ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}>
               <Languages className="h-3.5 w-3.5" /><span className="hidden sm:inline">EN</span>

@@ -1,25 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Clock } from "lucide-react";
 
 interface TestTimerProps {
   durationMinutes: number;
+  initialSeconds?: number;
   onTimeUp: () => void;
 }
 
-const TestTimer = ({ durationMinutes, onTimeUp }: TestTimerProps) => {
-  const [secondsLeft, setSecondsLeft] = useState(durationMinutes * 60);
+const TestTimer = ({ durationMinutes, initialSeconds, onTimeUp }: TestTimerProps) => {
+  const [secondsLeft, setSecondsLeft] = useState(
+    initialSeconds ?? durationMinutes * 60
+  );
+  const isFirstLoad = useRef(true);
+  const testKeyRef = useRef(`${durationMinutes}_${initialSeconds}`);
 
   useEffect(() => {
-    setSecondsLeft(durationMinutes * 60);
-  }, [durationMinutes]);
+    const newTestKey = `${durationMinutes}_${initialSeconds}`;
+    // Reset first-load flag jika test beralih (indicator: initialSeconds berubah ke nilai baru)
+    if (testKeyRef.current !== newTestKey) {
+      isFirstLoad.current = true;
+      testKeyRef.current = newTestKey;
+    }
+    setSecondsLeft(initialSeconds ?? durationMinutes * 60);
+  }, [durationMinutes, initialSeconds]);
 
   useEffect(() => {
-    if (secondsLeft <= 0) {
+    // Jangan trigger onTimeUp pada first load jika timer sudah 0 (resume scenario)
+    if (secondsLeft <= 0 && !isFirstLoad.current) {
       onTimeUp();
       return;
     }
-    const interval = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearInterval(interval);
+    
+    // Mark first load as done setelah selesai setup
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+    }
+
+    if (secondsLeft > 0) {
+      const interval = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
+      return () => clearInterval(interval);
+    }
   }, [secondsLeft, onTimeUp]);
 
   const minutes = Math.floor(secondsLeft / 60);
