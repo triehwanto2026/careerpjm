@@ -50,6 +50,7 @@ interface JobApplication {
   applied_at: string;
   activation_code_id?: string | null;
   activation_code?: ActivationCode | null;
+  activation_codes?: ActivationCode[];
   candidate_profile: {
     id: string;
     user_id: string;
@@ -153,6 +154,7 @@ export default function RecruitmentProcess() {
   const [activationSelectedTests, setActivationSelectedTests] = useState<string[]>([]);
   const [activationExpiresAt, setActivationExpiresAt] = useState("");
   const [activationProcessing, setActivationProcessing] = useState(false);
+  const [activationMode, setActivationMode] = useState<"create_new" | "allow_retake">("create_new");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -218,6 +220,18 @@ export default function RecruitmentProcess() {
       .join(", ");
   };
 
+  const getActivationStatusLabel = (code: ActivationCode) => {
+    if (code.test_completed_at) return "Sudah dikerjakan";
+    if (code.expires_at && new Date(code.expires_at) < new Date()) return "Expired";
+    return "Aktif";
+  };
+
+  const getActivationStatusClass = (code: ActivationCode) => {
+    if (code.test_completed_at) return "bg-amber-100 text-amber-700";
+    if (code.expires_at && new Date(code.expires_at) < new Date()) return "bg-destructive/10 text-destructive";
+    return "bg-emerald-100 text-emerald-700";
+  };
+
   const openActivationModal = (application: JobApplication) => {
     setActivationApplication(application);
     setActivationSelectedTests(application.activation_code?.assigned_tests || []);
@@ -257,52 +271,59 @@ export default function RecruitmentProcess() {
 
     try {
       const existingCode = activationApplication.activation_code;
-      if (existingCode && existingCode.id) {
-        const { error } = await supabase.from("activation_codes").update({
+
+      if (activationMode === 'allow_retake' && existingCode && existingCode.id) {
+        // Allow retake: reset completion and reactivate
+        const { error } = await supabase.from('activation_codes').update({
           assigned_tests: activationSelectedTests,
           expires_at: activationExpiresAt || null,
-        } as any).eq("id", existingCode.id);
+          test_completed_at: null,
+          status: 'active',
+        } as any).eq('id', existingCode.id);
         if (error) throw error;
 
-        Swal.fire({
-          icon: "success",
-          title: "Kode diperbarui",
-          text: "Detail kode aktivasi berhasil diperbarui.",
-        });
+        const { error: updateError } = await supabase
+          .from('job_applications')
+          .update({ activation_code_id: existingCode.id, status: 'psychology_test' })
+          .eq('id', activationApplication.id);
+        if (updateError) throw updateError;
+
+        Swal.fire({ icon: 'success', title: 'Tes Diizinkan Ulang', text: 'Kandidat dapat mengerjakan ulang tes.' });
+
       } else {
+        // Create a new activation code
         const newCode = `PSY-${generateRandomString(6)}`;
         const newPassword = generateRandomString(8);
         const { data, error } = await supabase
-          .from("activation_codes")
+          .from('activation_codes')
           .insert([
             {
               code: newCode,
               password: newPassword,
               candidate_name: activationApplication.candidate_profile.full_name,
               candidate_email: activationApplication.candidate_profile.email,
-              position: selectedJob?.title || "Tes Psikologi",
-              status: "active",
+              position: selectedJob?.title || 'Tes Psikologi',
+              status: 'active',
               expires_at: activationExpiresAt || null,
               assigned_tests: activationSelectedTests,
             },
           ])
-          .select("*")
+          .select('*')
           .single();
 
         if (error || !data) {
-          throw error || new Error("Gagal membuat kode aktivasi");
+          throw error || new Error('Gagal membuat kode aktivasi');
         }
 
         const { error: updateError } = await supabase
-          .from("job_applications")
-          .update({ activation_code_id: data.id, status: "psychology_test" })
-          .eq("id", activationApplication.id);
-
+          .from('job_applications')
+          .update({ activation_code_id: data.id, status: 'psychology_test' })
+          .eq('id', activationApplication.id);
         if (updateError) throw updateError;
 
         Swal.fire({
-          icon: "success",
-          title: "Kode Berhasil Dibuat",
+          icon: 'success',
+          title: 'Kode Berhasil Dibuat',
           html: `<div style="font-size:14px;line-height:1.8"><p>Kode: <b style="color:hsl(174,72%,46%);font-family:monospace;letter-spacing:2px">${newCode}</b></p><p>Password: <b style="font-family:monospace">${newPassword}</b></p><p style="font-size:12px;color:#888;margin-top:8px">Berikan kode & password ini kepada kandidat.</p></div>`,
         });
       }
@@ -312,10 +333,38 @@ export default function RecruitmentProcess() {
         await loadApplications(selectedJob.id);
       }
     } catch (error) {
-      console.error("Error saving activation code:", error);
-      Swal.fire("Error", "Gagal menyimpan kode aktivasi", "error");
+      console.error('Error saving activation code:', error);
+      Swal.fire('Error', 'Gagal menyimpan kode aktivasi', 'error');
     } finally {
       setActivationProcessing(false);
+    }
+  };
+
+  const allowRetakeForCode = async (codeId: string, applicationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('activation_codes')
+        .update({
+          test_completed_at: null,
+          status: 'active',
+        })
+        .eq('id', codeId);
+
+      if (error) throw error;
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Tes Diizinkan Ulang',
+        text: 'Kandidat dapat mengerjakan ulang tes.',
+      });
+
+      // Reload applications to refresh the UI
+      if (selectedJob) {
+        loadApplications(selectedJob.id);
+      }
+    } catch (error) {
+      console.error('Error allowing retake:', error);
+      Swal.fire('Error', 'Gagal mengizinkan pengerjaan ulang', 'error');
     }
   };
 
@@ -445,7 +494,7 @@ export default function RecruitmentProcess() {
 
       const applicationsWithCodes = applicationsWithProfiles.map((application: any) => ({
         ...application,
-        activation_code: (codesData || []).find((code: any) => code.candidate_email === application.candidate_profile.email) || null,
+        activation_codes: (codesData || []).filter((code: any) => code.candidate_email === application.candidate_profile.email) || [],
       }));
 
       console.log("Final mapped data:", applicationsWithCodes);
@@ -508,6 +557,11 @@ export default function RecruitmentProcess() {
       if (error) throw error;
       let results = (data as CandidateResult[]) || [];
 
+      results = results.map((result) => ({
+        ...result,
+        candidate_profile: result.candidate_profile || application.candidate_profile,
+      }));
+
       if (results.length === 0 && application.candidate_profile.full_name) {
         const nameSearch = application.candidate_profile.full_name;
         const { data: nameData, error: nameError } = await supabase
@@ -517,6 +571,10 @@ export default function RecruitmentProcess() {
           .order("completed_at", { ascending: false });
         if (nameError) throw nameError;
         results = (nameData as CandidateResult[]) || [];
+        results = results.map((result) => ({
+          ...result,
+          candidate_profile: result.candidate_profile || application.candidate_profile,
+        }));
       }
 
       setCandidateResults(results);
@@ -558,17 +616,31 @@ export default function RecruitmentProcess() {
     await loadResultAnswers(result.id);
   };
 
-  const handlePrintResult = (result: CandidateResult) => {
-    const statusLabel = result.status === "passed" ? "LULUS" : result.status === "review" ? "REVIEW" : "TIDAK LULUS";
-    const categories = Object.entries(result.categories || {}).map(([key, value]) => `<tr><td style="padding:8px;border:1px solid #e5e7eb;">${key}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">${value}</td></tr>`).join("");
-    const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes - ${result.candidate_name}</title><style>body{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111827;padding:24px;}h1,h2,h3{margin:0 0 12px;}table{border-collapse:collapse;width:100%;margin-top:16px;}th,td{border:1px solid #e5e7eb;padding:10px;text-align:left;}th{background:#f9fafb;} .badge {display:inline-flex;padding:6px 10px;border-radius:9999px;font-size:0.85rem;font-weight:600;background:#e0f2fe;color:#0369a1;} .summary {margin-top:12px;}</style></head><body><h1>Laporan Hasil Tes</h1><p><strong>Kandidat:</strong> ${result.candidate_name}</p><p><strong>Posisi:</strong> ${result.position || '-'}</p><p><strong>Nama Tes:</strong> ${result.test_name}</p><p><strong>Status:</strong> <span class="badge">${statusLabel}</span></p><div class="summary"><p><strong>Skor:</strong> ${result.score} / ${result.total_questions}</p><p><strong>Jawaban Terjawab:</strong> ${result.answered_questions}</p><p><strong>Selesai:</strong> ${formatDate(result.completed_at)}</p></div><h2>Detail Kategori</h2><table><thead><tr><th>Kategori</th><th>Nilai</th></tr></thead><tbody>${categories}</tbody></table>${result.interpretation ? `<h2>Interpretasi</h2><p>${result.interpretation}</p>` : ''}</body></html>`;
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
+  const handlePrintResult = async (result: CandidateResult) => {
+    const { generatePrintHTML, printHTML: doPrint } = await import('@/utils/printUtils');
+    const profile = (result.candidate_profile as Record<string, any> | null) || selectedApplication?.candidate_profile || null;
+    
+    // Prepare result for print utility
+    const printResult = {
+      ...result,
+      candidate_profile: profile,
+    };
+
+    // Load answers if available
+    let answers: any[] = [];
+    try {
+      const { data } = await supabase
+        .from("test_answers")
+        .select("*")
+        .eq("test_result_id", result.id)
+        .order("question_number");
+      answers = data || [];
+    } catch (err) {
+      console.error("Error loading answers:", err);
     }
+
+    const html = generatePrintHTML(printResult, answers, profile?.photo_url);
+    doPrint(html);
   };
 
   const filteredResults = candidateResults.filter((result) =>
@@ -964,30 +1036,32 @@ export default function RecruitmentProcess() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            {application.activation_code ? (
-                              <div className="space-y-1">
-                                <div className="text-sm font-semibold text-foreground">{application.activation_code.code}</div>
-                                <div className="text-xs text-muted-foreground">Pass: {application.activation_code.password}</div>
-                                {application.activation_code.assigned_tests?.length ? (
-                                  <div className="text-xs text-muted-foreground">Tes: {getAssignedTestNames(application.activation_code.assigned_tests)}</div>
-                                ) : (
-                                  <div className="text-xs text-muted-foreground">Belum ada tes terpilih</div>
-                                )}
-                                <div className="text-xs text-muted-foreground">
-                                  {application.activation_code.test_completed_at
-                                    ? `Selesai ${formatDate(application.activation_code.test_completed_at)}`
-                                    : `Berlaku hingga ${formatDate(application.activation_code.expires_at || '')}`}
-                                </div>
+                            {application.activation_codes && application.activation_codes.length > 0 ? (
+                              <div className="space-y-2">
+                                {application.activation_codes.map((c: ActivationCode) => (
+                                  <div key={c.id} className="rounded-md p-3 border border-border bg-background">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <div className="font-mono text-sm text-primary">{c.code}</div>
+                                        <div className="text-xs text-muted-foreground">{c.assigned_tests?.length ? `Tes: ${getAssignedTestNames(c.assigned_tests)}` : 'Belum ada tes terpilih'}</div>
+                                      </div>
+                                      <span className={`px-2 py-1 text-[11px] font-semibold rounded-full ${getActivationStatusClass(c)}`}>
+                                        {getActivationStatusLabel(c)}
+                                      </span>
+                                    </div>
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                      {c.test_completed_at
+                                        ? `Selesai ${formatDate(c.test_completed_at)}`
+                                        : c.expires_at
+                                          ? `Berlaku hingga ${formatDate(c.expires_at)}`
+                                          : 'Aktif'}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             ) : (
                               <div className="space-y-2">
                                 <div className="text-sm text-muted-foreground">Belum ditugaskan</div>
-                                <button
-                                  onClick={() => openActivationModal(application)}
-                                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary"
-                                >
-                                  Buat Kode Tes Psikologi
-                                </button>
                               </div>
                             )}
                           </td>
@@ -1009,20 +1083,14 @@ export default function RecruitmentProcess() {
                                 onClick={() => openActivationModal(application)}
                                 className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition"
                               >
-                                {application.activation_code
-                                  ? application.activation_code.test_completed_at
-                                    ? 'Perbarui Kode'
-                                    : 'Perbarui Kode Tes Psikologi'
-                                  : 'Buat Kode Tes Psikologi'}
+                                Tes Psikologi
                               </button>
-                              {application.activation_code && application.activation_code.test_completed_at && (
-                                <button
-                                  onClick={() => viewTestResults(application)}
-                                  className="px-3 py-1 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition"
-                                >
-                                  Lihat Hasil Tes
-                                </button>
-                              )}
+                              <button
+                                onClick={() => viewTestResults(application)}
+                                className="px-3 py-1 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition"
+                              >
+                                Lihat Hasil Tes
+                              </button>
                               <select
                                 value={application.status}
                                 onChange={(e) => updateApplicationStatus(application.id, e.target.value)}
@@ -1078,7 +1146,65 @@ export default function RecruitmentProcess() {
                     <div className="text-sm text-muted-foreground">{selectedJob?.department || "-"}</div>
                   </div>
                 </div>
+                {activationApplication.activation_codes && activationApplication.activation_codes.length > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                    <label className="text-sm font-medium text-foreground">Kode Aktivasi Terdaftar ({activationApplication.activation_codes.length})</label>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left px-2 py-2 font-medium text-muted-foreground">Kode</th>
+                            <th className="text-left px-2 py-2 font-medium text-muted-foreground">Password</th>
+                            <th className="text-left px-2 py-2 font-medium text-muted-foreground">Status</th>
+                            <th className="text-left px-2 py-2 font-medium text-muted-foreground">Dibuat</th>
+                            <th className="text-center px-2 py-2 font-medium text-muted-foreground">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activationApplication.activation_codes.map((c: any) => (
+                            <tr key={c.id} className="border-b border-border/50 hover:bg-background/50 transition">
+                              <td className="px-2 py-2 font-mono text-primary">{c.code}</td>
+                              <td className="px-2 py-2 font-mono text-foreground">{c.password}</td>
+                              <td className="px-2 py-2">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.test_completed_at ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                  {c.test_completed_at ? 'Selesai' : 'Aktif'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-xs text-muted-foreground">{formatDate(c.created_at)}</td>
+                              <td className="px-2 py-2 text-center">
+                                {c.test_completed_at && (
+                                  <button
+                                    type="button"
+                                    onClick={() => allowRetakeForCode(c.id, activationApplication.id)}
+                                    disabled={activationProcessing}
+                                    className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 transition disabled:opacity-50"
+                                  >
+                                    Izinkan Ulang
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">Mode Kode</label>
+                  <div className="flex items-center gap-3">
+                    <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${activationMode === 'create_new' ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
+                      <input type="radio" name="activationMode" value="create_new" checked={activationMode === 'create_new'} onChange={() => setActivationMode('create_new')} />
+                      <span className="text-sm">Buat kode baru</span>
+                    </label>
+                    <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${activationMode === 'allow_retake' ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
+                      <input type="radio" name="activationMode" value="allow_retake" checked={activationMode === 'allow_retake'} onChange={() => setActivationMode('allow_retake')} />
+                      <span className="text-sm">Izinkan mengerjakan ulang (retake)</span>
+                    </label>
+                  </div>
+                  <div className="text-xs text-muted-foreground">Pilih "Izinkan mengerjakan ulang" jika kandidat kehabisan waktu atau perlu mencoba lagi tanpa membuat kode baru.</div>
+
                   <label className="text-sm font-medium text-foreground">Pilih Tes</label>
                   <div className="grid grid-cols-1 gap-2">
                     {activeInstruments.map((inst) => (
@@ -1153,14 +1279,25 @@ export default function RecruitmentProcess() {
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)] space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="rounded-lg border border-border bg-muted/30 p-4">
-                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Kandidat</div>
-                    <div className="font-semibold text-foreground">{selectedApplication.candidate_profile.full_name}</div>
-                    <div className="text-sm text-muted-foreground">{selectedApplication.candidate_profile.email}</div>
-                    <div className="text-sm text-muted-foreground">{selectedApplication.candidate_profile.phone}</div>
-                    <div className="mt-3">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedApplication.status)}`}>
-                        {getStatusLabel(selectedApplication.status)}
-                      </span>
+                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">Kandidat</div>
+                    <div className="flex items-start gap-4">
+                      {selectedApplication.candidate_profile.photo_url ? (
+                        <img src={selectedApplication.candidate_profile.photo_url} alt={selectedApplication.candidate_profile.full_name} className="h-20 w-20 rounded-lg object-cover border border-border" />
+                      ) : (
+                        <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-muted text-primary text-xl font-bold border border-border">
+                          {selectedApplication.candidate_profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-1">
+                        <div className="font-semibold text-foreground">{selectedApplication.candidate_profile.full_name}</div>
+                        <div className="text-sm text-muted-foreground">{selectedApplication.candidate_profile.email}</div>
+                        <div className="text-sm text-muted-foreground">{selectedApplication.candidate_profile.phone}</div>
+                        <div className="mt-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedApplication.status)}`}>
+                            {getStatusLabel(selectedApplication.status)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div className="rounded-lg border border-border bg-muted/30 p-4">
@@ -1393,10 +1530,6 @@ export default function RecruitmentProcess() {
                       <p className="font-medium text-foreground">{selectedJob?.department || '-'}</p>
                     </div>
                     <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Lokasi</p>
-                      <p className="font-medium text-foreground">{selectedJob?.location || '-'}</p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">Tipe Kerja</p>
                       <p className="font-medium text-foreground">{selectedJob?.employment_type || '-'}</p>
                     </div>
@@ -1481,9 +1614,6 @@ export default function RecruitmentProcess() {
                         >
                           <span className="text-xl">{step.icon}</span>
                           <div className="flex-1">
-                            <p className={`font-medium ${isCurrentStep ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {step.label}
-                            </p>
                             <p className="text-sm text-muted-foreground">
                               {isCurrentStep ? 'Sedang berjalan' : isCompleted ? 'Selesai' : 'Menunggu'}
                             </p>

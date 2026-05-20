@@ -12,6 +12,7 @@ import Swal from "sweetalert2";
 
 // Tab configuration
 const tabs = [
+  { value: "activation_codes", label: "Kode Aktivasi", icon: Briefcase },
   { value: "personal", label: "Data Diri", icon: User },
   { value: "family", label: "Keluarga", icon: Users },
   { value: "education", label: "Pendidikan", icon: GraduationCap },
@@ -101,6 +102,18 @@ interface Doc {
   file_url: string;
 }
 
+interface ActivationCode {
+  id: string;
+  code: string;
+  password: string;
+  candidate_email: string;
+  status: string;
+  test_completed_at: string | null;
+  created_at: string;
+  expires_at: string | null;
+  assigned_tests: string[] | null;
+}
+
 const DOC_TYPES = [
   { key: "cv", label: "CV / Resume", required: true, accept: ".pdf,.doc,.docx" },
   { key: "ktp", label: "KTP", required: true, accept: "image/*,.pdf" },
@@ -133,6 +146,7 @@ export default function CandidateProfile() {
   const [profile, setProfile] = useState<Profile>(blank);
   const [originalProfile, setOriginalProfile] = useState<Profile>(blank);
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [activationCodes, setActivationCodes] = useState<ActivationCode[]>([]);
   const [userId, setUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -249,6 +263,14 @@ export default function CandidateProfile() {
     const photoDoc = docsData.find((doc: any) => doc.document_type === "photo");
     if (!profile.photo_url && photoDoc) {
       setProfile((prev) => ({ ...prev, photo_url: photoDoc.file_url }));
+    }
+
+    // Load activation codes for this email
+    if (session.user.email) {
+      const { data: codesData, error: codesError } = await supabase.from("activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
+      if (!codesError) {
+        setActivationCodes((codesData || []) as ActivationCode[]);
+      }
     }
   };
 
@@ -596,6 +618,51 @@ export default function CandidateProfile() {
 
         {/* Main Content - Scrollable */}
         <div className="flex-1 w-full px-4 py-6 md:px-6 lg:px-8 overflow-y-auto">
+
+        {/* TAB: Activation Codes */}
+        {activeTab === "activation_codes" && (
+          <div className="space-y-4 max-w-7xl mx-auto">
+            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+              <h2 className="font-semibold mb-4 flex items-center gap-2"><Briefcase className="h-5 w-5 text-primary"/> Kode Aktivasi Tes Psikologi</h2>
+              {activationCodes.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-40" />
+                  <p>Belum ada kode aktivasi tes psikologi yang ditugaskan.</p>
+                  <p className="text-xs mt-2">Hubungi admin atau HR untuk mendapatkan kode aktivasi.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Kode</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Berlaku Hingga</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Dibuat</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {activationCodes.map((code) => (
+                        <tr key={code.id} className="hover:bg-muted/50 transition">
+                          <td className="px-4 py-3"><span className="font-mono text-sm font-semibold text-primary">{code.code}</span></td>
+                          <td className="px-4 py-3"><span className="font-mono text-sm text-foreground">{code.password}</span></td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${code.test_completed_at ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                              {code.test_completed_at ? 'Selesai' : 'Aktif'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-foreground">{code.expires_at ? new Date(code.expires_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(code.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
 
         {/* TAB: Personal Data */}
         {activeTab === "personal" && (
