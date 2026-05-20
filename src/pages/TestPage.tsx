@@ -75,6 +75,43 @@ const TestPage = () => {
   // Resume saved progress (answers + position) once instruments load
   const [resumed, setResumed] = useState(false);
 
+  const persistSession = useCallback(async ({
+    testIdx = currentTestIdx,
+    qIdx = currentQIdx,
+    answerState = answers,
+    completed = completedSubtests,
+    remainingSecOverride,
+  }: {
+    testIdx?: number;
+    qIdx?: number;
+    answerState?: Record<string, string | string[]>;
+    completed?: Set<string>;
+    remainingSecOverride?: number;
+  } = {}) => {
+    const candRaw = sessionStorage.getItem("psytest_candidate");
+    if (!candRaw) return;
+    const cand = JSON.parse(candRaw);
+    if (!cand.activationCodeId) return;
+    const instrument = instruments[testIdx];
+    if (!instrument) return;
+
+    const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const defaultRemaining = Math.max(0, (instrument.duration_minutes || 30) * 60 - elapsed);
+    const remaining = remainingSecOverride ?? defaultRemaining;
+
+    await supabase.from("test_sessions").upsert({
+      activation_code_id: cand.activationCodeId,
+      candidate_email: cand.email,
+      answers: answerState as any,
+      seconds_remaining: remaining,
+      current_test_idx: testIdx,
+      current_question_idx: qIdx,
+      completed_subtests: Array.from(completed),
+      last_active_at: new Date().toISOString(),
+    } as any, { onConflict: "activation_code_id,candidate_email" });
+  }, [answers, completedSubtests, currentQIdx, currentTestIdx, instruments]);
+
   useEffect(() => {
     if (resumed || instruments.length === 0) return;
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -82,43 +119,57 @@ const TestPage = () => {
     const cand = JSON.parse(candRaw);
     if (!cand.activationCodeId) { setResumed(true); return; }
     (async () => {
-      const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
-      const totalSec = totalDur * 60;
       const { data: session } = await supabase.from("test_sessions").select("*")
         .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email).maybeSingle();
+
+      const savedTestIdx = Math.min(session?.current_test_idx ?? 0, instruments.length - 1);
+      const restoredTest = instruments[savedTestIdx];
+      const defaultDuration = (restoredTest?.duration_minutes || 30) * 60;
 
       if (session) {
         // Restore saved progress
         setAnswers((session.answers as Record<string, string>) || {});
-        setCurrentTestIdx(session.current_test_idx || 0);
+        setCurrentTestIdx(savedTestIdx);
         setCurrentQIdx(session.current_question_idx || 0);
         setCompletedSubtests(new Set(session.completed_subtests || []));
 
-        // Sisa waktu = nilai tersimpan DIKURANGI waktu yang berlalu sejak terakhir aktif (penalti cheat)
+        // Sisa waktu test saat ini = nilai tersimpan DIKURANGI waktu yang berlalu sejak terakhir aktif
         const lastActive = session.last_active_at ? new Date(session.last_active_at).getTime() : Date.now();
         const elapsedSinceLastActive = Math.floor((Date.now() - lastActive) / 1000);
-        const remaining = Math.max(0, (session.seconds_remaining || totalSec) - elapsedSinceLastActive);
+        const remaining = Math.max(0, (session.seconds_remaining ?? defaultDuration) - elapsedSinceLastActive);
 
-        // Set started_at agar TestTimer (yang menghitung dari elapsed) tampil dengan sisa yang benar
-        const syntheticStart = Date.now() - (totalSec - remaining) * 1000;
-        sessionStorage.setItem("psytest_started_at", String(syntheticStart));
-
-        if (remaining <= 0) {
-          sessionStorage.setItem("psytest_should_auto_submit", "true");
+        if (remaining <= 0 && savedTestIdx < instruments.length - 1) {
+          const nextTestIdx = savedTestIdx + 1;
+          const nextTest = instruments[nextTestIdx];
+          setCurrentTestIdx(nextTestIdx);
+          setCurrentQIdx(0);
+          setCompletedSubtests(new Set());
+          setCurrentSubtest(null);
+          const startTime = Date.now();
+          sessionStorage.setItem("psytest_started_at", String(startTime));
+          await persistSession({ testIdx: nextTestIdx, qIdx: 0, remainingSecOverride: (nextTest.duration_minutes || 30) * 60 });
+        } else {
+          const syntheticStart = Date.now() - (defaultDuration - remaining) * 1000;
+          sessionStorage.setItem("psytest_started_at", String(syntheticStart));
+          if (remaining <= 0) {
+            sessionStorage.setItem("psytest_should_auto_submit", "true");
+          }
         }
       } else {
         // First time
         const startTime = Date.now();
         sessionStorage.setItem("psytest_started_at", String(startTime));
-        // Buat session baru dengan original_duration_seconds
         await supabase.from("test_sessions").insert({
           activation_code_id: cand.activationCodeId,
           candidate_email: cand.email,
           answers: {},
-          seconds_remaining: totalSec,
-          original_duration_seconds: totalSec,
+          seconds_remaining: defaultDuration,
+          original_duration_seconds: defaultDuration,
           test_started_at: new Date().toISOString(),
           last_active_at: new Date().toISOString(),
+          current_test_idx: 0,
+          current_question_idx: 0,
+          completed_subtests: [],
         } as any);
         // Tandai activation code sebagai started
         await supabase.from("activation_codes").update({
@@ -128,42 +179,34 @@ const TestPage = () => {
       }
       setResumed(true);
     })();
-  }, [instruments, resumed]);
+  }, [instruments, persistSession, resumed]);
+
+  const saveSessionRef = useRef<() => Promise<void>>(async () => {});
+  saveSessionRef.current = persistSession;
 
   useEffect(() => {
     if (instruments.length === 0 || submitted) return;
-    const id = setInterval(() => { saveSessionRef.current(); }, 5000);
-    return () => clearInterval(id);
+    const intervalId = setInterval(() => { saveSessionRef.current(); }, 5000);
+    return () => clearInterval(intervalId);
   }, [instruments.length, submitted]);
 
-  // Auto-save session every 5s and on key events
-  const saveSessionRef = useRef<() => Promise<void>>(async () => {});
-  saveSessionRef.current = async () => {
-    const candRaw = sessionStorage.getItem("psytest_candidate");
-    if (!candRaw) return;
-    const cand = JSON.parse(candRaw);
-    if (!cand.activationCodeId) return;
-    const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
-    const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    const remaining = Math.max(0, totalDur * 60 - elapsed);
-    
-    await supabase.from("test_sessions").upsert({
-      activation_code_id: cand.activationCodeId,
-      candidate_email: cand.email,
-      answers: answers as any,
-      seconds_remaining: remaining,
-      current_test_idx: currentTestIdx,
-      current_question_idx: currentQIdx,
-      completed_subtests: Array.from(completedSubtests),
-      last_active_at: new Date().toISOString(),
-    } as any, { onConflict: "activation_code_id,candidate_email" });
-  };
+  useEffect(() => {
+    if (instruments.length === 0 || submitted) return;
+    const saveOnChange = window.setTimeout(() => { saveSessionRef.current(); }, 500);
+    return () => window.clearTimeout(saveOnChange);
+  }, [answers, currentTestIdx, currentQIdx, Array.from(completedSubtests).join(","), instruments.length, submitted]);
 
   useEffect(() => {
     if (instruments.length === 0 || submitted) return;
-    const id = setInterval(() => { saveSessionRef.current(); }, 5000);
-    return () => clearInterval(id);
+    const handleUnload = () => {
+      saveSessionRef.current();
+    };
+    window.addEventListener("pagehide", handleUnload);
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("pagehide", handleUnload);
+      window.removeEventListener("beforeunload", handleUnload);
+    };
   }, [instruments.length, submitted]);
 
   // Anti-cheat: tab switch / minimize → save + force logout (waktu TERUS BERJALAN sebagai penalti)
@@ -584,8 +627,12 @@ const TestPage = () => {
 
   const handleNextTest = useCallback(() => {
     if (currentTestIdx < instruments.length - 1) {
-      setCurrentTestIdx(currentTestIdx + 1); setCurrentQIdx(0);
-      setCompletedSubtests(new Set()); setCurrentSubtest(null);
+      const nextTestIdx = currentTestIdx + 1;
+      sessionStorage.setItem("psytest_started_at", String(Date.now()));
+      setCurrentTestIdx(nextTestIdx);
+      setCurrentQIdx(0);
+      setCompletedSubtests(new Set());
+      setCurrentSubtest(null);
     }
   }, [currentTestIdx, instruments.length]);
 
@@ -615,29 +662,50 @@ const TestPage = () => {
   const completeSubmissionRef = useRef<() => Promise<void>>(async () => {});
 
   const handleTimeUp = useCallback(async () => {
-    if (!submitted) {
-      // Auto-submit and mark activation code as completed
-      const candRaw = sessionStorage.getItem("psytest_candidate");
-      if (candRaw) {
-        const cand = JSON.parse(candRaw);
-        if (cand.activationCodeId) {
-          await supabase.from("activation_codes").update({ 
-            status: 'completed',
-            test_completed_at: new Date().toISOString(),
-            auto_submitted: true 
-          } as any).eq("id", cand.activationCodeId);
-        }
-      }
-      
-      await Swal.fire({ 
-        icon: "warning", 
-        title: "Waktu Habis!", 
-        text: "Jawaban Anda akan disimpan otomatis dan tes dianggap selesai.", 
-        ...SWAL_THEME, 
-        allowOutsideClick: false 
-      }).then(() => completeSubmissionRef.current());
+    if (submitted) return;
+
+    const candRaw = sessionStorage.getItem("psytest_candidate");
+    if (!candRaw) return;
+    const cand = JSON.parse(candRaw);
+    if (!cand.activationCodeId) return;
+
+    if (currentTestIdx < instruments.length - 1) {
+      const currentTest = instruments[currentTestIdx];
+      const nextTestIdx = currentTestIdx + 1;
+      const nextTest = instruments[nextTestIdx];
+
+      await persistSession({ testIdx: currentTestIdx, qIdx: currentQIdx, remainingSecOverride: 0 });
+      sessionStorage.setItem("psytest_started_at", String(Date.now()));
+      setCurrentTestIdx(nextTestIdx);
+      setCurrentQIdx(0);
+      setCompletedSubtests(new Set());
+      setCurrentSubtest(null);
+
+      await Swal.fire({
+        icon: "info",
+        title: `Waktu ${currentTest?.name || "tes"} Habis`,
+        text: `Lanjut ke ${nextTest?.name || "tes berikutnya"}. Waktu tes selanjutnya akan dimulai sekarang.`, 
+        ...SWAL_THEME,
+        timer: 2200,
+        showConfirmButton: false,
+      });
+      return;
     }
-  }, [submitted]);
+
+    await supabase.from("activation_codes").update({
+      status: 'completed',
+      test_completed_at: new Date().toISOString(),
+      auto_submitted: true,
+    } as any).eq("id", cand.activationCodeId);
+
+    await Swal.fire({
+      icon: "warning",
+      title: "Waktu Habis!",
+      text: "Jawaban Anda akan disimpan otomatis dan tes dianggap selesai.",
+      ...SWAL_THEME,
+      allowOutsideClick: false,
+    }).then(() => completeSubmissionRef.current());
+  }, [submitted, currentTestIdx, currentQIdx, instruments, persistSession]);
 
   // Check if auto-submit is needed after resume
   useEffect(() => {
@@ -686,7 +754,14 @@ const TestPage = () => {
   };
 
   const handleNextTestSync = () => {
-    if (currentTestIdx < instruments.length - 1) { setCurrentTestIdx(currentTestIdx + 1); setCurrentQIdx(0); setCompletedSubtests(new Set()); setCurrentSubtest(null); }
+    if (currentTestIdx < instruments.length - 1) {
+      const nextTestIdx = currentTestIdx + 1;
+      sessionStorage.setItem("psytest_started_at", String(Date.now()));
+      setCurrentTestIdx(nextTestIdx);
+      setCurrentQIdx(0);
+      setCompletedSubtests(new Set());
+      setCurrentSubtest(null);
+    }
   };
 
   const handleNext = () => {
@@ -895,13 +970,27 @@ const TestPage = () => {
   completeSubmissionRef.current = completeSubmission;
 
 
-  const handleLogout = () => {
-    Swal.fire({ icon: "warning", title: "Keluar dari Tes?", text: "Semua jawaban akan hilang.", showCancelButton: true, confirmButtonText: "Ya, Keluar", cancelButtonText: "Batal", ...SWAL_THEME, confirmButtonColor: "hsl(0, 72%, 51%)" })
-      .then((r) => { if (r.isConfirmed) { sessionStorage.clear(); navigate("/", { replace: true }); } });
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Keluar dari Tes?",
+      text: "Data sementara akan disimpan dan Anda dapat melanjutkan lagi nanti.",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Keluar",
+      cancelButtonText: "Batal",
+      ...SWAL_THEME,
+      confirmButtonColor: "hsl(0, 72%, 51%)",
+    });
+
+    if (!result.isConfirmed) return;
+
+    await saveSessionRef.current();
+    sessionStorage.clear();
+    navigate("/", { replace: true });
   };
 
   if (submitted) return null;
-  const totalDuration = instruments.reduce((sum, t) => sum + (t.duration_minutes || 30), 0);
+  const currentDuration = currentTest?.duration_minutes || 30;
   const currentAnsKey = currentQuestion ? `${currentTest.id}:${currentQuestion.id}` : "";
   const currentAns = answers[currentAnsKey] as string | undefined;
 
@@ -919,7 +1008,7 @@ const TestPage = () => {
             <span className="hidden text-sm font-semibold text-foreground sm:inline">PsyTest</span>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <TestTimer durationMinutes={totalDuration} onTimeUp={handleTimeUp} />
+            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} onTimeUp={handleTimeUp} />
             <button onClick={() => setShowEnglish(!showEnglish)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${showEnglish ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}>
               <Languages className="h-3.5 w-3.5" /><span className="hidden sm:inline">EN</span>
@@ -957,10 +1046,21 @@ const TestPage = () => {
               {instruments.map((t, i) => {
                 const ansInThis = t.questions.filter(q => answers[`${t.id}:${q.id}`]).length;
                 const isCurrent = i === currentTestIdx;
+                const isAccessible = i <= currentTestIdx;
                 return (
-                  <button key={t.id} onClick={() => { setCurrentTestIdx(i); setCurrentQIdx(0); setCompletedSubtests(new Set()); setCurrentSubtest(null); }}
-                    className={`w-full text-left rounded-lg border p-2.5 transition-all ${isCurrent ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted"}`}>
-                    <p className={`text-xs font-semibold ${isCurrent ? "text-primary" : "text-foreground"}`}>{t.name}</p>
+                  <button key={t.id}
+                    type="button"
+                    onClick={() => {
+                      if (!isAccessible) return;
+                      setCurrentTestIdx(i);
+                      setCurrentQIdx(0);
+                      setCompletedSubtests(new Set());
+                      setCurrentSubtest(null);
+                      sessionStorage.setItem("psytest_started_at", String(Date.now()));
+                    }}
+                    disabled={!isAccessible}
+                    className={`w-full text-left rounded-lg border p-2.5 transition-all ${isCurrent ? "border-primary bg-primary/10" : isAccessible ? "border-border bg-muted/30 hover:bg-muted" : "border-border bg-slate-900/30 text-slate-500 cursor-not-allowed"}`}>
+                    <p className={`text-xs font-semibold ${isCurrent ? "text-primary" : isAccessible ? "text-foreground" : "text-slate-400"}`}>{t.name}</p>
                     <p className="text-[10px] text-muted-foreground">{ansInThis}/{t.questions.length} soal</p>
                   </button>
                 );

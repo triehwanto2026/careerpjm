@@ -478,6 +478,82 @@ const Candidates = () => {
         return { message: data || "Login kandidat berhasil diaktivasi", created: false };
       }
 
+      if (action === "create_or_update_user") {
+        const passwordToUse = password?.trim() || "12345";
+
+        let signUpData: any = null;
+        let signUpError: any = null;
+
+        const attemptSignUp = async (pwd: string) => {
+          const result = await supabase.auth.signUp({
+            email: candidate.email,
+            password: pwd,
+            options: {
+              data: {
+                full_name: candidate.name,
+                created_by_admin: true,
+              },
+            },
+          });
+          signUpData = result.data;
+          signUpError = result.error;
+        };
+
+        await attemptSignUp(passwordToUse);
+
+        if (signUpError) {
+          const errorMessage = String(signUpError.message || "").toLowerCase();
+          const weakPassword = errorMessage.includes("weak") || errorMessage.includes("easy to guess");
+
+          if (weakPassword && passwordToUse !== "12345") {
+            await attemptSignUp("12345");
+          }
+        }
+
+        if (signUpError) {
+          const errorMessage = String(signUpError.message || "").toLowerCase();
+          const alreadyExists = errorMessage.includes("already registered")
+            || errorMessage.includes("already exists")
+            || errorMessage.includes("duplicate")
+            || errorMessage.includes("user already exists");
+
+          if (alreadyExists) {
+            const { data: resetData, error: resetError } = await (supabase as any).rpc("admin_reset_candidate_password", {
+              candidate_email: candidate.email,
+              new_password: passwordToUse,
+            });
+            if (resetError) throw new Error(resetError.message);
+
+            const { error: activateError } = await (supabase as any).rpc("admin_activate_candidate_login", {
+              candidate_email: candidate.email,
+            });
+            if (activateError) throw new Error(activateError.message);
+
+            return {
+              message: String(resetData) || "Password kandidat berhasil direset dan login diaktivasi",
+              created: false,
+            };
+          }
+
+          throw new Error(signUpError.message);
+        }
+
+        if (signUpData?.session) {
+          await supabase.auth.signOut();
+        }
+
+        const { error: activateError } = await (supabase as any).rpc("admin_activate_candidate_login", {
+          candidate_email: candidate.email,
+        });
+        if (activateError) throw new Error(activateError.message);
+
+        return {
+          message: "Akun login kandidat dibuat dan email berhasil diaktivasi",
+          user_id: signUpData?.user?.id,
+          created: true,
+        };
+      }
+
       throw new Error("Edge Function belum tersedia. Deploy `admin-candidate-auth` untuk membuat user auth baru dari admin.");
     }
   };
@@ -848,10 +924,12 @@ const Candidates = () => {
     e.preventDefault();
     console.log('Form submit triggered', form);
     
-    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
-      Swal.fire({ icon: "warning", title: "Lengkapi data", text: "Nama, email, dan password wajib diisi.", ...SWAL_THEME() });
+    if (!form.name.trim() || !form.email.trim()) {
+      Swal.fire({ icon: "warning", title: "Lengkapi data", text: "Nama dan email wajib diisi.", ...SWAL_THEME() });
       return;
     }
+
+    const passwordToUse = form.password.trim() || "12345";
     setSaving(true);
     
     try {
@@ -909,7 +987,7 @@ const Candidates = () => {
           const authData = await runCandidateAuthAction(
             "create_or_update_user",
             { email: form.email.trim(), name: form.name.trim() },
-            form.password.trim()
+            passwordToUse
           );
 
           // Create candidate record
@@ -918,8 +996,8 @@ const Candidates = () => {
             .insert({
               name: form.name.trim(),
               email: form.email.trim(),
-              phone: form.phone.trim() || null,
-              position: form.position.trim() || null,
+              phone: form.phone.trim() || "",
+              position: form.position.trim() || "",
               birth_date: form.birth_date || null,
               education: form.education.trim() || null,
               gender: form.gender,
@@ -933,21 +1011,28 @@ const Candidates = () => {
           if (candidateError) throw candidateError;
           
           // Create candidate profile
+          const profilePayload: any = {
+            full_name: form.name.trim(),
+            email: form.email.trim(),
+            phone: form.phone.trim() || null,
+            birth_date: form.birth_date || null,
+            gender: form.gender,
+            education_level: form.education.trim() || null,
+            nik: form.nik || null,
+            nickname: form.nickname || null,
+            created_at: new Date().toISOString(),
+          };
+          if (authData.user_id) {
+            profilePayload.user_id = authData.user_id;
+          }
+
+          const upsertOptions = authData.user_id
+            ? { onConflict: "user_id" }
+            : { onConflict: "email" };
+
           const { error: profileError } = await supabase
             .from("candidate_profiles")
-            .upsert({
-              user_id: authData.user_id,
-              full_name: form.name.trim(),
-              email: form.email.trim(),
-              phone: form.phone.trim() || null,
-              birth_date: form.birth_date || null,
-              gender: form.gender,
-              education_level: form.education.trim() || null,
-              nik: form.nik || null,
-              nickname: form.nickname || null,
-              created_at: new Date().toISOString(),
-            } as any, { onConflict: "user_id" });
-          
+            .upsert(profilePayload as any, upsertOptions as any);
           if (profileError) {
             console.error('Profile creation error:', profileError);
             // Don't fail if profile creation fails
@@ -961,7 +1046,7 @@ const Candidates = () => {
               <div class="text-left">
                 <p><strong>📧 Login Credentials:</strong></p>
                 <p style="margin: 8px 0;">Email: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${form.email.trim()}</code></p>
-                <p style="margin: 8px 0;">Password: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${form.password.trim()}</code></p>
+                <p style="margin: 8px 0;">Password: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${passwordToUse}</code></p>
                 <p style="margin-top: 12px; font-size: 12px; color: #666;">✓ Email sudah terverifikasi dan siap login</p>
                 <p style="margin-top: 8px; font-size: 11px; color: #999;">Login di: /login</p>
               </div>

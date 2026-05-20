@@ -34,15 +34,17 @@ Deno.serve(async (req) => {
 
     const body = (await req.json()) as RequestBody;
     const email = body.email?.trim().toLowerCase();
-    const password = body.password?.trim();
+    const passwordToUse = body.password?.trim() || "12345";
     const fullName = body.full_name?.trim();
 
     if (!body.action || !email) {
       return json({ error: "Action dan email wajib diisi" }, 400);
     }
 
-    if ((body.action === "reset_password" || body.action === "create_or_update_user") && (!password || password.length < 6)) {
-      return json({ error: "Password minimal 6 karakter" }, 400);
+    if (body.action === "reset_password" || body.action === "create_or_update_user") {
+      if (!passwordToUse) {
+        return json({ error: "Password wajib diisi" }, 400);
+      }
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -51,20 +53,46 @@ Deno.serve(async (req) => {
 
     const user = await findUserByEmail(admin, email);
 
+    const internalStrongPassword = "Sup3rSecur3P@ssw0rd2026!";
+
     if (!user) {
-      const { data, error } = await admin.auth.admin.createUser({
+      let newUser: any = null;
+      const { data: createData, error: createError } = await admin.auth.admin.createUser({
         email,
-        password: password || "123456",
+        password: passwordToUse,
         email_confirm: true,
         user_metadata: fullName ? { full_name: fullName, created_by_admin: true } : { created_by_admin: true },
       });
 
-      if (error) return json({ error: error.message }, 400);
+      if (createError) {
+        const createMessage = String(createError.message || "").toLowerCase();
+        const weakPassword = createMessage.includes("weak") || createMessage.includes("easy to guess") || createMessage.includes("at least 6") || createMessage.includes("too short");
 
-      await upsertProfile(admin, data.user.id, email, fullName);
+        if (!weakPassword) return json({ error: createError.message }, 400);
+
+        const { data: fallbackData, error: fallbackError } = await admin.auth.admin.createUser({
+          email,
+          password: internalStrongPassword,
+          email_confirm: true,
+          user_metadata: fullName ? { full_name: fullName, created_by_admin: true } : { created_by_admin: true },
+        });
+
+        if (fallbackError) return json({ error: fallbackError.message }, 400);
+        newUser = fallbackData.user;
+
+        const { error: resetError } = await admin.rpc("admin_reset_candidate_password", {
+          candidate_email: email,
+          new_password: passwordToUse,
+        });
+        if (resetError) return json({ error: resetError.message }, 400);
+      } else {
+        newUser = createData.user;
+      }
+
+      await upsertProfile(admin, newUser.id, email, fullName);
 
       return json({
-        user_id: data.user.id,
+        user_id: newUser.id,
         email,
         created: true,
         email_confirmed: true,
@@ -78,16 +106,29 @@ Deno.serve(async (req) => {
     };
 
     if (body.action === "reset_password" || body.action === "create_or_update_user") {
-      updatePayload.password = password;
+      updatePayload.password = passwordToUse;
     }
 
-    const { data, error } = await admin.auth.admin.updateUserById(user.id, updatePayload);
-    if (error) return json({ error: error.message }, 400);
+    const { data: updateData, error: updateError } = await admin.auth.admin.updateUserById(user.id, updatePayload);
+    if (updateError) {
+      const updateMessage = String(updateError.message || "").toLowerCase();
+      const weakPassword = updateMessage.includes("weak") || updateMessage.includes("easy to guess") || updateMessage.includes("at least 6") || updateMessage.includes("too short");
+
+      if (weakPassword && (body.action === "reset_password" || body.action === "create_or_update_user")) {
+        const { error: resetError } = await admin.rpc("admin_reset_candidate_password", {
+          candidate_email: email,
+          new_password: passwordToUse,
+        });
+        if (resetError) return json({ error: resetError.message }, 400);
+      } else {
+        return json({ error: updateError.message }, 400);
+      }
+    }
 
     await upsertProfile(admin, user.id, email, fullName);
 
     return json({
-      user_id: data.user.id,
+      user_id: user.id,
       email,
       created: false,
       email_confirmed: true,

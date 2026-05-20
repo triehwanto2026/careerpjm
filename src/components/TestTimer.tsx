@@ -10,6 +10,10 @@ const TestTimer = ({ durationMinutes, onTimeUp }: TestTimerProps) => {
   const [secondsLeft, setSecondsLeft] = useState(durationMinutes * 60);
 
   useEffect(() => {
+    setSecondsLeft(durationMinutes * 60);
+  }, [durationMinutes]);
+
+  useEffect(() => {
     if (secondsLeft <= 0) {
       onTimeUp();
       return;
