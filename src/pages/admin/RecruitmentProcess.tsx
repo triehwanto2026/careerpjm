@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone } from "lucide-react";
+import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, Printer, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import DocumentPreview from "@/components/DocumentPreview";
 import Swal from "sweetalert2";
+
+interface Doc {
+  id: string;
+  user_id: string;
+  document_type: string;
+  file_name: string;
+  file_url: string;
+}
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import ProfessionalApplicationForm from "@/components/admin/ProfessionalApplicationForm";
@@ -86,7 +94,36 @@ interface JobApplication {
     cv_url?: string;
     certificates?: string[];
     portfolio_url?: string;
+    documents?: Doc[];
   };
+}
+
+interface CandidateResult {
+  id: string;
+  candidate_id: string | null;
+  candidate_name: string;
+  position: string;
+  test_name: string;
+  score: number;
+  total_questions: number;
+  answered_questions: number;
+  categories: Record<string, number>;
+  status: string;
+  interpretation: string | null;
+  candidate_profile: Record<string, any> | null;
+  completed_at: string;
+  webcam_photo_url: string | null;
+}
+
+interface TestAnswer {
+  id: string;
+  question_number: number;
+  question_text: string;
+  selected_answer: string;
+  selected_answer_label: string;
+  correct_answer: string | null;
+  is_correct: boolean | null;
+  category: string | null;
 }
 
 export default function RecruitmentProcess() {
@@ -100,6 +137,15 @@ export default function RecruitmentProcess() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const [candidateResults, setCandidateResults] = useState<CandidateResult[]>([]);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [resultSearch, setResultSearch] = useState("");
+  const [resultFilterStatus, setResultFilterStatus] = useState("all");
+  const [resultFilterTest, setResultFilterTest] = useState("all");
+  const [selectedResult, setSelectedResult] = useState<CandidateResult | null>(null);
+  const [resultAnswers, setResultAnswers] = useState<TestAnswer[]>([]);
+  const [resultLoadingAnswers, setResultLoadingAnswers] = useState(false);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [activeInstruments, setActiveInstruments] = useState<{ id: string; name: string }[]>([]);
   const [showActivationModal, setShowActivationModal] = useState(false);
@@ -290,6 +336,21 @@ export default function RecruitmentProcess() {
         throw applicationsError;
       }
 
+      const userIds = Array.from(new Set((applicationsData || []).map((application: any) => application.user_id).filter(Boolean)));
+      const { data: documentsData, error: documentsError } = userIds.length > 0
+        ? await supabase.from("candidate_documents").select("*").in("user_id", userIds)
+        : { data: [], error: null };
+
+      if (documentsError) {
+        console.error("Candidate documents error:", documentsError);
+      }
+
+      const docsByUser = (documentsData as any[] || []).reduce((acc: Record<string, any[]>, doc: any) => {
+        if (!acc[doc.user_id]) acc[doc.user_id] = [];
+        acc[doc.user_id].push(doc);
+        return acc;
+      }, {});
+
       // Get candidate profiles for each application
       const applicationsWithProfiles = await Promise.all(
         (applicationsData || []).map(async (application: any) => {
@@ -299,65 +360,76 @@ export default function RecruitmentProcess() {
             .eq("user_id", application.user_id)
             .single();
 
+          const candidateDocs = docsByUser[application.user_id] || [];
+          const profile = normalizeCandidateProfile(profileData || {
+            id: '',
+            user_id: application.user_id,
+            full_name: 'Unknown',
+            email: 'Unknown',
+            phone: 'Unknown',
+            birth_date: '',
+            birth_place: '',
+            gender: '',
+            address: '',
+            city: '',
+            bio: '',
+            education_level: '',
+            education_institution: '',
+            major: '',
+            graduation_year: '',
+            experience_years: '',
+            current_position: '',
+            current_company: '',
+            skills: [],
+            strengths: '',
+            created_at: '',
+            updated_at: '',
+            applications: [],
+            has_applied: false,
+            photo_url: '',
+            cv_url: '',
+            certificates: [],
+            portfolio_url: '',
+            marital_status: '',
+            religion: '',
+            nationality: '',
+            height: '',
+            weight: '',
+            blood_type: '',
+            father_name: '',
+            mother_name: '',
+            spouse_name: '',
+            number_of_children: '',
+            emergency_contact_name: '',
+            emergency_contact_relation: '',
+            emergency_contact_phone: '',
+            hobbies: '',
+            vehicle_license: '',
+            has_vehicle: false,
+            source_info: '',
+            willing_relocate: false,
+            willing_overtime: false,
+            willing_shift: false,
+            expected_salary: '',
+            salary_negotiable: false,
+            available_from: '',
+            notice_period: '',
+            additional_info: '',
+            social_media: {},
+            references: []
+          });
+
+          if (!profile.photo_url) {
+            const photoDoc = candidateDocs.find((doc: any) => doc.document_type === 'photo');
+            if (photoDoc) profile.photo_url = photoDoc.file_url;
+          }
+
           return {
             ...application,
-            candidate_profile: normalizeCandidateProfile(profileData || {
-              id: '',
-              user_id: application.user_id,
-              full_name: 'Unknown',
-              email: 'Unknown',
-              phone: 'Unknown',
-              birth_date: '',
-              birth_place: '',
-              gender: '',
-              address: '',
-              city: '',
-              bio: '',
-              education_level: '',
-              education_institution: '',
-              major: '',
-              graduation_year: '',
-              experience_years: '',
-              current_position: '',
-              current_company: '',
-              skills: [],
-              strengths: '',
-              created_at: '',
-              updated_at: '',
-              applications: [],
-              has_applied: false,
-              photo_url: '',
-              cv_url: '',
-              certificates: [],
-              portfolio_url: '',
-              marital_status: '',
-              religion: '',
-              nationality: '',
-              height: '',
-              weight: '',
-              blood_type: '',
-              father_name: '',
-              mother_name: '',
-              spouse_name: '',
-              number_of_children: '',
-              emergency_contact_name: '',
-              emergency_contact_relation: '',
-              emergency_contact_phone: '',
-              hobbies: '',
-              vehicle_license: '',
-              has_vehicle: false,
-              source_info: '',
-              willing_relocate: false,
-              willing_overtime: false,
-              willing_shift: false,
-              expected_salary: '',
-              salary_negotiable: false,
-              available_from: '',
-              notice_period: '',
-              additional_info: '',
-              social_media: {},
-              references: []
-            })
+            candidate_profile: {
+              ...profile,
+              documents: candidateDocs,
+            }
           };
         })
       );
@@ -417,28 +489,91 @@ export default function RecruitmentProcess() {
   const viewCandidateProfile = (application: JobApplication) => {
     setSelectedApplication(application);
     setShowProfileModal(true);
+  };
 
-    // load candidate documents
-    (async () => {
-      try {
-        const { data: docsData, error: docsError } = await supabase.from('candidate_documents').select('*').eq('user_id', application.user_id);
-        if (docsError) {
-          console.warn('Failed to load candidate documents:', docsError);
-          setSelectedCandidateDocs([]);
-        } else {
-          setSelectedCandidateDocs(docsData || []);
-        }
-      } catch (e) {
-        console.error('Error fetching candidate documents:', e);
-        setSelectedCandidateDocs([]);
+  const loadCandidateTestResults = async (application: JobApplication) => {
+    setResultsLoading(true);
+    setCandidateResults([]);
+    setSelectedResult(null);
+    setResultAnswers([]);
+
+    try {
+      const candidateIds = [application.user_id, application.candidate_profile.id].filter(Boolean);
+      let { data, error } = await supabase
+        .from("test_results")
+        .select("*")
+        .in("candidate_id", candidateIds)
+        .order("completed_at", { ascending: false });
+
+      if (error) throw error;
+      let results = (data as CandidateResult[]) || [];
+
+      if (results.length === 0 && application.candidate_profile.full_name) {
+        const nameSearch = application.candidate_profile.full_name;
+        const { data: nameData, error: nameError } = await supabase
+          .from("test_results")
+          .select("*")
+          .ilike("candidate_name", `%${nameSearch}%`)
+          .order("completed_at", { ascending: false });
+        if (nameError) throw nameError;
+        results = (nameData as CandidateResult[]) || [];
       }
-    })();
+
+      setCandidateResults(results);
+    } catch (error) {
+      console.error("Error loading candidate test results:", error);
+      Swal.fire("Error", "Gagal memuat hasil tes kandidat", "error");
+    } finally {
+      setResultsLoading(false);
+    }
+  };
+
+  const loadResultAnswers = async (resultId: string) => {
+    setResultLoadingAnswers(true);
+    setResultAnswers([]);
+
+    try {
+      const { data, error } = await supabase
+        .from("test_answers")
+        .select("*")
+        .eq("test_result_id", resultId)
+        .order("question_number", { ascending: true });
+      if (error) throw error;
+      setResultAnswers((data as TestAnswer[]) || []);
+    } catch (error) {
+      console.error("Error loading test result answers:", error);
+    } finally {
+      setResultLoadingAnswers(false);
+    }
+  };
+
+  const viewTestResults = async (application: JobApplication) => {
+    setSelectedApplication(application);
+    setShowResultsModal(true);
+    await loadCandidateTestResults(application);
+  };
+
+  const handleSelectResult = async (result: CandidateResult) => {
+    setSelectedResult(result);
+    await loadResultAnswers(result.id);
+  };
+
+  const handlePrintResult = (result: CandidateResult) => {
+    const statusLabel = result.status === "passed" ? "LULUS" : result.status === "review" ? "REVIEW" : "TIDAK LULUS";
+    const categories = Object.entries(result.categories || {}).map(([key, value]) => `<tr><td style="padding:8px;border:1px solid #e5e7eb;">${key}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">${value}</td></tr>`).join("");
+    const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes - ${result.candidate_name}</title><style>body{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111827;padding:24px;}h1,h2,h3{margin:0 0 12px;}table{border-collapse:collapse;width:100%;margin-top:16px;}th,td{border:1px solid #e5e7eb;padding:10px;text-align:left;}th{background:#f9fafb;} .badge {display:inline-flex;padding:6px 10px;border-radius:9999px;font-size:0.85rem;font-weight:600;background:#e0f2fe;color:#0369a1;} .summary {margin-top:12px;}</style></head><body><h1>Laporan Hasil Tes</h1><p><strong>Kandidat:</strong> ${result.candidate_name}</p><p><strong>Posisi:</strong> ${result.position || '-'}</p><p><strong>Nama Tes:</strong> ${result.test_name}</p><p><strong>Status:</strong> <span class="badge">${statusLabel}</span></p><div class="summary"><p><strong>Skor:</strong> ${result.score} / ${result.total_questions}</p><p><strong>Jawaban Terjawab:</strong> ${result.answered_questions}</p><p><strong>Selesai:</strong> ${formatDate(result.completed_at)}</p></div><h2>Detail Kategori</h2><table><thead><tr><th>Kategori</th><th>Nilai</th></tr></thead><tbody>${categories}</tbody></table>${result.interpretation ? `<h2>Interpretasi</h2><p>${result.interpretation}</p>` : ''}</body></html>`;
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    }
   };
 
   const [showDocPreview, setShowDocPreview] = useState(false);
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
-  const [selectedCandidateDocs, setSelectedCandidateDocs] = useState<any[]>([]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -447,6 +582,21 @@ export default function RecruitmentProcess() {
       month: 'long',
       year: 'numeric'
     });
+  };
+
+  const getDocumentLabel = (type: string) => {
+    switch (type) {
+      case 'cv': return 'CV / Resume';
+      case 'photo': return 'Foto Formal';
+      case 'ktp': return 'KTP';
+      case 'ijazah': return 'Ijazah';
+      case 'transkrip': return 'Transkrip Nilai';
+      case 'kk': return 'Kartu Keluarga';
+      case 'buku_nikah': return 'Buku Nikah';
+      case 'skck': return 'SKCK';
+      case 'tes_kesehatan': return 'Surat Tes Kesehatan';
+      default: return type.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+    }
   };
 
   const getLatestEducation = (profile: any) => {
@@ -514,6 +664,7 @@ export default function RecruitmentProcess() {
     photo_url: profile?.photo_url || '',
     cv_url: profile?.cv_url || profile?.resume_url || '',
     portfolio_url: profile?.portfolio_url || '',
+    documents: profile?.documents || [],
   });
 
   const getStatusColor = (status: string) => {
@@ -1136,10 +1287,18 @@ export default function RecruitmentProcess() {
                 {/* Profile Header */}
                 <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b border-border">
                   <div className="flex items-center gap-6">
-                    <div className="h-20 w-20 bg-primary/20 rounded-full flex items-center justify-center">
-                      <span className="text-2xl font-bold text-primary">
-                        {selectedApplication.candidate_profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </span>
+                    <div className="h-20 w-20 rounded-full overflow-hidden bg-primary/20 flex items-center justify-center">
+                      {selectedApplication.candidate_profile.photo_url ? (
+                        <img
+                          src={selectedApplication.candidate_profile.photo_url}
+                          alt={selectedApplication.candidate_profile.full_name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-2xl font-bold text-primary">
+                          {selectedApplication.candidate_profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1">
                       <h3 className="text-2xl font-bold text-foreground">{selectedApplication.candidate_profile.full_name}</h3>
@@ -1625,7 +1784,30 @@ export default function RecruitmentProcess() {
                           <FolderOpen className="h-5 w-5 text-primary" />
                           Dokumen & Portofolio
                         </h3>
-                        {selectedApplication.candidate_profile.cv_url && (
+                        {selectedApplication.candidate_profile.documents && selectedApplication.candidate_profile.documents.length > 0 && (
+                          <div>
+                            <label className="text-sm text-muted-foreground">Dokumen Kandidat</label>
+                            <div className="mt-2 space-y-2">
+                              {selectedApplication.candidate_profile.documents.map((doc) => (
+                                <div key={doc.id} className="p-3 border border-border rounded-lg bg-muted/20">
+                                  <div className="flex items-center gap-3">
+                                    <FileText className="h-6 w-6 text-primary" />
+                                    <div className="flex-1">
+                                      <p className="font-medium text-foreground">{getDocumentLabel(doc.document_type)}</p>
+                                      <p className="text-sm text-muted-foreground truncate">{doc.file_name}</p>
+                                    </div>
+                                    <button onClick={() => { setDocPreviewUrl(doc.file_url); setDocPreviewName(doc.file_name); setShowDocPreview(true); }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors inline-flex items-center">
+                                      <Eye className="h-4 w-4 mr-2 inline" />
+                                      Preview
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedApplication.candidate_profile.cv_url && !(selectedApplication.candidate_profile.documents?.some((doc) => doc.document_type === 'cv')) && (
                           <div>
                             <label className="text-sm text-muted-foreground">CV/Resume</label>
                             <div className="mt-2 p-4 border border-border rounded-lg bg-muted/20">
@@ -1667,7 +1849,7 @@ export default function RecruitmentProcess() {
                           </div>
                         )}
 
-                        {selectedApplication.candidate_profile.portfolio_url && (
+                        {selectedApplication.candidate_profile.portfolio_url && !(selectedApplication.candidate_profile.documents?.some((doc) => doc.document_type === 'portfolio')) && (
                           <div>
                             <label className="text-sm text-muted-foreground">Portofolio</label>
                             <div className="mt-2 p-4 border border-border rounded-lg bg-muted/20">
@@ -1686,31 +1868,7 @@ export default function RecruitmentProcess() {
                           </div>
                         )}
 
-                        {/* Additional documents from candidate_documents table */}
-                        {selectedCandidateDocs && selectedCandidateDocs.length > 0 && (
-                          <div>
-                            <label className="text-sm text-muted-foreground">Lainnya</label>
-                            <div className="mt-2 space-y-2">
-                              {selectedCandidateDocs.filter((d:any)=> d.document_type !== 'photo').map((doc:any, index:number) => (
-                                <div key={doc.id} className="p-3 border border-border rounded-lg bg-muted/20">
-                                  <div className="flex items-center gap-3">
-                                    <FileText className="h-6 w-6 text-primary" />
-                                    <div className="flex-1">
-                                      <p className="font-medium text-foreground">{doc.file_name || `Dokumen ${index+1}`}</p>
-                                      <p className="text-sm text-muted-foreground truncate">{doc.document_type}</p>
-                                    </div>
-                                    <button onClick={() => { setDocPreviewUrl(doc.file_url); setDocPreviewName(doc.file_name); setShowDocPreview(true); }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors inline-flex items-center">
-                                      <Eye className="h-4 w-4 mr-2 inline" />
-                                      Preview
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {!selectedApplication.candidate_profile.cv_url && !(selectedApplication.candidate_profile.certificates && selectedApplication.candidate_profile.certificates.length > 0) && !selectedApplication.candidate_profile.portfolio_url && (!selectedCandidateDocs || selectedCandidateDocs.length === 0) && (
+                        {!selectedApplication.candidate_profile.documents?.length && !selectedApplication.candidate_profile.cv_url && !(selectedApplication.candidate_profile.certificates && selectedApplication.candidate_profile.certificates.length > 0) && !selectedApplication.candidate_profile.portfolio_url && (
                           <div className="text-center py-8 text-muted-foreground">
                             <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
                             <p>Belum ada dokumen yang diunggah</p>
@@ -1718,35 +1876,6 @@ export default function RecruitmentProcess() {
                         )}
                       </div>
                     </TabsContent>
-
-  // Upload candidate photo handler
-  const uploadCandidatePhoto = async (file: File) => {
-    if (!selectedApplication) return;
-    try {
-      const userId = selectedApplication.user_id;
-      const ext = file.name.split('.').pop();
-      const path = `${userId}/photo-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('candidate-documents').upload(path, file, { upsert: true });
-      if (upErr) {
-        console.error('Upload error:', upErr);
-        return;
-      }
-      const { data: pub } = supabase.storage.from('candidate-documents').getPublicUrl(path);
-      const photoUrl = pub.publicUrl;
-      const { error: updErr } = await supabase.from('candidate_profiles').update({ photo_url: photoUrl }).eq('user_id', userId);
-      if (updErr) {
-        console.error('Failed to update photo_url:', updErr);
-        return;
-      }
-      // refresh applications for current job
-      if (selectedJob) await loadApplications(selectedJob.id);
-      const { data: docsData } = await supabase.from('candidate_documents').select('*').eq('user_id', userId);
-      setSelectedCandidateDocs(docsData || []);
-      setSelectedApplication((prev) => prev ? { ...prev, candidate_profile: { ...prev.candidate_profile, photo_url: photoUrl } } : prev);
-    } catch (e) {
-      console.error('Error uploading candidate photo:', e);
-    }
-  }
 
                     {showDocPreview && docPreviewUrl && (
                       <DocumentPreview url={docPreviewUrl} name={docPreviewName} onClose={() => { setShowDocPreview(false); setDocPreviewUrl(null); setDocPreviewName(undefined); }} />
@@ -1816,17 +1945,7 @@ export default function RecruitmentProcess() {
               </div>
 
               {/* Footer Actions */}
-              <div className="sticky bottom-0 flex items-center justify-between border-t border-border bg-card/95 backdrop-blur-xl px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition-all">
-                    <Mail className="h-4 w-4" />
-                    Kirim Email
-                  </button>
-                  <button className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-all">
-                    <Download className="h-4 w-4" />
-                    Download CV
-                  </button>
-                </div>
+              <div className="sticky bottom-0 flex items-center justify-end border-t border-border bg-card/95 backdrop-blur-xl px-6 py-4">
                 <button
                   onClick={() => setShowProfileModal(false)}
                   className="rounded-lg border border-border bg-card px-5 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveStorageUrl } from "@/lib/storage";
 import Swal from "sweetalert2";
 
 // Tab configuration
@@ -143,6 +144,9 @@ export default function CandidateProfile() {
   const [skills, setSkills] = useState<any[]>([]);
   const [languages, setLanguages] = useState<any[]>([]);
 
+  const getPhotoDoc = () => docs.find((d) => d.document_type === "photo");
+  const displayPhotoUrl = profile.photo_url || getPhotoDoc()?.file_url || "";
+
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -240,7 +244,12 @@ export default function CandidateProfile() {
       setLanguages([]);
     }
     const { data: d } = await supabase.from("candidate_documents").select("*").eq("user_id", session.user.id);
-    setDocs((d as any) || []);
+    const docsData = (d as any) || [];
+    setDocs(docsData);
+    const photoDoc = docsData.find((doc: any) => doc.document_type === "photo");
+    if (!profile.photo_url && photoDoc) {
+      setProfile((prev) => ({ ...prev, photo_url: photoDoc.file_url }));
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -456,28 +465,41 @@ export default function CandidateProfile() {
   };
 
   const uploadDoc = async (type: string, file: File) => {
+    const bucket = type === "photo" ? "candidate-photos" : "candidate-documents";
     const ext = file.name.split(".").pop();
     const path = `${userId}/${type}-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("candidate-documents").upload(path, file, { upsert: true });
+    const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
     if (upErr) {
       Swal.fire({ icon: "error", title: "Upload gagal", text: upErr.message });
       return;
     }
-    const { data: pub } = supabase.storage.from("candidate-documents").getPublicUrl(path);
-    // Remove old doc of same type
+    const { data: pub, error: pubErr } = supabase.storage.from(bucket).getPublicUrl(path);
+    if (pubErr) {
+      console.error("Get public URL failed", pubErr);
+      Swal.fire({ icon: "error", title: "Gagal mengambil URL publik", text: pubErr.message });
+      return;
+    }
+    const fileUrl = pub.publicUrl;
     const old = docs.find((d) => d.document_type === type);
     if (old) await supabase.from("candidate_documents").delete().eq("id", old.id);
     await supabase.from("candidate_documents").insert({
-      user_id: userId, document_type: type, file_name: file.name, file_url: pub.publicUrl,
+      user_id: userId, document_type: type, file_name: file.name, file_url: fileUrl,
       file_size: file.size, mime_type: file.type,
     });
+    if (type === "photo") {
+      await supabase.from("candidate_profiles").upsert({ user_id: userId, photo_url: fileUrl }, { onConflict: "user_id" });
+    }
     load();
   };
 
   const deleteDoc = async (id: string) => {
+    const docToDelete = docs.find((doc) => doc.id === id);
     const { isConfirmed } = await Swal.fire({ icon: "warning", title: "Hapus dokumen?", showCancelButton: true });
     if (!isConfirmed) return;
     await supabase.from("candidate_documents").delete().eq("id", id);
+    if (docToDelete?.document_type === "photo") {
+      await supabase.from("candidate_profiles").upsert({ user_id: userId, photo_url: null }, { onConflict: "user_id" });
+    }
     load();
   };
 
@@ -512,6 +534,16 @@ export default function CandidateProfile() {
       text: "Formulir kandidat berhasil disubmit. Tim HR akan meninjau data Anda.",
       confirmButtonColor: "hsl(174, 72%, 46%)"
     });
+  };
+
+  const openDocument = async (fileUrl: string) => {
+    const win = window.open('', '_blank');
+    const resolved = await resolveStorageUrl(fileUrl);
+    if (win) {
+      win.location.href = resolved;
+    } else {
+      window.location.href = resolved;
+    }
   };
 
   return (
@@ -571,8 +603,28 @@ export default function CandidateProfile() {
             {/* Data Pribadi */}
             <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary"/> Data Pribadi</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div><label className={lbl}>NIK *</label><input className={isEditing ? inp : inpDisabled} value={profile.nik} onChange={(e) => isEditing && upd("nik", e.target.value)} placeholder="16 digit" maxLength={16} disabled={!isEditing} /></div>
+              <div className="space-y-4">
+                <div className="bg-muted border border-border rounded-2xl p-4 flex flex-col items-center text-center gap-3">
+                  <div className="h-28 w-28 rounded-xl overflow-hidden bg-white border border-border flex items-center justify-center">
+                    {displayPhotoUrl ? (
+                      <img src={displayPhotoUrl} alt="Foto Formal" className="h-full w-full object-cover" />
+                    ) : (
+                      <User className="h-10 w-10 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Foto Formal</p>
+                    <p className="text-xs text-muted-foreground">Foto kandidat untuk profil dan PHC.</p>
+                  </div>
+                  {isEditing && (
+                    <label className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground cursor-pointer hover:brightness-110">
+                      <Upload className="h-4 w-4" /> Ganti Foto
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadDoc("photo", e.target.files[0])} />
+                    </label>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div><label className={lbl}>NIK *</label><input className={isEditing ? inp : inpDisabled} value={profile.nik} onChange={(e) => isEditing && upd("nik", e.target.value)} placeholder="16 digit" maxLength={16} disabled={!isEditing} /></div>
                 <div><label className={lbl}>NPWP</label><input className={isEditing ? inp : inpDisabled} value={profile.npwp} onChange={(e) => isEditing && upd("npwp", e.target.value)} placeholder="15 digit" disabled={!isEditing} /></div>
                 <div><label className={lbl}>No. Telepon *</label><input className={isEditing ? inp : inpDisabled} value={profile.phone} onChange={(e) => isEditing && upd("phone", e.target.value)} disabled={!isEditing} /></div>
                 <div className="md:col-span-2 lg:col-span-3"><label className={lbl}>Nama Lengkap *</label><input className={isEditing ? inp : inpDisabled} value={profile.full_name} onChange={(e) => isEditing && upd("full_name", e.target.value)} disabled={!isEditing} /></div>
@@ -613,6 +665,7 @@ export default function CandidateProfile() {
                 <div><label className={lbl}>Provinsi</label><input className={isEditing ? inp : inpDisabled} value={profile.province} onChange={(e) => isEditing && upd("province", e.target.value)} disabled={!isEditing} /></div>
                 <div><label className={lbl}>Kode Pos</label><input className={isEditing ? inp : inpDisabled} value={profile.postal_code} onChange={(e) => isEditing && upd("postal_code", e.target.value)} disabled={!isEditing} /></div>
               </div>
+            </div>
             </section>
 
             {/* Data Fisik */}
@@ -1177,7 +1230,7 @@ export default function CandidateProfile() {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium">{t.label} {t.required && <span className="text-red-500">*</span>}</div>
                         {existing ? (
-                          <a href={existing.file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline truncate block">{existing.file_name}</a>
+                          <button type="button" onClick={() => openDocument(existing.file_url)} className="text-xs text-primary hover:underline truncate block text-left">{existing.file_name}</button>
                         ) : (
                           <div className="text-xs text-muted-foreground">Belum diupload</div>
                         )}

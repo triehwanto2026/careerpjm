@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, Download, ExternalLink } from 'lucide-react';
+import { resolveStorageUrl } from '@/lib/storage';
 
 // Note: pdfjs-dist is used dynamically to avoid loading on non-PDF previews.
 
@@ -25,6 +26,7 @@ function getFileExtension(url: string) {
 }
 
 export default function DocumentPreview({ url, name, onClose }: DocumentPreviewProps) {
+  const [resolvedUrl, setResolvedUrl] = useState(url);
   const ext = getFileExtension(url);
   const isPdf = ext === 'pdf';
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
@@ -36,6 +38,27 @@ export default function DocumentPreview({ url, name, onClose }: DocumentPreviewP
 
   useEffect(() => {
     let cancelled = false;
+    async function resolveUrl() {
+      try {
+        const resolved = await resolveStorageUrl(url);
+        if (!cancelled) setResolvedUrl(resolved);
+      } catch (error) {
+        console.error('Error resolving storage URL', error);
+      }
+    }
+    resolveUrl();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  useEffect(() => {
+    setPdfDoc(null);
+    setNumPages(0);
+    setCurrentPage(1);
+    setThumbnails([]);
+  }, [url]);
+
+  useEffect(() => {
+    let cancelled = false;
     async function loadPdf() {
       if (!isPdf) return;
       try {
@@ -44,7 +67,7 @@ export default function DocumentPreview({ url, name, onClose }: DocumentPreviewP
         // @ts-ignore
         pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
-        const loadingTask = pdfjsLib.getDocument(url);
+        const loadingTask = pdfjsLib.getDocument(resolvedUrl);
         const pdf = await loadingTask.promise;
         if (cancelled) return;
         setPdfDoc(pdf);
@@ -77,7 +100,7 @@ export default function DocumentPreview({ url, name, onClose }: DocumentPreviewP
 
     loadPdf();
     return () => { cancelled = true; };
-  }, [url, isPdf]);
+  }, [resolvedUrl, isPdf]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,8 +128,8 @@ export default function DocumentPreview({ url, name, onClose }: DocumentPreviewP
 
   const handleDownload = () => {
     const a = document.createElement('a');
-    a.href = url;
-    a.download = name || url.split('/').pop() || 'file';
+    a.href = resolvedUrl;
+    a.download = name || resolvedUrl.split('/').pop() || 'file';
     a.target = '_blank';
     document.body.appendChild(a);
     a.click();
