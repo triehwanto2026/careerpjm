@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShieldCheck, User, Lock, Eye, EyeOff } from "lucide-react";
 import Swal from "sweetalert2";
 import { supabase } from "@/integrations/supabase/client";
@@ -184,7 +184,7 @@ const AdminLogin = () => {
           </button>
 
           <p className="text-center text-xs text-muted-foreground">
-            <a href="/" className="text-primary hover:underline">← Kembali ke halaman tes</a>
+            <Link to="/test-login" className="text-primary hover:underline">← Kembali ke login tes psikologi</Link>
           </p>
         </form>
       </div>

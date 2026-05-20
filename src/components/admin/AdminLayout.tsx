@@ -226,10 +226,10 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-card transition-all duration-300 md:static md:translate-x-0 ${
+      <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100 shadow-lg transition-all duration-300 md:static md:translate-x-0 ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       } ${sidebarCollapsed ? "md:w-20" : "w-64 md:w-64"}`}>
-        <div className={`flex items-center justify-between border-b border-border px-5 py-4 ${sidebarCollapsed ? "px-3" : ""}`}>
+        <div className={`flex items-center justify-between border-b border-slate-700 px-5 py-4 ${sidebarCollapsed ? "px-3" : ""}`}>
           <div className="flex items-center gap-2">
             {adminLogoUrl ? (
               <img src={adminLogoUrl} alt="Admin Logo" className="h-6 w-6 object-contain" />
@@ -237,7 +237,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
               <ShieldCheck className="h-6 w-6 text-primary" />
             )}
             {!sidebarCollapsed && (
-              <span className="text-lg font-bold text-foreground">
+              <span className="text-lg font-bold text-white">
                 {adminPanelName}
               </span>
             )}
@@ -259,10 +259,10 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                   onClick={() => setSidebarOpen(false)}
                   title={sidebarCollapsed ? entry.label : ""}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  } ${sidebarCollapsed ? "justify-center" : ""}`}
+                      active
+                        ? "bg-primary text-white shadow-md"
+                        : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                    } ${sidebarCollapsed ? "justify-center" : ""}`}
                 >
                   <entry.icon className="h-4 w-4 shrink-0" />
                   {!sidebarCollapsed && entry.label}
@@ -281,10 +281,10 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                     onClick={() => toggleGroup(entry.label)}
                     title={sidebarCollapsed ? entry.label : ""}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      hasActiveChild
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    } ${sidebarCollapsed ? "justify-center" : ""}`}
+                        hasActiveChild
+                          ? "bg-primary text-white shadow-md"
+                          : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                      } ${sidebarCollapsed ? "justify-center" : ""}`}
                   >
                     <span className="flex items-center gap-3">
                       <entry.icon className="h-4 w-4 shrink-0" />
@@ -306,10 +306,10 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                             to={child.path}
                             onClick={() => setSidebarOpen(false)}
                             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-                              childActive
-                                ? "bg-primary/10 text-primary"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            }`}
+                                      childActive
+                                        ? "bg-primary text-white"
+                                        : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                                    }`}
                           >
                             <child.icon className="h-3.5 w-3.5 shrink-0" />
                             {child.label}
@@ -324,20 +324,20 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           })}
         </nav>
 
-        <div className="border-t border-border p-3 space-y-2">
+          <div className="border-t border-slate-700 p-3 space-y-2">
           {adminSession && !sidebarCollapsed && (
-            <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-xs font-medium text-foreground truncate">
+            <div className="rounded-lg bg-white/10 px-3 py-2">
+              <p className="text-xs font-medium text-white truncate">
                 {adminSession.full_name || adminSession.username}
               </p>
-              <p className="text-[10px] text-muted-foreground truncate">
+              <p className="text-[10px] text-slate-300 truncate">
                 {adminSession.role_name}
               </p>
             </div>
           )}
           <button onClick={handleLogout}
             title={sidebarCollapsed ? "Keluar" : ""}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors ${sidebarCollapsed ? "justify-center" : ""}`}>
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-red-600/10 hover:text-red-200 transition-colors ${sidebarCollapsed ? "justify-center" : ""}`}>
             <LogOut className="h-4 w-4" />{!sidebarCollapsed && "Keluar"}
           </button>
         </div>

@@ -36,6 +36,7 @@ import Applicants from "./pages/admin/Applicants";
 import RecruitmentProcess from "./pages/admin/RecruitmentProcess";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import TestLogin from "./pages/TestLogin";
 import JobsPage from "./pages/Jobs";
 import JobDetail from "./pages/JobDetail";
 import About from "./pages/About";
@@ -53,6 +54,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/test-login" element={<TestLogin />} />
             <Route path="/register" element={<CandidateRegister />} />
             <Route path="/jobs" element={<JobsPage />} />
             <Route path="/jobs/:id" element={<JobDetail />} />

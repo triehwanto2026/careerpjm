@@ -40,15 +40,15 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 transform transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} bg-card border-r border-border flex flex-col`}>
-        <div className="p-5 border-b border-border">
+      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 transform transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col`}>
+        <div className="p-5 border-b border-slate-700">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
               <Brain className="h-5 w-5 text-white" />
             </div>
             <div>
-              <div className="text-sm font-bold">Portal Kandidat</div>
-              <div className="text-[10px] text-muted-foreground">PsyTest Recruitment</div>
+              <div className="text-sm font-bold text-white">Portal Kandidat</div>
+              <div className="text-[10px] text-slate-300">PsyTest Recruitment</div>
             </div>
           </div>
         </div>
@@ -62,7 +62,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
                 to={n.to}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-                  active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  active ? "bg-primary text-white shadow-md" : "text-slate-300 hover:bg-slate-700 hover:text-white"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -71,11 +71,11 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-border">
-          <div className="px-3 py-2 text-xs text-muted-foreground truncate">{email}</div>
+        <div className="p-3 border-t border-slate-700">
+          <div className="px-3 py-2 text-xs text-slate-300 truncate">{email}</div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-500/10 transition"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-600/10 hover:text-red-200 transition"
           >
             <LogOut className="h-4 w-4" /> Keluar
           </button>
