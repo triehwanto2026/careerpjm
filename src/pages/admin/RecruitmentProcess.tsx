@@ -571,6 +571,18 @@ export default function RecruitmentProcess() {
     }
   };
 
+  const filteredResults = candidateResults.filter((result) =>
+    result.candidate_name.toLowerCase().includes(resultSearch.toLowerCase()) ||
+    result.position.toLowerCase().includes(resultSearch.toLowerCase()) ||
+    result.test_name.toLowerCase().includes(resultSearch.toLowerCase())
+  ).filter((result) => {
+    if (resultFilterStatus !== "all" && result.status !== resultFilterStatus) return false;
+    if (resultFilterTest !== "all" && result.test_name !== resultFilterTest) return false;
+    return true;
+  });
+
+  const uniqueResultTests = Array.from(new Set(candidateResults.map((result) => result.test_name))).sort();
+
   const [showDocPreview, setShowDocPreview] = useState(false);
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
@@ -720,10 +732,6 @@ export default function RecruitmentProcess() {
 
   const assignPsychologyTest = async (application: JobApplication) => {
     openActivationModal(application);
-  };
-
-  const viewTestResults = (application: JobApplication) => {
-    navigate('/admin/results', { state: { search: application.candidate_profile.full_name } });
   };
 
   const filteredApplications = applications.filter(app => {
@@ -1121,6 +1129,232 @@ export default function RecruitmentProcess() {
                 >
                   {activationProcessing ? 'Menyimpan...' : activationApplication.activation_code ? 'Perbarui Kode Tes Psikologi' : 'Buat Kode Tes Psikologi'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showResultsModal && selectedApplication && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-card border border-border rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-6 border-b border-border flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Hasil Tes Kandidat</h2>
+                  <p className="text-sm text-muted-foreground">Lihat hasil tes dan cetak laporan tanpa meninggalkan proses rekrutmen.</p>
+                </div>
+                <button
+                  onClick={() => setShowResultsModal(false)}
+                  className="p-1 rounded hover:bg-muted transition"
+                >
+                  <XCircle className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)] space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Kandidat</div>
+                    <div className="font-semibold text-foreground">{selectedApplication.candidate_profile.full_name}</div>
+                    <div className="text-sm text-muted-foreground">{selectedApplication.candidate_profile.email}</div>
+                    <div className="text-sm text-muted-foreground">{selectedApplication.candidate_profile.phone}</div>
+                    <div className="mt-3">
+                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedApplication.status)}`}>
+                        {getStatusLabel(selectedApplication.status)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Lowongan</div>
+                    <div className="font-semibold text-foreground">{selectedJob?.title || '-'}</div>
+                    <div className="text-sm text-muted-foreground">{selectedJob?.department || '-'}</div>
+                    <div className="text-sm text-muted-foreground">{selectedJob?.location || '-'}</div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Ringkasan Tes</div>
+                    <div className="text-sm text-foreground">{candidateResults.length} hasil ditemukan</div>
+                    <div className="text-sm text-muted-foreground">{resultsLoading ? 'Memuat...' : 'Hasil diperbarui secara otomatis'}</div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama tes atau posisi..."
+                        value={resultSearch}
+                        onChange={(e) => setResultSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    </div>
+                    <div className="relative">
+                      <select
+                        value={resultFilterStatus}
+                        onChange={(e) => setResultFilterStatus(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      >
+                        <option value="all">Semua Status</option>
+                        <option value="passed">Lulus</option>
+                        <option value="review">Review</option>
+                        <option value="failed">Tidak Lulus</option>
+                      </select>
+                      <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    <div className="relative">
+                      <select
+                        value={resultFilterTest}
+                        onChange={(e) => setResultFilterTest(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      >
+                        <option value="all">Semua Tes</option>
+                        {uniqueResultTests.map((test) => (
+                          <option key={test} value={test}>{test}</option>
+                        ))}
+                      </select>
+                      <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full min-w-[640px]">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nama Tes</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Posisi</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Skor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Selesai</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {resultsLoading ? (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Memuat hasil tes...</td>
+                          </tr>
+                        ) : filteredResults.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Tidak ada hasil tes untuk kandidat ini</td>
+                          </tr>
+                        ) : (
+                          filteredResults.map((result) => (
+                            <tr key={result.id} className="hover:bg-muted/50 transition">
+                              <td className="px-4 py-3 text-sm text-foreground">{result.test_name}</td>
+                              <td className="px-4 py-3 text-sm text-foreground">{result.position || '-'}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(result.status)}`}>
+                                  {result.status.toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-foreground">{result.score}/{result.total_questions}</td>
+                              <td className="px-4 py-3 text-sm text-foreground">{formatDate(result.completed_at)}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    onClick={() => handleSelectResult(result)}
+                                    className="px-3 py-1 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
+                                  >
+                                    Lihat
+                                  </button>
+                                  <button
+                                    onClick={() => handlePrintResult(result)}
+                                    className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition"
+                                  >
+                                    Cetak
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {selectedResult && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-5 space-y-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">Detail Hasil Tes</h3>
+                        <p className="text-sm text-muted-foreground">{selectedResult.test_name} — {selectedResult.position || '-'}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePrintResult(selectedResult)}
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        <Printer className="h-4 w-4" /> Cetak Laporan
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                      <div className="rounded-lg bg-background p-4 border border-border">
+                        <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-2">Informasi</p>
+                        <p className="text-sm text-foreground"><strong>Skor:</strong> {selectedResult.score}/{selectedResult.total_questions}</p>
+                        <p className="text-sm text-foreground"><strong>Jawaban:</strong> {selectedResult.answered_questions}</p>
+                        <p className="text-sm text-foreground"><strong>Status:</strong> {selectedResult.status}</p>
+                        <p className="text-sm text-foreground"><strong>Selesai:</strong> {formatDate(selectedResult.completed_at)}</p>
+                      </div>
+                      <div className="lg:col-span-2 rounded-lg bg-background p-4 border border-border">
+                        <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-2">Interpretasi</p>
+                        <p className="text-sm text-foreground">{selectedResult.interpretation || 'Tidak ada interpretasi tersedia.'}</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-lg border border-border bg-background">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Kategori</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nilai</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {Object.entries(selectedResult.categories || {}).map(([category, value]) => (
+                            <tr key={category}>
+                              <td className="px-4 py-3 text-sm text-foreground">{category}</td>
+                              <td className="px-4 py-3 text-sm text-foreground">{value}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {resultLoadingAnswers ? (
+                      <div className="text-sm text-muted-foreground">Memuat jawaban...</div>
+                    ) : resultAnswers.length > 0 ? (
+                      <div className="space-y-3">
+                        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Jawaban Detil</div>
+                        <div className="overflow-x-auto rounded-lg border border-border bg-background">
+                          <table className="w-full min-w-[640px]">
+                            <thead className="bg-muted/50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">No.</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Kategori</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pertanyaan</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Jawaban</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {resultAnswers.map((answer) => (
+                                <tr key={answer.id}>
+                                  <td className="px-4 py-3 text-sm text-foreground">{answer.question_number}</td>
+                                  <td className="px-4 py-3 text-sm text-foreground">{answer.category || '-'}</td>
+                                  <td className="px-4 py-3 text-sm text-foreground">{answer.question_text}</td>
+                                  <td className="px-4 py-3 text-sm text-foreground">{answer.selected_answer_label || answer.selected_answer}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">Tidak ada data jawaban tersedia untuk hasil ini.</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
