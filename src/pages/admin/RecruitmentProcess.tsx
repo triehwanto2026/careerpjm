@@ -552,7 +552,7 @@ export default function RecruitmentProcess() {
       const candidateIds = [application.user_id, application.candidate_profile.id].filter(Boolean);
       let { data, error } = await supabase
         .from("test_results")
-        .select("*, candidate_profile:candidate_profiles(*)")
+        .select("*")
         .in("candidate_id", candidateIds)
         .order("completed_at", { ascending: false });
 
@@ -568,7 +568,7 @@ export default function RecruitmentProcess() {
         const nameSearch = application.candidate_profile.full_name;
         const { data: nameData, error: nameError } = await supabase
           .from("test_results")
-          .select("*, candidate_profile:candidate_profiles(*)")
+          .select("*")
           .ilike("candidate_name", `%${nameSearch}%`)
           .order("completed_at", { ascending: false });
         if (nameError) throw nameError;
