@@ -39,7 +39,7 @@ export const generatePrintHTML = (
 ): string => {
   const r = result;
   const profile = r.candidate_profile || {};
-  const cats = r.categories as Record<string, number>;
+  const cats = (r.categories || {}) as Record<string, number>;
   const catEntries = Object.entries(cats);
   const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
   const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
@@ -141,9 +141,10 @@ export const generatePrintHTML = (
   <meta charset="UTF-8">
   <title>Laporan Hasil Tes — ${r.candidate_name}</title>
   <style>
-    @page { size: A4; margin: 16mm 14mm; }
+    @page { size: A4 portrait; margin: 16mm 14mm; }
+    html, body { width: 100%; min-height: 100%; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; font-size: 11pt; line-height: 1.5; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; font-size: 11pt; line-height: 1.5; margin: 0 auto; max-width: 816px; }
     .header { border-bottom: 3px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
     .header-left h1 { font-size: 18pt; color: #0f172a; margin-bottom: 2px; letter-spacing: -0.3px; }
     .header-left p { font-size: 9pt; color: #64748b; }
@@ -218,8 +219,7 @@ export const generatePrintHTML = (
     </div>
   </div>
 
-  ${discChartsHTML}
-
+  ${r.test_name.toUpperCase().includes("DISC") ? discChartsHTML : `
   <div class="section">
     <div class="section-title">Profil Dimensi & Skor</div>
     <table class="dim-table">
@@ -239,6 +239,7 @@ export const generatePrintHTML = (
       </tbody>
     </table>
   </div>
+  `}
 
   ${discInterpretation}
 
@@ -298,8 +299,28 @@ export const generatePrintHTML = (
 export const printHTML = (html: string) => {
   const win = window.open("", "_blank");
   if (!win) return;
+  win.document.open();
   win.document.write(html);
   win.document.close();
-  win.focus();
-  setTimeout(() => win.print(), 300);
+
+  const printWindow = () => {
+    if (win.closed) return;
+    try {
+      win.focus();
+      win.print();
+    } catch (error) {
+      console.error("Print failed:", error);
+    }
+  };
+
+  const attemptPrint = () => {
+    if (win.document.readyState === "complete" || win.document.readyState === "interactive") {
+      printWindow();
+    } else {
+      win.addEventListener("load", printWindow, { once: true });
+      setTimeout(printWindow, 800);
+    }
+  };
+
+  attemptPrint();
 };

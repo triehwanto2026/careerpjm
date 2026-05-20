@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, Printer, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import CandidateTestResultView from "@/components/admin/CandidateTestResultView";
+import { generatePrintHTML, printHTML } from "@/utils/printUtils";
 import { supabase } from "@/integrations/supabase/client";
 import DocumentPreview from "@/components/DocumentPreview";
 import Swal from "sweetalert2";
@@ -550,7 +552,7 @@ export default function RecruitmentProcess() {
       const candidateIds = [application.user_id, application.candidate_profile.id].filter(Boolean);
       let { data, error } = await supabase
         .from("test_results")
-        .select("*")
+        .select("*, candidate_profile:candidate_profiles(*)")
         .in("candidate_id", candidateIds)
         .order("completed_at", { ascending: false });
 
@@ -566,7 +568,7 @@ export default function RecruitmentProcess() {
         const nameSearch = application.candidate_profile.full_name;
         const { data: nameData, error: nameError } = await supabase
           .from("test_results")
-          .select("*")
+          .select("*, candidate_profile:candidate_profiles(*)")
           .ilike("candidate_name", `%${nameSearch}%`)
           .order("completed_at", { ascending: false });
         if (nameError) throw nameError;
@@ -617,16 +619,12 @@ export default function RecruitmentProcess() {
   };
 
   const handlePrintResult = async (result: CandidateResult) => {
-    const { generatePrintHTML, printHTML: doPrint } = await import('@/utils/printUtils');
     const profile = (result.candidate_profile as Record<string, any> | null) || selectedApplication?.candidate_profile || null;
-    
-    // Prepare result for print utility
     const printResult = {
       ...result,
       candidate_profile: profile,
     };
 
-    // Load answers if available
     let answers: any[] = [];
     try {
       const { data } = await supabase
@@ -640,7 +638,7 @@ export default function RecruitmentProcess() {
     }
 
     const html = generatePrintHTML(printResult, answers, profile?.photo_url);
-    doPrint(html);
+    printHTML(html);
   };
 
   const filteredResults = candidateResults.filter((result) =>
@@ -1425,71 +1423,11 @@ export default function RecruitmentProcess() {
                         <Printer className="h-4 w-4" /> Cetak Laporan
                       </button>
                     </div>
-
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                      <div className="rounded-lg bg-background p-4 border border-border">
-                        <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-2">Informasi</p>
-                        <p className="text-sm text-foreground"><strong>Skor:</strong> {selectedResult.score}/{selectedResult.total_questions}</p>
-                        <p className="text-sm text-foreground"><strong>Jawaban:</strong> {selectedResult.answered_questions}</p>
-                        <p className="text-sm text-foreground"><strong>Status:</strong> {selectedResult.status}</p>
-                        <p className="text-sm text-foreground"><strong>Selesai:</strong> {formatDate(selectedResult.completed_at)}</p>
-                      </div>
-                      <div className="lg:col-span-2 rounded-lg bg-background p-4 border border-border">
-                        <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-2">Interpretasi</p>
-                        <p className="text-sm text-foreground">{selectedResult.interpretation || 'Tidak ada interpretasi tersedia.'}</p>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto rounded-lg border border-border bg-background">
-                      <table className="w-full">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Kategori</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nilai</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {Object.entries(selectedResult.categories || {}).map(([category, value]) => (
-                            <tr key={category}>
-                              <td className="px-4 py-3 text-sm text-foreground">{category}</td>
-                              <td className="px-4 py-3 text-sm text-foreground">{value}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {resultLoadingAnswers ? (
-                      <div className="text-sm text-muted-foreground">Memuat jawaban...</div>
-                    ) : resultAnswers.length > 0 ? (
-                      <div className="space-y-3">
-                        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Jawaban Detil</div>
-                        <div className="overflow-x-auto rounded-lg border border-border bg-background">
-                          <table className="w-full min-w-[640px]">
-                            <thead className="bg-muted/50">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">No.</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Kategori</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pertanyaan</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Jawaban</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                              {resultAnswers.map((answer) => (
-                                <tr key={answer.id}>
-                                  <td className="px-4 py-3 text-sm text-foreground">{answer.question_number}</td>
-                                  <td className="px-4 py-3 text-sm text-foreground">{answer.category || '-'}</td>
-                                  <td className="px-4 py-3 text-sm text-foreground">{answer.question_text}</td>
-                                  <td className="px-4 py-3 text-sm text-foreground">{answer.selected_answer_label || answer.selected_answer}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground">Tidak ada data jawaban tersedia untuk hasil ini.</div>
-                    )}
+                    <CandidateTestResultView
+                      result={selectedResult as any}
+                      answers={resultAnswers as any}
+                      profilePhoto={selectedApplication?.candidate_profile?.photo_url}
+                    />
                   </div>
                 )}
               </div>
