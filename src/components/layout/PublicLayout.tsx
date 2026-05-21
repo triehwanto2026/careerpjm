@@ -14,6 +14,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
     const loadPublicSettings = async () => {
       const keys = [
         "app_name",
+        "app_logo_url",
         "landing_header_title",
         "landing_header_subtitle",
         "landing_contact_email",
@@ -52,7 +53,8 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const companyName = publicSettings.app_name || publicSettings.landing_header_title || "PJM Recruitment";
+  const companyName = publicSettings.app_name || publicSettings.landing_header_title || "PJM GROUP Career Management";
+  const logoUrl = publicSettings.app_logo_url;
   const brandSubtitle = publicSettings.landing_header_subtitle || "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
   const contactEmail = publicSettings.landing_contact_email || "hr@pjmgroup.com";
   const contactPhone = publicSettings.landing_contact_phone || "+62 21 1234 5678";
@@ -64,9 +66,13 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl">
         <div className="container flex items-center justify-between px-4 py-4 md:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-primary" />
-            </div>
+            {logoUrl ? (
+              <img src={logoUrl} alt={companyName} className="h-8 w-8 rounded-lg bg-primary/10 object-contain p-1" />
+            ) : (
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+            )}
             <span className="text-lg font-bold text-foreground">{companyName}</span>
           </Link>
 
@@ -169,9 +175,13 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-primary" />
-                </div>
+                {logoUrl ? (
+                  <img src={logoUrl} alt={companyName} className="h-8 w-8 rounded-lg bg-primary/10 object-contain p-1" />
+                ) : (
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-primary" />
+                  </div>
+                )}
                 <span className="text-lg font-bold text-foreground">{companyName}</span>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -208,7 +218,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-border text-center text-xs text-muted-foreground">
-            <p>© 2024 PJM Recruitment. All rights reserved.</p>
+            <p>© 2024 {companyName}. All rights reserved.</p>
           </div>
         </div>
       </footer>

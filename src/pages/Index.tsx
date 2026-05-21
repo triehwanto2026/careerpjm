@@ -36,6 +36,7 @@ const Index = () => {
   useEffect(() => {
     const loadLandingSettings = async () => {
       const keys = [
+        "app_name",
         "landing_header_title",
         "landing_header_subtitle",
         "landing_hero_background_url",
@@ -82,8 +83,9 @@ const Index = () => {
     };
   }, []);
 
-  const heroTitle = landingSettings.landing_header_title || "PJM Recruitment";
+  const heroTitle = landingSettings.landing_header_title || "PJM GROUP Career Management";
   const heroSubtitle = landingSettings.landing_header_subtitle || "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
+  const heroBrand = landingSettings.app_name || landingSettings.landing_header_title || "PJM GROUP Career Management";
   const heroBackgroundUrl = landingSettings.landing_hero_background_url || "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80";
 
   if (error) {
@@ -115,7 +117,7 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/20"></div>
         <div className="relative container py-24 md:py-28 lg:py-32">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-3xl">
-            <Badge className="mb-5 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/10">PJM Recruitment</Badge>
+            <Badge className="mb-5 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/10">{heroBrand}</Badge>
             <h1 className="mb-6 text-4xl font-extrabold leading-tight text-foreground md:text-5xl lg:text-6xl">
               {heroTitle}
             </h1>
