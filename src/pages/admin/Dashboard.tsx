@@ -33,7 +33,7 @@ const Dashboard = () => {
       const [jobsRes, appsRes, profilesRes, instrRes, resRes, codeRes] = await Promise.all([
         supabase.from("job_vacancies").select("id, status, title").order("created_at", { ascending: false }),
         supabase.from("job_applications").select("id, status, applied_at, user_id, vacancy_id").order("applied_at", { ascending: false }),
-        supabase.from("candidate_profiles").select("user_id, full_name, is_complete, created_at").order("created_at", { ascending: false }),
+        supabase.from("candidate_profiles").select("user_id, full_name, email, is_complete, created_at").order("created_at", { ascending: false }),
         supabase.from("test_instruments").select("id, is_active"),
         supabase.from("test_results").select("id, candidate_name, test_name, score, status, completed_at").order("completed_at", { ascending: false }),
         supabase.from("activation_codes").select("id, is_used"),
@@ -127,7 +127,7 @@ const Dashboard = () => {
                 <div key={c.user_id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5">
                   <div>
                     <p className="text-sm font-medium text-foreground">{c.full_name || "-"}</p>
-                    <p className="text-xs text-muted-foreground">{c.user_id}</p>
+                    <p className="text-xs text-muted-foreground">{c.email || new Date(c.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</p>
                   </div>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${c.is_complete ? "bg-emerald-400/10 text-emerald-400" : "bg-amber-400/10 text-amber-400"}`}>
                     {c.is_complete ? "Profil Lengkap" : "Profil Belum Lengkap"}
