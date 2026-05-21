@@ -722,8 +722,8 @@ export default function CandidateProfile() {
                               </button>
                             )}
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
-                            <div className="w-24">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 items-end">
+                            <div className="min-w-0">
                               <label className={lbl}>Hubungan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.relation || ''} onChange={(e) => isEditing && updateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -732,11 +732,11 @@ export default function CandidateProfile() {
                                 <option value="Saudara">Saudara</option>
                               </select>
                             </div>
-                            <div className="flex-1 min-w-[120px]">
+                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
                               <label className={lbl}>Nama</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.name} onChange={(e) => isEditing && updateFamilyMember(index, 'name', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="w-16">
+                            <div className="min-w-0">
                               <label className={lbl}>Jenis Kelamin</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.gender} onChange={(e) => isEditing && updateFamilyMember(index, 'gender', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -744,11 +744,11 @@ export default function CandidateProfile() {
                                 <option value="P">P</option>
                               </select>
                             </div>
-                            <div className="w-16">
+                            <div className="min-w-0">
                               <label className={lbl}>Usia</label>
                               <input type="number" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateFamilyMember(index, 'age', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="w-32">
+                            <div className="min-w-0">
                               <label className={lbl}>Pendidikan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.education} onChange={(e) => isEditing && updateFamilyMember(index, 'education', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -763,11 +763,11 @@ export default function CandidateProfile() {
                                 <option value="S3">S3</option>
                               </select>
                             </div>
-                            <div className="flex-1 min-w-[120px]">
+                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
                               <label className={lbl}>Pekerjaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.occupation} onChange={(e) => isEditing && updateFamilyMember(index, 'occupation', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="flex-1 min-w-[120px]">
+                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
                               <label className={lbl}>Perusahaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.company} onChange={(e) => isEditing && updateFamilyMember(index, 'company', e.target.value)} disabled={!isEditing} />
                             </div>
@@ -807,8 +807,8 @@ export default function CandidateProfile() {
                               </button>
                             )}
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
-                            <div className="w-24">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 items-end">
+                            <div className="min-w-0">
                               <label className={lbl}>Hubungan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.relation} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -817,11 +817,11 @@ export default function CandidateProfile() {
                                 <option value="Anak">Anak</option>
                               </select>
                             </div>
-                            <div className="flex-1 min-w-[120px]">
+                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
                               <label className={lbl}>Nama</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.name} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'name', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="w-16">
+                            <div className="min-w-0">
                               <label className={lbl}>Jenis Kelamin</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.gender} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'gender', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -829,11 +829,11 @@ export default function CandidateProfile() {
                                 <option value="P">P</option>
                               </select>
                             </div>
-                            <div className="w-16">
+                            <div className="min-w-0">
                               <label className={lbl}>Usia</label>
                               <input type="number" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'age', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="w-32">
+                            <div className="min-w-0">
                               <label className={lbl}>Pendidikan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.education} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'education', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -850,11 +850,11 @@ export default function CandidateProfile() {
                                 <option value="S3">S3</option>
                               </select>
                             </div>
-                            <div className="flex-1 min-w-[120px]">
+                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
                               <label className={lbl}>Pekerjaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.occupation} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'occupation', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="flex-1 min-w-[120px]">
+                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
                               <label className={lbl}>Perusahaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.company} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'company', e.target.value)} disabled={!isEditing} />
                             </div>
@@ -896,8 +896,8 @@ export default function CandidateProfile() {
                           </button>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
-                        <div className="w-28">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
+                        <div className="min-w-0">
                           <label className={lbl}>Jenjang</label>
                           <select className={isEditing ? inp : inpDisabled} value={edu.level} onChange={(e) => isEditing && updateEducation(index, 'level', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
@@ -911,27 +911,29 @@ export default function CandidateProfile() {
                             <option value="S3">S3</option>
                           </select>
                         </div>
-                        <div className="flex-1 min-w-[140px]">
-                          <label className={lbl}>Nama Sekolah</label>
+                        <div className="min-w-0 md:col-span-2 xl:col-span-2">
+                          <label className={lbl}>Nama Sekolah / Perguruan Tinggi</label>
                           <input className={isEditing ? inp : inpDisabled} value={edu.school} onChange={(e) => isEditing && updateEducation(index, 'school', e.target.value)} disabled={!isEditing} />
                         </div>
-                        <div className="flex-1 min-w-[120px]">
+                        <div className="min-w-0 xl:col-span-1">
                           <label className={lbl}>Jurusan</label>
                           <input className={isEditing ? inp : inpDisabled} value={edu.major} onChange={(e) => isEditing && updateEducation(index, 'major', e.target.value)} disabled={!isEditing} />
                         </div>
-                        <div className="w-20">
-                          <label className={lbl}>Masuk</label>
-                          <input type="number" className={isEditing ? inp : inpDisabled} value={edu.start_year} onChange={(e) => isEditing && updateEducation(index, 'start_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
+                        <div className="grid grid-cols-3 gap-3 xl:col-span-4">
+                          <div className="min-w-0">
+                            <label className={lbl}>Masuk</label>
+                            <input type="number" className={isEditing ? inp : inpDisabled} value={edu.start_year} onChange={(e) => isEditing && updateEducation(index, 'start_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
+                          </div>
+                          <div className="min-w-0">
+                            <label className={lbl}>Selesai</label>
+                            <input type="number" className={isEditing ? inp : inpDisabled} value={edu.end_year} onChange={(e) => isEditing && updateEducation(index, 'end_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
+                          </div>
+                          <div className="min-w-0">
+                            <label className={lbl}>Nilai</label>
+                            <input className={isEditing ? inp : inpDisabled} value={edu.grade} onChange={(e) => isEditing && updateEducation(index, 'grade', e.target.value)} placeholder="Nilai/IPK" disabled={!isEditing} />
+                          </div>
                         </div>
-                        <div className="w-20">
-                          <label className={lbl}>Selesai</label>
-                          <input type="number" className={isEditing ? inp : inpDisabled} value={edu.end_year} onChange={(e) => isEditing && updateEducation(index, 'end_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
-                        </div>
-                        <div className="w-24">
-                          <label className={lbl}>Nilai</label>
-                          <input className={isEditing ? inp : inpDisabled} value={edu.grade} onChange={(e) => isEditing && updateEducation(index, 'grade', e.target.value)} placeholder="Nilai/IPK" disabled={!isEditing} />
-                        </div>
-                        <div className="w-24">
+                        <div className="min-w-0">
                           <label className={lbl}>Status</label>
                           <select className={isEditing ? inp : inpDisabled} value={edu.status} onChange={(e) => isEditing && updateEducation(index, 'status', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
