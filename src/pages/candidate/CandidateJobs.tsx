@@ -31,6 +31,7 @@ export default function CandidateJobs() {
   const [selected, setSelected] = useState<Vacancy | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
   const [userId, setUserId] = useState("");
+  const [profileComplete, setProfileComplete] = useState(false);
 
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -40,6 +41,8 @@ export default function CandidateJobs() {
     if (session) {
       const { data: apps } = await supabase.from("job_applications").select("vacancy_id").eq("user_id", session.user.id);
       setApplied(new Set((apps || []).map((a: any) => a.vacancy_id)));
+      const { data: profileData } = await supabase.from("candidate_profiles").select("is_complete").eq("user_id", session.user.id).maybeSingle();
+      setProfileComplete(Boolean(profileData?.is_complete));
     }
   };
 
@@ -47,6 +50,14 @@ export default function CandidateJobs() {
 
   const apply = async () => {
     if (!selected) return;
+    if (!profileComplete) {
+      Swal.fire({
+        icon: "warning",
+        title: "Profil Belum Lengkap",
+        text: "Lengkapi minimal 50% profil Anda di halaman Profil sebelum mengajukan lamaran.",
+      });
+      return;
+    }
     const { error } = await supabase.from("job_applications").insert({
       user_id: userId, vacancy_id: selected.id, cover_letter: coverLetter, status: "submitted",
     });
@@ -230,21 +241,29 @@ export default function CandidateJobs() {
             )}
 
             {/* Actions */}
-            <div className="flex gap-3 justify-end pt-4 border-t border-border">
-              <button 
-                onClick={() => setSelected(null)} 
-                className="px-6 py-3 rounded-xl border border-border text-sm font-semibold hover:bg-muted transition"
-              >
-                Tutup
-              </button>
-              {!applied.has(selected.id) && (
-                <button 
-                  onClick={apply} 
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition"
-                >
-                  <Send className="h-4 w-4" /> Kirim Lamaran
-                </button>
+            <div className="flex flex-col gap-3 pt-4 border-t border-border">
+              {!profileComplete && !applied.has(selected.id) && (
+                <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                  Profil Anda belum lengkap. Lengkapi minimal 50% profil di halaman Profil agar bisa melamar.
+                </div>
               )}
+              <div className="flex gap-3 justify-end">
+                <button 
+                  onClick={() => setSelected(null)} 
+                  className="px-6 py-3 rounded-xl border border-border text-sm font-semibold hover:bg-muted transition"
+                >
+                  Tutup
+                </button>
+                {!applied.has(selected.id) && (
+                  <button 
+                    onClick={apply} 
+                    disabled={!profileComplete}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition ${profileComplete ? 'bg-primary text-primary-foreground hover:brightness-110' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+                  >
+                    <Send className="h-4 w-4" /> Kirim Lamaran
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
