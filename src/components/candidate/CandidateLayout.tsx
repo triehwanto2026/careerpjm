@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { User, Briefcase, FileText, ClipboardList, LogOut, Brain, Menu, X, Bell, Settings } from "lucide-react";
+import { User, Briefcase, FileText, ClipboardList, LogOut, ShieldCheck, Menu, X, Bell, Settings, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -19,6 +19,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -32,6 +33,25 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
+  useEffect(() => {
+    const loadPublicSettings = async () => {
+      const keys = ["app_name", "app_logo_url", "landing_header_title"];
+      const { data, error } = await supabase.from("app_settings").select("key, value").in("key", keys);
+      if (error) {
+        console.error("Error loading candidate branding settings:", error);
+        return;
+      }
+      setPublicSettings(
+        (data || []).reduce((acc, item) => {
+          acc[item.key] = item.value;
+          return acc;
+        }, {} as Record<string, string>)
+      );
+    };
+
+    loadPublicSettings();
+  }, []);
+
   const logout = async () => {
     await supabase.auth.signOut();
     navigate("/candidate/login");
@@ -43,12 +63,18 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
       <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 transform transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col`}>
         <div className="p-5 border-b border-slate-700">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
-              <Brain className="h-5 w-5 text-white" />
-            </div>
+            {publicSettings.app_logo_url ? (
+              <img src={publicSettings.app_logo_url} alt={publicSettings.app_name || publicSettings.landing_header_title || "PJM Group Career Management"} className="h-9 w-9 rounded-lg object-cover" />
+            ) : (
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
+                <ShieldCheck className="h-5 w-5 text-white" />
+              </div>
+            )}
             <div>
               <div className="text-sm font-bold text-white">Portal Kandidat</div>
-              <div className="text-[10px] text-slate-300">PsyTest Recruitment</div>
+              <div className="text-[10px] text-slate-300">
+                {publicSettings.app_name || publicSettings.landing_header_title || "PJM Group Career Management"}
+              </div>
             </div>
           </div>
         </div>
