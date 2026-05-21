@@ -1,5 +1,6 @@
 import PublicLayout from "@/components/layout/PublicLayout";
-import { Building2, Target, Trophy, Heart, Zap } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import { Building2, Target, Trophy, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +55,37 @@ const About = () => {
     { year: "2022", description: "Melayani lebih dari 1.000 kandidat." },
     { year: "2024", description: "Menjadi pilihan utama perusahaan dan talenta di Indonesia." },
   ];
+
+  const renderValueIcon = (icon?: string) => {
+    if (!icon) {
+      return <span>⭐</span>;
+    }
+
+    const trimmed = icon.trim();
+    const isUrl = /^https?:\/\//i.test(trimmed) || trimmed.includes("/") && !trimmed.includes(" ");
+    if (isUrl) {
+      return (
+        <img
+          src={trimmed}
+          alt="Ikon Nilai"
+          className="h-8 w-8 object-contain"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/favicon.ico"; }}
+        />
+      );
+    }
+
+    const emojiRegex = /\p{Extended_Pictographic}/u;
+    if (emojiRegex.test(trimmed)) {
+      return <span>{trimmed}</span>;
+    }
+
+    const NamedIcon = (LucideIcons as Record<string, React.ElementType>)[trimmed];
+    if (NamedIcon) {
+      return <NamedIcon className="h-8 w-8 text-primary" />;
+    }
+
+    return <span>{trimmed}</span>;
+  };
   const defaultValues = [
     { name: "Integritas", description: "Bertindak Jujur dan bertanggung jawab", icon: "🤝" },
     { name: "Profesionalisme", description: "Menjaga kualitas kerja dan layanan profesional", icon: "💼" },
@@ -153,7 +185,7 @@ const About = () => {
             {(aboutValues.length > 0 ? aboutValues : defaultValues).map((value, i) => (
               <div key={i} className="card-elevated p-6 text-center">
                 <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-2xl">
-                  {value.icon || "⭐"}
+                  {renderValueIcon(value.icon)}
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{value.name || `Nilai ${i + 1}`}</h3>
                 <p className="text-sm text-muted-foreground">{value.description}</p>

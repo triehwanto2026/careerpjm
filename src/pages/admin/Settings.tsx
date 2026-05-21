@@ -732,7 +732,7 @@ const Settings = () => {
                                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
                                 list="icon-suggestions"
                               />
-                              <p className="text-xs text-muted-foreground">Kosongkan untuk ikon otomatis berdasarkan nama nilai.</p>
+                              <p className="text-xs text-muted-foreground">Pilih dari daftar atau ketik emoji, nama ikon Lucide, atau URL gambar.</p>
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -751,17 +751,31 @@ const Settings = () => {
                       )}
                     <datalist id="icon-suggestions">
                       {[
-                        "Building2",
-                        "Globe",
-                        "Zap",
                         "Award",
-                        "Heart",
-                        "Users",
-                        "Shield",
+                        "Badge",
                         "Briefcase",
-                        "Sparkles",
+                        "Building2",
                         "Calendar",
+                        "CheckCircle2",
+                        "ClipboardText",
+                        "Globe",
+                        "Heart",
+                        "Lightbulb",
+                        "MapPin",
+                        "Rocket",
+                        "Shield",
+                        "Sparkles",
+                        "Star",
                         "Target",
+                        "ThumbsUp",
+                        "TrendingUp",
+                        "Users",
+                        "Zap",
+                        "🤝",
+                        "💼",
+                        "⚡",
+                        "❤️",
+                        "🌟",
                       ].map((icon) => (
                         <option key={icon} value={icon} />
                       ))}
