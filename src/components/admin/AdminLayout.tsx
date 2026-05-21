@@ -24,12 +24,12 @@ type NavEntry = NavItem | NavGroup;
 
 const ALL_NAV_ENTRIES: NavEntry[] = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
   {
     label: "Alat Tes",
     icon: ClipboardList,
     children: [
       { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
+      { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
       { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
     ],
   },
@@ -124,6 +124,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         perms.includes(currentPath) ||
         currentPath === "/admin" ||
         currentPath === "/admin/test-instruments" ||
+        currentPath === "/admin/activation-codes" ||
         currentPath === "/admin/jobs" ||
         currentPath === "/admin/hr-jobs" ||
         currentPath === "/admin/recruitment" ||
@@ -157,7 +158,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
 
     // Paths that should always be visible regardless of permissions
-    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/results", "/admin/candidate-settings", "/admin/candidates"];
+    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/results", "/admin/activation-codes", "/admin/candidate-settings", "/admin/candidates"];
 
     const filtered: NavEntry[] = [];
     for (const entry of ALL_NAV_ENTRIES) {
@@ -192,6 +193,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Expandable groups state
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    "Alat Tes": location.pathname.startsWith("/admin/test-instruments") ||
+                location.pathname.startsWith("/admin/results") ||
+                location.pathname === "/admin/activation-codes",
     "Manajemen Kandidat": location.pathname.startsWith("/admin/candidates") ||
                          location.pathname.startsWith("/admin/hr-jobs") ||
                          location.pathname.startsWith("/admin/applicants") ||
