@@ -1071,7 +1071,9 @@ const TestPage = () => {
 
     await saveSessionRef.current();
     sessionStorage.clear();
+    try { await supabase.auth.signOut(); } catch {}
     navigate("/", { replace: true });
+
   };
 
   if (submitted) return null;
