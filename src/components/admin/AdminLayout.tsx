@@ -97,60 +97,74 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (sessionStorage.getItem("psytest_admin") !== "true") {
-      navigate("/admin", { replace: true });
-      return;
-    }
-
-    const sessionData = sessionStorage.getItem("psytest_admin_user");
-    if (!sessionData) {
-      // Old login without user data — allow through with full access for now
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(sessionData) as AdminSession;
-      // Runtime guard: ensure permissions is an array
-      const safeParsed: AdminSession = {
-        ...parsed,
-        permissions: Array.isArray(parsed.permissions) ? parsed.permissions : [],
-      };
-      setAdminSession(safeParsed);
-
-      // Check permission for current page
-      const currentPath = location.pathname;
-      const perms = safeParsed.permissions;
-      const hasPermission =
-        perms.includes(currentPath) ||
-        currentPath === "/admin" ||
-        currentPath === "/admin/test-instruments" ||
-        currentPath === "/admin/activation-codes" ||
-        currentPath === "/admin/jobs" ||
-        currentPath === "/admin/hr-jobs" ||
-        currentPath === "/admin/recruitment" ||
-        currentPath.startsWith("/admin/candidates");
-
-      const isSubRoute = currentPath.startsWith("/admin/test-instruments/");
-      const hasParentPermission = isSubRoute && perms.includes("/admin/test-instruments");
-
-      if (!hasPermission && !hasParentPermission) {
-        Swal.fire({
-          icon: "warning",
-          title: "Akses Ditolak",
-          text: "Anda tidak memiliki izin untuk mengakses halaman ini.",
-          background: "hsl(var(--card))",
-          color: "hsl(var(--foreground))",
-          confirmButtonColor: "hsl(174, 72%, 46%)",
-        }).then(() => {
-          navigate("/admin/dashboard", { replace: true });
-        });
+    let cancelled = false;
+    const validate = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (!session) {
+        sessionStorage.removeItem("psytest_admin");
+        sessionStorage.removeItem("psytest_admin_user");
+        navigate("/admin", { replace: true });
+        return;
       }
-    } catch {
-      sessionStorage.removeItem("psytest_admin");
-      sessionStorage.removeItem("psytest_admin_user");
-      navigate("/admin", { replace: true });
-    }
+
+      const sessionData = sessionStorage.getItem("psytest_admin_user");
+      if (!sessionData) return;
+
+      try {
+        const parsed = JSON.parse(sessionData) as AdminSession;
+        const safeParsed: AdminSession = {
+          ...parsed,
+          permissions: Array.isArray(parsed.permissions) ? parsed.permissions : [],
+        };
+        setAdminSession(safeParsed);
+
+        const currentPath = location.pathname;
+        const perms = safeParsed.permissions;
+        const hasPermission =
+          perms.includes(currentPath) ||
+          currentPath === "/admin" ||
+          currentPath === "/admin/test-instruments" ||
+          currentPath === "/admin/activation-codes" ||
+          currentPath === "/admin/jobs" ||
+          currentPath === "/admin/hr-jobs" ||
+          currentPath === "/admin/recruitment" ||
+          currentPath.startsWith("/admin/candidates");
+
+        const isSubRoute = currentPath.startsWith("/admin/test-instruments/");
+        const hasParentPermission = isSubRoute && perms.includes("/admin/test-instruments");
+
+        if (!hasPermission && !hasParentPermission) {
+          Swal.fire({
+            icon: "warning",
+            title: "Akses Ditolak",
+            text: "Anda tidak memiliki izin untuk mengakses halaman ini.",
+            background: "hsl(var(--card))",
+            color: "hsl(var(--foreground))",
+            confirmButtonColor: "hsl(174, 72%, 46%)",
+          }).then(() => {
+            navigate("/admin/dashboard", { replace: true });
+          });
+        }
+      } catch {
+        sessionStorage.removeItem("psytest_admin");
+        sessionStorage.removeItem("psytest_admin_user");
+        navigate("/admin", { replace: true });
+      }
+    };
+    validate();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        sessionStorage.removeItem("psytest_admin");
+        sessionStorage.removeItem("psytest_admin_user");
+        navigate("/admin", { replace: true });
+      }
+    });
+
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, [navigate, location.pathname]);
+
 
   // Filter nav entries by permissions
   const navEntries = useMemo(() => {
@@ -215,14 +229,16 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       icon: "warning", title: "Keluar?", text: "Yakin ingin keluar dari panel admin?",
       showCancelButton: true, confirmButtonText: "Ya, Keluar", cancelButtonText: "Batal",
       background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(0, 72%, 51%)",
-    }).then((r) => {
+    }).then(async (r) => {
       if (r.isConfirmed) {
+        await supabase.auth.signOut();
         sessionStorage.removeItem("psytest_admin");
         sessionStorage.removeItem("psytest_admin_user");
         navigate("/admin", { replace: true });
       }
     });
   };
+
 
   return (
     <div className="flex min-h-screen bg-background">
