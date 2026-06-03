@@ -1,187 +1,188 @@
 import { Link } from "react-router-dom";
 import PublicLayout from "@/components/layout/PublicLayout";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Search, MapPin, Building2, Clock, ArrowRight, Users, Briefcase,
-  Shield, ChevronRight, TrendingUp,
-} from "lucide-react";
+import { Search, MapPin, Building2, Clock, ArrowRight, Users, Briefcase, Shield, ChevronRight, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useActiveJobs } from "@/hooks/useJobs";
 import { supabase } from "@/integrations/supabase/client";
-
-const stats = [
-  { label: "Lowongan Aktif", value: "24+", icon: Briefcase },
-  { label: "Kandidat Bergabung", value: "1,200+", icon: Users },
-  { label: "Tingkat Keberhasilan", value: "92%", icon: TrendingUp },
-  { label: "Perusahaan Partner", value: "50+", icon: Shield },
-];
+import { useT } from "@/lib/i18n";
 
 const Index = () => {
+  const { t, lang } = useT();
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [landingSettings, setLandingSettings] = useState<Record<string, string>>({});
-  const { data: jobs = [], isLoading, error } = useActiveJobs();
-
-  const parseJsonValue = (value: string) => {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
+  const { data: jobs = [], isLoading } = useActiveJobs();
 
   useEffect(() => {
-    const loadLandingSettings = async () => {
-      const keys = [
-        "app_name",
-        "landing_header_title",
-        "landing_header_subtitle",
-        "landing_hero_background_url",
-        "landing_contact_email",
-        "landing_contact_phone",
-        "landing_contact_address",
-        "landing_about_vision",
-        "landing_about_mission",
-        "landing_about_milestones",
-        "landing_about_values",
-        "landing_about_milestones_items",
-        "landing_about_values_items",
-      ];
-      const { data, error } = await supabase
+    const load = async () => {
+      const { data } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", keys);
-
-      if (error) {
-        console.error("Error loading landing settings:", error);
-        setLandingSettings({});
-        return;
-      }
-
-      setLandingSettings(
-        (data || []).reduce((acc, item) => {
-          acc[item.key] = item.value;
-          return acc;
-        }, {} as Record<string, string>)
-      );
+        .in("key", ["app_name", "landing_header_title", "landing_header_subtitle", "landing_hero_background_url"]);
+      setLandingSettings((data || []).reduce((acc, i) => { acc[i.key] = i.value; return acc; }, {} as Record<string, string>));
     };
-
-    loadLandingSettings();
-
-    const channel = supabase
-      .channel("landing-settings")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_settings" }, () => {
-        loadLandingSettings();
-      })
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
+    load();
   }, []);
 
-  const heroTitle = landingSettings.landing_header_title || "PJM GROUP Career Management";
-  const heroSubtitle = landingSettings.landing_header_subtitle || "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
-  const heroBrand = landingSettings.app_name || landingSettings.landing_header_title || "PJM GROUP Career Management";
-  const heroBackgroundUrl = landingSettings.landing_hero_background_url || "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80";
-
-  if (error) {
-    console.error("Error loading jobs:", error);
-  }
-
-  // Fallback data if database query fails
   const fallbackJobs = [
-    { id: "1", title: "Senior Frontend Developer", department: "Engineering", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Kami mencari Senior Frontend Developer berpengalaman." },
-    { id: "2", title: "UI/UX Designer", department: "Design", location: "Bandung", employment_type: "Full-time", closes_at: "2024-12-31", description: "Bertanggung jawab atas desain antarmuka pengguna." },
-    { id: "3", title: "Marketing Specialist", department: "Marketing", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Mengembangkan strategi marketing untuk brand awareness." },
+    { id: "1", title: "Senior Frontend Developer", department: "Engineering", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Build the next generation of our recruitment platform." },
+    { id: "2", title: "UI/UX Designer", department: "Design", location: "Bandung", employment_type: "Full-time", closes_at: "2024-12-31", description: "Craft beautiful, accessible interfaces." },
+    { id: "3", title: "Marketing Specialist", department: "Marketing", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Drive brand awareness and acquisition." },
   ];
 
   const jobsToDisplay = jobs.length > 0 ? jobs : fallbackJobs;
-
-  const filteredJobs = jobsToDisplay.filter((job) => {
-    const matchSearch = job.title.toLowerCase().includes(search.toLowerCase()) ||
-      job.department.toLowerCase().includes(search.toLowerCase());
-    const matchLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
+  const filteredJobs = jobsToDisplay.filter((job: any) => {
+    const matchSearch = job.title.toLowerCase().includes(search.toLowerCase()) || (job.department || "").toLowerCase().includes(search.toLowerCase());
+    const matchLocation = !locationFilter || (job.location || "").toLowerCase().includes(locationFilter.toLowerCase());
     return matchSearch && matchLocation;
   }).slice(0, 6);
 
+  const stats = [
+    { label: t("home.stats.jobs"), value: "24+", icon: Briefcase },
+    { label: t("home.stats.candidates"), value: "1,200+", icon: Users },
+    { label: t("home.stats.success"), value: "92%", icon: TrendingUp },
+    { label: t("home.stats.partners"), value: "50+", icon: Shield },
+  ];
+
+  const dateFmt = lang === "id" ? "id-ID" : "en-US";
+
   return (
     <PublicLayout>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-background">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroBackgroundUrl})` }} />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/40"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/20"></div>
-        <div className="relative container py-24 md:py-28 lg:py-32">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-3xl">
-            <Badge className="mb-5 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/10">{heroBrand}</Badge>
-            <h1 className="mb-6 text-4xl font-extrabold leading-tight text-foreground md:text-5xl lg:text-6xl">
-              {heroTitle}
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        {/* Ambient glows */}
+        <div className="pointer-events-none absolute -top-32 right-0 w-[600px] h-[600px] bg-[#2d8a9e]/15 blur-[140px] rounded-full" />
+        <div className="pointer-events-none absolute -bottom-40 -left-20 w-[500px] h-[500px] bg-[#1a4a6e]/40 blur-[120px] rounded-full" />
+
+        <div className="container relative py-20 md:py-28">
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-4xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a4a6e]/40 border border-[#2d8a9e]/30 mb-6">
+              <span className="w-2 h-2 rounded-full bg-[#5cbdb9] animate-pulse" />
+              <span className="text-xs font-semibold tracking-widest text-[#5cbdb9] uppercase">{t("home.badge")}</span>
+            </div>
+
+            <h1 className="font-display font-bold text-white leading-[1.05] tracking-tight text-5xl md:text-6xl lg:text-7xl mb-6">
+              {t("home.title.line1")}<br />
+              <span className="bg-gradient-to-r from-[#5cbdb9] to-[#2d8a9e] bg-clip-text text-transparent">
+                {t("home.title.line2")}
+              </span>
             </h1>
-            <p className="mb-8 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-              {heroSubtitle}
+
+            <p className="text-lg md:text-xl text-slate-300 max-w-2xl leading-relaxed mb-8">
+              {t("home.subtitle")}
             </p>
-            <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card/95 p-2 shadow-xl shadow-background/20 backdrop-blur md:flex-row">
-              <div className="flex flex-1 items-center gap-3 rounded-md border border-border bg-background px-4 py-3">
-                <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <input type="text" placeholder="Cari posisi atau departemen..." className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" value={search} onChange={(e) => setSearch(e.target.value)} />
+
+            {/* Search bar */}
+            <div className="p-2 bg-[#1a4a6e]/30 border border-white/10 rounded-2xl backdrop-blur-md shadow-2xl shadow-black/30 flex flex-col md:flex-row gap-2 max-w-3xl">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5cbdb9]" />
+                <input
+                  type="text"
+                  placeholder={t("home.search.position")}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-transparent pl-12 pr-4 py-4 text-white placeholder-slate-400 focus:outline-none"
+                />
               </div>
-              <div className="flex items-center gap-3 rounded-md border border-border bg-background px-4 py-3 md:w-56">
-                <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <input type="text" placeholder="Lokasi..." className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} />
+              <div className="hidden md:block w-px self-center h-8 bg-white/10" />
+              <div className="flex-1 relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5cbdb9]" />
+                <input
+                  type="text"
+                  placeholder={t("home.search.location")}
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="w-full bg-transparent pl-12 pr-4 py-4 text-white placeholder-slate-400 focus:outline-none"
+                />
               </div>
-              <Button size="lg" className="h-auto rounded-md px-6 py-3 md:px-8"><Search className="h-4 w-4 mr-2" />Cari</Button>
+              <Link
+                to="/jobs"
+                className="bg-[#5cbdb9] hover:bg-[#2d8a9e] text-[#0c2340] font-display font-bold px-8 py-4 rounded-xl transition-all duration-300 hover:scale-[1.02] shadow-lg shadow-[#5cbdb9]/20 flex items-center justify-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                {t("home.search.cta")}
+              </Link>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Stats */}
-      <section className="container relative z-10 -mt-10">
+      <section className="container relative -mt-2 mb-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat, i) => (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.1, duration: 0.4 }} className="card-elevated p-5 md:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary/10 md:h-12 md:w-12"><stat.icon className="h-5 w-5 text-primary md:h-6 md:w-6" /></div>
-                <div><p className="text-2xl font-bold tracking-tight md:text-3xl">{stat.value}</p><p className="text-sm text-muted-foreground">{stat.label}</p></div>
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.08, duration: 0.4 }}
+              className="group relative p-6 bg-gradient-to-br from-[#1a4a6e]/40 to-transparent border border-white/10 rounded-2xl transition-all duration-500 hover:border-[#2d8a9e]/60 hover:bg-[#1a4a6e]/60"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                  <p className="font-display text-3xl md:text-4xl font-bold text-white">
+                    {stat.value.replace(/[+%]/, '')}<span className="text-[#5cbdb9]">{stat.value.match(/[+%]/)?.[0]}</span>
+                  </p>
+                  <p className="text-xs md:text-sm text-slate-400 font-medium">{stat.label}</p>
+                </div>
+                <div className="p-2.5 bg-[#0c2340] rounded-xl border border-white/10 text-[#5cbdb9] group-hover:scale-110 transition-transform">
+                  <stat.icon className="w-5 h-5" />
+                </div>
               </div>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* Job Listings */}
-      <section className="container py-16 md:py-20">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div><h2 className="text-3xl font-bold tracking-tight">Lowongan Terbaru</h2><p className="mt-2 text-muted-foreground">Temukan posisi yang sesuai dengan keahlianmu</p></div>
-          <Button variant="outline" asChild className="w-fit rounded-md"><Link to="/jobs">Lihat Semua <ChevronRight className="h-4 w-4 ml-1" /></Link></Button>
+      {/* Latest Jobs */}
+      <section className="container py-12 md:py-20">
+        <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-white">{t("home.latest.title")}</h2>
+            <p className="mt-2 text-slate-400">{t("home.latest.subtitle")}</p>
+          </div>
+          <Link to="/jobs" className="inline-flex items-center gap-1 px-5 py-2.5 rounded-xl border border-white/10 text-slate-200 hover:text-white hover:bg-white/5 transition-colors w-fit text-sm font-medium">
+            {t("home.latest.viewAll")} <ChevronRight className="h-4 w-4" />
+          </Link>
         </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1,2,3].map(i => <div key={i} className="card-elevated h-56 animate-pulse bg-muted/30 p-6" />)}
+            {[1,2,3].map(i => <div key={i} className="h-56 animate-pulse bg-[#1a4a6e]/20 rounded-2xl border border-white/5" />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredJobs.map((job, i) => (
-              <motion.div key={job.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * i, duration: 0.4 }}>
-                <Link to={`/jobs/${job.id}`} className="group block h-full rounded-lg border border-border/70 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10"><Building2 className="h-6 w-6 text-primary" /></div>
-                    <Badge className="rounded-md bg-primary/10 text-primary hover:bg-primary/20">{job.employment_type}</Badge>
-                  </div>
-                  <h3 className="mb-2 text-lg font-semibold leading-snug transition-colors group-hover:text-primary">{job.title}</h3>
-                  <p className="mb-4 text-sm text-muted-foreground">{job.department}</p>
-                  <p className="mb-6 line-clamp-2 text-sm leading-6 text-muted-foreground">{job.description || "Klik untuk melihat detail lowongan ini."}</p>
-                  <div className="flex items-center justify-between border-t border-border pt-4">
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                      <span className="flex min-w-0 items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /> {job.location}</span>
-                      <span className="flex min-w-0 items-center gap-1"><Clock className="h-3 w-3 shrink-0" /> {job.closes_at ? new Date(job.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Open"}</span>
+            {filteredJobs.map((job: any, i: number) => (
+              <motion.div
+                key={job.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.06 * i, duration: 0.4 }}
+              >
+                <Link
+                  to={`/jobs/${job.id}`}
+                  className="group block h-full rounded-2xl border border-white/10 bg-gradient-to-br from-[#1a4a6e]/30 to-transparent p-6 transition-all hover:-translate-y-1 hover:border-[#5cbdb9]/40 hover:shadow-2xl hover:shadow-[#5cbdb9]/10"
+                >
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#2d8a9e] to-[#1a4a6e] border border-[#5cbdb9]/30">
+                      <Building2 className="h-5 w-5 text-white" />
                     </div>
-                    <ArrowRight className="ml-3 h-4 w-4 shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
+                    <span className="px-2.5 py-1 rounded-full bg-[#5cbdb9]/10 text-[#5cbdb9] border border-[#5cbdb9]/20 text-xs font-medium">
+                      {job.employment_type}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-lg font-semibold leading-snug text-white group-hover:text-[#5cbdb9] transition-colors mb-1.5">
+                    {job.title}
+                  </h3>
+                  <p className="text-sm text-slate-400 mb-4">{job.department}</p>
+                  <p className="text-sm text-slate-400/80 line-clamp-2 leading-6 mb-6">{job.description}</p>
+                  <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-400">
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-[#5cbdb9]" /> {job.location}</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-[#5cbdb9]" /> {job.closes_at ? new Date(job.closes_at).toLocaleDateString(dateFmt, { day: "numeric", month: "short", year: "numeric" }) : "Open"}</span>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-[#5cbdb9] opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </Link>
               </motion.div>
@@ -189,7 +190,6 @@ const Index = () => {
           </div>
         )}
       </section>
-
     </PublicLayout>
   );
 };
