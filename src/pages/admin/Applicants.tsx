@@ -1448,11 +1448,11 @@ export default function Applicants() {
                         Dokumen & Portofolio
                       </h3>
                       
-                      {selectedCandidate.documents && selectedCandidate.documents.length > 0 && (
+                      {(selectedCandidate as any).documents && (selectedCandidate as any).documents.length > 0 && (
                         <div>
                           <label className="text-sm text-muted-foreground">Dokumen Kandidat</label>
                           <div className="mt-2 space-y-2">
-                            {selectedCandidate.documents.map((doc) => (
+                            {(selectedCandidate as any).documents.map((doc) => (
                               <div key={doc.id} className="p-3 border border-border rounded-lg bg-muted/20">
                                 <div className="flex items-center gap-3">
                                   <FileText className="h-6 w-6 text-primary" />
@@ -1471,7 +1471,7 @@ export default function Applicants() {
                         </div>
                       )}
 
-                      {selectedCandidate.cv_url && !(selectedCandidate.documents?.some((doc) => doc.document_type === 'cv')) && (
+                      {(selectedCandidate as any).cv_url && !((selectedCandidate as any).documents?.some((doc) => doc.document_type === 'cv')) && (
                         <div>
                           <label className="text-sm text-muted-foreground">CV/Resume</label>
                           <div className="mt-2 p-4 border border-border rounded-lg bg-muted/20">
@@ -1481,7 +1481,7 @@ export default function Applicants() {
                                 <p className="font-medium text-foreground">CV/Resume</p>
                                 <p className="text-sm text-muted-foreground">Dokumen CV pelamar</p>
                               </div>
-                              <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl(selectedCandidate.cv_url); setDocPreviewName('CV - ' + (selectedCandidate.full_name || 'cv')); setShowDocPreview(true); }}>
+                              <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl((selectedCandidate as any).cv_url); setDocPreviewName('CV - ' + (selectedCandidate.full_name || 'cv')); setShowDocPreview(true); }}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 Preview
                               </Button>
@@ -1490,11 +1490,11 @@ export default function Applicants() {
                         </div>
                       )}
 
-                      {selectedCandidate.certificates && Array.isArray(selectedCandidate.certificates) && selectedCandidate.certificates.length > 0 && (
+                      {(selectedCandidate as any).certificates && Array.isArray((selectedCandidate as any).certificates) && (selectedCandidate as any).certificates.length > 0 && (
                         <div>
                           <label className="text-sm text-muted-foreground">Sertifikat</label>
                           <div className="mt-2 space-y-2">
-                            {selectedCandidate.certificates.map((cert, index) => (
+                            {(selectedCandidate as any).certificates.map((cert, index) => (
                               <div key={index} className="p-3 border border-border rounded-lg bg-muted/20">
                                 <div className="flex items-center gap-3">
                                   <Award className="h-6 w-6 text-warning" />
@@ -1513,7 +1513,7 @@ export default function Applicants() {
                         </div>
                       )}
 
-                      {selectedCandidate.portfolio_url && !selectedCandidate.documents?.some((doc) => doc.document_type === 'portfolio') && (
+                      {(selectedCandidate as any).portfolio_url && !(selectedCandidate as any).documents?.some((doc) => doc.document_type === 'portfolio') && (
                         <div>
                           <label className="text-sm text-muted-foreground">Portofolio</label>
                           <div className="mt-2 p-4 border border-border rounded-lg bg-muted/20">
@@ -1521,9 +1521,9 @@ export default function Applicants() {
                               <BookOpen className="h-8 w-8 text-primary" />
                               <div className="flex-1">
                                 <p className="font-medium text-foreground">Portofolio</p>
-                                <p className="text-sm text-muted-foreground">{selectedCandidate.portfolio_url}</p>
+                                <p className="text-sm text-muted-foreground">{(selectedCandidate as any).portfolio_url}</p>
                               </div>
-                                <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl(selectedCandidate.portfolio_url); setDocPreviewName('Portofolio - ' + (selectedCandidate.full_name || 'portfolio')); setShowDocPreview(true); }}>
+                                <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl((selectedCandidate as any).portfolio_url); setDocPreviewName('Portofolio - ' + (selectedCandidate.full_name || 'portfolio')); setShowDocPreview(true); }}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   Lihat
                                 </Button>
@@ -1532,7 +1532,7 @@ export default function Applicants() {
                         </div>
                       )}
 
-                      {!selectedCandidate.documents?.length && !selectedCandidate.cv_url && !selectedCandidate.certificates?.length && !selectedCandidate.portfolio_url && (
+                      {!(selectedCandidate as any).documents?.length && !(selectedCandidate as any).cv_url && !(selectedCandidate as any).certificates?.length && !(selectedCandidate as any).portfolio_url && (
                         <div className="text-center py-8 text-muted-foreground">
                           <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
                           <p>Belum ada dokumen yang diunggah</p>

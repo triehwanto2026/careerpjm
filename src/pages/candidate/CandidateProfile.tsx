@@ -426,7 +426,7 @@ export default function CandidateProfile() {
         family_data: JSON.stringify(familyMembers || []),
         immediate_family_data: JSON.stringify(immediateFamily || []),
         // Keep family_members for backward compatibility
-        family_members: JSON.stringify([...familyMembers, ...immediateFamily] || []),
+        family_members: JSON.stringify([...familyMembers, ...immediateFamily]),
         education_history: JSON.stringify(educationHistory || []),
         informal_education: JSON.stringify(informalEducation || []),
         work_experience: JSON.stringify(workExperience || []),
@@ -474,12 +474,7 @@ export default function CandidateProfile() {
       Swal.fire({ icon: "error", title: "Upload gagal", text: upErr.message });
       return;
     }
-    const { data: pub, error: pubErr } = supabase.storage.from(bucket).getPublicUrl(path);
-    if (pubErr) {
-      console.error("Get public URL failed", pubErr);
-      Swal.fire({ icon: "error", title: "Gagal mengambil URL publik", text: pubErr.message });
-      return;
-    }
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
     const fileUrl = pub.publicUrl;
     const old = docs.find((d) => d.document_type === type);
     if (old) await supabase.from("candidate_documents").delete().eq("id", old.id);

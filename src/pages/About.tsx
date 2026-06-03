@@ -79,7 +79,7 @@ const About = () => {
       return <span>{trimmed}</span>;
     }
 
-    const NamedIcon = (LucideIcons as Record<string, React.ElementType>)[trimmed];
+    const NamedIcon = (LucideIcons as unknown as Record<string, React.ElementType>)[trimmed];
     if (NamedIcon) {
       return <NamedIcon className="h-8 w-8 text-primary" />;
     }

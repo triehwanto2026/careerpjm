@@ -165,8 +165,8 @@ const TestPage = () => {
     if (!cand.activationCodeId) { setResumed(true); return; }
     (async () => {
       // Check if code was reactivated (status changed from 'completed' back to 'active')
-      const { data: codeData } = await supabase.from("activation_codes").select("status, is_code_deactivated").eq("id", cand.activationCodeId).maybeSingle();
-      const isReactivated = codeData?.status === 'active' && codeData?.is_code_deactivated;
+      const { data: codeData } = await supabase.from("activation_codes").select("*").eq("id", cand.activationCodeId).maybeSingle();
+      const isReactivated = (codeData as any)?.status === 'active' && (codeData as any)?.is_code_deactivated;
       
       // If reactivated, delete old session to start fresh
       if (isReactivated) {

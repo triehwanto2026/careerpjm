@@ -5,16 +5,8 @@ import Swal from "sweetalert2";
 import { supabase } from "@/integrations/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
 
-const hashPassword = async (password: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-};
-
 const AdminLogin = () => {
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,107 +14,66 @@ const AdminLogin = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) {
+    if (!identifier.trim() || !password.trim()) {
       Swal.fire({
-        icon: "warning", title: "Peringatan", text: "Silakan isi username dan password.",
+        icon: "warning", title: "Peringatan", text: "Silakan isi username/email dan password.",
         background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
       });
       return;
     }
 
     setLoading(true);
-
     try {
-      // Hash password and verify against database
-      const passwordHash = await hashPassword(password);
+      const { data, error } = await supabase.functions.invoke("admin-login", {
+        body: { identifier: identifier.trim(), password },
+      });
 
-      console.log("Attempting login for:", username.trim());
-      console.log("Password hash:", passwordHash);
-
-      // First try without join to check basic access
-      const { data: basicUser, error: basicError } = await supabase
-        .from("admin_users")
-        .select("*")
-        .eq("username", username.trim())
-        .eq("password_hash", passwordHash)
-        .eq("is_active", true)
-        .single();
-
-      console.log("Basic user query:", { data: basicUser, error: basicError });
-
-      if (basicError || !basicUser) {
+      if (error || !data || (data as any).error) {
+        const msg = (data as any)?.error || error?.message || "Username atau password salah.";
         setLoading(false);
         Swal.fire({
-          icon: "error", title: "Login Gagal", text: "Username atau password salah, atau akun tidak aktif.",
+          icon: "error", title: "Login Gagal", text: msg,
           background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
         });
         return;
       }
 
-      // Now try with role join
-      const { data: user, error: roleError } = await supabase
-        .from("admin_users")
-        .select("*, admin_roles(name, permissions)")
-        .eq("id", basicUser.id)
-        .single();
+      const payload = data as any;
 
-      console.log("Role join query:", { data: user, error: roleError });
+      // Hydrate Supabase Auth session
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: payload.session.access_token,
+        refresh_token: payload.session.refresh_token,
+      });
+      if (setErr) throw setErr;
 
-      if (roleError || !user) {
-        // Fallback: use basic user data and fetch role separately
-        const { data: roleData, error: roleFetchError } = await supabase
-          .from("admin_roles")
-          .select("*")
-          .eq("id", basicUser.role_id)
-          .single();
+      const adminSession = {
+        id: payload.user.id,
+        username: payload.user.username,
+        full_name: payload.user.full_name,
+        role_id: payload.user.role_id,
+        role_name: payload.user.role_name,
+        permissions: payload.user.permissions || [],
+        roles: payload.user.roles || [],
+      };
+      sessionStorage.setItem("psytest_admin", "true");
+      sessionStorage.setItem("psytest_admin_user", JSON.stringify(adminSession));
 
-        console.log("Separate role fetch:", { data: roleData, error: roleFetchError });
-
-        const userWithRole = {
-          ...basicUser,
-          admin_roles: roleData || { name: "Unknown", permissions: [] },
-        };
-        await completeLogin(userWithRole);
-        return;
+      if (payload.user.force_password_reset) {
+        await Swal.fire({
+          icon: "info",
+          title: "Reset Password Diperlukan",
+          text: "Akun Anda menggunakan password sementara. Silakan ganti password segera di halaman Profil.",
+          background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
+        });
       }
 
-      await completeLogin(user);
-    } catch (err) {
+      navigate("/admin/dashboard", { replace: true });
+    } catch (err: any) {
       console.error("Login error:", err);
       setLoading(false);
       Swal.fire({
-        icon: "error", title: "Login Gagal", text: "Terjadi kesalahan. Silakan coba lagi.",
-        background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
-      });
-    }
-  };
-
-  const completeLogin = async (user: any) => {
-    try {
-      // Update last login
-      await supabase
-        .from("admin_users")
-        .update({ last_login: new Date().toISOString() })
-        .eq("id", user.id);
-
-      // Store admin session with user info and permissions
-      const roleData = user.admin_roles as { name: string; permissions: string[] } | null;
-      const adminSession = {
-        id: user.id,
-        username: user.username,
-        full_name: user.full_name,
-        role_id: user.role_id,
-        role_name: roleData?.name || "",
-        permissions: roleData?.permissions || [],
-      };
-
-      sessionStorage.setItem("psytest_admin", "true");
-      sessionStorage.setItem("psytest_admin_user", JSON.stringify(adminSession));
-      navigate("/admin/dashboard", { replace: true });
-    } catch {
-      setLoading(false);
-      Swal.fire({
-        icon: "error", title: "Login Gagal", text: "Terjadi kesalahan saat menyimpan sesi.",
+        icon: "error", title: "Login Gagal", text: err?.message || "Terjadi kesalahan. Silakan coba lagi.",
         background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)",
       });
     }
@@ -149,12 +100,12 @@ const AdminLogin = () => {
         <form onSubmit={handleLogin} className="glass space-y-5 rounded-2xl p-6 glow-border md:p-8">
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <User className="h-4 w-4 text-primary" />Username
+              <User className="h-4 w-4 text-primary" />Username atau Email
             </label>
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-              placeholder="Masukkan username"
+            <input type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="username atau email@admin.local"
               className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
-              autoComplete="off" />
+              autoComplete="username" />
           </div>
 
           <div className="space-y-2">
@@ -165,7 +116,7 @@ const AdminLogin = () => {
               <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="Masukkan password"
                 className="w-full rounded-lg border border-border bg-muted px-4 py-3 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
-                autoComplete="off" />
+                autoComplete="current-password" />
               <button type="button" onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
