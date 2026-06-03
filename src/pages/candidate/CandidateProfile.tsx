@@ -474,12 +474,7 @@ export default function CandidateProfile() {
       Swal.fire({ icon: "error", title: "Upload gagal", text: upErr.message });
       return;
     }
-    const { data: pub, error: pubErr } = supabase.storage.from(bucket).getPublicUrl(path);
-    if (pubErr) {
-      console.error("Get public URL failed", pubErr);
-      Swal.fire({ icon: "error", title: "Gagal mengambil URL publik", text: pubErr.message });
-      return;
-    }
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
     const fileUrl = pub.publicUrl;
     const old = docs.find((d) => d.document_type === type);
     if (old) await supabase.from("candidate_documents").delete().eq("id", old.id);
