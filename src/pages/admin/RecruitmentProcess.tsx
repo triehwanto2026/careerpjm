@@ -2035,15 +2035,15 @@ export default function RecruitmentProcess() {
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Tunjangan yang Diharapkan</label>
-                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.salary_exp_allowances || '-'}</p>
+                              <p className="font-medium text-foreground">{(selectedApplication.candidate_profile as any).salary_exp_allowances || '-'}</p>
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Benefit/Fasilitas yang Diharapkan</label>
-                              <p className="font-medium text-foreground whitespace-pre-line">{selectedApplication.candidate_profile.salary_exp_benefits || '-'}</p>
+                              <p className="font-medium text-foreground whitespace-pre-line">{(selectedApplication.candidate_profile as any).salary_exp_benefits || '-'}</p>
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Gaji Saat Ini</label>
-                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.salary_expectation || '-'}</p>
+                              <p className="font-medium text-foreground">{(selectedApplication.candidate_profile as any).salary_expectation || '-'}</p>
                             </div>
                           </div>
                         </div>
@@ -2056,23 +2056,23 @@ export default function RecruitmentProcess() {
                           <div className="space-y-3">
                             <div>
                               <label className="text-sm text-muted-foreground">Tanggal Mulai Tersedia</label>
-                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.available_from || selectedApplication.candidate_profile.available_start_date || '-'}</p>
+                              <p className="font-medium text-foreground">{(selectedApplication.candidate_profile as any).available_from || selectedApplication.candidate_profile.available_start_date || '-'}</p>
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Periode Notice</label>
-                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.notice_period ? `${selectedApplication.candidate_profile.notice_period} hari` : '-'}</p>
+                              <p className="font-medium text-foreground">{(selectedApplication.candidate_profile as any).notice_period ? `${(selectedApplication.candidate_profile as any).notice_period} hari` : '-'}</p>
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Bersedia Relokasi</label>
-                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.willing_relocate ? 'Ya' : 'Tidak'}</p>
+                              <p className="font-medium text-foreground">{(selectedApplication.candidate_profile as any).willing_relocate ? 'Ya' : 'Tidak'}</p>
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Bersedia Lembur</label>
-                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.willing_overtime ? 'Ya' : 'Tidak'}</p>
+                              <p className="font-medium text-foreground">{(selectedApplication.candidate_profile as any).willing_overtime ? 'Ya' : 'Tidak'}</p>
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Bersedia Shift</label>
-                              <p className="font-medium text-foreground">{selectedApplication.candidate_profile.willing_shift ? 'Ya' : 'Tidak'}</p>
+                              <p className="font-medium text-foreground">{(selectedApplication.candidate_profile as any).willing_shift ? 'Ya' : 'Tidak'}</p>
                             </div>
                           </div>
                         </div>
