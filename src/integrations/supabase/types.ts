@@ -3012,6 +3012,12 @@ export type Database = {
         Returns: boolean
       }
       is_any_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_my_candidate_id: { Args: { _candidate_id: string }; Returns: boolean }
+      my_email: { Args: never; Returns: string }
+      verify_activation_password: {
+        Args: { _code: string; _password: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "hr" | "recruiter"
