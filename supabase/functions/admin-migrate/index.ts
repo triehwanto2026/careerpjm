@@ -20,11 +20,25 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-  // Gate: caller must provide the service role key in header `x-bootstrap-key` to run.
-  const bootstrapKey = req.headers.get("x-bootstrap-key");
-  if (bootstrapKey !== serviceKey) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  // Gate: only allow when no super_admin exists yet (bootstrap mode),
+  // OR when the caller is already authenticated as super_admin.
+  const { count: existingSuperAdmins } = await admin
+    .from("user_roles")
+    .select("*", { count: "exact", head: true })
+    .eq("role", "super_admin");
+
+  if ((existingSuperAdmins ?? 0) > 0) {
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (!token) return new Response(JSON.stringify({ error: "Forbidden: super_admin already exists" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { data: userData } = await admin.auth.getUser(token);
+    if (!userData?.user) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", userData.user.id);
+    if (!(roles || []).some((r: any) => r.role === "super_admin")) {
+      return new Response(JSON.stringify({ error: "Forbidden: super_admin only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
   }
+
 
   const { data: adminUsers, error: listErr } = await admin
     .from("admin_users")
