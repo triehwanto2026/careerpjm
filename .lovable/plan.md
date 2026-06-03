@@ -1,69 +1,82 @@
+# Security Refactor Plan
 
-Implementasi dibagi menjadi 3 bagian besar. Saya akan kerjakan berurutan agar tidak saling memblokir.
+Your app has 24 security findings rooted in one architectural problem: most of the app talks to the database as the anonymous (`anon`) role, including admin login, test login, and all admin CRUD. Plaintext passwords, admin password hashes, NIK/NPWP, medical history, and test answer keys are currently readable by anyone with your project's anon key.
 
----
+Fixing this properly means rebuilding the auth foundations. I'm proposing 5 phases so we can ship + test each one before the next, instead of breaking everything at once.
 
-## Bagian 1 — Print Hasil Personality Plus & DISC
+## Phase 1 — Admin auth migration
 
-Buat layout cetak A4 portrait dengan 2 halaman:
-- **Halaman 1 (Hasil)**: Identitas kandidat, ringkasan skor per dimensi, grafik bar, dominan profil, interpretasi singkat.
-- **Halaman 2 (Lembar Jawaban)**: Tabel jawaban per nomor (untuk DISC: kolom Most & Least; untuk PP: pilihan + temperamen).
+Move admin login from the custom `admin_users` table to Supabase Auth.
 
-Lokasi: tombol "Print" baru di `src/pages/admin/Results.tsx` saat membuka detail PP/DISC. Style cetak via `@media print` + `print-color-adjust: exact`, page-break antar lembar.
+- Create `app_role` enum (`super_admin`, `admin`, `hr`, `recruiter`) and `user_roles` table linked to `auth.users`.
+- Create `has_role(user_id, role)` security-definer function (search_path locked).
+- Build a one-time migration edge function that, for each row in `admin_users`, creates a Supabase Auth user (email + a temporary password the admin must reset) and inserts the matching `user_roles` row.
+- Rewrite `AdminLogin.tsx` to call `supabase.auth.signInWithPassword`.
+- Rewrite `AdminLayout` / route guards to check session + `has_role`.
+- Keep `admin_users` table for now as a read-only reference, but remove all anon policies.
 
----
+## Phase 2 — Test login + session edge functions
 
-## Bagian 2 — Portal Kandidat (auth email + password mandiri)
+Stop letting the browser read `activation_codes` and write `test_sessions` / `test_results` directly.
 
-### Database
-- Aktifkan Supabase Auth email/password (signup mandiri).
-- Tabel baru:
-  - `candidate_profiles` (user_id, fullname, birth_date, gender, address, phone, education, experience, skills, photo_url, dst.) — RLS: kandidat hanya akses miliknya sendiri.
-  - `candidate_documents` (user_id, type: cv/ktp/foto/ijazah/transkrip, file_url, uploaded_at) — RLS sama.
-  - `job_vacancies` (title, department, location, description, requirements, status, posted_by, closes_at) — public read aktif, admin CUD.
-  - `job_applications` (user_id, vacancy_id, status: submitted/screening/test/interview/offered/rejected, notes, applied_at) — kandidat read/insert miliknya, admin full.
-- Storage bucket baru `candidate-documents` (private) + RLS by user folder.
-- Trigger auto-create row `candidate_profiles` saat signup.
+- New edge function `test-login`: validates code + password server-side using service role, returns a short-lived signed session token (JWT we sign with a secret) plus candidate metadata. No more anon SELECT on `activation_codes`.
+- New edge function `test-session`: handles start/heartbeat/save-answer/submit. Validates the signed session token on every call.
+- New edge function `test-submit-result`: writes to `test_results` and `test_answers` with service role after validating the token.
+- Rewrite `TestLogin.tsx`, `TestPage.tsx`, and related hooks to call these functions instead of querying tables directly.
+- Hash activation-code passwords with bcrypt in the DB migration (drop plaintext column).
 
-### Halaman kandidat (route baru `/candidate/*`)
-- `/candidate/login` & `/candidate/register` — email + password (Google opsional default).
-- `/candidate/profile` — biodata + upload CV, KTP, foto formal, ijazah, transkrip.
-- `/candidate/jobs` — list lowongan aktif + tombol "Lamar".
-- `/candidate/applications` — daftar lamaran dengan status timeline (auto-update dari admin).
-- `/candidate/tests` — daftar paket tes (dari activation_codes yang ditugaskan ke email-nya) + link mulai tes.
-- Layout sidebar khusus kandidat (terpisah dari admin).
+## Phase 3 — RLS lockdown on data tables
 
-### Auth
-- Halaman registrasi standar (email, password, nama). `emailRedirectTo: window.location.origin/candidate/profile`.
-- Auto-confirm email **tidak** diaktifkan (kandidat harus verifikasi).
+With Phases 1–2 in place, drop every `anon` policy on:
 
----
+- `activation_codes`, `admin_users`, `admin_roles`, `app_settings`
+- `candidates`, `candidate_profiles`, `candidate_documents`, `candidate_family_members`, `candidate_education_*`, `candidate_certifications`, `candidate_languages`, `candidate_informal_education`, `candidate_work_experience`
+- `job_applications`
+- `test_sessions`, `test_results`, `test_answers`, `test_result_details`
+- `test_instruments`, `test_questions`, `test_question_options`
 
-## Bagian 3 — Admin: Lowongan, Rekrutmen, Kandidat Otomatis
+Replace with:
+- Candidate self-service tables: `auth.uid() = user_id` for SELECT/INSERT/UPDATE/DELETE.
+- Admin-managed tables (candidates, codes, results, jobs, settings): `has_role(auth.uid(), 'admin')` (or `super_admin`).
+- Public-facing tables (jobs list, public app_settings): explicit narrow `SELECT` policy with `is_public = true` or similar.
+- `app_settings`: anon SELECT only when `is_public = true`; writes require admin role.
+- `test_result_details`: scope to owner candidate + admin only (fixes the "any authenticated user" finding).
 
-Halaman admin baru:
-- `/admin/jobs` — CRUD lowongan (judul, deskripsi, requirement, status open/closed).
-- `/admin/recruitment` — kanban/tabel lamaran per lowongan, ubah status, assign paket tes (auto-generate activation code untuk email kandidat).
-- `/admin/candidates` (revamp) — sumber data dari `candidate_profiles` + `candidate_documents`, tampilkan CV lengkap, riwayat tes, riwayat lamaran. Lama (manual entry) tetap bisa diakses.
+Add explicit `GRANT` statements (`anon` only where a public-read policy exists; `authenticated` where policies use `auth.uid()`; `service_role` everywhere).
 
-Sidebar admin ditambah menu: **Lowongan**, **Rekrutmen**.
+## Phase 4 — Storage lockdown
 
----
+- `candidate-documents` bucket: remove the "Anon admin can read all" policy. Add `auth.uid()::text = (storage.foldername(name))[1]` for SELECT/INSERT/UPDATE/DELETE so each candidate can only touch their own folder. Add a separate admin-role SELECT policy.
+- `candidate-photos` bucket: add ownership check (`auth.uid()::text = (storage.foldername(name))[1]`) on INSERT/UPDATE/DELETE; keep public read since it's a public bucket.
+- `test-images` bucket: restrict INSERT/UPDATE/DELETE to `has_role(auth.uid(), 'admin')`; keep public read.
+- Update `photoUpload.ts` and document-upload code to put files inside an `auth.uid()/...` prefix.
 
-## Detail teknis singkat
+## Phase 5 — Function hardening + cleanup
 
-- React Router: tambah grup route `/candidate/*` dengan `CandidateLayout` + `RequireCandidateAuth`.
-- Activation code lama tetap berfungsi untuk legacy candidates; kandidat baru otomatis terhubung via `email = auth.user().email`.
-- Supabase migration dijalankan dalam 1 batch (skema + RLS + storage + trigger).
-- Print PP/DISC pakai komponen `PrintablePPReport.tsx` & `PrintableDISCReport.tsx` yang dibuka di tab baru lalu `window.print()`.
+- Add `SET search_path = public` to every existing function missing it (`update_status_updated_at`, `get_application_status_flow`, `update_updated_at_column`).
+- `REVOKE EXECUTE ... FROM anon, authenticated` on `admin_list_users`, `admin_reset_candidate_password`, `admin_activate_candidate_login`, `admin_delete_candidate_account`. These should only run via edge functions using service role.
+- Move `get_application_status_flow` out of the API or accept it as intentionally public.
+- Enable HIBP password protection (`password_hibp_enabled: true`).
+- Make `candidate-photos` non-listable (drop broad SELECT, replace with per-file SELECT) to address the public-bucket-listing warning, or accept the finding and document it in security memory.
+- Update `mem://security-memory` and mark findings as fixed in the scanner.
 
----
+## What I need from you before I start
 
-## Urutan kerja yang akan saya lakukan
+Two decisions that change the migration:
 
-1. Migration database (semua tabel + RLS + storage + trigger).
-2. Print hasil PP & DISC (paling kecil, langsung kelihatan).
-3. Portal kandidat (auth + 5 halaman).
-4. Modul admin (lowongan + rekrutmen + revamp kandidat).
+1. **Existing admin accounts** — when I migrate them into Supabase Auth, what email/password do you want me to use? Options:
+   - (a) Use each admin's existing `email` and a temp password `ChangeMe123!`, force reset on first login.
+   - (b) You'll give me a single super-admin email and we discard the old `admin_users` rows.
 
-Setujui rencana ini untuk saya mulai eksekusi?
+2. **Existing activation codes** — current passwords are plaintext. I can either:
+   - (a) Bcrypt-hash them in place (existing codes keep working).
+   - (b) Invalidate them all and you regenerate codes from the admin panel after the migration.
+
+## Risks
+
+- This touches ~30+ files. Each phase will be a noticeable change in chat. After each phase I'll verify the affected flows still work before moving on.
+- Phase 1 will log every admin out; they'll need to use the temporary password and reset.
+- Phase 2 will require any in-progress test sessions to be restarted.
+- Existing candidate-uploaded files will need a path migration in Phase 4 (their files currently aren't in an `auth.uid()/` prefix).
+
+Approve this plan and answer the two questions above, and I'll start with Phase 1.
