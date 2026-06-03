@@ -426,7 +426,7 @@ export default function CandidateProfile() {
         family_data: JSON.stringify(familyMembers || []),
         immediate_family_data: JSON.stringify(immediateFamily || []),
         // Keep family_members for backward compatibility
-        family_members: JSON.stringify([...familyMembers, ...immediateFamily] || []),
+        family_members: JSON.stringify([...familyMembers, ...immediateFamily]),
         education_history: JSON.stringify(educationHistory || []),
         informal_education: JSON.stringify(informalEducation || []),
         work_experience: JSON.stringify(workExperience || []),
