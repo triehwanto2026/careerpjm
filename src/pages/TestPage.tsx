@@ -321,6 +321,8 @@ const TestPage = () => {
         sessionStorage.removeItem("psytest_auth");
         sessionStorage.removeItem("psytest_candidate");
         sessionStorage.removeItem("psytest_started_at");
+        try { await supabase.auth.signOut(); } catch {}
+
         await Swal.fire({
           icon: "error", title: "Sesi Berakhir — Pelanggaran Terdeteksi",
           html: `Anda berpindah tab/minimize. Sesi tes dihentikan dan jawaban telah disimpan.<br/><br/><b>Catatan:</b> Waktu tes <u>tetap berjalan</u> meskipun Anda logout. Segera login ulang dengan kode aktivasi yang sama untuk melanjutkan.`,
