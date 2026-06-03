@@ -1051,7 +1051,9 @@ const TestPage = () => {
       await clearSavedSession();
       sessionStorage.removeItem("psytest_auth");
       sessionStorage.removeItem("psytest_candidate");
+      try { await supabase.auth.signOut(); } catch {}
       navigate("/", { replace: true });
+
     });
   };
   completeSubmissionRef.current = completeSubmission;
