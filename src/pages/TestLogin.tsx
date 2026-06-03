@@ -26,58 +26,53 @@ export default function TestLogin() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("activation_codes")
-        .select("*")
-        .eq("code", activationCode.trim().toUpperCase())
-        .eq("password", password.trim())
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke("test-login", {
+        body: {
+          code: activationCode.trim().toUpperCase(),
+          password: password.trim(),
+        },
+      });
 
-      if (error || !data) {
-        throw new Error("Kode tes atau password salah.");
+      if (error || !data || (data as any).error) {
+        throw new Error((data as any)?.error || error?.message || "Login gagal.");
       }
 
-      const now = new Date();
-      const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
-      const status = (data as any).status || "active";
+      const { session, candidate } = data as {
+        session: { access_token: string; refresh_token: string };
+        candidate: {
+          id: string | null;
+          name: string;
+          email: string;
+          position: string;
+          activationCodeId: string;
+          assignedTests: string[];
+        };
+      };
 
-      if (expiresAt && expiresAt < now) throw new Error("Kode tes telah kadaluarsa.");
-      if (status === "completed") throw new Error("Tes sudah selesai.");
-      if (status === "invalid") throw new Error("Kode tes tidak valid.");
+      // Establish authenticated Supabase session so RLS scopes to this candidate
+      const { error: sessErr } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      if (sessErr) throw new Error(sessErr.message);
 
+      // Fetch any existing candidate detail
       const { data: existingCandidate } = await supabase
         .from("candidates")
         .select("id, photo_url, phone, birth_date, education, gender")
-        .eq("email", data.candidate_email)
+        .eq("email", candidate.email)
         .maybeSingle();
-
-      let candidateId = existingCandidate?.id;
-      if (!candidateId) {
-        const { data: inserted } = await supabase
-          .from("candidates")
-          .insert({
-            name: data.candidate_name,
-            email: data.candidate_email,
-            position: data.position,
-            status: "in_progress",
-            activation_code_id: data.id,
-          } as any)
-          .select("id")
-          .single();
-
-        candidateId = inserted?.id;
-      }
 
       sessionStorage.setItem("psytest_auth", "true");
       sessionStorage.setItem(
         "psytest_candidate",
         JSON.stringify({
-          id: candidateId,
-          name: data.candidate_name,
-          email: data.candidate_email,
-          position: data.position,
-          activationCodeId: data.id,
-          assignedTests: data.assigned_tests || [],
+          id: candidate.id || existingCandidate?.id || null,
+          name: candidate.name,
+          email: candidate.email,
+          position: candidate.position,
+          activationCodeId: candidate.activationCodeId,
+          assignedTests: candidate.assignedTests || [],
           photo_url: existingCandidate?.photo_url || null,
           phone: existingCandidate?.phone || "",
           birth_date: existingCandidate?.birth_date || "",
@@ -107,6 +102,7 @@ export default function TestLogin() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

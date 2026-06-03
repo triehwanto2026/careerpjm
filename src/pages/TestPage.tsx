@@ -321,6 +321,8 @@ const TestPage = () => {
         sessionStorage.removeItem("psytest_auth");
         sessionStorage.removeItem("psytest_candidate");
         sessionStorage.removeItem("psytest_started_at");
+        try { await supabase.auth.signOut(); } catch {}
+
         await Swal.fire({
           icon: "error", title: "Sesi Berakhir — Pelanggaran Terdeteksi",
           html: `Anda berpindah tab/minimize. Sesi tes dihentikan dan jawaban telah disimpan.<br/><br/><b>Catatan:</b> Waktu tes <u>tetap berjalan</u> meskipun Anda logout. Segera login ulang dengan kode aktivasi yang sama untuk melanjutkan.`,
@@ -1049,7 +1051,9 @@ const TestPage = () => {
       await clearSavedSession();
       sessionStorage.removeItem("psytest_auth");
       sessionStorage.removeItem("psytest_candidate");
+      try { await supabase.auth.signOut(); } catch {}
       navigate("/", { replace: true });
+
     });
   };
   completeSubmissionRef.current = completeSubmission;
@@ -1071,7 +1075,9 @@ const TestPage = () => {
 
     await saveSessionRef.current();
     sessionStorage.clear();
+    try { await supabase.auth.signOut(); } catch {}
     navigate("/", { replace: true });
+
   };
 
   if (submitted) return null;
