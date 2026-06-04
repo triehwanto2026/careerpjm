@@ -1055,11 +1055,14 @@ const TestPage = () => {
       ...SWAL_THEME, confirmButtonText: "Selesai", allowOutsideClick: false,
     }).then(async () => {
       await clearSavedSession();
+      const fromCandidate = sessionStorage.getItem("psytest_origin") === "candidate";
       sessionStorage.removeItem("psytest_auth");
       sessionStorage.removeItem("psytest_candidate");
-      try { await supabase.auth.signOut(); } catch {}
-      navigate("/", { replace: true });
-
+      sessionStorage.removeItem("psytest_origin");
+      if (!fromCandidate) {
+        try { await supabase.auth.signOut(); } catch {}
+      }
+      navigate(fromCandidate ? "/candidate/tests" : "/", { replace: true });
     });
   };
   completeSubmissionRef.current = completeSubmission;
