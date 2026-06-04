@@ -76,7 +76,57 @@ export default function CandidateTests() {
 
   useEffect(() => { load(); }, []);
 
-  const openStartModal = (code: Code) => {
+  const openStartModal = async (code: Code) => {
+    // Hitung total durasi tes (menit) dari instrumen yang ditugaskan
+    let totalMinutes = 0;
+    try {
+      const ids = (code.assigned_tests || []).filter(Boolean);
+      if (ids.length > 0) {
+        const { data: instr } = await supabase
+          .from("test_instruments")
+          .select("duration_minutes")
+          .in("id", ids as string[]);
+        totalMinutes = (instr || []).reduce((s: number, r: any) => s + (Number(r.duration_minutes) || 0), 0);
+      }
+    } catch { /* ignore */ }
+
+    const durasiText = totalMinutes > 0
+      ? `<b>${totalMinutes} menit</b>`
+      : `<b>sesuai paket tes</b>`;
+
+    const res = await Swal.fire({
+      icon: "warning",
+      title: "Peringatan Sebelum Memulai Tes",
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:1.6">
+          <p><b>Durasi tes:</b> ${durasiText}.</p>
+          <p style="margin-top:10px"><b>Aturan Anti-Cheat:</b></p>
+          <ul style="padding-left:18px;margin-top:4px">
+            <li>Dilarang membuka tab lain, jendela lain, atau aplikasi lain.</li>
+            <li>Dilarang berpindah layar atau meminimalkan browser.</li>
+            <li>Pelanggaran akan dianggap sebagai <b>cheating</b> dan tes akan otomatis keluar.</li>
+          </ul>
+          <p style="margin-top:10px">
+            Jika tes keluar otomatis, Anda <b>dapat masuk kembali</b> dengan
+            <b>waktu yang sudah berkurang</b>. Jawaban sebelumnya akan
+            tetap <b>tersimpan sebagai draft</b>.
+          </p>
+          <p style="margin-top:10px">Pastikan koneksi internet stabil dan webcam aktif.</p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Lanjut",
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+      focusCancel: true,
+      background: "hsl(var(--card))",
+      color: "hsl(var(--foreground))",
+      confirmButtonColor: "hsl(174, 72%, 46%)",
+      cancelButtonColor: "hsl(var(--muted))",
+    });
+
+    if (!res.isConfirmed) return;
+
     setSelectedCode(code);
     setShowStartModal(true);
   };
