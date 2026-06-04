@@ -196,6 +196,7 @@ export default function CandidateTests() {
       }
 
       sessionStorage.setItem("psytest_auth", "true");
+      sessionStorage.setItem("psytest_origin", "candidate");
       sessionStorage.setItem(
         "psytest_candidate",
         JSON.stringify({
