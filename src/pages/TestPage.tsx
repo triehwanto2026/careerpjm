@@ -318,17 +318,23 @@ const TestPage = () => {
             });
         }
 
+        const fromCandidate = sessionStorage.getItem("psytest_origin") === "candidate";
         sessionStorage.removeItem("psytest_auth");
         sessionStorage.removeItem("psytest_candidate");
         sessionStorage.removeItem("psytest_started_at");
-        try { await supabase.auth.signOut(); } catch {}
+        sessionStorage.removeItem("psytest_origin");
+        if (!fromCandidate) {
+          try { await supabase.auth.signOut(); } catch {}
+        }
 
         await Swal.fire({
           icon: "error", title: "Sesi Berakhir — Pelanggaran Terdeteksi",
-          html: `Anda berpindah tab/minimize. Sesi tes dihentikan dan jawaban telah disimpan.<br/><br/><b>Catatan:</b> Waktu tes <u>tetap berjalan</u> meskipun Anda logout. Segera login ulang dengan kode aktivasi yang sama untuk melanjutkan.`,
+          html: fromCandidate
+            ? `Anda berpindah tab/minimize. Sesi tes dihentikan dan jawaban telah disimpan sebagai <b>draft</b>.<br/><br/><b>Catatan:</b> Waktu tes <u>tetap berjalan</u>. Anda akan diarahkan kembali ke daftar tes psikologi untuk melanjutkan dengan sisa waktu.`
+            : `Anda berpindah tab/minimize. Sesi tes dihentikan dan jawaban telah disimpan.<br/><br/><b>Catatan:</b> Waktu tes <u>tetap berjalan</u> meskipun Anda logout. Segera login ulang dengan kode aktivasi yang sama untuk melanjutkan.`,
           ...SWAL_THEME, allowOutsideClick: false,
         });
-        navigate("/", { replace: true });
+        navigate(fromCandidate ? "/candidate/tests" : "/", { replace: true });
       }
     };
     document.addEventListener("visibilitychange", onHide);
