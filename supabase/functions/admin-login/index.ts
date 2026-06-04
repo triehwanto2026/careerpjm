@@ -50,12 +50,13 @@ Deno.serve(async (req) => {
   // Ensure a Supabase Auth user exists with this password so we can issue a session
   let authUserId: string | null = null;
   {
-    // Try find existing user by email
-    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (listErr) return json({ error: "list_failed: " + listErr.message }, 500);
     const existing = list?.users.find((u) => (u.email || "").toLowerCase() === email);
     if (existing) {
       authUserId = existing.id;
-      await admin.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
+      const { error: upErr } = await admin.auth.admin.updateUserById(existing.id, { password });
+      if (upErr) return json({ error: "update_failed: " + upErr.message }, 500);
     } else {
       const { data: created, error: cErr } = await admin.auth.admin.createUser({
         email,
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
         email_confirm: true,
         user_metadata: { admin_username: legacy.username, admin_full_name: legacy.full_name, legacy_admin_user_id: legacy.id },
       });
-      if (cErr || !created.user) return json({ error: "Gagal menyiapkan sesi admin" }, 500);
+      if (cErr || !created.user) return json({ error: "create_failed: " + (cErr?.message || "unknown") }, 500);
       authUserId = created.user.id;
     }
   }
