@@ -1083,10 +1083,12 @@ const TestPage = () => {
     if (!result.isConfirmed) return;
 
     await saveSessionRef.current();
+    const fromCandidate = sessionStorage.getItem("psytest_origin") === "candidate";
     sessionStorage.clear();
-    try { await supabase.auth.signOut(); } catch {}
-    navigate("/", { replace: true });
-
+    if (!fromCandidate) {
+      try { await supabase.auth.signOut(); } catch {}
+    }
+    navigate(fromCandidate ? "/candidate/tests" : "/", { replace: true });
   };
 
   if (submitted) return null;
