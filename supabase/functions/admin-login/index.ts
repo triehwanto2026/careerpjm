@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
   // Sign in via anon client to get tokens
   const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const { data: signIn, error: signErr } = await anon.auth.signInWithPassword({ email, password });
-  if (signErr || !signIn.session) return json({ error: "Gagal membuat sesi" }, 500);
+  if (signErr || !signIn.session) return json({ error: "signin_failed: " + (signErr?.message || "no session") }, 500);
 
   // Fetch permissions and role name from admin_roles
   let permissions: string[] = [];
