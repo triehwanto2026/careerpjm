@@ -357,42 +357,6 @@ export default function CandidateTests() {
       </div>
       </div>
     </div>
-    {showStartModal && selectedCode && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
-          <div className="flex items-center justify-between p-5 border-b border-border">
-            <div>
-              <h2 className="text-lg font-semibold">Masuk ke Tes Psikologi</h2>
-              <p className="text-sm text-muted-foreground">Gunakan kode dan password berikut untuk login ke tes psikologi Anda.</p>
-            </div>
-            <button onClick={closeStartModal} className="p-2 rounded hover:bg-muted transition">
-              <X className="h-5 w-5 text-muted-foreground" />
-            </button>
-          </div>
-          <div className="p-5 space-y-4">
-            <div className="rounded-2xl bg-muted p-4">
-              <div className="text-xs text-muted-foreground mb-2">Kode Aktivasi</div>
-              <div className="font-mono text-lg font-semibold">{selectedCode.code}</div>
-              <div className="text-xs text-muted-foreground mt-2">Password: <span className="font-semibold text-foreground">{selectedCode.password}</span></div>
-              <div className="text-xs text-muted-foreground mt-2">Berlaku hingga: {fmtDate(selectedCode.expires_at)}</div>
-            </div>
-            <div className="text-sm text-foreground">
-              Klik tombol di bawah untuk login dan masuk ke tes psikologi.
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
-            <button onClick={closeStartModal} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition">Batal</button>
-            <button
-              onClick={() => selectedCode && loginWithActivationCode(selectedCode.code, selectedCode.password)}
-              disabled={loginLoading}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loginLoading ? 'Memproses...' : 'Masuk Tes'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
 
     {showLoginModal && (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
