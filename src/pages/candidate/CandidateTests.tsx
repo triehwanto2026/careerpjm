@@ -30,36 +30,31 @@ export default function CandidateTests() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const chooseBestActivationCode = (codes: Code[]) => {
+  const sortCodes = (codes: Code[]) => {
     if (!codes.length) return [];
     const now = new Date();
-    const activeCodes = codes.filter((code) => {
-      const expires = code.expires_at ? new Date(code.expires_at) : null;
+    const score = (c: Code) => {
+      const expires = c.expires_at ? new Date(c.expires_at) : null;
       const expired = expires ? expires < now : false;
-      return !expired && code.status !== "completed" && code.status !== "invalid";
+      const done = c.status === "completed" || !!c.test_completed_at;
+      if (!done && !expired && c.status !== "invalid") return 0;
+      if (done) return 1;
+      return 2;
+    };
+    return [...codes].sort((a, b) => {
+      const s = score(a) - score(b);
+      if (s !== 0) return s;
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime;
     });
-
-    if (activeCodes.length > 0) {
-      return [activeCodes.sort((a, b) => {
-        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTime - aTime;
-      })[0]];
-    }
-
-    const completedCodes = codes.filter((code) => code.status === "completed" || !!code.test_completed_at);
-    if (completedCodes.length > 0) {
-      return [completedCodes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]];
-    }
-
-    return [codes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]];
   };
 
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user.email) return;
     const { data: c } = await supabase.from("activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
-    setCodes(chooseBestActivationCode((c as any) || []));
+    setCodes(sortCodes((c as any) || []));
     
     // Get candidate profile to get candidate_id
     const { data: profile } = await supabase.from("candidate_profiles").select("*").eq("email", session.user.email).maybeSingle();
@@ -90,32 +85,45 @@ export default function CandidateTests() {
       }
     } catch { /* ignore */ }
 
-    const durasiText = totalMinutes > 0
-      ? `<b>${totalMinutes} menit</b>`
-      : `<b>sesuai paket tes</b>`;
+
+    const expiresText = code.expires_at
+      ? new Date(code.expires_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })
+      : "—";
 
     const res = await Swal.fire({
-      icon: "warning",
-      title: "Peringatan Sebelum Memulai Tes",
+      title: "Siap Memulai Tes Psikologi?",
       html: `
-        <div style="text-align:left;font-size:14px;line-height:1.6">
-          <p><b>Durasi tes:</b> ${durasiText}.</p>
-          <p style="margin-top:10px"><b>Aturan Anti-Cheat:</b></p>
-          <ul style="padding-left:18px;margin-top:4px">
-            <li>Dilarang membuka tab lain, jendela lain, atau aplikasi lain.</li>
-            <li>Dilarang berpindah layar atau meminimalkan browser.</li>
-            <li>Pelanggaran akan dianggap sebagai <b>cheating</b> dan tes akan otomatis keluar.</li>
-          </ul>
-          <p style="margin-top:10px">
-            Jika tes keluar otomatis, Anda <b>dapat masuk kembali</b> dengan
-            <b>waktu yang sudah berkurang</b>. Jawaban sebelumnya akan
-            tetap <b>tersimpan sebagai draft</b>.
-          </p>
-          <p style="margin-top:10px">Pastikan koneksi internet stabil dan webcam aktif.</p>
+        <div style="text-align:left;font-size:13.5px;line-height:1.6;color:hsl(var(--foreground))">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div style="background:hsl(var(--muted));border-radius:12px;padding:12px">
+              <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Kode Tes</div>
+              <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:15px;margin-top:4px">${code.code}</div>
+            </div>
+            <div style="background:hsl(var(--muted));border-radius:12px;padding:12px">
+              <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Durasi</div>
+              <div style="font-weight:700;font-size:15px;margin-top:4px">${totalMinutes > 0 ? `${totalMinutes} menit` : "Sesuai paket"}</div>
+            </div>
+          </div>
+          <div style="background:hsl(var(--muted));border-radius:12px;padding:12px;margin-bottom:14px">
+            <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Posisi</div>
+            <div style="font-weight:600;margin-top:4px">${code.position || "Tes Psikologi"}</div>
+            <div style="font-size:12px;opacity:.7;margin-top:6px">Berlaku hingga ${expiresText}</div>
+          </div>
+          <div style="background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.35);border-radius:12px;padding:12px">
+            <div style="font-weight:700;margin-bottom:6px;color:#f59e0b">⚠ Aturan Anti-Cheat</div>
+            <ul style="padding-left:18px;margin:0;font-size:13px">
+              <li>Dilarang membuka tab, jendela, atau aplikasi lain.</li>
+              <li>Dilarang berpindah layar atau meminimalkan browser.</li>
+              <li>Pelanggaran = <b>cheating</b>, tes otomatis keluar.</li>
+              <li>Jika keluar otomatis, Anda dapat masuk kembali dengan <b>waktu berkurang</b>; jawaban tersimpan sebagai draft.</li>
+              <li>Pastikan koneksi stabil dan webcam aktif.</li>
+            </ul>
+          </div>
         </div>
       `,
+      width: 520,
       showCancelButton: true,
-      confirmButtonText: "Lanjut",
+      confirmButtonText: "Lanjut & Masuk Tes",
       cancelButtonText: "Batal",
       reverseButtons: true,
       focusCancel: true,
@@ -123,12 +131,11 @@ export default function CandidateTests() {
       color: "hsl(var(--foreground))",
       confirmButtonColor: "hsl(174, 72%, 46%)",
       cancelButtonColor: "hsl(var(--muted))",
+      customClass: { popup: "rounded-2xl" },
     });
 
     if (!res.isConfirmed) return;
-
-    setSelectedCode(code);
-    setShowStartModal(true);
+    await loginWithActivationCode(code.code, code.password);
   };
 
   const closeStartModal = () => {
@@ -350,42 +357,6 @@ export default function CandidateTests() {
       </div>
       </div>
     </div>
-    {showStartModal && selectedCode && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
-          <div className="flex items-center justify-between p-5 border-b border-border">
-            <div>
-              <h2 className="text-lg font-semibold">Masuk ke Tes Psikologi</h2>
-              <p className="text-sm text-muted-foreground">Gunakan kode dan password berikut untuk login ke tes psikologi Anda.</p>
-            </div>
-            <button onClick={closeStartModal} className="p-2 rounded hover:bg-muted transition">
-              <X className="h-5 w-5 text-muted-foreground" />
-            </button>
-          </div>
-          <div className="p-5 space-y-4">
-            <div className="rounded-2xl bg-muted p-4">
-              <div className="text-xs text-muted-foreground mb-2">Kode Aktivasi</div>
-              <div className="font-mono text-lg font-semibold">{selectedCode.code}</div>
-              <div className="text-xs text-muted-foreground mt-2">Password: <span className="font-semibold text-foreground">{selectedCode.password}</span></div>
-              <div className="text-xs text-muted-foreground mt-2">Berlaku hingga: {fmtDate(selectedCode.expires_at)}</div>
-            </div>
-            <div className="text-sm text-foreground">
-              Klik tombol di bawah untuk login dan masuk ke tes psikologi.
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
-            <button onClick={closeStartModal} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition">Batal</button>
-            <button
-              onClick={() => selectedCode && loginWithActivationCode(selectedCode.code, selectedCode.password)}
-              disabled={loginLoading}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loginLoading ? 'Memproses...' : 'Masuk Tes'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
 
     {showLoginModal && (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
