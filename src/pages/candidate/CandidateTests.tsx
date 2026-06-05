@@ -89,28 +89,44 @@ export default function CandidateTests() {
       ? `<b>${totalMinutes} menit</b>`
       : `<b>sesuai paket tes</b>`;
 
+    const expiresText = code.expires_at
+      ? new Date(code.expires_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })
+      : "—";
+
     const res = await Swal.fire({
-      icon: "warning",
-      title: "Peringatan Sebelum Memulai Tes",
+      title: "Siap Memulai Tes Psikologi?",
       html: `
-        <div style="text-align:left;font-size:14px;line-height:1.6">
-          <p><b>Durasi tes:</b> ${durasiText}.</p>
-          <p style="margin-top:10px"><b>Aturan Anti-Cheat:</b></p>
-          <ul style="padding-left:18px;margin-top:4px">
-            <li>Dilarang membuka tab lain, jendela lain, atau aplikasi lain.</li>
-            <li>Dilarang berpindah layar atau meminimalkan browser.</li>
-            <li>Pelanggaran akan dianggap sebagai <b>cheating</b> dan tes akan otomatis keluar.</li>
-          </ul>
-          <p style="margin-top:10px">
-            Jika tes keluar otomatis, Anda <b>dapat masuk kembali</b> dengan
-            <b>waktu yang sudah berkurang</b>. Jawaban sebelumnya akan
-            tetap <b>tersimpan sebagai draft</b>.
-          </p>
-          <p style="margin-top:10px">Pastikan koneksi internet stabil dan webcam aktif.</p>
+        <div style="text-align:left;font-size:13.5px;line-height:1.6;color:hsl(var(--foreground))">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div style="background:hsl(var(--muted));border-radius:12px;padding:12px">
+              <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Kode Tes</div>
+              <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:15px;margin-top:4px">${code.code}</div>
+            </div>
+            <div style="background:hsl(var(--muted));border-radius:12px;padding:12px">
+              <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Durasi</div>
+              <div style="font-weight:700;font-size:15px;margin-top:4px">${totalMinutes > 0 ? `${totalMinutes} menit` : "Sesuai paket"}</div>
+            </div>
+          </div>
+          <div style="background:hsl(var(--muted));border-radius:12px;padding:12px;margin-bottom:14px">
+            <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Posisi</div>
+            <div style="font-weight:600;margin-top:4px">${code.position || "Tes Psikologi"}</div>
+            <div style="font-size:12px;opacity:.7;margin-top:6px">Berlaku hingga ${expiresText}</div>
+          </div>
+          <div style="background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.35);border-radius:12px;padding:12px">
+            <div style="font-weight:700;margin-bottom:6px;color:#f59e0b">⚠ Aturan Anti-Cheat</div>
+            <ul style="padding-left:18px;margin:0;font-size:13px">
+              <li>Dilarang membuka tab, jendela, atau aplikasi lain.</li>
+              <li>Dilarang berpindah layar atau meminimalkan browser.</li>
+              <li>Pelanggaran = <b>cheating</b>, tes otomatis keluar.</li>
+              <li>Jika keluar otomatis, Anda dapat masuk kembali dengan <b>waktu berkurang</b>; jawaban tersimpan sebagai draft.</li>
+              <li>Pastikan koneksi stabil dan webcam aktif.</li>
+            </ul>
+          </div>
         </div>
       `,
+      width: 520,
       showCancelButton: true,
-      confirmButtonText: "Lanjut",
+      confirmButtonText: "Lanjut & Masuk Tes",
       cancelButtonText: "Batal",
       reverseButtons: true,
       focusCancel: true,
@@ -118,12 +134,11 @@ export default function CandidateTests() {
       color: "hsl(var(--foreground))",
       confirmButtonColor: "hsl(174, 72%, 46%)",
       cancelButtonColor: "hsl(var(--muted))",
+      customClass: { popup: "rounded-2xl" },
     });
 
     if (!res.isConfirmed) return;
-
-    setSelectedCode(code);
-    setShowStartModal(true);
+    await loginWithActivationCode(code.code, code.password);
   };
 
   const closeStartModal = () => {
