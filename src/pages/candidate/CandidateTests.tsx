@@ -54,7 +54,7 @@ export default function CandidateTests() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user.email) return;
     const { data: c } = await supabase.from("activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
-    setCodes(chooseBestActivationCode((c as any) || []));
+    setCodes(sortCodes((c as any) || []));
     
     // Get candidate profile to get candidate_id
     const { data: profile } = await supabase.from("candidate_profiles").select("*").eq("email", session.user.email).maybeSingle();
