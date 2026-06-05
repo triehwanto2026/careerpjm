@@ -30,29 +30,24 @@ export default function CandidateTests() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const chooseBestActivationCode = (codes: Code[]) => {
+  const sortCodes = (codes: Code[]) => {
     if (!codes.length) return [];
     const now = new Date();
-    const activeCodes = codes.filter((code) => {
-      const expires = code.expires_at ? new Date(code.expires_at) : null;
+    const score = (c: Code) => {
+      const expires = c.expires_at ? new Date(c.expires_at) : null;
       const expired = expires ? expires < now : false;
-      return !expired && code.status !== "completed" && code.status !== "invalid";
+      const done = c.status === "completed" || !!c.test_completed_at;
+      if (!done && !expired && c.status !== "invalid") return 0;
+      if (done) return 1;
+      return 2;
+    };
+    return [...codes].sort((a, b) => {
+      const s = score(a) - score(b);
+      if (s !== 0) return s;
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime;
     });
-
-    if (activeCodes.length > 0) {
-      return [activeCodes.sort((a, b) => {
-        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTime - aTime;
-      })[0]];
-    }
-
-    const completedCodes = codes.filter((code) => code.status === "completed" || !!code.test_completed_at);
-    if (completedCodes.length > 0) {
-      return [completedCodes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]];
-    }
-
-    return [codes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]];
   };
 
   const load = async () => {
