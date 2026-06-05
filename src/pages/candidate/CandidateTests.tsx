@@ -85,9 +85,6 @@ export default function CandidateTests() {
       }
     } catch { /* ignore */ }
 
-    const durasiText = totalMinutes > 0
-      ? `<b>${totalMinutes} menit</b>`
-      : `<b>sesuai paket tes</b>`;
 
     const expiresText = code.expires_at
       ? new Date(code.expires_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })
