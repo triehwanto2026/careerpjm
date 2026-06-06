@@ -2688,6 +2688,13 @@ export type Database = {
             referencedRelation: "test_questions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "test_question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "test_questions_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       test_questions: {
@@ -2972,7 +2979,116 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      test_question_options_safe: {
+        Row: {
+          category_target: string | null
+          display_order: number | null
+          id: string | null
+          image_url: string | null
+          option_label: string | null
+          option_text: string | null
+          option_text_en: string | null
+          question_id: string | null
+        }
+        Insert: {
+          category_target?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          option_label?: string | null
+          option_text?: string | null
+          option_text_en?: string | null
+          question_id?: string | null
+        }
+        Update: {
+          category_target?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          option_label?: string | null
+          option_text?: string | null
+          option_text_en?: string | null
+          question_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "test_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "test_questions_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_questions_safe: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          id: string | null
+          image_url: string | null
+          instrument_id: string | null
+          options_image: string | null
+          question_image: string | null
+          question_number: number | null
+          question_text: string | null
+          question_text_en: string | null
+          question_type: string | null
+          scoring_rule: string | null
+          subtest_code: string | null
+          time_limit_minutes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          id?: string | null
+          image_url?: string | null
+          instrument_id?: string | null
+          options_image?: string | null
+          question_image?: string | null
+          question_number?: number | null
+          question_text?: never
+          question_text_en?: never
+          question_type?: string | null
+          scoring_rule?: string | null
+          subtest_code?: string | null
+          time_limit_minutes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          id?: string | null
+          image_url?: string | null
+          instrument_id?: string | null
+          options_image?: string | null
+          question_image?: string | null
+          question_number?: number | null
+          question_text?: never
+          question_text_en?: never
+          question_type?: string | null
+          scoring_rule?: string | null
+          subtest_code?: string | null
+          time_limit_minutes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_questions_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "test_instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_activate_candidate_login: {
