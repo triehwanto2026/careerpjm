@@ -10,7 +10,7 @@ import { uploadDataUrlAsPhoto } from "@/lib/photoUpload";
 
 interface DbOption {
   id: string; question_id: string; option_label: string; option_text: string; option_text_en: string | null;
-  score_value: number; category_target: string | null; is_correct: boolean | null; display_order: number;
+  category_target: string | null; display_order: number;
   image_url?: string | null;
 }
 interface DbQuestion {
@@ -54,13 +54,17 @@ const TestPage = () => {
     }
     const { data: insts } = await supabase.from("test_instruments").select("id, name, name_en, duration_minutes, scoring_method").in("id", ids);
     if (!insts || insts.length === 0) { setLoading(false); return; }
-    const { data: qs } = await supabase.from("test_questions").select("*").in("instrument_id", ids).order("question_number");
-    const qIds = (qs || []).map((q: any) => q.id);
-    const { data: opts } = qIds.length ? await supabase.from("test_question_options").select("*").in("question_id", qIds).order("display_order") : { data: [] };
+    // Use security-definer RPCs that strip answer keys (is_correct / score_value /
+    // "CORRECT_ANSWER:" markers) before sending data to the client.
+    const { data: qs } = await supabase.rpc("get_test_questions_safe" as any, { _instrument_ids: ids });
+    const qIds = ((qs as any[]) || []).map((q: any) => q.id);
+    const { data: opts } = qIds.length
+      ? await supabase.rpc("get_test_question_options_safe" as any, { _question_ids: qIds })
+      : { data: [] as any[] };
     const optsByQ: Record<string, DbOption[]> = {};
-    (opts as DbOption[] || []).forEach(o => { (optsByQ[o.question_id] ||= []).push(o); });
+    ((opts as DbOption[]) || []).forEach(o => { (optsByQ[o.question_id] ||= []).push(o); });
     const qsByInst: Record<string, DbQuestion[]> = {};
-    (qs as any[] || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] }); });
+    ((qs as any[]) || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] }); });
     const ordered: DbInstrument[] = ids.map(id => insts.find((i: any) => i.id === id)).filter(Boolean)
       .map((i: any) => ({ ...i, questions: qsByInst[i.id] || [] }));
     setInstruments(ordered);
