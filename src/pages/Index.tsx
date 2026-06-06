@@ -86,7 +86,7 @@ const Index = () => {
   const heroTitle = landingSettings.landing_header_title || "PJM GROUP Career Management";
   const heroSubtitle = landingSettings.landing_header_subtitle || "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
   const heroBrand = landingSettings.app_name || landingSettings.landing_header_title || "PJM GROUP Career Management";
-  const heroBackgroundUrl = landingSettings.landing_hero_background_url || "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80";
+  const heroBackgroundUrl = landingSettings.landing_hero_background_url || "/__l5e/assets-v1/80b11226-9de5-420a-9265-8d649b07e87f/hero-bg.jpg";
 
   if (error) {
     console.error("Error loading jobs:", error);
@@ -113,8 +113,10 @@ const Index = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-background">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroBackgroundUrl})` }} />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/40"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/20"></div>
+        {/* Layered overlays for readability without losing the imagery */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(var(--primary)/0.15),transparent_60%)]" />
         <div className="relative container py-24 md:py-28 lg:py-32">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-3xl">
             <Badge className="mb-5 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/10">{heroBrand}</Badge>
