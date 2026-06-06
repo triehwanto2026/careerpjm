@@ -3004,6 +3004,37 @@ export type Database = {
           status_value: string
         }[]
       }
+      get_test_question_options_safe: {
+        Args: { _question_ids: string[] }
+        Returns: {
+          category_target: string
+          display_order: number
+          id: string
+          image_url: string
+          option_label: string
+          option_text: string
+          option_text_en: string
+          question_id: string
+        }[]
+      }
+      get_test_questions_safe: {
+        Args: { _instrument_ids: string[] }
+        Returns: {
+          category: string
+          id: string
+          image_url: string
+          instrument_id: string
+          options_image: string
+          question_image: string
+          question_number: number
+          question_text: string
+          question_text_en: string
+          question_type: string
+          scoring_rule: string
+          subtest_code: string
+          time_limit_minutes: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

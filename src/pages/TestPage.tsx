@@ -10,7 +10,7 @@ import { uploadDataUrlAsPhoto } from "@/lib/photoUpload";
 
 interface DbOption {
   id: string; question_id: string; option_label: string; option_text: string; option_text_en: string | null;
-  score_value: number; category_target: string | null; is_correct: boolean | null; display_order: number;
+  category_target: string | null; display_order: number;
   image_url?: string | null;
 }
 interface DbQuestion {
@@ -54,13 +54,17 @@ const TestPage = () => {
     }
     const { data: insts } = await supabase.from("test_instruments").select("id, name, name_en, duration_minutes, scoring_method").in("id", ids);
     if (!insts || insts.length === 0) { setLoading(false); return; }
-    const { data: qs } = await supabase.from("test_questions").select("*").in("instrument_id", ids).order("question_number");
-    const qIds = (qs || []).map((q: any) => q.id);
-    const { data: opts } = qIds.length ? await supabase.from("test_question_options").select("*").in("question_id", qIds).order("display_order") : { data: [] };
+    // Use security-definer RPCs that strip answer keys (is_correct / score_value /
+    // "CORRECT_ANSWER:" markers) before sending data to the client.
+    const { data: qs } = await supabase.rpc("get_test_questions_safe" as any, { _instrument_ids: ids });
+    const qIds = ((qs as any[]) || []).map((q: any) => q.id);
+    const { data: opts } = qIds.length
+      ? await supabase.rpc("get_test_question_options_safe" as any, { _question_ids: qIds })
+      : { data: [] as any[] };
     const optsByQ: Record<string, DbOption[]> = {};
-    (opts as DbOption[] || []).forEach(o => { (optsByQ[o.question_id] ||= []).push(o); });
+    ((opts as DbOption[]) || []).forEach(o => { (optsByQ[o.question_id] ||= []).push(o); });
     const qsByInst: Record<string, DbQuestion[]> = {};
-    (qs as any[] || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] }); });
+    ((qs as any[]) || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] }); });
     const ordered: DbInstrument[] = ids.map(id => insts.find((i: any) => i.id === id)).filter(Boolean)
       .map((i: any) => ({ ...i, questions: qsByInst[i.id] || [] }));
     setInstruments(ordered);
@@ -903,150 +907,28 @@ const TestPage = () => {
     const dataUrl = webcamRef.current?.capture();
     if (dataUrl) snapUrl = await uploadDataUrlAsPhoto(dataUrl, `snap-${candidate?.email || "anon"}`);
 
-    let candidateId: string | null = candidate?.id || null;
-    if (candidate && !candidateId) {
-      const { data: existing } = await supabase.from("candidates").select("id").eq("email", candidate.email).maybeSingle();
-      candidateId = existing?.id || null;
-    }
-    if (candidateId) await supabase.from("candidates").update({ status: "completed" } as any).eq("id", candidateId);
-
-    for (const inst of instruments) {
-      const instAnswers = inst.questions.map(q => ({ q, optId: answers[`${inst.id}:${q.id}`] as string | undefined }));
-      const answeredCount = instAnswers.filter(a => a.optId).length;
-      const cats: Record<string, number> = {};
-      let correctCount = 0; let totalScore = 0;
-
-      instAnswers.forEach(({ q, optId }) => {
-        if (!optId) return;
-        if (q.question_type === "disc_pair" && optId.includes("|")) {
-          const parts: Record<string, string> = { M: "", L: "" };
-          optId.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
-          const mOpt = q.options.find(o => o.id === parts.M);
-          const lOpt = q.options.find(o => o.id === parts.L);
-          
-          // Map category_target to standard D/I/S/C codes
-          const mapToCode = (target: string) => {
-            const t = target?.toUpperCase().trim();
-            if (t === 'D' || t === 'DOMINANCE') return 'D';
-            if (t === 'I' || t === 'INFLUENCE') return 'I';
-            if (t === 'S' || t === 'STEADINESS') return 'S';
-            if (t === 'C' || t === 'COMPLIANCE') return 'C';
-            return t;
-          };
-          
-          if (mOpt?.category_target) {
-            const d = mapToCode(mOpt.category_target);
-            cats[d] = (cats[d] || 0) + 1;                  // Net (Mirror) = M - L
-            cats[`${d}_M`] = (cats[`${d}_M`] || 0) + 1;    // Mask: Most-like count
-          }
-          if (lOpt?.category_target) {
-            const d = mapToCode(lOpt.category_target);
-            cats[d] = (cats[d] || 0) - 1;
-            cats[`${d}_L`] = (cats[`${d}_L`] || 0) + 1;    // Core: Least-like count
-          }
-          return;
-        }
-        if (q.question_type === "multi_choice" && optId.includes("+")) {
-          const ids = optId.split("+").filter(Boolean);
-          const picked = q.options.filter(o => ids.includes(o.id));
-          const correctIds = q.options.filter(o => o.is_correct).map(o => o.id);
-          const allCorrect = correctIds.length > 0 && ids.length === correctIds.length && ids.every(id => correctIds.includes(id));
-          if (allCorrect) correctCount++;
-          picked.forEach(opt => {
-            totalScore += Number(opt.score_value || 0);
-            const dim = opt.category_target?.trim() || q.category?.trim() || "Umum";
-            cats[dim] = (cats[dim] || 0) + Number(opt.score_value || 0);
-          });
-          return;
-        }
-        const opt = q.options.find(o => o.id === optId);
-        if (!opt) return;
-        totalScore += Number(opt.score_value || 0);
-        if (opt.is_correct) correctCount++;
-        const dim = opt.category_target?.trim() || q.category?.trim() || "Umum";
-        cats[dim] = (cats[dim] || 0) + Number(opt.score_value || 0);
+    // Build per-instrument answers map { question_id -> optId } for the server.
+    const instrumentsPayload = instruments.map((inst) => {
+      const answersMap: Record<string, string> = {};
+      inst.questions.forEach((q) => {
+        const v = answers[`${inst.id}:${q.id}`];
+        if (typeof v === "string" && v) answersMap[q.id] = v;
       });
+      return { id: inst.id, answers: answersMap };
+    });
 
-      const hasCorrectScoring = inst.questions.some(q => q.scoring_rule === "correct_only" || q.options.some(o => o.is_correct));
-      const score = hasCorrectScoring && inst.questions.length > 0
-        ? Math.round((correctCount / inst.questions.length) * 100)
-        : Math.round((answeredCount / Math.max(inst.questions.length, 1)) * 100);
-
-      const normalizedCats: Record<string, number> = {};
-      Object.entries(cats).forEach(([k, v]) => { normalizedCats[k] = Math.round(v); });
-      const status = score >= 70 ? "passed" : score >= 50 ? "review" : "failed";
-
-      const { data: resultData } = await supabase.from("test_results").insert({
-        candidate_id: candidateId,
-        candidate_name: candidate?.name || "Unknown",
-        position: candidate?.position || "",
-        test_name: inst.name,
-        score, total_questions: inst.questions.length, answered_questions: answeredCount,
-        categories: normalizedCats, status,
-        interpretation: `Kandidat menjawab ${answeredCount} dari ${inst.questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasar profil dimensi."}`,
-        candidate_profile: candidate ? {
-          email: candidate.email, phone: candidate.phone || "", birthDate: candidate.birth_date || "",
-          education: candidate.education || "", gender: candidate.gender || "", photo_url: candidate.photo_url || null,
-        } : null,
-        webcam_photo_url: snapUrl,
-      } as any).select("id").single();
-
-      if (resultData) {
-        const answerRows = instAnswers.filter(a => a.optId).map(({ q, optId }) => {
-          // DISC: format combined "M: <text> | L: <text>" instead of UUIDs
-          if (q.question_type === "disc_pair" && optId!.includes("|")) {
-            const parts: Record<string, string> = { M: "", L: "" };
-            optId!.split("|").forEach(p => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
-            const mOpt = q.options.find(o => o.id === parts.M);
-            const lOpt = q.options.find(o => o.id === parts.L);
-            const mText = mOpt ? `${mOpt.option_label}. ${mOpt.option_text}` : "-";
-            const lText = lOpt ? `${lOpt.option_label}. ${lOpt.option_text}` : "-";
-            return {
-              test_result_id: resultData.id,
-              question_number: q.question_number,
-              question_text: q.question_text,
-              question_text_en: q.question_text_en,
-              selected_answer: `PALING (M): ${mText}  ·  TIDAK (L): ${lText}`,
-              selected_answer_label: `M:${mOpt?.category_target || "?"} / L:${lOpt?.category_target || "?"}`,
-              category: q.category,
-              is_correct: null,
-              correct_answer: null,
-            };
-          }
-          if (q.question_type === "multi_choice" && optId!.includes("+")) {
-            const ids = optId!.split("+").filter(Boolean);
-            const picked = q.options.filter(o => ids.includes(o.id));
-            const correctIds = q.options.filter(o => o.is_correct).map(o => o.id);
-            const allCorrect = correctIds.length > 0 && ids.length === correctIds.length && ids.every(id => correctIds.includes(id));
-            const correctOpts = q.options.filter(o => o.is_correct);
-            return {
-              test_result_id: resultData.id,
-              question_number: q.question_number,
-              question_text: q.question_text,
-              question_text_en: q.question_text_en,
-              selected_answer: picked.map(o => `${o.option_label}. ${o.option_text}`).join(" + "),
-              selected_answer_label: picked.map(o => o.option_label).join("+"),
-              category: q.category,
-              is_correct: allCorrect,
-              correct_answer: correctOpts.map(o => `${o.option_label}. ${o.option_text}`).join(" + ") || null,
-            };
-          }
-          const opt = q.options.find(o => o.id === optId);
-          return {
-            test_result_id: resultData.id,
-            question_number: q.question_number,
-            question_text: q.question_text,
-            question_text_en: q.question_text_en,
-            selected_answer: opt?.option_text || optId || "",
-            selected_answer_label: opt?.option_label || "",
-            // Prefer option's category_target (e.g. Sanguine/Choleric for Personality Plus) over question.category
-            category: opt?.category_target?.trim() || q.category || null,
-            is_correct: opt?.is_correct ?? null,
-            correct_answer: q.options.find(o => o.is_correct)?.option_text || null,
-          };
-        });
-        if (answerRows.length > 0) await supabase.from("test_answers").insert(answerRows);
-      }
+    // Server-side scoring: edge function reads answer keys with the service role
+    // and writes test_results + test_answers. Keys never reach the client.
+    try {
+      await supabase.functions.invoke("test-submit", {
+        body: {
+          candidate: candidate || {},
+          snap_url: snapUrl,
+          instruments: instrumentsPayload,
+        },
+      });
+    } catch (err) {
+      console.error("test-submit failed", err);
     }
 
     Swal.fire({
