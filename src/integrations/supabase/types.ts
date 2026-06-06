@@ -2688,13 +2688,6 @@ export type Database = {
             referencedRelation: "test_questions"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "test_question_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "test_questions_safe"
-            referencedColumns: ["id"]
-          },
         ]
       }
       test_questions: {
@@ -2979,116 +2972,7 @@ export type Database = {
       }
     }
     Views: {
-      test_question_options_safe: {
-        Row: {
-          category_target: string | null
-          display_order: number | null
-          id: string | null
-          image_url: string | null
-          option_label: string | null
-          option_text: string | null
-          option_text_en: string | null
-          question_id: string | null
-        }
-        Insert: {
-          category_target?: string | null
-          display_order?: number | null
-          id?: string | null
-          image_url?: string | null
-          option_label?: string | null
-          option_text?: string | null
-          option_text_en?: string | null
-          question_id?: string | null
-        }
-        Update: {
-          category_target?: string | null
-          display_order?: number | null
-          id?: string | null
-          image_url?: string | null
-          option_label?: string | null
-          option_text?: string | null
-          option_text_en?: string | null
-          question_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "test_question_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "test_questions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "test_question_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "test_questions_safe"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      test_questions_safe: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          id: string | null
-          image_url: string | null
-          instrument_id: string | null
-          options_image: string | null
-          question_image: string | null
-          question_number: number | null
-          question_text: string | null
-          question_text_en: string | null
-          question_type: string | null
-          scoring_rule: string | null
-          subtest_code: string | null
-          time_limit_minutes: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string | null
-          id?: string | null
-          image_url?: string | null
-          instrument_id?: string | null
-          options_image?: string | null
-          question_image?: string | null
-          question_number?: number | null
-          question_text?: never
-          question_text_en?: never
-          question_type?: string | null
-          scoring_rule?: string | null
-          subtest_code?: string | null
-          time_limit_minutes?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string | null
-          created_at?: string | null
-          id?: string | null
-          image_url?: string | null
-          instrument_id?: string | null
-          options_image?: string | null
-          question_image?: string | null
-          question_number?: number | null
-          question_text?: never
-          question_text_en?: never
-          question_type?: string | null
-          scoring_rule?: string | null
-          subtest_code?: string | null
-          time_limit_minutes?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "test_questions_instrument_id_fkey"
-            columns: ["instrument_id"]
-            isOneToOne: false
-            referencedRelation: "test_instruments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_activate_candidate_login: {
@@ -3118,6 +3002,37 @@ export type Database = {
           status_label: string
           status_order: number
           status_value: string
+        }[]
+      }
+      get_test_question_options_safe: {
+        Args: { _question_ids: string[] }
+        Returns: {
+          category_target: string
+          display_order: number
+          id: string
+          image_url: string
+          option_label: string
+          option_text: string
+          option_text_en: string
+          question_id: string
+        }[]
+      }
+      get_test_questions_safe: {
+        Args: { _instrument_ids: string[] }
+        Returns: {
+          category: string
+          id: string
+          image_url: string
+          instrument_id: string
+          options_image: string
+          question_image: string
+          question_number: number
+          question_text: string
+          question_text_en: string
+          question_type: string
+          scoring_rule: string
+          subtest_code: string
+          time_limit_minutes: number
         }[]
       }
       has_role: {
