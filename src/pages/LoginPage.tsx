@@ -151,15 +151,16 @@ const LoginPage = () => {
           throw new Error("Masukkan kode aktivasi atau gunakan email dan password.");
         }
 
-        const { data, error } = await (supabase as any).rpc("candidate_verify_activation_login", {
-          _code: activationCode.trim(),
-          _password: password.trim(),
-        });
+        const { data, error } = await supabase
+          .from("activation_codes")
+          .select("*")
+          .eq("code", activationCode.trim())
+          .eq("password", password.trim())
+          .maybeSingle();
 
         if (error || !data) {
           throw new Error("Kode aktivasi atau password salah.");
         }
-
 
         const now = new Date();
         const isExpired = data.expires_at && new Date(data.expires_at) < now;
