@@ -547,7 +547,7 @@ export default function CandidateProfile() {
     <CandidateLayout>
       <div className="min-h-screen w-full flex flex-col">
         {/* Header - Fixed Top */}
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="w-full px-4 py-4 md:px-6 lg:px-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
