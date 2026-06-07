@@ -60,7 +60,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 transform transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col`}>
         <div className="p-5 border-b border-slate-700">
           <div className="flex items-center gap-2">
             {publicSettings.app_logo_url ? (
