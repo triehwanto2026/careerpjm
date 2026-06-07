@@ -2341,6 +2341,13 @@ export type Database = {
             referencedRelation: "activation_codes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "candidates_activation_code_id_fkey"
+            columns: ["activation_code_id"]
+            isOneToOne: false
+            referencedRelation: "my_activation_codes"
+            referencedColumns: ["id"]
+          },
         ]
       }
       job_applications: {
@@ -2972,7 +2979,60 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      my_activation_codes: {
+        Row: {
+          assigned_tests: string[] | null
+          auto_submitted: boolean | null
+          candidate_email: string | null
+          candidate_name: string | null
+          code: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          is_used: boolean | null
+          position: string | null
+          status: string | null
+          test_completed_at: string | null
+          test_started_at: string | null
+          updated_at: string | null
+          used_at: string | null
+        }
+        Insert: {
+          assigned_tests?: string[] | null
+          auto_submitted?: boolean | null
+          candidate_email?: string | null
+          candidate_name?: string | null
+          code?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_used?: boolean | null
+          position?: string | null
+          status?: string | null
+          test_completed_at?: string | null
+          test_started_at?: string | null
+          updated_at?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          assigned_tests?: string[] | null
+          auto_submitted?: boolean | null
+          candidate_email?: string | null
+          candidate_name?: string | null
+          code?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_used?: boolean | null
+          position?: string | null
+          status?: string | null
+          test_completed_at?: string | null
+          test_started_at?: string | null
+          updated_at?: string | null
+          used_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_activate_candidate_login: {
@@ -2995,6 +3055,43 @@ export type Database = {
       admin_reset_candidate_password: {
         Args: { candidate_email: string; new_password?: string }
         Returns: string
+      }
+      candidate_update_activation_code_status: {
+        Args: {
+          _auto_submitted?: boolean
+          _id: string
+          _is_used?: boolean
+          _status?: string
+          _test_completed_at?: string
+          _test_started_at?: string
+        }
+        Returns: undefined
+      }
+      candidate_verify_activation_login: {
+        Args: { _code: string; _password: string }
+        Returns: {
+          assigned_tests: string[] | null
+          auto_submitted: boolean | null
+          candidate_email: string | null
+          candidate_name: string | null
+          code: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          is_used: boolean | null
+          position: string | null
+          status: string | null
+          test_completed_at: string | null
+          test_started_at: string | null
+          updated_at: string | null
+          used_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "my_activation_codes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       get_application_status_flow: {
         Args: never
