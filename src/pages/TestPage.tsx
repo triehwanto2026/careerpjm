@@ -169,7 +169,7 @@ const TestPage = () => {
     if (!cand.activationCodeId) { setResumed(true); return; }
     (async () => {
       // Check if code was reactivated (status changed from 'completed' back to 'active')
-      const { data: codeData } = await supabase.from("activation_codes").select("*").eq("id", cand.activationCodeId).maybeSingle();
+      const { data: codeData } = await (supabase as any).from("my_activation_codes").select("*").eq("id", cand.activationCodeId).maybeSingle();
       const isReactivated = (codeData as any)?.status === 'active' && (codeData as any)?.is_code_deactivated;
       
       // If reactivated, delete old session to start fresh
@@ -241,10 +241,11 @@ const TestPage = () => {
           completed_subtests: [],
         } as any);
         // Tandai activation code sebagai started
-        await supabase.from("activation_codes").update({
-          test_started_at: new Date().toISOString(),
-          status: 'active',
-        } as any).eq("id", cand.activationCodeId);
+        await (supabase as any).rpc("candidate_update_activation_code_status", {
+          _id: cand.activationCodeId,
+          _test_started_at: new Date().toISOString(),
+          _status: 'active',
+        });
       }
       setResumed(true);
     })();
@@ -354,11 +355,12 @@ const TestPage = () => {
       await supabase.from("test_sessions").update({ is_code_deactivated: true } as any)
         .eq("activation_code_id", cand.activationCodeId).eq("candidate_email", cand.email);
       // Mark activation code as completed (kode tidak bisa dipakai lagi)
-      await supabase.from("activation_codes").update({
-        status: 'completed',
-        test_completed_at: new Date().toISOString(),
-        is_used: true
-      } as any).eq("id", cand.activationCodeId);
+      await (supabase as any).rpc("candidate_update_activation_code_status", {
+        _id: cand.activationCodeId,
+        _status: 'completed',
+        _test_completed_at: new Date().toISOString(),
+        _is_used: true,
+      });
       // Bersihkan localStorage lama (kompatibilitas)
       localStorage.removeItem(`psytest_start_${cand.activationCodeId}`);
       clearSessionSnapshot(cand.activationCodeId, cand.email);
@@ -770,11 +772,12 @@ const TestPage = () => {
       return;
     }
 
-    await supabase.from("activation_codes").update({
-      status: 'completed',
-      test_completed_at: new Date().toISOString(),
-      auto_submitted: true,
-    } as any).eq("id", cand.activationCodeId);
+    await (supabase as any).rpc("candidate_update_activation_code_status", {
+      _id: cand.activationCodeId,
+      _status: 'completed',
+      _test_completed_at: new Date().toISOString(),
+      _auto_submitted: true,
+    });
 
     await Swal.fire({
       icon: "warning",
