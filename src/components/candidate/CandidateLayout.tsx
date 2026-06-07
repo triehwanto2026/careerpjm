@@ -1,8 +1,21 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { User, Briefcase, FileText, ClipboardList, LogOut, ShieldCheck, Menu, X, Bell, Settings, Brain } from "lucide-react";
+import {
+  User,
+  Briefcase,
+  ClipboardList,
+  LogOut,
+  ShieldCheck,
+  Menu,
+  Bell,
+  Settings,
+  Brain,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const nav = [
   { to: "/candidate/profile", label: "Profil Saya", icon: User },
@@ -15,11 +28,17 @@ const nav = [
 export default function CandidateLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [email, setEmail] = useState<string>("");
-  const [open, setOpen] = useState(false);
+  // collapsed = narrow (icon-only) on desktop; on mobile collapsed means hidden
+  const [collapsed, setCollapsed] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});
+
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+  const profileRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -48,37 +67,91 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
         }, {} as Record<string, string>)
       );
     };
-
     loadPublicSettings();
   }, []);
+
+  // Close dropdowns + collapse mobile sidebar on outside click
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (notifRef.current && !notifRef.current.contains(t)) setShowNotifications(false);
+      if (profileRef.current && !profileRef.current.contains(t)) setShowProfileMenu(false);
+      if (
+        isMobile &&
+        !collapsed &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(t)
+      ) {
+        setCollapsed(true);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [isMobile, collapsed]);
+
+  // Collapse back to narrow whenever route changes
+  useEffect(() => {
+    setCollapsed(true);
+    setShowNotifications(false);
+    setShowProfileMenu(false);
+  }, [location.pathname]);
 
   const logout = async () => {
     await supabase.auth.signOut();
     navigate("/candidate/login");
   };
 
+  // Sidebar widths
+  // Desktop: collapsed = w-16 (icons only); expanded = w-64
+  // Mobile: collapsed = hidden (-translate-x-full), expanded = w-64
+  const desktopWidth = collapsed ? "lg:w-16" : "lg:w-64";
+  const mobileTransform = collapsed ? "-translate-x-full" : "translate-x-0";
+
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col`}>
-        <div className="p-5 border-b border-slate-700">
-          <div className="flex items-center gap-2">
+      <aside
+        ref={sidebarRef}
+        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 w-64 ${desktopWidth} lg:translate-x-0 ${mobileTransform} transform transition-all duration-300 ease-in-out bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col h-screen`}
+      >
+        <div className="p-3 border-b border-slate-700 flex items-center justify-between gap-2">
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            className="flex items-center gap-2 flex-1 min-w-0 hover:bg-slate-700/50 rounded-lg p-1 transition"
+            aria-label="Toggle sidebar"
+          >
             {publicSettings.app_logo_url ? (
-              <img src={publicSettings.app_logo_url} alt={publicSettings.app_name || publicSettings.landing_header_title || "PJM Group Career Management"} className="h-9 w-9 rounded-lg object-cover" />
+              <img
+                src={publicSettings.app_logo_url}
+                alt={publicSettings.app_name || "Logo"}
+                className="h-9 w-9 rounded-lg object-cover flex-none"
+              />
             ) : (
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center flex-none">
                 <ShieldCheck className="h-5 w-5 text-white" />
               </div>
             )}
-            <div>
-              <div className="text-sm font-bold text-white">Portal Kandidat</div>
-              <div className="text-[10px] text-slate-300">
-                {publicSettings.app_name || publicSettings.landing_header_title || "PJM Group Career Management"}
+            {!collapsed && (
+              <div className="min-w-0 text-left">
+                <div className="text-sm font-bold text-white truncate">Portal Kandidat</div>
+                <div className="text-[10px] text-slate-300 truncate">
+                  {publicSettings.app_name || publicSettings.landing_header_title || "PJM Group"}
+                </div>
               </div>
-            </div>
-          </div>
+            )}
+          </button>
+          {!collapsed && (
+            <button
+              onClick={() => setCollapsed(true)}
+              className="p-1.5 rounded-md hover:bg-slate-700 text-slate-300"
+              aria-label="Collapse sidebar"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+
+        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {nav.map((n) => {
             const active = location.pathname.startsWith(n.to);
             const Icon = n.icon;
@@ -86,51 +159,80 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
               <NavLink
                 key={n.to}
                 to={n.to}
-                onClick={() => setOpen(false)}
+                title={collapsed ? n.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-                  active ? "bg-primary text-white shadow-md" : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  collapsed ? "justify-center" : ""
+                } ${
+                  active
+                    ? "bg-primary text-white shadow-md"
+                    : "text-slate-300 hover:bg-slate-700 hover:text-white"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {n.label}
+                <Icon className="h-5 w-5 flex-none" />
+                {!collapsed && <span className="truncate">{n.label}</span>}
               </NavLink>
             );
           })}
         </nav>
-        <div className="p-3 border-t border-slate-700">
-          <div className="px-3 py-2 text-xs text-slate-300 truncate">{email}</div>
+
+        <div className="p-2 border-t border-slate-700">
+          {!collapsed && (
+            <div className="px-3 py-2 text-xs text-slate-300 truncate">{email}</div>
+          )}
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-600/10 hover:text-red-200 transition"
+            title={collapsed ? "Keluar" : undefined}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-600/10 hover:text-red-200 transition ${
+              collapsed ? "justify-center" : ""
+            }`}
           >
-            <LogOut className="h-4 w-4" /> Keluar
+            <LogOut className="h-4 w-4 flex-none" />
+            {!collapsed && <span>Keluar</span>}
           </button>
         </div>
       </aside>
 
+      {/* Backdrop on mobile when sidebar open */}
+      {!collapsed && isMobile && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={() => setCollapsed(true)}
+        />
+      )}
+
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border flex items-center justify-between px-4 lg:px-6 bg-card">
-          <button onClick={() => setOpen(!open)} className="lg:hidden p-2 rounded-md hover:bg-muted">
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-          <div className="text-sm font-semibold">Selamat datang di Portal Kandidat</div>
-          
+        <header className="h-14 border-b border-border flex items-center justify-between px-4 lg:px-6 bg-card sticky top-0 z-30">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              className="p-2 rounded-md hover:bg-muted"
+              aria-label="Toggle sidebar"
+            >
+              {collapsed ? <Menu className="h-5 w-5" /> : <ChevronsRight className="h-5 w-5 rotate-180" />}
+            </button>
+            <div className="text-sm font-semibold hidden sm:block">
+              Selamat datang di Portal Kandidat
+            </div>
+          </div>
+
           {/* Right Header Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Notifications */}
-            <div className="relative">
+            <div className="relative" ref={notifRef}>
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => {
+                  setShowNotifications((s) => !s);
+                  setShowProfileMenu(false);
+                }}
                 className="p-2 rounded-md hover:bg-muted relative"
               >
                 <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
               </button>
-              
-              {/* Notifications Dropdown */}
+
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50">
+                <div className="absolute right-0 top-full mt-2 w-80 max-w-[90vw] bg-card border border-border rounded-lg shadow-xl z-50">
                   <div className="p-4 border-b border-border">
                     <h3 className="font-semibold text-sm">Notifikasi</h3>
                     <p className="text-xs text-muted-foreground">2 notifikasi baru</p>
@@ -138,10 +240,10 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
                   <div className="max-h-64 overflow-y-auto">
                     <div className="p-3 hover:bg-muted cursor-pointer border-b border-border">
                       <div className="flex items-start gap-3">
-                        <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Bell className="h-4 w-4 text-blue-600" />
+                        <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Bell className="h-4 w-4 text-primary" />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-semibold">Status Lamaran Diperbarui</h4>
                           <p className="text-xs text-muted-foreground">Lamaran Anda telah berpindah ke tahap screening</p>
                           <p className="text-xs text-muted-foreground mt-1">2 jam yang lalu</p>
@@ -150,10 +252,10 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
                     </div>
                     <div className="p-3 hover:bg-muted cursor-pointer">
                       <div className="flex items-start gap-3">
-                        <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                          <Bell className="h-4 w-4 text-green-600" />
+                        <div className="h-8 w-8 bg-emerald-500/10 rounded-full flex items-center justify-center">
+                          <Bell className="h-4 w-4 text-emerald-500" />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-semibold">Tes Psikologi Tersedia</h4>
                           <p className="text-xs text-muted-foreground">Paket tes telah ditugaskan untuk Anda</p>
                           <p className="text-xs text-muted-foreground mt-1">1 hari yang lalu</p>
@@ -161,19 +263,17 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
                       </div>
                     </div>
                   </div>
-                  <div className="p-3 border-t border-border">
-                    <button className="w-full text-center text-sm text-primary hover:underline">
-                      Lihat Semua Notifikasi
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
 
             {/* Profile Menu */}
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                onClick={() => {
+                  setShowProfileMenu((s) => !s);
+                  setShowNotifications(false);
+                }}
                 className="flex items-center gap-2 p-2 rounded-md hover:bg-muted"
               >
                 <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
@@ -181,10 +281,9 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
                 </div>
                 <span className="text-sm font-medium hidden sm:inline">Profil</span>
               </button>
-              
-              {/* Profile Dropdown */}
+
               {showProfileMenu && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-50">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-lg shadow-xl z-50">
                   <div className="p-2">
                     <button
                       onClick={() => {
@@ -209,7 +308,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
                     <div className="border-t border-border my-2"></div>
                     <button
                       onClick={logout}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-500/10 transition"
                     >
                       <LogOut className="h-4 w-4" />
                       <span>Keluar</span>
