@@ -41,6 +41,7 @@ const About = () => {
     const loadSettings = async () => {
       const keys = [
         "app_name",
+        "app_logo_url",
         "landing_about_vision",
         "landing_about_mission",
         "landing_about_milestones_items",
