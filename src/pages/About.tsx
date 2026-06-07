@@ -126,12 +126,6 @@ const About = () => {
     .map((l) => l.replace(/^[-•]\s*/, "").trim())
     .filter((l) => l.length > 0);
 
-  const quickFacts = [
-    { label: "Tahun Berkarya", value: "6+", icon: Calendar },
-    { label: "Kandidat Terkurasi", value: "1.200+", icon: Users },
-    { label: "Perusahaan Mitra", value: "50+", icon: Building2 },
-    { label: "Tingkat Keberhasilan", value: "92%", icon: Award },
-  ];
 
   return (
     <PublicLayout>
