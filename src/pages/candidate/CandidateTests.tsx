@@ -53,7 +53,7 @@ export default function CandidateTests() {
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user.email) return;
-    const { data: c } = await supabase.from("activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
+    const { data: c } = await (supabase as any).from("my_activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
     setCodes(sortCodes((c as any) || []));
     
     // Get candidate profile to get candidate_id
@@ -158,16 +158,15 @@ export default function CandidateTests() {
   const loginWithActivationCode = async (code: string, password: string) => {
     setLoginLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("activation_codes")
-        .select("*")
-        .eq("code", code.trim())
-        .eq("password", password.trim())
-        .maybeSingle();
+      const { data, error } = await (supabase as any).rpc("candidate_verify_activation_login", {
+        _code: code.trim(),
+        _password: password.trim(),
+      });
 
       if (error || !data) {
         throw new Error("Kode tes atau password salah.");
       }
+
 
       const now = new Date();
       const isExpired = data.expires_at && new Date(data.expires_at) < now;
