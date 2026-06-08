@@ -135,7 +135,7 @@ export default function CandidateTests() {
     });
 
     if (!res.isConfirmed) return;
-    openLoginModal(code.code, "");
+    await startTestWithCode(code.code);
   };
 
   const closeStartModal = () => {
@@ -143,28 +143,18 @@ export default function CandidateTests() {
     setSelectedCode(null);
   };
 
-  const openLoginModal = (code = "", password = "") => {
-    setLoginCode(code);
-    setLoginPassword(password);
-    setShowLoginModal(true);
-  };
-
-  const closeLoginModal = () => {
-    setShowLoginModal(false);
-    setLoginCode("");
-    setLoginPassword("");
-  };
-
-  const loginWithActivationCode = async (code: string, password: string) => {
+  const startTestWithCode = async (code: string) => {
     setLoginLoading(true);
     try {
       const safeCode = (code ?? "").toString().trim();
-      const safePassword = (password ?? "").toString().trim();
-      if (!safeCode || !safePassword) throw new Error("Kode dan password wajib diisi.");
-      const { data, error } = await (supabase as any).rpc("candidate_verify_activation_login", {
+      if (!safeCode) throw new Error("Kode tes tidak valid.");
+      const { data, error } = await (supabase as any).rpc("candidate_start_activation_code", {
         _code: safeCode,
-        _password: safePassword,
       });
+
+      if (error || !data) {
+        throw new Error(error?.message || "Kode tes tidak ditemukan untuk akun Anda.");
+      }
 
       if (error || !data) {
         throw new Error("Kode tes atau password salah.");
