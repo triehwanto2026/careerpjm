@@ -126,18 +126,11 @@ const HomePage = () => {
             <div className="flex items-center gap-3">
               <ThemeToggle />
               <button 
-                onClick={() => navigate("/candidate/register")}
-                className="hidden md:flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-all text-sm font-medium"
-              >
-                <UserPlus className="h-4 w-4" />
-                Daftar
-              </button>
-              <button 
                 onClick={() => navigate("/login")}
                 className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition-all text-sm font-medium"
               >
                 <LogIn className="h-4 w-4" />
-                Login
+                Masuk/Daftar
               </button>
               
               {/* Mobile Menu Button */}
