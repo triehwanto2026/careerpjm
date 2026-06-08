@@ -223,7 +223,6 @@ export default function CandidateTests() {
         color: "hsl(var(--foreground))",
       });
 
-      closeLoginModal();
       closeStartModal();
       navigate("/test");
     } catch (error: any) {
