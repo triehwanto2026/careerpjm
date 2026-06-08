@@ -156,7 +156,7 @@ const HomePage = () => {
                 className="w-full flex items-center justify-center gap-2 py-2 bg-primary text-primary-foreground rounded-lg mt-2"
               >
                 <LogIn className="h-4 w-4" />
-                Login
+                Masuk/Daftar
               </button>
             </div>
           </div>
