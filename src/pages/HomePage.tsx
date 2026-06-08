@@ -16,8 +16,7 @@ import {
   Clock,
   Phone,
   Mail,
-  Globe,
-  UserPlus
+  Globe
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
