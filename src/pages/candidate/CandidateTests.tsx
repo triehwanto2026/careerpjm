@@ -158,9 +158,12 @@ export default function CandidateTests() {
   const loginWithActivationCode = async (code: string, password: string) => {
     setLoginLoading(true);
     try {
+      const safeCode = (code ?? "").toString().trim();
+      const safePassword = (password ?? "").toString().trim();
+      if (!safeCode || !safePassword) throw new Error("Kode dan password wajib diisi.");
       const { data, error } = await (supabase as any).rpc("candidate_verify_activation_login", {
-        _code: code.trim(),
-        _password: password.trim(),
+        _code: safeCode,
+        _password: safePassword,
       });
 
       if (error || !data) {
