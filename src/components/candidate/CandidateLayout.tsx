@@ -31,7 +31,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const [email, setEmail] = useState<string>("");
   // collapsed = narrow (icon-only) on desktop; on mobile collapsed means hidden
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});
