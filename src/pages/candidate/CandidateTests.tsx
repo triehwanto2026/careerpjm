@@ -135,7 +135,7 @@ export default function CandidateTests() {
     });
 
     if (!res.isConfirmed) return;
-    openLoginModal(code.code, "");
+    await startTestWithCode(code.code);
   };
 
   const closeStartModal = () => {
@@ -143,28 +143,18 @@ export default function CandidateTests() {
     setSelectedCode(null);
   };
 
-  const openLoginModal = (code = "", password = "") => {
-    setLoginCode(code);
-    setLoginPassword(password);
-    setShowLoginModal(true);
-  };
-
-  const closeLoginModal = () => {
-    setShowLoginModal(false);
-    setLoginCode("");
-    setLoginPassword("");
-  };
-
-  const loginWithActivationCode = async (code: string, password: string) => {
+  const startTestWithCode = async (code: string) => {
     setLoginLoading(true);
     try {
       const safeCode = (code ?? "").toString().trim();
-      const safePassword = (password ?? "").toString().trim();
-      if (!safeCode || !safePassword) throw new Error("Kode dan password wajib diisi.");
-      const { data, error } = await (supabase as any).rpc("candidate_verify_activation_login", {
+      if (!safeCode) throw new Error("Kode tes tidak valid.");
+      const { data, error } = await (supabase as any).rpc("candidate_start_activation_code", {
         _code: safeCode,
-        _password: safePassword,
       });
+
+      if (error || !data) {
+        throw new Error(error?.message || "Kode tes tidak ditemukan untuk akun Anda.");
+      }
 
       if (error || !data) {
         throw new Error("Kode tes atau password salah.");
@@ -233,7 +223,6 @@ export default function CandidateTests() {
         color: "hsl(var(--foreground))",
       });
 
-      closeLoginModal();
       closeStartModal();
       navigate("/test");
     } catch (error: any) {
@@ -346,55 +335,7 @@ export default function CandidateTests() {
       </div>
     </div>
 
-    {showLoginModal && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
-          <div className="flex items-center justify-between p-5 border-b border-border">
-            <div>
-              <h2 className="text-lg font-semibold">Login Kode Tes</h2>
-              <p className="text-sm text-muted-foreground">Masukkan kode dan password tes yang tampil di halaman ini.</p>
-            </div>
-            <button onClick={closeLoginModal} className="p-2 rounded hover:bg-muted transition">
-              <X className="h-5 w-5 text-muted-foreground" />
-            </button>
-          </div>
-          <div className="p-5 space-y-4">
-            <div className="grid gap-4">
-              <label className="space-y-2 text-sm">
-                <span className="font-medium text-foreground">Kode Tes</span>
-                <input
-                  type="text"
-                  value={loginCode}
-                  onChange={(e) => setLoginCode(e.target.value)}
-                  placeholder="Masukkan kode tes"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </label>
-              <label className="space-y-2 text-sm">
-                <span className="font-medium text-foreground">Password</span>
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="Masukkan password tes"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </label>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
-            <button onClick={closeLoginModal} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition">Batal</button>
-            <button
-              onClick={() => loginWithActivationCode(loginCode, loginPassword)}
-              disabled={loginLoading || !loginCode || !loginPassword}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loginLoading ? 'Memproses...' : 'Masuk Tes'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
+    {false && showLoginModal && null}
     </CandidateLayout>
   );
 }

@@ -3056,6 +3056,10 @@ export type Database = {
         Args: { candidate_email: string; new_password?: string }
         Returns: string
       }
+      candidate_start_activation_code: {
+        Args: { _code: string }
+        Returns: Json
+      }
       candidate_update_activation_code_status: {
         Args: {
           _auto_submitted?: boolean
