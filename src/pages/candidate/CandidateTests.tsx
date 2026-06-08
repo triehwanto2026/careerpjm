@@ -135,7 +135,7 @@ export default function CandidateTests() {
     });
 
     if (!res.isConfirmed) return;
-    await loginWithActivationCode(code.code, code.password);
+    openLoginModal(code.code, "");
   };
 
   const closeStartModal = () => {
@@ -158,9 +158,12 @@ export default function CandidateTests() {
   const loginWithActivationCode = async (code: string, password: string) => {
     setLoginLoading(true);
     try {
+      const safeCode = (code ?? "").toString().trim();
+      const safePassword = (password ?? "").toString().trim();
+      if (!safeCode || !safePassword) throw new Error("Kode dan password wajib diisi.");
       const { data, error } = await (supabase as any).rpc("candidate_verify_activation_login", {
-        _code: code.trim(),
-        _password: password.trim(),
+        _code: safeCode,
+        _password: safePassword,
       });
 
       if (error || !data) {
@@ -291,29 +294,15 @@ export default function CandidateTests() {
                         {!done && !expired && <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-500 text-[10px] font-semibold">SIAP DIKERJAKAN</span>}
                       </div>
                       <div className="text-sm font-semibold">{c.position || "Tes Psikologi"}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Password: <span className="font-semibold text-foreground">{c.password}</span>
-                      </div>
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-3 mt-2">
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />Berlaku hingga: {fmtDate(c.expires_at)}</span>
-                        {done && <span className="flex items-center gap-1 text-green-500"><CheckCircle2 className="h-3 w-3" />Selesai: {fmtDate(c.test_completed_at)}</span>}
+                        {done && <span className="flex items-center gap-1 text-green-500"><CheckCircle2 className="h-3 w-3" />Disubmit: {fmtDate(c.test_completed_at)}</span>}
                       </div>
                     </div>
                         {done ? (
-                          <div className="flex items-center gap-2">
-                            <button
-                              disabled
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-muted text-muted-foreground text-sm font-semibold cursor-not-allowed"
-                            >
-                              Selesai
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); const el = document.getElementById('test-results'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
-                              className="px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
-                            >
-                              Lihat Hasil
-                            </button>
-                          </div>
+                          <span className="px-4 py-2 rounded-lg bg-green-500/15 text-green-500 text-xs font-semibold">
+                            Selesai · {fmtDate(c.test_completed_at)}
+                          </span>
                         ) : expired ? (
                           <button
                             disabled

@@ -31,7 +31,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const [email, setEmail] = useState<string>("");
   // collapsed = narrow (icon-only) on desktop; on mobile collapsed means hidden
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});
@@ -89,12 +89,12 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [isMobile, collapsed]);
 
-  // Collapse back to narrow whenever route changes
+  // On route change: collapse on mobile, keep expanded on desktop
   useEffect(() => {
-    setCollapsed(true);
+    setCollapsed(isMobile);
     setShowNotifications(false);
     setShowProfileMenu(false);
-  }, [location.pathname]);
+  }, [location.pathname, isMobile]);
 
   const logout = async () => {
     await supabase.auth.signOut();

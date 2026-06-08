@@ -211,31 +211,44 @@ const About = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-card to-background p-8 md:p-10"
+            className="relative overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/15 via-card to-card p-8 md:p-10"
           >
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
-            <div className="flex items-center gap-4">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
+            <div className="relative">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
                 <Zap className="h-6 w-6" />
               </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.25em] text-primary/80 font-semibold">Misi</p>
-                <h3 className="text-2xl font-bold">Langkah Nyata Kami</h3>
-              </div>
+              <p className="mt-6 text-[10px] uppercase tracking-[0.25em] text-primary/80 font-semibold">Misi</p>
+              <h3 className="mt-1 text-2xl font-bold leading-snug">
+                Langkah Nyata Kami
+              </h3>
+
+              {missionItems.length <= 1 ? (
+                <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                  {missionItems[0] || aboutMission}
+                </p>
+              ) : (
+                <div className="mt-4 -mx-1">
+                  <Carousel opts={{ align: "start", loop: missionItems.length > 2 }} className="w-full">
+                    <CarouselContent className="-ml-3">
+                      {missionItems.map((m, idx) => (
+                        <CarouselItem key={idx} className="pl-3 basis-full sm:basis-1/2">
+                          <div className="h-full flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 backdrop-blur p-4">
+                            <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-sm font-bold shadow-sm">
+                              {String(idx + 1).padStart(2, "0")}
+                            </span>
+                            <span className="text-sm leading-relaxed text-foreground/90">{m}</span>
+                          </div>
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="hidden sm:flex -left-2" />
+                    <CarouselNext className="hidden sm:flex -right-2" />
+                  </Carousel>
+                  <p className="mt-2 text-[11px] text-muted-foreground">Geser untuk melihat seluruh misi →</p>
+                </div>
+              )}
             </div>
-            <ol className="mt-6 grid gap-3 sm:grid-cols-2">
-              {missionItems.map((m, idx) => (
-                <li
-                  key={idx}
-                  className="group relative flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-4 transition hover:border-primary/40 hover:shadow-md"
-                >
-                  <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-sm font-bold shadow-sm">
-                    {String(idx + 1).padStart(2, "0")}
-                  </span>
-                  <span className="text-sm leading-relaxed text-foreground/90">{m}</span>
-                </li>
-              ))}
-            </ol>
           </motion.div>
         </div>
       </section>
