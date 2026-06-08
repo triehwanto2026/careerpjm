@@ -135,7 +135,7 @@ export default function CandidateTests() {
     });
 
     if (!res.isConfirmed) return;
-    await loginWithActivationCode(code.code, code.password);
+    openLoginModal(code.code, "");
   };
 
   const closeStartModal = () => {
