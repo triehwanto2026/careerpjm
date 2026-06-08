@@ -89,12 +89,12 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [isMobile, collapsed]);
 
-  // Collapse back to narrow whenever route changes
+  // On route change: collapse on mobile, keep expanded on desktop
   useEffect(() => {
-    setCollapsed(true);
+    setCollapsed(isMobile);
     setShowNotifications(false);
     setShowProfileMenu(false);
-  }, [location.pathname]);
+  }, [location.pathname, isMobile]);
 
   const logout = async () => {
     await supabase.auth.signOut();
