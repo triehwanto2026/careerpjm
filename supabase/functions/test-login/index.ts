@@ -53,12 +53,20 @@ Deno.serve(async (req) => {
       return json({ error: "Kode tes atau password salah." }, 401);
     }
 
-    // Verify bcrypt password using pgcrypto via RPC (service role)
-    const { data: pwOk, error: pwErr } = await admin.rpc("verify_activation_password", {
-      _code: rawCode,
-      _password: rawPassword,
-    });
-    if (pwErr || pwOk !== true) {
+    // Verify password — supports both bcrypt hashes and legacy plain text
+    const stored = String((code as any).password ?? "");
+    let pwOk = false;
+    if (stored.startsWith("$2")) {
+      const { data: rpcOk } = await admin.rpc("verify_activation_password", {
+        _code: rawCode,
+        _password: rawPassword,
+      });
+      pwOk = rpcOk === true;
+    } else {
+      pwOk = stored === rawPassword;
+    }
+    if (!pwOk) {
+      console.warn("test-login: password mismatch for code", rawCode, "storedIsBcrypt=", stored.startsWith("$2"));
       return json({ error: "Kode tes atau password salah." }, 401);
     }
 
