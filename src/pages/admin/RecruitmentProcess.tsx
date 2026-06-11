@@ -1116,9 +1116,9 @@ export default function RecruitmentProcess() {
         )}
 
         {showActivationModal && activationApplication && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-card border border-border rounded-xl max-w-3xl w-full overflow-hidden">
-              <div className="p-6 border-b border-border flex items-center justify-between gap-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-card border border-border rounded-xl max-w-3xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Buat / Perbarui Kode Tes Psikologi</h2>
                   <p className="text-sm text-muted-foreground">Sama seperti pada halaman Kode Aktivasi.</p>
@@ -1130,7 +1130,7 @@ export default function RecruitmentProcess() {
                   <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
-              <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 space-y-5 max-h-[calc(100dvh-9rem)] sm:max-h-[calc(100dvh-11rem)] overflow-y-auto overscroll-contain">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="rounded-lg bg-muted/40 p-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Kandidat</div>
@@ -1259,9 +1259,9 @@ export default function RecruitmentProcess() {
         )}
 
         {showResultsModal && selectedApplication && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-card border border-border rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-6 border-b border-border flex items-center justify-between gap-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-card border border-border rounded-xl max-w-6xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Hasil Tes Kandidat</h2>
                   <p className="text-sm text-muted-foreground">Lihat hasil tes dan cetak laporan tanpa meninggalkan proses rekrutmen.</p>
@@ -1274,7 +1274,7 @@ export default function RecruitmentProcess() {
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)] space-y-6">
+              <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain max-h-[calc(100dvh-9rem)] sm:max-h-[calc(100dvh-11rem)] space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="rounded-lg border border-border bg-muted/30 p-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">Kandidat</div>
@@ -1437,9 +1437,9 @@ export default function RecruitmentProcess() {
 
         {/* Detail Modal - Application Info */}
         {showDetailModal && selectedApplication && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-card border border-border rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-6 border-b border-border">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-card border border-border rounded-xl max-w-4xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-border">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-foreground">Detail Lamaran</h2>
                   <button
@@ -1451,7 +1451,7 @@ export default function RecruitmentProcess() {
                 </div>
               </div>
               
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+              <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain max-h-[calc(100dvh-9rem)] sm:max-h-[calc(100dvh-11rem)]">
                 {/* Job Information */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -1571,9 +1571,9 @@ export default function RecruitmentProcess() {
 
         {/* Profile Modal - Candidate Details */}
         {showProfileModal && selectedApplication && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-card border border-border rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-6 border-b border-border">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-card border border-border rounded-xl max-w-6xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-border">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-foreground">Profil Kandidat</h2>
                   <button
@@ -1585,9 +1585,9 @@ export default function RecruitmentProcess() {
                 </div>
               </div>
               
-              <div className="flex flex-col h-[calc(90vh-8rem)] overflow-hidden">
+              <div className="flex flex-col h-[calc(100dvh-9rem)] sm:h-[calc(100dvh-11rem)] overflow-hidden">
                 {/* Profile Header */}
-                <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b border-border">
+                <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 sm:p-6 border-b border-border">
                   <div className="flex items-center gap-6">
                     <div className="h-20 w-20 rounded-full overflow-hidden bg-primary/20 flex items-center justify-center">
                       {selectedApplication.candidate_profile.photo_url ? (

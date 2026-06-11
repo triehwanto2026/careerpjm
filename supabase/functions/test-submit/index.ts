@@ -140,12 +140,21 @@ Deno.serve(async (req) => {
       const questions = qsByInst[ip.id] || [];
       const isIst = String(inst.name || "").toUpperCase().includes("IST")
         || questions.some((q: any) => q.question_number === 61 && String(q.question_text || "").toLowerCase().includes("mawar"));
+      const upperName = String(inst.name || "").toUpperCase();
+      const scoringMethod = String(inst.scoring_method || "").toLowerCase();
+      const isMbti = upperName.includes("MBTI") || scoringMethod === "typological";
+      const isPapi = upperName.includes("PAPI") || scoringMethod === "papi_scales"
+        || questions.some((q: any) => q.scoring_rule === "papikostik_dimension");
+      const isKraepelin = upperName.includes("KRAEPELIN") || scoringMethod === "speed_accuracy"
+        || questions.some((q: any) => q.question_type === "numeric" || q.scoring_rule === "speed_accuracy");
       const answers = ip.answers || {};
       const cats: Record<string, number> = {};
       let correctCount = 0;
       let totalScore = 0;
       let answeredCount = 0;
       let maxPossibleScore = 0;
+      const kraepelinSegmentCorrect: number[] = [];
+      const kraepelinSegmentAnswered: number[] = [];
 
       questions.forEach((q: any) => {
         const optionMax = Math.max(0, ...(q.options || []).map((o: any) => Number(o.score_value || 0)));
@@ -161,10 +170,32 @@ Deno.serve(async (req) => {
         return q.category?.trim() || "Umum";
       };
 
+      const getKraepelinCorrectAnswer = (q: any) => {
+        const marker = String(q.question_text_en || "").match(/CORRECT_ANSWER\s*:\s*(\d+)/i);
+        if (marker) return marker[1];
+        const sum = String(q.question_text || "").match(/(\d+)\s*\+\s*(\d+)/);
+        if (!sum) return null;
+        return String((Number(sum[1]) + Number(sum[2])) % 10);
+      };
+
+      const safeQuestionTextEn = (q: any) =>
+        String(q.question_text_en || "").toUpperCase().startsWith("CORRECT_ANSWER:") ? null : q.question_text_en;
+
       for (const q of questions) {
         const optId = answers[q.id];
         if (!optId) continue;
         answeredCount++;
+        if (q.question_type === "numeric" || isKraepelin) {
+          const selected = String(optId).replace(/\D/g, "");
+          const correctAnswer = getKraepelinCorrectAnswer(q);
+          const isCorrect = correctAnswer !== null && selected === correctAnswer;
+          if (isCorrect) correctCount++;
+          const segmentSize = Math.max(1, Math.ceil(questions.length / 10));
+          const segment = Math.min(9, Math.floor((Number(q.question_number || 1) - 1) / segmentSize));
+          kraepelinSegmentAnswered[segment] = (kraepelinSegmentAnswered[segment] || 0) + 1;
+          kraepelinSegmentCorrect[segment] = (kraepelinSegmentCorrect[segment] || 0) + (isCorrect ? 1 : 0);
+          continue;
+        }
         if (q.question_type === "disc_pair" && String(optId).includes("|")) {
           const parts: Record<string, string> = { M: "", L: "" };
           String(optId).split("|").forEach((p) => {
@@ -210,11 +241,39 @@ Deno.serve(async (req) => {
       const hasCorrectScoring = questions.some(
         (q: any) => q.scoring_rule === "correct_only" || q.options.some((o: any) => o.is_correct),
       );
-      const score = isIst && maxPossibleScore > 0
-        ? Math.round((totalScore / maxPossibleScore) * 100)
-        : hasCorrectScoring && questions.length > 0
-        ? Math.round((correctCount / questions.length) * 100)
-        : Math.round((answeredCount / Math.max(questions.length, 1)) * 100);
+      let kraepelinMetrics: Record<string, number> | null = null;
+      if (isKraepelin) {
+        const speed = Math.round((answeredCount / Math.max(questions.length, 1)) * 100);
+        const accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+        const workCapacity = Math.round((correctCount / Math.max(questions.length, 1)) * 100);
+        const activeSegments = kraepelinSegmentAnswered
+          .map((answered, i) => ({ answered: answered || 0, correct: kraepelinSegmentCorrect[i] || 0 }))
+          .filter((s) => s.answered > 0);
+        const avg = activeSegments.length > 0
+          ? activeSegments.reduce((sum, s) => sum + s.correct, 0) / activeSegments.length
+          : 0;
+        const variance = activeSegments.length > 0
+          ? activeSegments.reduce((sum, s) => sum + Math.pow(s.correct - avg, 2), 0) / activeSegments.length
+          : 0;
+        const sd = Math.sqrt(variance);
+        const stability = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (sd / avg) * 100))) : 0;
+        kraepelinMetrics = {
+          speed,
+          accuracy,
+          stability,
+          work_capacity: workCapacity,
+          correct_answers: correctCount,
+          wrong_answers: Math.max(0, answeredCount - correctCount),
+        };
+        Object.assign(cats, kraepelinMetrics);
+      }
+      const score = isKraepelin && kraepelinMetrics
+        ? Math.round((kraepelinMetrics.accuracy + kraepelinMetrics.work_capacity) / 2)
+        : isIst && maxPossibleScore > 0
+          ? Math.round((totalScore / maxPossibleScore) * 100)
+          : hasCorrectScoring && questions.length > 0
+            ? Math.round((correctCount / questions.length) * 100)
+            : Math.round((answeredCount / Math.max(questions.length, 1)) * 100);
       const status = score >= 70 ? "passed" : score >= 50 ? "review" : "failed";
 
       const normalizedCats: Record<string, number> = {};
@@ -236,6 +295,12 @@ Deno.serve(async (req) => {
           status,
           interpretation: isIst
             ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor mentah ${Math.round(totalScore)} dari maksimum ${Math.round(maxPossibleScore)}; skor akhir ${score}%. Profil subtes menunjukkan distribusi kemampuan pada aspek verbal, generalisasi, numerik, figural, spasial, dan memori.`
+            : isKraepelin && kraepelinMetrics
+              ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Benar ${correctCount}, salah ${Math.max(0, answeredCount - correctCount)}. Kecepatan ${kraepelinMetrics.speed}%, ketelitian ${kraepelinMetrics.accuracy}%, stabilitas ${kraepelinMetrics.stability}%, dan kapasitas kerja ${kraepelinMetrics.work_capacity}%.`
+            : isMbti
+              ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal MBTI. Tipe kepribadian dihitung dari dominasi pasangan E/I, S/N, T/F, dan J/P pada laporan hasil.`
+            : isPapi
+              ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal PAPI Kostick. Skor menunjukkan distribusi kebutuhan dan peran kerja pada skala PAPI.`
             : `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasar profil dimensi."}`,
           candidate_profile: payload.candidate
             ? {
@@ -271,7 +336,7 @@ Deno.serve(async (req) => {
             test_result_id: resultData.id,
             question_number: q.question_number,
             question_text: q.question_text,
-            question_text_en: q.question_text_en,
+            question_text_en: safeQuestionTextEn(q),
             selected_answer: `PALING (M): ${mText}  ·  TIDAK (L): ${lText}`,
             selected_answer_label: `M:${mOpt?.category_target || "?"} / L:${lOpt?.category_target || "?"}`,
             category: q.category,
@@ -290,7 +355,7 @@ Deno.serve(async (req) => {
             test_result_id: resultData.id,
             question_number: q.question_number,
             question_text: q.question_text,
-            question_text_en: q.question_text_en,
+            question_text_en: safeQuestionTextEn(q),
             selected_answer: picked.map((o: any) => `${o.option_label}. ${o.option_text}`).join(" + "),
             selected_answer_label: picked.map((o: any) => o.option_label).join("+"),
             category: q.category,
@@ -299,12 +364,28 @@ Deno.serve(async (req) => {
           });
           continue;
         }
+        if (q.question_type === "numeric" || isKraepelin) {
+          const selected = String(optId).replace(/\D/g, "");
+          const correctAnswer = getKraepelinCorrectAnswer(q);
+          answerRows.push({
+            test_result_id: resultData.id,
+            question_number: q.question_number,
+            question_text: q.question_text,
+            question_text_en: safeQuestionTextEn(q),
+            selected_answer: selected,
+            selected_answer_label: "",
+            category: q.category || "Kraepelin",
+            is_correct: correctAnswer === null ? null : selected === correctAnswer,
+            correct_answer: correctAnswer,
+          });
+          continue;
+        }
         const opt = q.options.find((o: any) => o.id === optId);
         answerRows.push({
           test_result_id: resultData.id,
           question_number: q.question_number,
           question_text: q.question_text,
-          question_text_en: q.question_text_en,
+          question_text_en: safeQuestionTextEn(q),
           selected_answer: opt?.option_text || optId || "",
           selected_answer_label: opt?.option_label || "",
           category: opt?.category_target?.trim() || categoryKey(q) || null,

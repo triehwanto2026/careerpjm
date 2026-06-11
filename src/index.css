@@ -150,3 +150,94 @@
     animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 }
+
+@layer components {
+  .swal2-container {
+    padding: clamp(0.5rem, 2dvw, 1.5rem) !important;
+    align-items: center !important;
+    overflow-y: auto !important;
+  }
+
+  .swal2-popup {
+    width: min(42rem, calc(100vw - 1rem)) !important;
+    max-height: calc(100dvh - 1rem) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    margin: auto !important;
+  }
+
+  .swal2-title {
+    flex: 0 0 auto;
+    font-size: clamp(1.1rem, 2.2dvw, 1.875rem) !important;
+    line-height: 1.2 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .swal2-html-container {
+    flex: 1 1 auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    padding-right: 0.25rem;
+  }
+
+  .swal2-actions {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem !important;
+  }
+
+  .swal2-input,
+  .swal2-textarea,
+  .swal2-select,
+  .swal2-file {
+    max-width: 100% !important;
+  }
+
+  .swal2-textarea {
+    min-height: 5rem !important;
+    max-height: min(16rem, 35dvh) !important;
+  }
+
+  .ist-example-modal,
+  .papikostik-modal {
+    width: min(54rem, calc(100vw - 1rem)) !important;
+  }
+
+  .preview-modal-container {
+    max-height: min(70dvh, 36rem) !important;
+    overflow-y: auto !important;
+  }
+
+  @media (max-height: 640px) {
+    .swal2-popup {
+      padding: 0.875rem !important;
+    }
+
+    .swal2-icon {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.5rem !important;
+      transform: scale(0.85);
+    }
+
+    .swal2-html-container {
+      margin-top: 0.5rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .swal2-actions {
+      width: 100%;
+    }
+
+    .swal2-confirm,
+    .swal2-cancel,
+    .swal2-deny {
+      flex: 1 1 100%;
+      margin: 0 !important;
+    }
+  }
+}

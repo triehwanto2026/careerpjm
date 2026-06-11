@@ -5,9 +5,10 @@ interface TestTimerProps {
   durationMinutes: number;
   initialSeconds?: number;
   onTimeUp: () => void;
+  paused?: boolean;
 }
 
-const TestTimer = ({ durationMinutes, initialSeconds, onTimeUp }: TestTimerProps) => {
+const TestTimer = ({ durationMinutes, initialSeconds, onTimeUp, paused = false }: TestTimerProps) => {
   const [secondsLeft, setSecondsLeft] = useState(
     initialSeconds ?? durationMinutes * 60
   );
@@ -25,6 +26,8 @@ const TestTimer = ({ durationMinutes, initialSeconds, onTimeUp }: TestTimerProps
   }, [durationMinutes, initialSeconds]);
 
   useEffect(() => {
+    if (paused) return;
+
     // Jangan trigger onTimeUp pada first load jika timer sudah 0 (resume scenario)
     if (secondsLeft <= 0 && !isFirstLoad.current) {
       onTimeUp();
@@ -40,7 +43,7 @@ const TestTimer = ({ durationMinutes, initialSeconds, onTimeUp }: TestTimerProps
       const interval = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
       return () => clearInterval(interval);
     }
-  }, [secondsLeft, onTimeUp]);
+  }, [secondsLeft, onTimeUp, paused]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;

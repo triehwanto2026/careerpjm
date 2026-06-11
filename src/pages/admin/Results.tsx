@@ -112,6 +112,88 @@ const buildIstInterpretation = (cats: Record<string, number>, fallbackScore: num
 Interpretasi per aspek menunjukkan gambaran struktur inteligensi: aspek verbal tercermin dari SE, WA, AN, dan GE; aspek numerik dari RA dan ZR; aspek figural-spasial dari FA dan WU; serta daya ingat dari ME. Gunakan hasil ini bersama wawancara, riwayat pendidikan, dan tuntutan jabatan sebelum mengambil keputusan akhir.`;
 };
 
+const isMbtiResult = (r: Pick<ResultRow, "test_name" | "categories">) => {
+  const keys = Object.keys(r.categories || {});
+  return r.test_name.toUpperCase().includes("MBTI") || ["E", "I", "S", "N", "T", "F", "J", "P"].every((k) => keys.includes(k));
+};
+
+const getMbtiSummary = (cats: Record<string, number>) => {
+  const pairs = [["E", "I"], ["S", "N"], ["T", "F"], ["J", "P"]] as const;
+  const rows = pairs.map(([a, b]) => {
+    const av = Number(cats[a] || 0);
+    const bv = Number(cats[b] || 0);
+    const dominant = av >= bv ? a : b;
+    const total = av + bv || 1;
+    return { pair: `${a}/${b}`, a, b, av, bv, dominant, pct: Math.round((Math.max(av, bv) / total) * 100) };
+  });
+  return { type: rows.map((row) => row.dominant).join(""), rows };
+};
+
+const buildMbtiInterpretation = (cats: Record<string, number>) => {
+  const summary = getMbtiSummary(cats);
+  const labels: Record<string, string> = {
+    E: "lebih energik melalui interaksi sosial",
+    I: "lebih nyaman memproses secara reflektif dan mandiri",
+    S: "cenderung praktis, faktual, dan berorientasi detail nyata",
+    N: "cenderung konseptual, imajinatif, dan melihat kemungkinan",
+    T: "menimbang keputusan secara logis dan objektif",
+    F: "menimbang keputusan dengan empati dan dampak personal",
+    J: "menyukai struktur, rencana, dan kepastian",
+    P: "lebih fleksibel, adaptif, dan terbuka pada perubahan",
+  };
+  return `Tipe MBTI kandidat adalah ${summary.type}. Profil ini menunjukkan kandidat ${summary.type.split("").map((x) => labels[x]).join(", ")}.
+
+Distribusi pasangan dimensi: ${summary.rows.map((r) => `${r.pair}: ${r.a}=${r.av}, ${r.b}=${r.bv}`).join("; ")}. Gunakan tipe ini sebagai gambaran preferensi kerja, bukan label kemampuan mutlak.`;
+};
+
+const PAPI_LABELS: Record<string, string> = {
+  A: "Need to Achieve", B: "Need to Belong to Groups", C: "Organized Type", D: "Leadership Role",
+  E: "Emotional Resistance", F: "Need to Support Authority", G: "Hard Intense Worked", I: "Ease in Decision Making",
+  K: "Need to be Forceful", L: "Leadership Role", N: "Need to Finish Task", O: "Need for Closeness and Affection",
+  P: "Need to Control Others", R: "Theoretical Type", S: "Social Extension", T: "Pace",
+  V: "Vigorous Type", W: "Need for Rules and Supervision", X: "Need to be Noticed", Z: "Need for Change",
+};
+
+const isPapiResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
+  r.test_name.toUpperCase().includes("PAPI") || (!isMbtiResult(r) && Object.keys(r.categories || {}).some((key) => PAPI_LABELS[key]));
+
+const getPapiRows = (cats: Record<string, number>) =>
+  Object.entries(PAPI_LABELS)
+    .map(([code, label]) => {
+      const value = Number(cats[code] || 0);
+      const level = value >= 7 ? "Tinggi" : value >= 4 ? "Sedang" : "Rendah";
+      return { code, label, value, level };
+    })
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
+
+const buildPapiInterpretation = (cats: Record<string, number>) => {
+  const rows = getPapiRows(cats);
+  const top = rows.slice(0, 3);
+  const low = rows.filter((row) => row.level === "Rendah").slice(0, 3);
+  return `Profil PAPI Kostick menunjukkan skala paling menonjol pada ${top.map((row) => `${row.code} - ${row.label} (${row.value})`).join(", ") || "belum ada skala dominan"}.
+
+Skala tinggi menggambarkan kebutuhan/peran kerja yang paling tampak pada kandidat. ${low.length ? `Skala yang relatif rendah: ${low.map((row) => `${row.code} - ${row.label} (${row.value})`).join(", ")}.` : ""} Interpretasi perlu dikaitkan dengan tuntutan jabatan, wawancara, dan observasi perilaku.`;
+};
+
+const isKraepelinResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
+  r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in (r.categories || {}));
+
+const getKraepelinRows = (cats: Record<string, number>) => [
+  { key: "speed", label: "Kecepatan", value: Number(cats.speed || 0) },
+  { key: "accuracy", label: "Ketelitian", value: Number(cats.accuracy || 0) },
+  { key: "stability", label: "Stabilitas", value: Number(cats.stability || 0) },
+  { key: "work_capacity", label: "Kapasitas Kerja", value: Number(cats.work_capacity || 0) },
+];
+
+const buildKraepelinInterpretation = (cats: Record<string, number>) => {
+  const rows = getKraepelinRows(cats);
+  const level = (v: number) => v >= 80 ? "sangat tinggi" : v >= 60 ? "tinggi" : v >= 40 ? "cukup" : v >= 20 ? "rendah" : "sangat rendah";
+  return `Profil Kraepelin menunjukkan ${rows.map((row) => `${row.label.toLowerCase()} ${level(row.value)} (${row.value}%)`).join(", ")}.
+
+Jawaban benar ${Number(cats.correct_answers || 0)} dan salah ${Number(cats.wrong_answers || 0)}. Hasil ini menggambarkan pola kerja hitung sederhana dalam tekanan waktu: kecepatan, ketelitian, konsistensi, dan kapasitas kerja perlu dibaca bersama kebutuhan jabatan.`;
+};
+
 const renderDiscPrintMiniChart = (
   title: string,
   data: { name: string; value: number }[],
@@ -383,7 +465,57 @@ const Results = () => {
         <div class="section">
           <div class="section-title">Interpretasi Psikolog — Profil IST</div>
           <div class="interpretation" style="white-space:pre-line;">${buildIstInterpretation(cats, r.score).replace(/</g, '&lt;')}</div>
+	        </div>`;
+    }
+
+    let mbtiProfileHTML = "";
+    let papiProfileHTML = "";
+    let kraepelinProfileHTML = "";
+    let specialInterpretationHTML = "";
+    if (isMbtiResult(r)) {
+      const summary = getMbtiSummary(cats);
+      mbtiProfileHTML = `
+        <div class="section">
+          <div class="section-title">Profil MBTI</div>
+          <div class="score-cards">
+            <div class="score-card"><div class="label">Tipe</div><div class="value" style="letter-spacing:3px;">${summary.type}</div></div>
+            <div class="score-card"><div class="label">Dimensi Dominan</div><div class="value" style="font-size:13pt;margin-top:8px;">${summary.rows.map(row => row.dominant).join(" - ")}</div></div>
+            <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
+          </div>
+          <table class="dim-table">
+            <thead><tr><th>Pasangan</th><th>Skor</th><th>Dominan</th><th>Kekuatan</th></tr></thead>
+            <tbody>${summary.rows.map(row => `<tr><td><strong>${row.pair}</strong></td><td>${row.a}=${row.av} / ${row.b}=${row.bv}</td><td>${row.dominant}</td><td>${row.pct}%</td></tr>`).join("")}</tbody>
+          </table>
         </div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil MBTI</div><div class="interpretation" style="white-space:pre-line;">${buildMbtiInterpretation(cats).replace(/</g, '&lt;')}</div></div>`;
+    } else if (isKraepelinResult(r)) {
+      const rows = getKraepelinRows(cats);
+      kraepelinProfileHTML = `
+        <div class="section">
+          <div class="section-title">Profil Kraepelin</div>
+          <table class="dim-table">
+            <thead><tr><th>Aspek</th><th>Skor</th><th>Indikator</th></tr></thead>
+            <tbody>
+              ${rows.map(row => `<tr><td><strong>${row.label}</strong></td><td>${row.value}%</td><td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(row.value, 100)}%; background:${row.value >= 70 ? '#059669' : row.value >= 40 ? '#d97706' : '#dc2626'};"></div></div></td></tr>`).join("")}
+              <tr><td><strong>Benar / Salah</strong></td><td colspan="2">${Number(cats.correct_answers || 0)} / ${Number(cats.wrong_answers || 0)}</td></tr>
+            </tbody>
+          </table>
+        </div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil Kraepelin</div><div class="interpretation" style="white-space:pre-line;">${buildKraepelinInterpretation(cats).replace(/</g, '&lt;')}</div></div>`;
+    } else if (isPapiResult(r)) {
+      const rows = getPapiRows(cats);
+      papiProfileHTML = `
+        <div class="section">
+          <div class="section-title">Profil Skala PAPI Kostick</div>
+          <table class="dim-table">
+            <thead><tr><th>Skala</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
+            <tbody>${rows.map(row => {
+              const pct = (row.value / 9) * 100;
+              return `<tr><td><strong>${row.code} - ${row.label}</strong></td><td>${row.value}/9</td><td>${row.level}</td><td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(pct, 100)}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td></tr>`;
+            }).join("")}</tbody>
+          </table>
+        </div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil PAPI</div><div class="interpretation" style="white-space:pre-line;">${buildPapiInterpretation(cats).replace(/</g, '&lt;')}</div></div>`;
     }
 
     const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
@@ -574,13 +706,14 @@ const Results = () => {
         }
       }
       const istSummary = isIST ? getIstSummary(cats, r.score) : null;
+      const mbtiSummary = isMbtiResult(r) ? getMbtiSummary(cats) : null;
       return `
     <div class="section">
       <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
       <div class="score-cards">
         <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
-        <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : isIST ? 'Skor IST' : 'Skor Akhir'}</div>
-        <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : ''}">${isPP ? dominantScore : isIST ? `${istSummary?.score}<span style="font-size:14pt;color:#64748b;">%</span><div style="font-size:9pt;color:#64748b;margin-top:4px;">Raw ${istSummary?.raw}/${istSummary?.max}</div>` : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
+        <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : isIST ? 'Skor IST' : mbtiSummary ? 'Tipe MBTI' : 'Skor Akhir'}</div>
+        <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : mbtiSummary ? 'letter-spacing:3px;' : ''}">${isPP ? dominantScore : isIST ? `${istSummary?.score}<span style="font-size:14pt;color:#64748b;">%</span><div style="font-size:9pt;color:#64748b;margin-top:4px;">Raw ${istSummary?.raw}/${istSummary?.max}</div>` : mbtiSummary ? mbtiSummary.type : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
         <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
       </div>
     </div>
@@ -590,8 +723,11 @@ const Results = () => {
     ${discChartsHTML}
 
     ${istProfileHTML}
+    ${mbtiProfileHTML}
+    ${kraepelinProfileHTML}
+    ${papiProfileHTML}
 
-    <div class="section ${r.test_name.toUpperCase().includes("DISC") || isIstResult(r) ? "hidden" : ""}">
+    <div class="section ${r.test_name.toUpperCase().includes("DISC") || isIstResult(r) || isMbtiResult(r) || isKraepelinResult(r) || isPapiResult(r) ? "hidden" : ""}">
       <div class="section-title">Profil Dimensi & Skor</div>
       ${r.test_name.toUpperCase().includes("DISC") ? 
         // For DISC, show horizontal bar chart with 0 in center, fixed order D, I, S, C
@@ -741,8 +877,9 @@ const Results = () => {
     ${(() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isDISC = r.test_name.toUpperCase().includes("DISC");
-      if (isDISC) return "";
-      if (isIstResult(r)) return istInterpretationHTML;
+	      if (isDISC) return "";
+	      if (isIstResult(r)) return istInterpretationHTML;
+	      if (specialInterpretationHTML) return specialInterpretationHTML;
       // Full format interpretation for PP
       if (isPP) {
         const ppMap: Record<string, string> = {
@@ -830,6 +967,8 @@ const Results = () => {
               categoryDisplay = ppMap[a.category] || a.category;
             } else if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
               categoryDisplay = a.selected_answer_label;
+            } else if (isPapiResult(r) && a.category) {
+              categoryDisplay = PAPI_LABELS[a.category] ? `${a.category} - ${PAPI_LABELS[a.category]}` : a.category;
             }
             return `
             <tr>
@@ -1058,12 +1197,37 @@ const Results = () => {
         </div>
       );
     }
-    if (r.test_name === "Kraepelin" || r.test_name.includes("Kraepelin")) {
+    if (isMbtiResult(r)) {
+      const summary = getMbtiSummary(cats);
+      const chartData = summary.rows.flatMap((row) => [
+        { name: row.a, value: row.av, pair: row.pair },
+        { name: row.b, value: row.bv, pair: row.pair },
+      ]);
+      return (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 text-center">
+            <p className="text-xs text-muted-foreground">Tipe MBTI</p>
+            <p className="text-4xl font-extrabold text-primary tracking-widest">{summary.type}</p>
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+              <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12 }} />
+              <YAxis allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+              <Bar dataKey="value" fill="#60a5fa" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
+    if (isKraepelinResult(r)) {
+      const kraepelinData = getKraepelinRows(cats);
       return (
         <ResponsiveContainer width="100%" height={280}>
-          <RadarChart data={data}>
+          <RadarChart data={kraepelinData}>
             <PolarGrid stroke="hsl(220, 14%, 25%)" />
-            <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+            <PolarAngleAxis dataKey="label" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
             <Radar name={r.test_name} dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.25} strokeWidth={2} />
           </RadarChart>
@@ -1096,13 +1260,14 @@ const Results = () => {
         </ResponsiveContainer>
       );
     }
-    if (r.test_name === "PAPIKOSTIK") {
+    if (isPapiResult(r)) {
+      const papiData = getPapiRows(cats).map((row) => ({ name: `${row.code} - ${row.label}`, value: row.value }));
       return (
         <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={data} layout="vertical" margin={{ left: 100 }}>
+          <BarChart data={papiData} layout="vertical" margin={{ left: 150 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
             <XAxis type="number" domain={[0, 9]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
-            <YAxis type="category" dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} width={95} />
+            <YAxis type="category" dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} width={145} />
             <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
             <Bar dataKey="value" fill="#2dd4bf" radius={[0, 4, 4, 0]} />
           </BarChart>
@@ -1334,7 +1499,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                 <p className="text-lg font-bold text-primary mt-1">{r.test_name}</p>
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
-                <p className="text-xs text-muted-foreground">{(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? "IQ Score" : isIstResult(r) ? "Skor IST" : "Skor"}</p>
+                <p className="text-xs text-muted-foreground">{(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? "IQ Score" : isIstResult(r) ? "Skor IST" : isMbtiResult(r) ? "Tipe MBTI" : "Skor"}</p>
                 <p className="text-3xl font-bold text-foreground mt-1">
                   {(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) 
                     ? (() => {
@@ -1416,6 +1581,8 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                         })()
                     : isIstResult(r)
                       ? `${getIstSummary(cats, r.score).score}%`
+                    : isMbtiResult(r)
+                      ? <span className="text-4xl font-extrabold tracking-widest text-primary">{getMbtiSummary(cats).type}</span>
                       : `${r.score}%`
                   }
                 </p>
@@ -1571,6 +1738,82 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                     </table>
                   );
                 })()
+                : isMbtiResult(r) ? (() => {
+                  const summary = getMbtiSummary(cats);
+                  return (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Pasangan</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dominan</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Kekuatan</th>
+                      </tr></thead>
+                      <tbody>
+                        {summary.rows.map((row) => (
+                          <tr key={row.pair} className="border-b border-border/50">
+                            <td className="py-2 px-3 text-foreground font-semibold">{row.pair}</td>
+                            <td className="py-2 px-3 text-muted-foreground">{row.a}={row.av} / {row.b}={row.bv}</td>
+                            <td className="py-2 px-3 text-primary font-bold">{row.dominant}</td>
+                            <td className="py-2 px-3 text-foreground">{row.pct}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  );
+                })()
+                : isKraepelinResult(r) ? (
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-border">
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Aspek</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                    </tr></thead>
+                    <tbody>
+                      {getKraepelinRows(cats).map((row) => (
+                        <tr key={row.key} className="border-b border-border/50">
+                          <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
+                          <td className="py-2 px-3 text-foreground">{row.value}%</td>
+                          <td className="py-2 px-3 w-40">
+                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                              <div className={`h-full rounded-full ${row.value >= 70 ? "bg-emerald-400" : row.value >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.value, 100)}%` }} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 px-3 text-muted-foreground">Benar / Salah</td>
+                        <td className="py-2 px-3 text-foreground" colSpan={2}>{Number(cats.correct_answers || 0)} / {Number(cats.wrong_answers || 0)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )
+                : isPapiResult(r) ? (
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-border">
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skala</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Level</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                    </tr></thead>
+                    <tbody>
+                      {getPapiRows(cats).map((row) => {
+                        const pct = (row.value / 9) * 100;
+                        return (
+                          <tr key={row.code} className="border-b border-border/50">
+                            <td className="py-2 px-3 text-foreground font-medium">{row.code} - {row.label}</td>
+                            <td className="py-2 px-3 text-foreground">{row.value}/9</td>
+                            <td className="py-2 px-3 text-muted-foreground">{row.level}</td>
+                            <td className="py-2 px-3 w-40">
+                              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                <div className={`h-full rounded-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )
                 : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
                   const ppMap: Record<string, string> = {
                     K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
@@ -1649,11 +1892,17 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                 ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40)
                 : isIST
                   ? buildIstInterpretation(cats, r.score)
+                : isMbtiResult(r)
+                  ? buildMbtiInterpretation(cats)
+                : isKraepelinResult(r)
+                  ? buildKraepelinInterpretation(cats)
+                : isPapiResult(r)
+                  ? buildPapiInterpretation(cats)
                 : r.interpretation;
               if (!interpText) return null;
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
-                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : ''}</h3>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : ''}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
                 </div>
               );
@@ -1708,6 +1957,9 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                               }
                               if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
                                 return a.selected_answer_label;
+                              }
+                              if (isPapiResult(r) && a.category) {
+                                return PAPI_LABELS[a.category] ? `${a.category} - ${PAPI_LABELS[a.category]}` : a.category;
                               }
                               return a.category || "-";
                             })()}

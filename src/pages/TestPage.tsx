@@ -642,10 +642,14 @@ const TestPage = () => {
       shownIstSubtestsRef.current.add(introKey);
       setSubtestIntroActive(true);
       (async () => {
+        const pauseStartedAt = Date.now();
         await showSubtestExample(nextSubtest);
         if (nextSubtest === 'ME') {
           await showMemoryItems();
         }
+        const pauseDuration = Date.now() - pauseStartedAt;
+        const testStartedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+        sessionStorage.setItem("psytest_started_at", String(testStartedAt + pauseDuration));
         setSubtestStartedAt(Date.now());
         setSubtestIntroActive(false);
       })();
@@ -810,6 +814,10 @@ const TestPage = () => {
     setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: value }));
     // Auto-advance to next question
     handleNext();
+  };
+  const handleNumericAnswer = (instrumentId: string, questionId: string, value: string) => {
+    const cleaned = value.replace(/\D/g, "").slice(0, 2);
+    setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: cleaned }));
   };
   const handleMultiPick = (instrumentId: string, questionId: string, optId: string, maxPick = 2) => {
     const key = `${instrumentId}:${questionId}`;
@@ -1004,7 +1012,7 @@ const TestPage = () => {
             <span className="hidden text-sm font-semibold text-foreground sm:inline">PsyTest</span>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} initialSeconds={initialSeconds} onTimeUp={handleTimeUp} />
+            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} initialSeconds={initialSeconds} onTimeUp={handleTimeUp} paused={subtestIntroActive} />
             <button onClick={() => setShowEnglish(!showEnglish)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${showEnglish ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}>
               <Languages className="h-3.5 w-3.5" /><span className="hidden sm:inline">EN</span>
@@ -1136,7 +1144,26 @@ const TestPage = () => {
                   </div>
                 )}
                 <div className="space-y-3">
-                  {currentQuestion.options.length === 0 ? (
+                  {currentQuestion.question_type === "numeric" ? (
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Jawaban angka
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoFocus
+                        value={currentAns || ""}
+                        onChange={(e) => handleNumericAnswer(currentTest.id, currentQuestion.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && currentAns) handleNext();
+                        }}
+                        className="h-14 w-full max-w-xs rounded-lg border border-border bg-muted px-4 text-center text-3xl font-bold tracking-widest text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="0"
+                      />
+                    </div>
+                  ) : currentQuestion.options.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic">Belum ada pilihan jawaban untuk soal ini.</p>
                   ) : currentQuestion.question_type === "disc_pair" ? (
                     <div>
