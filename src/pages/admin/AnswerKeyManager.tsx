@@ -9,6 +9,28 @@ interface Inst { id: string; name: string; category: string; scoring_method: str
 interface Q { id: string; question_number: number; question_text: string; category: string | null; subtest_code: string | null; question_type: string; }
 interface O { id: string; question_id: string; option_label: string; option_text: string; score_value: number; category_target: string | null; is_correct: boolean | null; display_order: number; }
 
+const IST_INSTRUMENT_ID = '9dccb6bc-cb33-42e8-b432-8af156ad6d5c';
+const IST_ANSWER_KEY: Record<number, string | number> = {
+  1: 'E', 2: 'C', 3: 'D', 4: 'D', 5: 'D', 6: 'B', 7: 'C', 8: 'A', 9: 'E', 10: 'B',
+  11: 'C', 12: 'D', 13: 'D', 14: 'E', 15: 'C', 16: 'A', 17: 'B', 18: 'B', 19: 'C', 20: 'B',
+  21: 'B', 22: 'B', 23: 'D', 24: 'C', 25: 'C', 26: 'C', 27: 'C', 28: 'D', 29: 'D', 30: 'A',
+  31: 'E', 32: 'A', 33: 'A', 34: 'B', 35: 'C', 36: 'A', 37: 'D', 38: 'E', 39: 'B', 40: 'C',
+  41: 'C', 42: 'E', 43: 'D', 44: 'D', 45: 'D', 46: 'A', 47: 'D', 48: 'B', 49: 'E', 50: 'D',
+  51: 'C', 52: 'C', 53: 'C', 54: 'C', 55: 'D', 56: 'C', 57: 'C', 58: 'D', 59: 'E', 60: 'E',
+  61: 'B', 62: 'C', 63: 'D', 64: 'C', 65: 'A', 66: 'B', 67: 'A', 68: 'B', 69: 'A', 70: 'B',
+  71: 'C', 72: 'A', 73: 'A', 74: 'B', 75: 'D', 76: 'A',
+  77: 35, 78: 280, 79: 205, 80: 26, 81: 30, 82: 70, 83: 45, 84: 50, 85: 84, 86: 78,
+  87: 19, 88: 6, 89: 75, 90: 90, 91: 120, 92: 17, 93: 36, 94: 5, 95: 48, 96: 1,
+  97: 27, 98: 25, 99: 27, 100: 15, 101: 46, 102: 10, 103: 42, 104: 7, 105: 5, 106: 14,
+  107: 8, 108: 14, 109: 45, 110: 63, 111: 12, 112: 80, 113: 14, 114: 12, 115: 63, 116: 10,
+  117: 'A', 118: 'C', 119: 'B', 120: 'A', 121: 'D', 122: 'B', 123: 'C', 124: 'E', 125: 'E', 126: 'D',
+  127: 'E', 128: 'B', 129: 'D', 130: 'C', 131: 'B', 132: 'A', 133: 'B', 134: 'D', 135: 'C', 136: 'A',
+  137: 'A', 138: 'C', 139: 'D', 140: 'E', 141: 'A', 142: 'C', 143: 'D', 144: 'C', 145: 'E', 146: 'A',
+  147: 'B', 148: 'D', 149: 'E', 150: 'B', 151: 'D', 152: 'B', 153: 'A', 154: 'E', 155: 'B', 156: 'C',
+  157: 'D', 158: 'E', 159: 'B', 160: 'C', 161: 'A', 162: 'A', 163: 'D', 164: 'E', 165: 'C', 166: 'B',
+  167: 'B', 168: 'A', 169: 'E', 170: 'C', 171: 'D', 172: 'B', 173: 'E', 174: 'A', 175: 'C', 176: 'D',
+};
+
 const AnswerKeyManager = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -18,6 +40,46 @@ const AnswerKeyManager = () => {
   const [opts, setOpts] = useState<Record<string, O[]>>({});
   const [dirty, setDirty] = useState<Record<string, Partial<O>>>({});
   const [loading, setLoading] = useState(false);
+
+  const currentInstrument = instruments.find(i => i.id === selected);
+  const isIstSelected = selected === IST_INSTRUMENT_ID || currentInstrument?.name.toUpperCase().includes("IST");
+
+  const applyIstAnswerKey = () => {
+    if (!isIstSelected) return;
+    const newDirty: Record<string, Partial<O>> = {};
+
+    setOpts(prevOpts => {
+      const updatedOpts = { ...prevOpts };
+
+      questions.forEach(q => {
+        const answer = IST_ANSWER_KEY[q.question_number];
+        if (answer === undefined) return;
+
+        const qOpts = updatedOpts[q.id] || [];
+        const normalizedAnswer = String(answer).trim();
+        const matched = qOpts.find(o => String(o.option_label).trim() === normalizedAnswer)
+          || qOpts.find(o => String(o.option_text).trim() === normalizedAnswer);
+
+        updatedOpts[q.id] = qOpts.map(o => {
+          const is_correct = Boolean(matched && o.id === matched.id);
+          const score_value = is_correct ? 1 : 0;
+          if (o.is_correct !== is_correct || o.score_value !== score_value) {
+            newDirty[o.id] = { is_correct, score_value };
+          }
+          return { ...o, is_correct, score_value };
+        });
+      });
+
+      return updatedOpts;
+    });
+
+    if (Object.keys(newDirty).length > 0) {
+      setDirty(prev => ({ ...prev, ...newDirty }));
+      Swal.fire({ icon: "success", title: "IST jawaban diterapkan", text: "Kunci IST sudah diatur sesuai mapping.", timer: 1500, showConfirmButton: false });
+    } else {
+      Swal.fire({ icon: "info", title: "Tidak ada perubahan", text: "Semua kunci jawaban IST sudah sesuai.", timer: 1500, showConfirmButton: false });
+    }
+  };
 
   useEffect(() => {
     supabase.from("test_instruments").select("id, name, category, scoring_method").order("name").then(({ data }) => {
@@ -85,9 +147,16 @@ const AnswerKeyManager = () => {
               <h1 className="text-xl font-bold text-foreground flex items-center gap-2"><ListChecks className="h-5 w-5 text-primary" /> Manajer Kunci Jawaban</h1>
               <p className="text-sm text-muted-foreground">Atur kunci jawaban benar, skor, dan kategori target untuk setiap opsi — semua alat tes.</p>
             </div>
-            <button onClick={saveAll} disabled={!Object.keys(dirty).length} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-40">
-              <Save className="h-4 w-4" /> Simpan ({Object.keys(dirty).length})
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {isIstSelected && (
+                <button onClick={applyIstAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
+                  Terapkan Kunci IST
+                </button>
+              )}
+              <button onClick={saveAll} disabled={!Object.keys(dirty).length} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-40">
+                <Save className="h-4 w-4" /> Simpan ({Object.keys(dirty).length})
+              </button>
+            </div>
           </div>
         </div>
 

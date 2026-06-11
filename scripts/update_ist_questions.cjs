@@ -16,6 +16,8 @@ const supabase = createClient(envVars.VITE_SUPABASE_URL, envVars.VITE_SUPABASE_P
 const IST_ID = '9dccb6bc-cb33-42e8-b432-8af156ad6d5c';
 
 // Define all IST questions
+const faCorrectAnswers = ["a","c","b","a","d","b","c","e","c","b","d","c","e","d","b","a","e","a","c","d"];
+const wuCorrectAnswers = ["a","c","d","e","d","c","d","e","e","a","b","d","e","d","b","b","e","e","c","d"];
 const istQuestions = {
   // SE - Sentence Completion (Questions 1-20)
   SE: [
@@ -77,7 +79,7 @@ const istQuestions = {
         { label: "d", text: "kuku" },
         { label: "e", text: "surai" }
       ],
-      correct: "b"
+      correct: "e"
     },
     {
       question_number: 6,
@@ -161,7 +163,7 @@ const istQuestions = {
         { label: "d", text: "20" },
         { label: "e", text: "15" }
       ],
-      correct: "b"
+      correct: "e"
     },
     {
       question_number: 13,
@@ -209,7 +211,7 @@ const istQuestions = {
         { label: "d", text: "berat" },
         { label: "e", text: "suara" }
       ],
-      correct: "d"
+      correct: "a"
     },
     {
       question_number: 17,
@@ -245,7 +247,7 @@ const istQuestions = {
         { label: "d", text: "jumlah pengikut" },
         { label: "e", text: "tinggi keuntungan" }
       ],
-      correct: "a"
+      correct: "b"
     },
     {
       question_number: 20,
@@ -257,7 +259,7 @@ const istQuestions = {
         { label: "d", text: "105" },
         { label: "e", text: "115" }
       ],
-      correct: "b"
+      correct: "c"
     }
   ],
   
@@ -369,7 +371,7 @@ const istQuestions = {
         { label: "d", text: "sepeda" },
         { label: "e", text: "kapal api" }
       ],
-      correct: "b" // pesawat terbang flies, others are ground/water vehicles
+      correct: "d" // pesawat terbang flies, others are ground/water vehicles
     },
     {
       question_number: 30,
@@ -393,7 +395,7 @@ const istQuestions = {
         { label: "d", text: "licin" },
         { label: "e", text: "lurus" }
       ],
-      correct: "c" // berduri has sharp points, others are surface textures
+      correct: "e" // berduri has sharp points, others are surface textures
     },
     {
       question_number: 32,
@@ -477,7 +479,7 @@ const istQuestions = {
         { label: "d", text: "pagar" },
         { label: "e", text: "masyarakat" }
       ],
-      correct: "c" // perkawinan is union of people, others are physical barriers
+      correct: "e" // perkawinan is union of people, others are physical barriers
     },
     {
       question_number: 39,
@@ -489,7 +491,7 @@ const istQuestions = {
         { label: "d", text: "melicinkan" },
         { label: "e", text: "menggosok" }
       ],
-      correct: "b" // menasehati is verbal, others are physical actions
+      correct: "e" // menasehati is verbal, others are physical actions
     },
     {
       question_number: 40,
@@ -553,7 +555,7 @@ const istQuestions = {
         { label: "d", text: "gelang" },
         { label: "e", text: "platina" }
       ],
-      correct: "b"
+      correct: "d"
     },
     {
       question_number: 45,
@@ -577,7 +579,7 @@ const istQuestions = {
         { label: "d", text: "menimbang" },
         { label: "e", text: "merenungkan" }
       ],
-      correct: "d"
+      correct: "a"
     },
     {
       question_number: 47,
@@ -589,7 +591,7 @@ const istQuestions = {
         { label: "d", text: "tengik" },
         { label: "e", text: "asin" }
       ],
-      correct: "a"
+      correct: "d"
     },
     {
       question_number: 48,
@@ -613,7 +615,7 @@ const istQuestions = {
         { label: "d", text: "cahaya" },
         { label: "e", text: "pelindung" }
       ],
-      correct: "d"
+      correct: "e"
     },
     {
       question_number: 50,
@@ -649,7 +651,7 @@ const istQuestions = {
         { label: "d", text: "kesan" },
         { label: "e", text: "ayat" }
       ],
-      correct: "e"
+      correct: "c"
     },
     {
       question_number: 53,
@@ -661,7 +663,7 @@ const istQuestions = {
         { label: "d", text: "sedih" },
         { label: "e", text: "rindu" }
       ],
-      correct: "d"
+      correct: "c"
     },
     {
       question_number: 54,
@@ -673,7 +675,7 @@ const istQuestions = {
         { label: "d", text: "jas" },
         { label: "e", text: "tekstil" }
       ],
-      correct: "c"
+      correct: "e"
     },
     {
       question_number: 55,
@@ -697,7 +699,7 @@ const istQuestions = {
         { label: "d", text: "seleksi" },
         { label: "e", text: "ilmu hewan" }
       ],
-      correct: "c"
+      correct: "e"
     },
     {
       question_number: 57,
@@ -821,8 +823,8 @@ const istQuestions = {
   FA: Array.from({ length: 20 }, (_, i) => ({
     question_number: 117 + i,
     question_text: `Pilih potongan gambar yang tepat untuk melengkapi pola di atas (Soal No ${117 + i})`,
-    question_image: `fa${117 + i}_soal.png`, // Gambar 1: soal/pattern yang harus dilengkapi
-    options_image: `fa${117 + i}_pilihan.png`, // Gambar 2: pilihan jawaban A-E
+    question_image: `fa${117 + i}_soal.png`,
+    options_image: `fa${117 + i}_pilihan.png`,
     options: [
       { label: "a", text: "A" },
       { label: "b", text: "B" },
@@ -830,7 +832,7 @@ const istQuestions = {
       { label: "d", text: "D" },
       { label: "e", text: "E" }
     ],
-    correct: "a" // Placeholder - update dengan jawaban yang benar
+    correct: faCorrectAnswers[i]
   })),
   
   // WU - Cube Rotation (Questions 137-156) - Need images
@@ -844,7 +846,7 @@ const istQuestions = {
       { label: "d", text: "Kubus D" },
       { label: "e", text: "Kubus E" }
     ],
-    correct: "a" // Placeholder
+    correct: wuCorrectAnswers[i]
   })),
   
   // ME - Memory (Questions 157-176)
@@ -859,7 +861,7 @@ const istQuestions = {
         { label: "d", text: "kesenian" },
         { label: "e", text: "binatang" }
       ],
-      correct: "d" // ARCA
+      correct: "e" // ARCA
     },
     {
       question_number: 158,
@@ -871,7 +873,7 @@ const istQuestions = {
         { label: "d", text: "kesenian" },
         { label: "e", text: "binatang" }
       ],
-      correct: "a" // BUNGA (any of the flower options)
+      correct: "e" // BUNGA (any of the flower options)
     },
     {
       question_number: 159,
@@ -883,7 +885,7 @@ const istQuestions = {
         { label: "d", text: "kesenian" },
         { label: "e", text: "binatang" }
       ],
-      correct: "a" // CANGKUL
+      correct: "b" // CANGKUL
     },
     {
       question_number: 160,
@@ -1039,7 +1041,7 @@ const istQuestions = {
         { label: "d", text: "kesenian" },
         { label: "e", text: "binatang" }
       ],
-      correct: "b" // PALU
+      correct: "e" // PALU
     },
     {
       question_number: 173,
