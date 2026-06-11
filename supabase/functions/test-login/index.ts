@@ -17,6 +17,33 @@ function json(body: unknown, status = 200) {
   });
 }
 
+async function sha256Hex(input: string) {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function findAuthUserByEmail(admin: any, email: string) {
+  const target = email.toLowerCase();
+  let page = 1;
+  const perPage = 1000;
+
+  while (page <= 20) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+
+    const users = data?.users || [];
+    const found = users.find((u: any) => u.email?.toLowerCase() === target);
+    if (found) return found;
+    if (users.length < perPage) return null;
+    page++;
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -85,26 +112,23 @@ Deno.serve(async (req) => {
     }
 
     const email = String(code.candidate_email).toLowerCase().trim();
-    // Use the activation code id as a stable server-only password for the auth account
-    const authPassword = `tc_${code.id}_${SERVICE_KEY.slice(-12)}`;
+    // Use a strong stable server-only password for the test Auth session.
+    const authPassword = `Tc-${await sha256Hex(`pjm-test-session::${code.id}::${SERVICE_KEY}`)}-A1!`;
 
     // Ensure auth user exists; if it does, reset password so we can sign in
     let userId: string | null = null;
     {
-      // Try to look up existing user by email
-      const { data: list } = await admin.auth.admin.listUsers({
-        page: 1,
-        perPage: 200,
-      });
-      const existing = list?.users?.find(
-        (u) => u.email?.toLowerCase() === email,
-      );
+      const existing = await findAuthUserByEmail(admin, email);
       if (existing) {
         userId = existing.id;
-        await admin.auth.admin.updateUserById(existing.id, {
+        const { error: updateErr } = await admin.auth.admin.updateUserById(existing.id, {
           password: authPassword,
           email_confirm: true,
         });
+        if (updateErr) {
+          console.error("test-login: failed updating auth user", updateErr);
+          return json({ error: "Gagal membuat sesi tes." }, 500);
+        }
       } else {
         const created = await admin.auth.admin.createUser({
           email,
@@ -116,6 +140,7 @@ Deno.serve(async (req) => {
           },
         });
         if (created.error || !created.data.user) {
+          console.error("test-login: failed creating auth user", created.error);
           return json({ error: "Gagal membuat sesi tes." }, 500);
         }
         userId = created.data.user.id;
@@ -131,6 +156,7 @@ Deno.serve(async (req) => {
       password: authPassword,
     });
     if (signInErr || !signIn?.session) {
+      console.error("test-login: failed signing in auth user", signInErr);
       return json({ error: "Gagal membuat sesi tes." }, 500);
     }
 

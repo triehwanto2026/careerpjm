@@ -4,6 +4,23 @@ import { ArrowLeft, Lock, LogIn } from "lucide-react";
 import Swal from "sweetalert2";
 import { supabase } from "@/integrations/supabase/client";
 
+const getFunctionErrorMessage = async (error: any) => {
+  const context = error?.context;
+  if (context instanceof Response) {
+    try {
+      const payload = await context.clone().json();
+      if (payload?.error) return payload.error;
+      if (payload?.message) return payload.message;
+    } catch {
+      try {
+        const text = await context.clone().text();
+        if (text) return text;
+      } catch {}
+    }
+  }
+  return error?.message || "Login gagal.";
+};
+
 export default function TestLogin() {
   const navigate = useNavigate();
   const [activationCode, setActivationCode] = useState("");
@@ -34,7 +51,7 @@ export default function TestLogin() {
       });
 
       if (error || !data || (data as any).error) {
-        throw new Error((data as any)?.error || error?.message || "Login gagal.");
+        throw new Error((data as any)?.error || await getFunctionErrorMessage(error));
       }
 
       const { session, candidate } = data as {
