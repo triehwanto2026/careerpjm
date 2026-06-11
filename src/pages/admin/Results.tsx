@@ -26,6 +26,95 @@ interface AnswerRow {
   is_correct: boolean | null; category: string | null;
 }
 
+const DISC_DIMS = ["D", "I", "S", "C"] as const;
+type DiscDim = typeof DISC_DIMS[number];
+
+const DISC_DIM_MAP: Record<DiscDim, string> = {
+  D: "Dominance",
+  I: "Influence",
+  S: "Steadiness",
+  C: "Compliance",
+};
+
+const getDiscValue = (cats: Record<string, number>, dim: DiscDim, kind: "M" | "L" | "N") => {
+  const fullName = DISC_DIM_MAP[dim];
+  if (kind === "N") return Number(cats[dim] ?? cats[fullName] ?? 0);
+  return cats[`${dim}_${kind}`] !== undefined
+    ? Number(cats[`${dim}_${kind}`])
+    : cats[`${fullName}_${kind}`] !== undefined
+      ? Number(cats[`${fullName}_${kind}`])
+      : null;
+};
+
+const buildDiscRows = (cats: Record<string, number>, totalQuestions = 24) => {
+  const discLabels: Record<DiscDim, string> = {
+    D: "Dominance — Pengarah, tegas, berorientasi hasil",
+    I: "Influence — Persuasif, ekspresif, sosial",
+    S: "Steadiness — Stabil, sabar, kooperatif",
+    C: "Conscientiousness — Teliti, analitis, sistematis",
+  };
+  const discColors: Record<DiscDim, string> = { D: "#dc2626", I: "#f59e0b", S: "#059669", C: "#2563eb" };
+  const threshold = Math.ceil(Math.max(totalQuestions, 1) * 0.25);
+  const rows = DISC_DIMS.map((dim) => {
+    const net = getDiscValue(cats, dim, "N");
+    const m = getDiscValue(cats, dim, "M");
+    const l = getDiscValue(cats, dim, "L");
+    const level = net >= threshold ? "Tinggi" : net >= 1 ? "Sedang" : net <= -threshold ? "Rendah" : "Netral";
+    return { dim, m, l, net, level, absNet: Math.abs(net), desc: discLabels[dim], color: discColors[dim] };
+  });
+  const ranked = [...rows].sort((a, b) => b.net - a.net);
+  return rows.map((row) => ({ ...row, rank: ranked.findIndex((r) => r.dim === row.dim) + 1 }));
+};
+
+const renderDiscPrintMiniChart = (
+  title: string,
+  data: { name: string; value: number }[],
+  color: string,
+  allowNegative = false,
+) => {
+  const width = 260;
+  const height = 170;
+  const left = 30;
+  const right = 12;
+  const top = 18;
+  const bottom = 32;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const values = data.map((d) => d.value);
+  const min = allowNegative ? Math.min(0, ...values) : 0;
+  const max = Math.max(1, ...values);
+  const range = Math.max(max - min, 1);
+  const y = (value: number) => top + ((max - value) / range) * plotHeight;
+  const points = data.map((d, i) => ({
+    x: left + (data.length === 1 ? plotWidth / 2 : (i * plotWidth) / (data.length - 1)),
+    y: y(d.value),
+    ...d,
+  }));
+  const baseline = y(allowNegative ? 0 : min);
+  const linePath = points.map((p) => `${p.x},${p.y}`).join(" ");
+  const areaPath = `M ${points[0].x} ${baseline} L ${points.map((p) => `${p.x} ${p.y}`).join(" L ")} L ${points[points.length - 1].x} ${baseline} Z`;
+  const gridY = [0, 0.5, 1].map((ratio) => top + ratio * plotHeight);
+
+  return `
+    <div style="border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;padding:10px;">
+      <p style="font-size:8.5pt;font-weight:700;color:#374151;margin-bottom:4px;text-align:center;">${title}</p>
+      <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}">
+        ${gridY.map((gy) => `<line x1="${left}" y1="${gy}" x2="${width - right}" y2="${gy}" stroke="#e2e8f0" stroke-width="1"/>`).join("")}
+        ${allowNegative ? `<line x1="${left}" y1="${baseline}" x2="${width - right}" y2="${baseline}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>` : ""}
+        <line x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}" stroke="#94a3b8" stroke-width="1"/>
+        <line x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}" stroke="#94a3b8" stroke-width="1"/>
+        <path d="${areaPath}" fill="${color}" opacity="0.16"/>
+        <polyline points="${linePath}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+        ${points.map((p) => `
+          <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+          <text x="${p.x}" y="${p.y - 8}" text-anchor="middle" font-size="8" font-weight="700" fill="#374151">${p.value > 0 ? '+' : ''}${p.value}</text>
+          <text x="${p.x}" y="${height - 10}" text-anchor="middle" font-size="9" font-weight="700" fill="#64748b">${p.name}</text>
+        `).join("")}
+      </svg>
+    </div>
+  `;
+};
+
 const Results = () => {
   const location = useLocation();
   const initialSearch = (location.state as any)?.search || new URLSearchParams(location.search).get("q") || "";
@@ -60,7 +149,30 @@ const Results = () => {
   };
 
   const handleSelectResult = async (r: ResultRow) => {
-    setSelectedResult(r);
+    let enrichedResult = r;
+    const currentProfile = (r.candidate_profile || {}) as Record<string, any>;
+    const email = currentProfile.email;
+    if (email) {
+      const { data: candidateProfile } = await supabase
+        .from("candidate_profiles")
+        .select("photo_url, phone, birth_date, education_level, education_institution, gender")
+        .eq("email", email)
+        .maybeSingle();
+      if (candidateProfile) {
+        enrichedResult = {
+          ...r,
+          candidate_profile: {
+            ...currentProfile,
+            phone: candidateProfile.phone || currentProfile.phone || "",
+            birthDate: candidateProfile.birth_date || currentProfile.birthDate || "",
+            education: candidateProfile.education_level || candidateProfile.education_institution || currentProfile.education || "",
+            gender: candidateProfile.gender || currentProfile.gender || "",
+            photo_url: candidateProfile.photo_url || currentProfile.photo_url || null,
+          },
+        };
+      }
+    }
+    setSelectedResult(enrichedResult);
     await loadAnswers(r.id);
   };
 
@@ -105,15 +217,12 @@ const Results = () => {
     let discChartsHTML = "";
     let discInterpretation = "";
     if (r.test_name.toUpperCase().includes("DISC")) {
-      const dims = ["D", "I", "S", "C"];
-      const mask = dims.map(d => ({ name: d, value: Math.max(0, Number(cats[d] || 0)) }));
-      const core = dims.map(d => ({ name: d, value: Math.max(0, -Number(cats[d] || 0)) }));
-      const mirror = dims.map(d => ({ name: d, value: Number(cats[d] || 0) }));
-      const radarData = dims.map(d => ({ dim: d, value: Number(cats[d] || 0) }));
+      const dims = DISC_DIMS;
       
       // Get top 2 dominant categories
-      const sortedCats = catEntries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-      const topCategories = sortedCats.slice(0, 2).map(([cat]) => cat);
+      const discRows = buildDiscRows(cats, r.total_questions || 24);
+      const sortedCats = [...discRows].sort((a, b) => b.net - a.net);
+      const topCategories = sortedCats.slice(0, 2).map(({ dim }) => dim);
       const dominant = topCategories[0];
       const secondary = topCategories[1];
       
@@ -144,29 +253,7 @@ const Results = () => {
           </div>
         </div>`;
       
-      // Compact DISC format with M, L, Net, Level, Rank table
-      const discLabels: Record<string, string> = {
-        D: "Dominance — Pengarah, tegas, berorientasi hasil",
-        I: "Influence — Persuasif, ekspresif, sosial",
-        S: "Steadiness — Stabil, sabar, kooperatif",
-        C: "Conscientiousness — Teliti, analitis, sistematis"
-      };
-      const discColors: Record<string, string> = { D: "#dc2626", I: "#f59e0b", S: "#059669", C: "#2563eb" };
-      
-      // Calculate M (Mask/Most), L (Core/Least), Net, Level, Rank
-      const discData = dims.map(d => {
-        const net = Number(cats[d] || 0);
-        // Estimate M and L from net value (assuming M-L=net and M+L approx equals total questions/4)
-        const m = Math.max(0, net + 10); // Approximation
-        const l = Math.max(0, m - net);
-        const absNet = Math.abs(net);
-        const level = absNet >= 12 ? "Tinggi" : absNet >= 6 ? "Sedang" : absNet >= 2 ? "Netral" : "Rendah";
-        return { dim: d, m, l, net, level, absNet, desc: discLabels[d], color: discColors[d] };
-      });
-      
-      // Rank by absolute net value
-      const ranked = [...discData].sort((a, b) => b.absNet - a.absNet);
-      const discDataWithRank = discData.map(d => ({ ...d, rank: ranked.findIndex(r => r.dim === d.dim) + 1 }));
+      const discDataWithRank = discRows;
       
       discChartsHTML = `
     <div class="section">
@@ -190,8 +277,8 @@ const Results = () => {
                 <div style="font-weight: 700; color: ${d.color}; font-size: 12pt;">${d.dim}</div>
                 <div style="font-size: 8pt; color: #64748b; line-height: 1.2;">${d.desc}</div>
               </td>
-              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.m}</td>
-              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.l}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.m ?? "-"}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.l ?? "-"}</td>
               <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: ${d.net > 0 ? '#059669' : d.net < 0 ? '#dc2626' : '#64748b'};">${d.net > 0 ? '+' : ''}${d.net}</td>
               <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center;">
                 <span style="padding: 2px 8px; border-radius: 12px; font-size: 8pt; font-weight: 600; background: ${d.level === 'Tinggi' ? '#fef3c7' : d.level === 'Sedang' ? '#dbeafe' : d.level === 'Netral' ? '#f3f4f6' : '#fee2e2'}; color: ${d.level === 'Tinggi' ? '#d97706' : d.level === 'Sedang' ? '#2563eb' : d.level === 'Netral' ? '#6b7280' : '#dc2626'};">${d.level}</span>
@@ -216,32 +303,10 @@ const Results = () => {
         <strong>Rank:</strong> urutan kekuatan dimensi (1 = paling dominan).
       </div>
       
-      <!-- Compact Bar Chart -->
-      <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc; margin-bottom: 12px;">
-        <p style="font-size: 10pt; font-weight: 700; color: #374151; margin-bottom: 8px; text-align: center;">Grafik Profil DISC — Net Score (Mirror)</p>
-        <svg width="100%" height="140" viewBox="0 0 400 140">
-          <!-- Grid lines -->
-          <line x1="40" y1="30" x2="360" y2="30" stroke="#e2e8f0" stroke-width="1"/>
-          <line x1="40" y1="60" x2="360" y2="60" stroke="#e2e8f0" stroke-width="1"/>
-          <line x1="40" y1="90" x2="360" y2="90" stroke="#e2e8f0" stroke-width="1"/>
-          <line x1="40" y1="120" x2="360" y2="120" stroke="#e2e8f0" stroke-width="1"/>
-          <!-- Zero line -->
-          <line x1="200" y1="20" x2="200" y2="130" stroke="#9ca3af" stroke-width="2" stroke-dasharray="4,2"/>
-          <!-- Y axis -->
-          <line x1="40" y1="20" x2="40" y2="130" stroke="#374151" stroke-width="2"/>
-          <line x1="40" y1="120" x2="360" y2="120" stroke="#374151" stroke-width="2"/>
-          <!-- Bars -->
-          ${discDataWithRank.map((d, i) => {
-            const barHeight = Math.min(Math.abs(d.net) * 4, 80);
-            const y = 120 - (d.net > 0 ? barHeight : 0);
-            const x = 60 + (i * 85);
-            return `
-              <rect x="${x}" y="${d.net > 0 ? 120 - barHeight : 120}" width="60" height="${barHeight || 2}" fill="${d.color}" rx="3" opacity="0.85"/>
-              <text x="${x + 30}" y="${d.net > 0 ? 115 - barHeight : 115}" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">${d.net > 0 ? '+' : ''}${d.net}</text>
-              <text x="${x + 30}" y="${135}" text-anchor="middle" font-size="11" font-weight="800" fill="${d.color}">${d.dim}</text>
-            `;
-          }).join('')}
-        </svg>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">
+        ${renderDiscPrintMiniChart("Mask - Public Self (Most)", discDataWithRank.map((d) => ({ name: d.dim, value: d.m ?? 0 })), "#10b981")}
+        ${renderDiscPrintMiniChart("Core - Private Self (Least)", discDataWithRank.map((d) => ({ name: d.dim, value: d.l ?? 0 })), "#f59e0b")}
+        ${renderDiscPrintMiniChart("Mirror - Perceived Self (Net)", discDataWithRank.map((d) => ({ name: d.dim, value: d.net })), "#ec4899", true)}
       </div>
     </div>`;
     }
@@ -303,6 +368,7 @@ const Results = () => {
       .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
 
       .page-break { page-break-before: always; }
+      .hidden { display: none; }
       @media print {
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       }
@@ -446,22 +512,23 @@ const Results = () => {
 
     ${discChartsHTML}
 
-    <div class="section">
+    <div class="section ${r.test_name.toUpperCase().includes("DISC") ? "hidden" : ""}">
       <div class="section-title">Profil Dimensi & Skor</div>
       ${r.test_name.toUpperCase().includes("DISC") ? 
         // For DISC, show horizontal bar chart with 0 in center, fixed order D, I, S, C
         (() => {
-          const dims = ["D", "I", "S", "C"];
-          const sortedCats = catEntries.sort((a, b) => b[1] - a[1]);
+          const dims = DISC_DIMS;
+          const discRows = buildDiscRows(cats, r.total_questions || 24);
+          const sortedCats = [...discRows].sort((a, b) => b.net - a.net);
           const top2 = sortedCats.slice(0, 2);
           return `
             <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
               <p style="font-size: 10pt; font-weight: 700; color: #0f766e; margin-bottom: 8px;">Kategori Dominan DISC</p>
               <div style="display: flex; gap: 16px; justify-content: center;">
-                ${top2.map(([cat, val], i) => `
+                ${top2.map(({ dim, net }, i) => `
                   <div style="text-align: center; flex: 1;">
-                    <div style="font-size: 24pt; font-weight: 800; color: #0f766e; margin-bottom: 4px;">${cat}</div>
-                    <div style="font-size: 12pt; color: #475569;">Skor: ${val}</div>
+                    <div style="font-size: 24pt; font-weight: 800; color: #0f766e; margin-bottom: 4px;">${dim}</div>
+                    <div style="font-size: 12pt; color: #475569;">Skor: ${net > 0 ? '+' : ''}${net}</div>
                     <div style="font-size: 10pt; color: #64748b; margin-top: 2px;">${i === 0 ? 'Dominan Utama' : 'Dominan Sekunder'}</div>
                   </div>
                 `).join('')}
@@ -470,8 +537,8 @@ const Results = () => {
             <div style="margin-bottom: 16px;">
               <p style="font-size: 10pt; font-weight: 700; color: #374151; margin-bottom: 12px;">Detail Skor per Dimensi</p>
               ${dims.map(dim => {
-                const val = Number(cats[dim] || 0);
-                const maxVal = Math.max(...Object.values(cats).map(Math.abs), 1);
+                const val = getDiscValue(cats, dim, "N");
+                const maxVal = Math.max(...discRows.map((row) => Math.abs(row.net)), 1);
                 const barWidth = (Math.abs(val) / maxVal) * 40;
                 const isPositive = val >= 0;
                 return `
@@ -670,7 +737,7 @@ const Results = () => {
     </div>`;
     })()}
 
-    <div class="section">
+    <div class="section page-break">
       <div class="section-title">Lembar Jawaban Kandidat (${answers.length} Soal)</div>
       ${answers.length === 0 ? '<p style="color:#94a3b8;font-style:italic;padding:12px 0;">Belum ada data jawaban tersimpan.</p>' : `
       <table class="answer-table">

@@ -78,6 +78,12 @@ Deno.serve(async (req) => {
       await admin.from("candidates").update({ status: "completed" }).eq("id", candidateId);
     }
 
+    const { data: candidateProfile } = await admin
+      .from("candidate_profiles")
+      .select("phone, birth_date, education_level, education_institution, gender, photo_url")
+      .eq("email", candidateEmail)
+      .maybeSingle();
+
     const instIds = payload.instruments.map((i) => i.id);
     if (instIds.length === 0) return json({ ok: true, results: [] });
 
@@ -198,11 +204,11 @@ Deno.serve(async (req) => {
           candidate_profile: payload.candidate
             ? {
                 email: candidateEmail,
-                phone: payload.candidate.phone || "",
-                birthDate: payload.candidate.birth_date || "",
-                education: payload.candidate.education || "",
-                gender: payload.candidate.gender || "",
-                photo_url: payload.candidate.photo_url || null,
+                phone: candidateProfile?.phone || payload.candidate.phone || "",
+                birthDate: candidateProfile?.birth_date || payload.candidate.birth_date || "",
+                education: candidateProfile?.education_level || candidateProfile?.education_institution || payload.candidate.education || "",
+                gender: candidateProfile?.gender || payload.candidate.gender || "",
+                photo_url: candidateProfile?.photo_url || payload.candidate.photo_url || null,
               }
             : null,
           webcam_photo_url: payload.snap_url || null,

@@ -32,6 +32,95 @@ export interface PrintAnswer {
   category?: string | null;
 }
 
+const DISC_DIMS = ["D", "I", "S", "C"] as const;
+type DiscDim = typeof DISC_DIMS[number];
+
+const DISC_DIM_MAP: Record<DiscDim, string> = {
+  D: "Dominance",
+  I: "Influence",
+  S: "Steadiness",
+  C: "Compliance",
+};
+
+const getDiscValue = (cats: Record<string, number>, dim: DiscDim, kind: "M" | "L" | "N") => {
+  const fullName = DISC_DIM_MAP[dim];
+  if (kind === "N") return Number(cats[dim] ?? cats[fullName] ?? 0);
+  return cats[`${dim}_${kind}`] !== undefined
+    ? Number(cats[`${dim}_${kind}`])
+    : cats[`${fullName}_${kind}`] !== undefined
+      ? Number(cats[`${fullName}_${kind}`])
+      : null;
+};
+
+const buildDiscRows = (cats: Record<string, number>, totalQuestions = 24) => {
+  const discLabels: Record<DiscDim, string> = {
+    D: "Dominance — Pengarah, tegas, berorientasi hasil",
+    I: "Influence — Persuasif, ekspresif, sosial",
+    S: "Steadiness — Stabil, sabar, kooperatif",
+    C: "Conscientiousness — Teliti, analitis, sistematis",
+  };
+  const discColors: Record<DiscDim, string> = { D: "#dc2626", I: "#f59e0b", S: "#059669", C: "#2563eb" };
+  const threshold = Math.ceil(Math.max(totalQuestions, 1) * 0.25);
+  const rows = DISC_DIMS.map((dim) => {
+    const net = getDiscValue(cats, dim, "N");
+    const m = getDiscValue(cats, dim, "M");
+    const l = getDiscValue(cats, dim, "L");
+    const level = net >= threshold ? "Tinggi" : net >= 1 ? "Sedang" : net <= -threshold ? "Rendah" : "Netral";
+    return { dim, m, l, net, level, desc: discLabels[dim], color: discColors[dim] };
+  });
+  const ranked = [...rows].sort((a, b) => b.net - a.net);
+  return rows.map((row) => ({ ...row, rank: ranked.findIndex((r) => r.dim === row.dim) + 1 }));
+};
+
+const renderDiscPrintMiniChart = (
+  title: string,
+  data: { name: string; value: number }[],
+  color: string,
+  allowNegative = false,
+) => {
+  const width = 260;
+  const height = 170;
+  const left = 30;
+  const right = 12;
+  const top = 18;
+  const bottom = 32;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const values = data.map((d) => d.value);
+  const min = allowNegative ? Math.min(0, ...values) : 0;
+  const max = Math.max(1, ...values);
+  const range = Math.max(max - min, 1);
+  const y = (value: number) => top + ((max - value) / range) * plotHeight;
+  const points = data.map((d, i) => ({
+    x: left + (data.length === 1 ? plotWidth / 2 : (i * plotWidth) / (data.length - 1)),
+    y: y(d.value),
+    ...d,
+  }));
+  const baseline = y(allowNegative ? 0 : min);
+  const linePath = points.map((p) => `${p.x},${p.y}`).join(" ");
+  const areaPath = `M ${points[0].x} ${baseline} L ${points.map((p) => `${p.x} ${p.y}`).join(" L ")} L ${points[points.length - 1].x} ${baseline} Z`;
+  const gridY = [0, 0.5, 1].map((ratio) => top + ratio * plotHeight);
+
+  return `
+    <div style="border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;padding:10px;">
+      <p style="font-size:8.5pt;font-weight:700;color:#374151;margin-bottom:4px;text-align:center;">${title}</p>
+      <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}">
+        ${gridY.map((gy) => `<line x1="${left}" y1="${gy}" x2="${width - right}" y2="${gy}" stroke="#e2e8f0" stroke-width="1"/>`).join("")}
+        ${allowNegative ? `<line x1="${left}" y1="${baseline}" x2="${width - right}" y2="${baseline}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>` : ""}
+        <line x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}" stroke="#94a3b8" stroke-width="1"/>
+        <line x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}" stroke="#94a3b8" stroke-width="1"/>
+        <path d="${areaPath}" fill="${color}" opacity="0.16"/>
+        <polyline points="${linePath}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+        ${points.map((p) => `
+          <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+          <text x="${p.x}" y="${p.y - 8}" text-anchor="middle" font-size="8" font-weight="700" fill="#374151">${p.value > 0 ? '+' : ''}${p.value}</text>
+          <text x="${p.x}" y="${height - 10}" text-anchor="middle" font-size="9" font-weight="700" fill="#64748b">${p.name}</text>
+        `).join("")}
+      </svg>
+    </div>
+  `;
+};
+
 export const generatePrintHTML = (
   result: PrintResult,
   answers: PrintAnswer[] = [],
@@ -48,9 +137,9 @@ export const generatePrintHTML = (
   let discChartsHTML = "";
   let discInterpretation = "";
   if (r.test_name.toUpperCase().includes("DISC")) {
-    const dims = ["D", "I", "S", "C"];
-    const sortedCats = catEntries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    const topCategories = sortedCats.slice(0, 2).map(([cat]) => cat);
+    const discDataWithRank = buildDiscRows(cats, r.total_questions || 24);
+    const sortedCats = [...discDataWithRank].sort((a, b) => b.net - a.net);
+    const topCategories = sortedCats.slice(0, 2).map(({ dim }) => dim);
     const dominant = topCategories[0];
     const secondary = topCategories[1];
 
@@ -80,26 +169,6 @@ export const generatePrintHTML = (
         </div>
       </div>`;
 
-    const discLabels: Record<string, string> = {
-      D: "Dominance — Pengarah, tegas, berorientasi hasil",
-      I: "Influence — Persuasif, ekspresif, sosial",
-      S: "Steadiness — Stabil, sabar, kooperatif",
-      C: "Conscientiousness — Teliti, analitis, sistematis"
-    };
-    const discColors: Record<string, string> = { D: "#dc2626", I: "#f59e0b", S: "#059669", C: "#2563eb" };
-
-    const discData = dims.map(d => {
-      const net = Number(cats[d] || 0);
-      const m = Math.max(0, net + 10);
-      const l = Math.max(0, m - net);
-      const absNet = Math.abs(net);
-      const level = absNet >= 12 ? "Tinggi" : absNet >= 6 ? "Sedang" : absNet >= 2 ? "Netral" : "Rendah";
-      return { dim: d, m, l, net, level, absNet, desc: discLabels[d], color: discColors[d] };
-    });
-
-    const ranked = [...discData].sort((a, b) => b.absNet - a.absNet);
-    const discDataWithRank = discData.map(d => ({ ...d, rank: ranked.findIndex(r => r.dim === d.dim) + 1 }));
-
     discChartsHTML = `
     <div class="section">
       <div class="section-title">Detail Skor per Dimensi</div>
@@ -121,8 +190,8 @@ export const generatePrintHTML = (
                 <div style="font-weight: 700; color: ${d.color}; font-size: 12pt;">${d.dim}</div>
                 <div style="font-size: 8pt; color: #64748b; line-height: 1.2;">${d.desc}</div>
               </td>
-              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.m}</td>
-              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.l}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.m ?? "-"}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600;">${d.l ?? "-"}</td>
               <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: ${d.net > 0 ? '#059669' : d.net < 0 ? '#dc2626' : '#64748b'};">${d.net > 0 ? '+' : ''}${d.net}</td>
               <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center;">
                 <span style="padding: 2px 8px; border-radius: 12px; font-size: 8pt; font-weight: 600; background: ${d.level === 'Tinggi' ? '#fef3c7' : d.level === 'Sedang' ? '#dbeafe' : d.level === 'Netral' ? '#f3f4f6' : '#fee2e2'}; color: ${d.level === 'Tinggi' ? '#d97706' : d.level === 'Sedang' ? '#2563eb' : d.level === 'Netral' ? '#6b7280' : '#dc2626'};">${d.level}</span>
@@ -132,6 +201,11 @@ export const generatePrintHTML = (
           `).join('')}
         </tbody>
       </table>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">
+        ${renderDiscPrintMiniChart("Mask - Public Self (Most)", discDataWithRank.map((d) => ({ name: d.dim, value: d.m ?? 0 })), "#10b981")}
+        ${renderDiscPrintMiniChart("Core - Private Self (Least)", discDataWithRank.map((d) => ({ name: d.dim, value: d.l ?? 0 })), "#f59e0b")}
+        ${renderDiscPrintMiniChart("Mirror - Perceived Self (Net)", discDataWithRank.map((d) => ({ name: d.dim, value: d.net })), "#ec4899", true)}
+      </div>
     </div>`;
   }
 
@@ -207,6 +281,7 @@ export const generatePrintHTML = (
           <div class="profile-row"><span class="label">Nama Tes</span><span class="value">${r.test_name}</span></div>
         </div>
       </div>
+      ${r.webcam_photo_url ? `<div style="text-align:center;"><img src="${r.webcam_photo_url}" alt="Screenshot Foto Saat Tes" style="width:110px;height:90px;object-fit:cover;border:1px solid #94a3b8;border-radius:4px;" /><div style="font-size:8pt;color:#64748b;margin-top:4px;">Foto saat tes</div></div>` : ""}
     </div>
   </div>
 
@@ -251,7 +326,7 @@ export const generatePrintHTML = (
   ` : ''}
 
   ${answers.length > 0 ? `
-  <div class="section">
+  <div class="section page-break">
     <div class="section-title">Lembar Jawaban Kandidat (${answers.length} Soal)</div>
     <table class="answer-table">
       <thead>
