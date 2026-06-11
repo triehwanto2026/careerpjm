@@ -12,18 +12,23 @@ if (fs.existsSync(envFilePath)) {
 }
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+  || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+  || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  || env.SUPABASE_SERVICE_ROLE_KEY
+  || env.VITE_SUPABASE_SERVICE_ROLE_KEY
+  || env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('Missing Supabase credentials. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in environment or .env.');
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('Missing Supabase credentials. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_PUBLISHABLE_KEY in environment or .env.');
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const IST_INSTRUMENT_ID = '9dccb6bc-cb33-42e8-b432-8af156ad6d5c';
+const DEFAULT_IST_INSTRUMENT_ID = '9dccb6bc-cb33-42e8-b432-8af156ad6d5c';
 
 const answers = new Map([
   [1, 'E'], [2, 'C'], [3, 'D'], [4, 'D'], [5, 'D'], [6, 'B'], [7, 'C'], [8, 'A'], [9, 'E'], [10, 'B'],
@@ -46,16 +51,103 @@ const answers = new Map([
   [167, 'B'], [168, 'A'], [169, 'E'], [170, 'C'], [171, 'D'], [172, 'B'], [173, 'E'], [174, 'A'], [175, 'C'], [176, 'D'],
 ]);
 
-const normalize = (value) => String(value).trim();
+const geScoreKey = new Map([
+  [61, { bunga: 2, kembang: 2, perdu: 2, 'tumbuh tumbuhan': 1, tangkai: 1, harum: 1, pohon: 0 }],
+  [62, { 'alat indera': 2, indera: 2, 'panca indera': 2, organ: 1, 'alat tubuh': 1, kepala: 0 }],
+  [63, { hablur: 2, kristal: 2, 'zat arang': 2, berkilauan: 1, mengkilat: 1, bening: 1 }],
+  [64, { musim: 2, cuaca: 1, iklim: 0 }],
+  [65, { 'pembawa berita': 2, 'alat perhubungan': 2, telekomunikasi: 1, perhubungan: 1, komunikasi: 1 }],
+  [66, { 'alat optik': 2, optik: 2, lensa: 1, melihat: 0, alat: 0, 'alat melihat': 0 }],
+  [67, { 'alat pencernaan': 2, 'jalan makanan': 1, perut: 1, 'isi perut': 1, 'pencernaan makanan': 1, makanan: 0 }],
+  [68, { jumlah: 2, kuantitas: 2, 'jumlah kuantitas': 2, 'penyebut jumlah': 2, 'penyertaan jumlah': 2, mengukur: 1, ukuran: 1, uang: 0 }],
+  [69, { bibit: 2, bakal: 2, embrio: 2, 'bibit bakal embrio': 2, 'alat pembiak': 2, 'permulaan penghidupan': 2, sel: 1, pembiakan: 1, pertanian: 0, keturunan: 0 }],
+  [70, { simbol: 2, lambang: 2, tanda: 2, 'lambang tanda': 2, nama: 1, 'tanda pengenal': 1, warna: 0 }],
+  [71, { makhluk: 2, organism: 2, organisme: 2, 'makhluk organism': 2, 'makhluk hidup': 2, tumbuh: 1, 'ilmu hayat': 1, biologi: 1, hidup: 0, hutan: 0, 'hidup hutan': 0, hayat: 0 }],
+  [72, { wadah: 2, 'tempat pengisi': 2, 'wadah tempat pengisi': 2, 'tempat penyimpan': 2, alat: 1, 'tempat sesuatu': 1, 'alat tempat sesuatu': 1, tempat: 1, benda: 1, 'tempat benda': 1, lubang: 0 }],
+  [73, { 'pengertian waktu': 2, batas: 2, waktu: 1, lamanya: 1, 'waktu lamanya': 1, masa: 1, saat: 1, 'masa saat': 1, 'kata waktu': 0, buku: 0 }],
+  [74, { 'kata sifat': 2, 'kata sifat watak': 2, 'sifat karakter': 2, sifat: 1, uang: 0, karakter: 0, 'uang karakter': 0, watak: 0 }],
+  [75, { 'regulator harga': 2, 'pengertian ekonomi': 2, dagang: 1, pembelian: 1, 'dagang pembelian': 1, penjualan: 1, niaga: 1, 'jual beli': 1, 'niaga jual beli': 1, 'lawan kata': 0 }],
+  [76, { 'pengertian ruang': 2, 'penyebut ruang': 2, arah: 1, tempat: 1, ruang: 1, 'tempat ruang': 1, 'arah tempat ruang': 1, letak: 1, 'penunjuk tempat': 1, 'letak penunjuk tempat': 1, 'penentuan daerah': 1, daerah: 0, ruangan: 0, 'daerah ruangan': 0, tingkatan: 0, kata: 0, 'tingkatan kata': 0 }],
+]);
+
+const geSeedOptions = new Map([
+  [61, [{ text: 'Bunga', score: 2 }, { text: 'Kembang', score: 2 }, { text: 'Perdu', score: 2 }, { text: 'Tumbuh-tumbuhan', score: 1 }, { text: 'Tangkai', score: 1 }, { text: 'Harum', score: 1 }, { text: 'Pohon', score: 0 }]],
+  [62, [{ text: 'Alat indera', score: 2 }, { text: 'Indera', score: 2 }, { text: 'Panca Indera', score: 2 }, { text: 'Organ', score: 1 }, { text: 'Alat tubuh', score: 1 }, { text: 'Kepala', score: 0 }]],
+  [63, [{ text: 'Hablur', score: 2 }, { text: 'Kristal', score: 2 }, { text: 'Zat arang', score: 2 }, { text: 'Berkilauan', score: 1 }, { text: 'Mengkilat', score: 1 }, { text: 'Bening', score: 1 }]],
+  [64, [{ text: 'Musim', score: 2 }, { text: 'Cuaca', score: 1 }, { text: 'Iklim', score: 0 }]],
+  [65, [{ text: 'Pembawa Berita', score: 2 }, { text: 'Alat Perhubungan', score: 2 }, { text: 'Telekomunikasi', score: 1 }, { text: 'Perhubungan', score: 1 }, { text: 'Komunikasi', score: 1 }]],
+  [66, [{ text: 'alat optik', score: 2 }, { text: 'Optik', score: 2 }, { text: 'Lensa', score: 1 }, { text: 'Melihat', score: 0 }, { text: 'alat', score: 0 }, { text: 'Alat Melihat', score: 0 }]],
+  [67, [{ text: 'Alat Pencernaan', score: 2 }, { text: 'Jalan Makanan', score: 1 }, { text: 'Perut', score: 1 }, { text: 'Isi Perut', score: 1 }, { text: 'Pencernaan Makanan', score: 1 }, { text: 'Makanan', score: 0 }]],
+  [68, [{ text: 'Jumlah/Kuantitas', score: 2 }, { text: 'Penyebut Jumlah', score: 2 }, { text: 'Penyertaan Jumlah', score: 2 }, { text: 'Mengukur', score: 1 }, { text: 'Ukuran', score: 1 }, { text: 'Uang', score: 0 }]],
+  [69, [{ text: 'Bibit/bakal/embrio', score: 2 }, { text: 'Alat Pembiak', score: 2 }, { text: 'Permulaan Penghidupan', score: 2 }, { text: 'Sel', score: 1 }, { text: 'Pembiakan', score: 1 }, { text: 'Pertanian', score: 0 }, { text: 'Keturunan', score: 0 }]],
+  [70, [{ text: 'Simbol', score: 2 }, { text: 'Lambang', score: 2 }, { text: 'Tanda', score: 2 }, { text: 'Nama', score: 1 }, { text: 'Tanda Pengenal', score: 1 }, { text: 'Warna', score: 0 }]],
+  [71, [{ text: 'Makhluk', score: 2 }, { text: 'Organism', score: 2 }, { text: 'Makhluk Hidup', score: 2 }, { text: 'Tumbuh', score: 1 }, { text: 'Ilmu hayat', score: 1 }, { text: 'Biologi', score: 1 }, { text: 'Hidup', score: 0 }, { text: 'Hutan', score: 0 }, { text: 'Hayat', score: 0 }]],
+  [72, [{ text: 'Wadah', score: 2 }, { text: 'Tempat pengisi', score: 2 }, { text: 'Tempat Penyimpan', score: 2 }, { text: 'Alat', score: 1 }, { text: 'Tempat sesuatu', score: 1 }, { text: 'Tempat', score: 1 }, { text: 'Benda', score: 1 }, { text: 'Lubang', score: 0 }]],
+  [73, [{ text: 'Pengertian Waktu', score: 2 }, { text: 'Batas', score: 2 }, { text: 'Waktu', score: 1 }, { text: 'Lamanya', score: 1 }, { text: 'Masa/saat', score: 1 }, { text: 'Kata Waktu', score: 0 }, { text: 'Buku', score: 0 }]],
+  [74, [{ text: 'Kata Sifat - Watak', score: 2 }, { text: 'Sifat Karakter', score: 2 }, { text: 'Sifat', score: 1 }, { text: 'Uang', score: 0 }, { text: 'Karakter', score: 0 }, { text: 'Watak', score: 0 }]],
+  [75, [{ text: 'Regulator harga', score: 2 }, { text: 'Pengertian Ekonomi', score: 2 }, { text: 'Dagang', score: 1 }, { text: 'Pembelian', score: 1 }, { text: 'Penjualan', score: 1 }, { text: 'Niaga', score: 1 }, { text: 'Jual beli', score: 1 }, { text: 'Lawan kata', score: 0 }]],
+  [76, [{ text: 'Pengertian ruang', score: 2 }, { text: 'Penyebut ruang', score: 2 }, { text: 'Arah', score: 1 }, { text: 'Tempat/ruang', score: 1 }, { text: 'Letak', score: 1 }, { text: 'penunjuk tempat', score: 1 }, { text: 'Penentuan Daerah', score: 1 }, { text: 'Daerah', score: 0 }, { text: 'Ruangan', score: 0 }, { text: 'Tingkatan', score: 0 }, { text: 'Kata', score: 0 }]],
+]);
+
+const optionLabel = (idx) => String.fromCharCode(65 + idx);
+
+const getSeedOptions = (questionNumber, answerValue) => {
+  const geOptions = geSeedOptions.get(questionNumber);
+  if (geOptions) return geOptions.map((option, idx) => ({ ...option, label: optionLabel(idx) }));
+  if (questionNumber >= 77 && questionNumber <= 116 && answerValue !== undefined) {
+    return [{ label: String(answerValue), text: String(answerValue), score: 1 }];
+  }
+  return [];
+};
+
+const normalize = (value) => String(value ?? '')
+  .toLowerCase()
+  .replace(/[–—-]/g, ' ')
+  .replace(/\//g, ' ')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim()
+  .replace(/\s+/g, ' ');
+
+const answerCandidates = (value) => {
+  const rawParts = String(value ?? '')
+    .split(/[–—/\-]/g)
+    .map((part) => normalize(part))
+    .filter(Boolean);
+  return Array.from(new Set([normalize(value), ...rawParts]));
+};
+
+const scoreAnswer = (scoreKey, value) => {
+  const scores = answerCandidates(value)
+    .map((candidate) => scoreKey[candidate])
+    .filter((score) => score !== undefined);
+  return scores.length > 0 ? Math.max(...scores) : 0;
+};
+
+async function resolveIstInstrumentId() {
+  const configuredId = process.env.IST_INSTRUMENT_ID || env.IST_INSTRUMENT_ID;
+  if (configuredId) return configuredId;
+
+  const { data, error } = await supabase
+    .from('test_questions')
+    .select('instrument_id, question_text')
+    .eq('question_number', 61)
+    .ilike('question_text', '%mawar%')
+    .limit(1);
+
+  if (!error && data?.[0]?.instrument_id) return data[0].instrument_id;
+
+  return DEFAULT_IST_INSTRUMENT_ID;
+}
 
 async function main() {
-  console.log('Updating IST answer keys for instrument', IST_INSTRUMENT_ID);
+  const instrumentId = await resolveIstInstrumentId();
+  console.log('Updating IST answer keys for instrument', instrumentId);
 
   for (const [questionNumber, answerValue] of answers.entries()) {
     const { data: questions, error: questionError } = await supabase
       .from('test_questions')
       .select('id, question_number')
-      .eq('instrument_id', IST_INSTRUMENT_ID)
+      .eq('instrument_id', instrumentId)
       .eq('question_number', questionNumber)
       .limit(1);
 
@@ -72,7 +164,7 @@ async function main() {
 
     const qid = question.id;
 
-    const { data: options, error: optionsError } = await supabase
+    let { data: options, error: optionsError } = await supabase
       .from('test_question_options')
       .select('id, option_label, option_text')
       .eq('question_id', qid);
@@ -82,8 +174,57 @@ async function main() {
       continue;
     }
 
-    if (!options || options.length === 0) {
+    const seedOptions = getSeedOptions(questionNumber, answerValue);
+    const missingSeedOptions = seedOptions.filter((option) => (
+      !(options || []).some((existing) => normalize(existing.option_text) === normalize(option.text))
+    ));
+
+    if (missingSeedOptions.length > 0) {
+      if (seedOptions.length === 0) {
+        console.warn(`No options found for question ${questionNumber}.`);
+        continue;
+      }
+
+      const rowsToInsert = missingSeedOptions.map((option, idx) => ({
+        question_id: qid,
+        option_label: option.label || optionLabel(idx),
+        option_text: option.text,
+        option_text_en: option.text,
+        score_value: option.score,
+        is_correct: option.score > 0,
+        display_order: (options || []).length + idx,
+      }));
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('test_question_options')
+        .insert(rowsToInsert)
+        .select('id, option_label, option_text');
+
+      if (insertError) {
+        console.error(`Failed to create options for question ${questionNumber}:`, insertError.message || insertError);
+        continue;
+      }
+
+      options = [...(options || []), ...(inserted || [])];
+      console.log(`Question ${questionNumber} created ${options.length} options.`);
+    } else if (!options || options.length === 0) {
       console.warn(`No options found for question ${questionNumber}.`);
+      continue;
+    }
+
+    const scoreKey = geScoreKey.get(questionNumber);
+    if (scoreKey) {
+      for (const opt of options) {
+        const scoreValue = scoreAnswer(scoreKey, opt.option_text);
+        const { error } = await supabase
+          .from('test_question_options')
+          .update({ is_correct: scoreValue > 0, score_value: scoreValue })
+          .eq('id', opt.id);
+        if (error) {
+          console.error(`Failed to update option ${opt.id} for question ${questionNumber}:`, error.message || error);
+        }
+      }
+      console.log(`Question ${questionNumber} updated with GE score key.`);
       continue;
     }
 

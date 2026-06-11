@@ -31,6 +31,36 @@ interface Interpretation {
   _dirty?: boolean;
 }
 
+const IST_INTERPRETATION_SEEDS = [
+  { key: "SE - Sentence Completion", label: "Rendah", min: 0, max: 8, text: "Kemampuan memahami dan melengkapi struktur bahasa masih terbatas. Kandidat membutuhkan instruksi yang jelas, sederhana, dan contoh konkret." },
+  { key: "SE - Sentence Completion", label: "Sedang", min: 9, max: 14, text: "Pemahaman bahasa dan konsep verbal berada pada taraf cukup. Kandidat mampu menangkap makna umum, namun kualitas penalaran verbal perlu dilihat bersama subtes lain." },
+  { key: "SE - Sentence Completion", label: "Tinggi", min: 15, max: 20, text: "Pemahaman bahasa dan konsep verbal baik. Kandidat cepat menangkap makna, konteks, dan kelengkapan ide dalam informasi verbal." },
+  { key: "WA - Word Association", label: "Rendah", min: 0, max: 8, text: "Kemampuan asosiasi kata dan abstraksi verbal masih perlu dukungan. Kandidat mungkin lebih nyaman dengan informasi yang eksplisit." },
+  { key: "WA - Word Association", label: "Sedang", min: 9, max: 14, text: "Kemampuan menemukan hubungan antar kata berada pada taraf cukup. Kandidat mampu membuat asosiasi umum dengan akurasi moderat." },
+  { key: "WA - Word Association", label: "Tinggi", min: 15, max: 20, text: "Kemampuan asosiasi verbal baik. Kandidat mampu mengenali hubungan konseptual dan kategori makna secara cepat." },
+  { key: "AN - Analogy", label: "Rendah", min: 0, max: 8, text: "Penalaran analogis masih terbatas. Kandidat membutuhkan waktu lebih untuk melihat pola hubungan dan perbandingan logis." },
+  { key: "AN - Analogy", label: "Sedang", min: 9, max: 14, text: "Penalaran analogis berada pada taraf cukup. Kandidat mampu menangkap pola relasi umum, tetapi belum selalu konsisten pada relasi yang lebih abstrak." },
+  { key: "AN - Analogy", label: "Tinggi", min: 15, max: 20, text: "Penalaran analogis kuat. Kandidat mampu memahami hubungan logis, perbandingan, dan transfer pola dengan baik." },
+  { key: "GE - Generalization", label: "Rendah", min: 0, max: 13, text: "Kemampuan generalisasi dan pembentukan konsep masih rendah. Kandidat cenderung melihat informasi secara konkret atau parsial." },
+  { key: "GE - Generalization", label: "Sedang", min: 14, max: 23, text: "Kemampuan generalisasi cukup. Kandidat mampu merangkum kesamaan konsep, meski kualitas abstraksi masih bervariasi." },
+  { key: "GE - Generalization", label: "Tinggi", min: 24, max: 32, text: "Kemampuan generalisasi baik. Kandidat mampu menemukan konsep umum, kategori, dan inti hubungan dari dua stimulus." },
+  { key: "RA - Arithmetic", label: "Rendah", min: 0, max: 8, text: "Kemampuan berhitung praktis dan pemecahan masalah numerik masih perlu penguatan." },
+  { key: "RA - Arithmetic", label: "Sedang", min: 9, max: 14, text: "Kemampuan numerik praktis cukup. Kandidat mampu menyelesaikan persoalan hitung dasar dengan ketepatan moderat." },
+  { key: "RA - Arithmetic", label: "Tinggi", min: 15, max: 20, text: "Kemampuan numerik praktis baik. Kandidat mampu menangani perhitungan dan soal cerita secara efektif." },
+  { key: "ZR - Number Series", label: "Rendah", min: 0, max: 8, text: "Penalaran pola angka dan deret masih rendah. Kandidat mungkin membutuhkan contoh pola yang eksplisit." },
+  { key: "ZR - Number Series", label: "Sedang", min: 9, max: 14, text: "Penalaran pola angka cukup. Kandidat mampu mengenali sebagian pola numerik dengan konsistensi moderat." },
+  { key: "ZR - Number Series", label: "Tinggi", min: 15, max: 20, text: "Penalaran induktif numerik baik. Kandidat cepat mengenali pola, perubahan, dan aturan dalam deret angka." },
+  { key: "FA - Figure Assembly", label: "Rendah", min: 0, max: 8, text: "Analisis bentuk dan konstruksi figural masih perlu dukungan. Kandidat dapat kesulitan memecah dan menyusun pola visual." },
+  { key: "FA - Figure Assembly", label: "Sedang", min: 9, max: 14, text: "Kemampuan figural cukup. Kandidat mampu memahami pola visual sederhana hingga sedang." },
+  { key: "FA - Figure Assembly", label: "Tinggi", min: 15, max: 20, text: "Kemampuan figural baik. Kandidat mampu menganalisis bentuk, struktur, dan bagian visual secara efektif." },
+  { key: "WU - Cube Rotation", label: "Rendah", min: 0, max: 8, text: "Daya bayang ruang masih rendah. Kandidat mungkin membutuhkan bantuan visual konkret untuk tugas spasial." },
+  { key: "WU - Cube Rotation", label: "Sedang", min: 9, max: 14, text: "Daya bayang ruang cukup. Kandidat mampu menangani rotasi mental pada pola sederhana hingga sedang." },
+  { key: "WU - Cube Rotation", label: "Tinggi", min: 15, max: 20, text: "Daya bayang ruang baik. Kandidat mampu memutar, membandingkan, dan memanipulasi objek secara mental." },
+  { key: "ME - Memory", label: "Rendah", min: 0, max: 8, text: "Daya ingat jangka pendek terhadap informasi terstruktur masih perlu diperhatikan." },
+  { key: "ME - Memory", label: "Sedang", min: 9, max: 14, text: "Daya ingat berada pada taraf cukup. Kandidat mampu menyimpan informasi, namun akurasi dapat menurun pada beban tinggi." },
+  { key: "ME - Memory", label: "Tinggi", min: 15, max: 20, text: "Daya ingat baik. Kandidat mampu mempertahankan dan mengambil kembali informasi dengan efektif." },
+];
+
 const InterpretationManager = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -78,6 +108,8 @@ const InterpretationManager = () => {
   const updateItem = (id: string, patch: Partial<Interpretation>) =>
     setItems((s) => s.map((i) => (i.id === id ? { ...i, ...patch, _dirty: true } : i)));
 
+  const selected = instruments.find((i) => i.id === selectedId);
+
   const addRow = (key: string) => {
     setItems((s) => [
       ...s,
@@ -107,6 +139,41 @@ const InterpretationManager = () => {
       ...SWAL_THEME,
     });
     if (r.isConfirmed && r.value) addRow(String(r.value).trim());
+  };
+
+  const isIstSelected = selected?.name.toUpperCase().includes("IST") || items.some((item) => item.interpretation_key.startsWith("SE -"));
+
+  const seedIstInterpretations = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    try {
+      const existing = new Set(items.map((item) => `${item.interpretation_key}|${item.category}|${item.min_value}|${item.max_value}`));
+      const rows = IST_INTERPRETATION_SEEDS
+        .filter((seed) => !existing.has(`${seed.key}|${seed.label}|${seed.min}|${seed.max}`))
+        .map((seed) => ({
+          instrument_id: selectedId,
+          interpretation_key: seed.key,
+          category: seed.label,
+          min_value: seed.min,
+          max_value: seed.max,
+          interpretation_text: seed.text,
+          interpretation_text_en: null,
+        }));
+
+      if (rows.length > 0) await supabase.from("test_interpretations").insert(rows);
+      const { data } = await supabase
+        .from("test_interpretations")
+        .select("*")
+        .eq("instrument_id", selectedId)
+        .order("interpretation_key")
+        .order("min_value");
+      setItems((data || []) as Interpretation[]);
+      Swal.fire({ icon: "success", title: "Interpretasi IST dilengkapi", text: `${rows.length} baris baru ditambahkan.`, timer: 1500, showConfirmButton: false, ...SWAL_THEME });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Gagal melengkapi IST", text: error?.message || "Terjadi kesalahan.", ...SWAL_THEME });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const removeRow = async (id: string) => {
@@ -161,8 +228,6 @@ const InterpretationManager = () => {
     setItems((data || []) as Interpretation[]);
     Swal.fire({ icon: "success", title: "Tersimpan", timer: 1200, showConfirmButton: false, ...SWAL_THEME });
   };
-
-  const selected = instruments.find((i) => i.id === selectedId);
 
   if (loading)
     return (
@@ -230,6 +295,15 @@ const InterpretationManager = () => {
           >
             <Plus className="h-3.5 w-3.5" /> Tambah Dimensi
           </button>
+          {isIstSelected && (
+            <button
+              onClick={seedIstInterpretations}
+              disabled={saving}
+              className="ml-2 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-400/20 disabled:opacity-50"
+            >
+              Lengkapi Analisa IST
+            </button>
+          )}
         </div>
 
         {Object.keys(grouped).length === 0 && (

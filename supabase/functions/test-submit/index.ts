@@ -34,6 +34,18 @@ type SubmissionPayload = {
   instruments: { id: string; answers: Record<string, string> }[];
 };
 
+const IST_SUBTEST_MAX: Record<string, number> = {
+  SE: 20,
+  WA: 20,
+  AN: 20,
+  GE: 32,
+  RA: 20,
+  ZR: 20,
+  FA: 20,
+  WU: 20,
+  ME: 20,
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -126,11 +138,28 @@ Deno.serve(async (req) => {
       const inst = (insts || []).find((i: any) => i.id === ip.id);
       if (!inst) continue;
       const questions = qsByInst[ip.id] || [];
+      const isIst = String(inst.name || "").toUpperCase().includes("IST")
+        || questions.some((q: any) => q.question_number === 61 && String(q.question_text || "").toLowerCase().includes("mawar"));
       const answers = ip.answers || {};
       const cats: Record<string, number> = {};
       let correctCount = 0;
       let totalScore = 0;
       let answeredCount = 0;
+      let maxPossibleScore = 0;
+
+      questions.forEach((q: any) => {
+        const optionMax = Math.max(0, ...(q.options || []).map((o: any) => Number(o.score_value || 0)));
+        if (isIst && q.subtest_code && IST_SUBTEST_MAX[q.subtest_code]) {
+          maxPossibleScore += optionMax || (q.subtest_code === "GE" ? 2 : 1);
+        } else {
+          maxPossibleScore += optionMax || (q.options?.some((o: any) => o.is_correct) ? 1 : 0);
+        }
+      });
+
+      const categoryKey = (q: any) => {
+        if (isIst && q.subtest_code) return `${q.subtest_code} - ${q.category || "IST"}`;
+        return q.category?.trim() || "Umum";
+      };
 
       for (const q of questions) {
         const optId = answers[q.id];
@@ -164,23 +193,26 @@ Deno.serve(async (req) => {
           if (allCorrect) correctCount++;
           picked.forEach((opt: any) => {
             totalScore += Number(opt.score_value || 0);
-            const dim = opt.category_target?.trim() || q.category?.trim() || "Umum";
+            const dim = opt.category_target?.trim() || categoryKey(q);
             cats[dim] = (cats[dim] || 0) + Number(opt.score_value || 0);
           });
           continue;
         }
         const opt = q.options.find((o: any) => o.id === optId);
         if (!opt) continue;
-        totalScore += Number(opt.score_value || 0);
+        const optScore = Number(opt.score_value || 0);
+        totalScore += optScore;
         if (opt.is_correct) correctCount++;
-        const dim = opt.category_target?.trim() || q.category?.trim() || "Umum";
-        cats[dim] = (cats[dim] || 0) + Number(opt.score_value || 0);
+        const dim = opt.category_target?.trim() || categoryKey(q);
+        cats[dim] = (cats[dim] || 0) + optScore;
       }
 
       const hasCorrectScoring = questions.some(
         (q: any) => q.scoring_rule === "correct_only" || q.options.some((o: any) => o.is_correct),
       );
-      const score = hasCorrectScoring && questions.length > 0
+      const score = isIst && maxPossibleScore > 0
+        ? Math.round((totalScore / maxPossibleScore) * 100)
+        : hasCorrectScoring && questions.length > 0
         ? Math.round((correctCount / questions.length) * 100)
         : Math.round((answeredCount / Math.max(questions.length, 1)) * 100);
       const status = score >= 70 ? "passed" : score >= 50 ? "review" : "failed";
@@ -198,9 +230,13 @@ Deno.serve(async (req) => {
           score,
           total_questions: questions.length,
           answered_questions: answeredCount,
-          categories: normalizedCats,
+          categories: isIst
+            ? { ...normalizedCats, "IST Raw Score": Math.round(totalScore), "IST Max Score": Math.round(maxPossibleScore) }
+            : normalizedCats,
           status,
-          interpretation: `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasar profil dimensi."}`,
+          interpretation: isIst
+            ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor mentah ${Math.round(totalScore)} dari maksimum ${Math.round(maxPossibleScore)}; skor akhir ${score}%. Profil subtes menunjukkan distribusi kemampuan pada aspek verbal, generalisasi, numerik, figural, spasial, dan memori.`
+            : `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasar profil dimensi."}`,
           candidate_profile: payload.candidate
             ? {
                 email: candidateEmail,
@@ -271,7 +307,7 @@ Deno.serve(async (req) => {
           question_text_en: q.question_text_en,
           selected_answer: opt?.option_text || optId || "",
           selected_answer_label: opt?.option_label || "",
-          category: opt?.category_target?.trim() || q.category || null,
+          category: opt?.category_target?.trim() || categoryKey(q) || null,
           is_correct: opt?.is_correct ?? null,
           correct_answer: q.options.find((o: any) => o.is_correct)?.option_text || null,
         });

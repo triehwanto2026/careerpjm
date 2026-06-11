@@ -42,6 +42,8 @@ const TestPage = () => {
   const [completedSubtests, setCompletedSubtests] = useState<Set<string>>(new Set());
   const [currentSubtest, setCurrentSubtest] = useState<string | null>(null);
   const [subtestStartedAt, setSubtestStartedAt] = useState<number>(Date.now());
+  const [subtestIntroActive, setSubtestIntroActive] = useState(false);
+  const shownIstSubtestsRef = useRef<Set<string>>(new Set());
 
   const loadAssignedTests = useCallback(async () => {
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -371,9 +373,62 @@ const TestPage = () => {
   const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
+
+  // Show memory items before ME questions. The word list disappears automatically.
+  const showMemoryItems = useCallback(async () => {
+    const memoryItems = {
+      'BUNGA': 'SOKA, LARAT, FLAMBOYAN, YASMIN, DAHLIA',
+      'PERKAKAS': 'WAJAN, JARUM, KIKIR, CANGKUL, PALU',
+      'BURUNG': 'ITIK, ELANG, WALET, TERUKUR, NURI',
+      'KESENIAN': 'QUATET, ARCA, OPERA, UKIRAN, GAMELAN',
+      'BINATANG': 'RUSA, MUSANG, BERUANG, HARIMAU, ZEBRA'
+    };
+
+    let html = '<div style="text-align:left;max-height:60vh;overflow-y:auto;">';
+    html += '<h3 style="margin-bottom:15px;color:hsl(174,72%,46%);">HAFALKAN KATA-KATA INI</h3>';
+    html += '<p style="margin:0 0 14px 0;color:hsl(210,20%,75%);font-size:13px;line-height:1.5">Perhatikan dan hafalkan daftar kata berikut. Setelah waktu habis, daftar ini akan hilang dan soal memori akan dimulai.</p>';
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">';
+
+    Object.entries(memoryItems).forEach(([category, items]) => {
+      html += `<div style="padding:10px;background:hsla(210,14%,15%,0.6);border-radius:8px;border:1px solid hsla(210,14%,25%);">`;
+      html += `<h4 style="margin:0 0 8px 0;color:hsl(210,20%,92%);font-size:14px;">${category}</h4>`;
+      html += `<p style="margin:0;color:hsl(210,20%,75%);font-size:13px;line-height:1.4">${items}</p>`;
+      html += `</div>`;
+    });
+
+    html += '</div>';
+    html += '<p style="margin-top:15px;text-align:center;color:hsl(210,20%,60%);font-size:12px;">Daftar hafalan akan tertutup otomatis setelah 3 menit.</p>';
+    html += '</div>';
+
+    await Swal.fire({
+      title: 'Subtest ME - Hafalan (3:00)',
+      html,
+      timer: 180000,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      showCloseButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      ...SWAL_THEME,
+      didOpen: () => {
+        let timeLeft = 180;
+        const interval = setInterval(() => {
+          timeLeft -= 1;
+          const minutes = Math.max(0, Math.floor(timeLeft / 60));
+          const seconds = Math.max(0, timeLeft % 60);
+          Swal.update({ title: `Subtest ME - Hafalan (${minutes}:${seconds.toString().padStart(2, '0')})` });
+          if (timeLeft <= 0) clearInterval(interval);
+        }, 1000);
+        (Swal as any).timerInterval = interval;
+      },
+      willClose: () => {
+        clearInterval((Swal as any).timerInterval);
+      }
+    });
+  }, []);
   
   // Show examples and instructions for IST subtests
-  const showSubtestExample = useCallback((subtestCode: string) => {
+  const showSubtestExample = useCallback(async (subtestCode: string) => {
     const examples = {
       SE: {
         title: 'Subtest SE - Sentence Completion',
@@ -557,7 +612,7 @@ const TestPage = () => {
     
     html += '</div>';
     
-    Swal.fire({
+    await Swal.fire({
       title: example.title,
       html: html,
       confirmButtonText: 'Mulai Subtest',
@@ -569,87 +624,35 @@ const TestPage = () => {
       customClass: {
         popup: 'ist-example-modal'
       }
-    }).then(() => {
-      // After showing examples, show memory items if ME subtest
-      if (subtestCode === 'ME') {
-        showMemoryItems();
-      }
     });
   }, []);
 
   // Track current IST subtest when question changes
   useEffect(() => {
     if (isIST(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
-      setCurrentSubtest(currentQuestion.subtest_code);
-      setSubtestStartedAt(Date.now());
-      
-      // Show examples for all IST subtests
-      showSubtestExample(currentQuestion.subtest_code);
+      const nextSubtest = currentQuestion.subtest_code;
+      const introKey = `${currentTest.id}:${nextSubtest}`;
+      setCurrentSubtest(nextSubtest);
+
+      if (shownIstSubtestsRef.current.has(introKey)) {
+        setSubtestStartedAt(Date.now());
+        return;
+      }
+
+      shownIstSubtestsRef.current.add(introKey);
+      setSubtestIntroActive(true);
+      (async () => {
+        await showSubtestExample(nextSubtest);
+        if (nextSubtest === 'ME') {
+          await showMemoryItems();
+        }
+        setSubtestStartedAt(Date.now());
+        setSubtestIntroActive(false);
+      })();
     }
-  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample]);
+  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample, showMemoryItems]);
 
   // PAPIKOSTIK instructions effect is declared after showPAPIKOSTIKInstructions below
-
-
-  // Show memory items for 3 minutes
-  const showMemoryItems = useCallback(() => {
-    const memoryItems = {
-      'BUNGA': 'SOKA, LARAT, FLAMBOYAN, YASMIN, DAHLIA',
-      'PERKAKAS': 'WAJAN, JARUM, KIKIR, CANGKUL, PALU',
-      'BURUNG': 'ITIK, ELANG, WALET, TERUKUR, NURI',
-      'KESENIAN': 'QUATET, ARCA, OPERA, UKIRAN, GAMELAN',
-      'BINATANG': 'RUSA, MUSANG, BERUANG, HARIMAU, ZEBRA'
-    };
-    
-    let html = '<div style="text-align:left;max-height:60vh;overflow-y:auto;">';
-    html += '<h3 style="margin-bottom:15px;color:hsl(174,72%,46%);">HAFALKAN KATA-KATA INI (3 MENIT)</h3>';
-    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">';
-    
-    Object.entries(memoryItems).forEach(([category, items]) => {
-      html += `<div style="padding:10px;background:hsla(210,14%,15%,0.6);border-radius:8px;border:1px solid hsla(210,14%,25%);">`;
-      html += `<h4 style="margin:0 0 8px 0;color:hsl(210,20%,92%);font-size:14px;">${category}</h4>`;
-      html += `<p style="margin:0;color:hsl(210,20%,75%);font-size:13px;line-height:1.4">${items}</p>`;
-      html += `</div>`;
-    });
-    
-    html += '</div>';
-    html += '<p style="margin-top:15px;text-align:center;color:hsl(210,20%,60%);font-size:12px;">Setelah 3 menit, halaman ini akan otomatis tertutup</p>';
-    html += '</div>';
-    
-    Swal.fire({
-      title: 'Subtest ME - Memory',
-      html: html,
-      timer: 180000, // 3 minutes
-      timerProgressBar: true,
-      showConfirmButton: false,
-      showCloseButton: false,
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      ...SWAL_THEME,
-      didOpen: () => {
-        // Add countdown display
-        let timeLeft = 180; // 3 minutes in seconds
-        const interval = setInterval(() => {
-          if (timeLeft > 0) {
-            timeLeft--;
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            Swal.update({
-              title: `Subtest ME - Memory (${minutes}:${seconds.toString().padStart(2, '0')})`
-            });
-          } else {
-            clearInterval(interval);
-          }
-        }, 1000);
-        
-        // Store interval ID to clear it when modal closes
-        (Swal as any).timerInterval = interval;
-      },
-      willClose: () => {
-        clearInterval((Swal as any).timerInterval);
-      }
-    });
-  }, []);
 
   // Show PAPIKOSTIK instructions and example
   const showPAPIKOSTIKInstructions = useCallback(() => {
@@ -703,7 +706,7 @@ const TestPage = () => {
     ? currentTest.questions.filter(q => q.subtest_code === currentSubtest) : [];
   const subtestTimeLimit = subtestQuestions[0]?.time_limit_minutes || 6;
   const elapsedSec = Math.floor((Date.now() - subtestStartedAt) / 1000);
-  const remainingSec = Math.max(0, subtestTimeLimit * 60 - elapsedSec);
+  const remainingSec = subtestIntroActive ? subtestTimeLimit * 60 : Math.max(0, subtestTimeLimit * 60 - elapsedSec);
 
   const handleNextTest = useCallback(() => {
     if (currentTestIdx < instruments.length - 1) {
@@ -731,13 +734,13 @@ const TestPage = () => {
 
   // Check time-up for current IST subtest
   useEffect(() => {
-    if (!isIST(currentTest) || !currentSubtest || submitted) return;
+    if (!isIST(currentTest) || !currentSubtest || submitted || subtestIntroActive) return;
     if (remainingSec <= 0) {
       Swal.fire({ icon: "info", title: `Waktu Subtes ${currentSubtest} Habis`, text: "Otomatis pindah ke subtes berikutnya.", timer: 1800, showConfirmButton: false, ...SWAL_THEME });
       const moved = finishCurrentSubtest();
       if (!moved) handleNextTest();
     }
-  }, [remainingSec, currentSubtest, currentTest, submitted, finishCurrentSubtest, handleNextTest]);
+  }, [remainingSec, currentSubtest, currentTest, submitted, subtestIntroActive, finishCurrentSubtest, handleNextTest]);
 
   const completeSubmissionRef = useRef<() => Promise<void>>(async () => {});
 
@@ -1087,14 +1090,6 @@ const TestPage = () => {
                 {showEnglish && currentQuestion.question_text_en && (
                   <p className="text-sm italic text-muted-foreground">{currentQuestion.question_text_en}</p>
                 )}
-                {/* DEBUG: Show image status */}
-                <div className="text-[10px] text-muted-foreground bg-muted p-2 rounded">
-                  DEBUG: q{currentQuestion.question_number} | 
-                  q_img: {currentQuestion.question_image ? 'YES' : 'NO'} | 
-                  o_img: {currentQuestion.options_image ? 'YES' : 'NO'} | 
-                  old: {currentQuestion.image_url ? 'YES' : 'NO'}
-                </div>
-                
                 {currentQuestion.question_image && (
                   <div className="space-y-2 border border-dashed border-border p-2 rounded">
                     <p className="text-xs text-muted-foreground">Gambar 1 - Soal:</p>

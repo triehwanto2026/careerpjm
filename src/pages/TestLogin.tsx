@@ -27,6 +27,63 @@ export default function TestLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const showStartWarning = async (candidate: { activationCode?: string; position?: string; assignedTests?: string[] }) => {
+    let totalMinutes = 0;
+    try {
+      const ids = (candidate.assignedTests || []).filter(Boolean);
+      if (ids.length > 0) {
+        const { data: instr } = await supabase
+          .from("test_instruments")
+          .select("duration_minutes")
+          .in("id", ids);
+        totalMinutes = (instr || []).reduce((sum: number, row: any) => sum + (Number(row.duration_minutes) || 0), 0);
+      }
+    } catch {}
+
+    return Swal.fire({
+      title: "Siap Memulai Tes Psikologi?",
+      html: `
+        <div style="text-align:left;font-size:13.5px;line-height:1.6;color:hsl(var(--foreground))">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div style="background:hsl(var(--muted));border-radius:12px;padding:12px">
+              <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Kode Tes</div>
+              <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:15px;margin-top:4px">${candidate.activationCode || activationCode.trim().toUpperCase()}</div>
+            </div>
+            <div style="background:hsl(var(--muted));border-radius:12px;padding:12px">
+              <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Durasi</div>
+              <div style="font-weight:700;font-size:15px;margin-top:4px">${totalMinutes > 0 ? `${totalMinutes} menit` : "Sesuai paket"}</div>
+            </div>
+          </div>
+          <div style="background:hsl(var(--muted));border-radius:12px;padding:12px;margin-bottom:14px">
+            <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px">Posisi</div>
+            <div style="font-weight:600;margin-top:4px">${candidate.position || "Tes Psikologi"}</div>
+          </div>
+          <div style="background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.35);border-radius:12px;padding:12px">
+            <div style="font-weight:700;margin-bottom:6px;color:#f59e0b">⚠ Aturan Anti-Cheat</div>
+            <ul style="padding-left:18px;margin:0;font-size:13px">
+              <li>Dilarang membuka tab, jendela, atau aplikasi lain.</li>
+              <li>Dilarang berpindah layar atau meminimalkan browser.</li>
+              <li>Pelanggaran = <b>cheating</b>, tes otomatis keluar.</li>
+              <li>Jika keluar otomatis, Anda dapat masuk kembali dengan <b>waktu berkurang</b>; jawaban tersimpan sebagai draft.</li>
+              <li>Pastikan koneksi stabil dan webcam aktif.</li>
+            </ul>
+          </div>
+        </div>
+      `,
+      width: 520,
+      showCancelButton: true,
+      confirmButtonText: "Lanjut & Masuk Tes",
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+      focusCancel: true,
+      background: "hsl(var(--card))",
+      color: "hsl(var(--foreground))",
+      confirmButtonColor: "hsl(174, 72%, 46%)",
+      cancelButtonColor: "hsl(var(--muted))",
+      customClass: { popup: "rounded-2xl" },
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activationCode.trim() || !password.trim()) {
@@ -97,6 +154,18 @@ export default function TestLogin() {
           gender: existingCandidate?.gender || "",
         })
       );
+
+      const warning = await showStartWarning({
+        activationCode: activationCode.trim().toUpperCase(),
+        position: candidate.position,
+        assignedTests: candidate.assignedTests || [],
+      });
+      if (!warning.isConfirmed) {
+        sessionStorage.removeItem("psytest_auth");
+        sessionStorage.removeItem("psytest_candidate");
+        try { await supabase.auth.signOut(); } catch {}
+        return;
+      }
 
       Swal.fire({
         icon: "success",

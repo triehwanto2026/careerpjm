@@ -66,6 +66,52 @@ const buildDiscRows = (cats: Record<string, number>, totalQuestions = 24) => {
   return rows.map((row) => ({ ...row, rank: ranked.findIndex((r) => r.dim === row.dim) + 1 }));
 };
 
+const IST_SUBTESTS = [
+  { code: "SE", name: "Sentence Completion", max: 20, area: "Pengetahuan bahasa dan pemahaman konsep verbal" },
+  { code: "WA", name: "Word Association", max: 20, area: "Kemampuan abstraksi verbal dan asosiasi kata" },
+  { code: "AN", name: "Analogy", max: 20, area: "Penalaran analogis dan hubungan logis" },
+  { code: "GE", name: "Generalization", max: 32, area: "Pembentukan konsep umum dan generalisasi" },
+  { code: "RA", name: "Arithmetic", max: 20, area: "Kemampuan berhitung dan pemecahan masalah numerik" },
+  { code: "ZR", name: "Number Series", max: 20, area: "Penalaran induktif numerik dan pola deret" },
+  { code: "FA", name: "Figure Assembly", max: 20, area: "Kemampuan analisis bentuk dan konstruksi figural" },
+  { code: "WU", name: "Cube Rotation", max: 20, area: "Daya bayang ruang dan rotasi mental" },
+  { code: "ME", name: "Memory", max: 20, area: "Daya ingat dan retensi informasi" },
+] as const;
+
+const isIstResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
+  r.test_name.toUpperCase().includes("IST") || Object.keys(r.categories || {}).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
+
+const getIstSubtestScore = (cats: Record<string, number>, code: string) => {
+  const match = Object.entries(cats).find(([key]) => key === code || key.startsWith(`${code} -`));
+  return Number(match?.[1] || 0);
+};
+
+const getIstRows = (cats: Record<string, number>) =>
+  IST_SUBTESTS.map((subtest) => {
+    const raw = getIstSubtestScore(cats, subtest.code);
+    const pct = Math.round((raw / subtest.max) * 100);
+    const level = pct >= 80 ? "Sangat Tinggi" : pct >= 65 ? "Tinggi" : pct >= 45 ? "Sedang" : pct >= 30 ? "Rendah" : "Sangat Rendah";
+    return { ...subtest, raw, pct, level };
+  });
+
+const getIstSummary = (cats: Record<string, number>, fallbackScore: number) => {
+  const rows = getIstRows(cats);
+  const raw = Number(cats["IST Raw Score"] ?? rows.reduce((sum, row) => sum + row.raw, 0));
+  const max = Number(cats["IST Max Score"] ?? rows.reduce((sum, row) => sum + row.max, 0));
+  const score = max > 0 ? Math.round((raw / max) * 100) : fallbackScore;
+  const strongest = [...rows].sort((a, b) => b.pct - a.pct)[0];
+  const weakest = [...rows].sort((a, b) => a.pct - b.pct)[0];
+  return { rows, raw, max, score, strongest, weakest };
+};
+
+const buildIstInterpretation = (cats: Record<string, number>, fallbackScore: number) => {
+  const summary = getIstSummary(cats, fallbackScore);
+  const overall = summary.score >= 80 ? "sangat tinggi" : summary.score >= 65 ? "tinggi" : summary.score >= 45 ? "cukup/sedang" : summary.score >= 30 ? "rendah" : "sangat rendah";
+  return `Skor total IST kandidat adalah ${summary.raw}/${summary.max} (${summary.score}%), berada pada kategori ${overall}. Kekuatan relatif terlihat pada subtes ${summary.strongest.code} - ${summary.strongest.name} (${summary.strongest.raw}/${summary.strongest.max}; ${summary.strongest.level}), sedangkan area yang perlu diperhatikan adalah ${summary.weakest.code} - ${summary.weakest.name} (${summary.weakest.raw}/${summary.weakest.max}; ${summary.weakest.level}).
+
+Interpretasi per aspek menunjukkan gambaran struktur inteligensi: aspek verbal tercermin dari SE, WA, AN, dan GE; aspek numerik dari RA dan ZR; aspek figural-spasial dari FA dan WU; serta daya ingat dari ME. Gunakan hasil ini bersama wawancara, riwayat pendidikan, dan tuntutan jabatan sebelum mengambil keputusan akhir.`;
+};
+
 const renderDiscPrintMiniChart = (
   title: string,
   data: { name: string; value: number }[],
@@ -311,6 +357,35 @@ const Results = () => {
     </div>`;
     }
 
+    let istProfileHTML = "";
+    let istInterpretationHTML = "";
+    if (isIstResult(r)) {
+      const summary = getIstSummary(cats, r.score);
+      istProfileHTML = `
+        <div class="section">
+          <div class="section-title">Profil Subtes IST</div>
+          <table class="dim-table">
+            <thead><tr><th>Subtes</th><th>Aspek</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
+            <tbody>
+              ${summary.rows.map(row => `
+                <tr>
+                  <td><strong>${row.code} - ${row.name}</strong></td>
+                  <td>${row.area}</td>
+                  <td>${row.raw}/${row.max} (${row.pct}%)</td>
+                  <td>${row.level}</td>
+                  <td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(row.pct, 100)}%; background:${row.pct >= 65 ? '#059669' : row.pct >= 45 ? '#d97706' : '#dc2626'};"></div></div></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>`;
+      istInterpretationHTML = `
+        <div class="section">
+          <div class="section-title">Interpretasi Psikolog — Profil IST</div>
+          <div class="interpretation" style="white-space:pre-line;">${buildIstInterpretation(cats, r.score).replace(/</g, '&lt;')}</div>
+        </div>`;
+    }
+
     const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
     <style>
       @page { size: A4; margin: 16mm 14mm; }
@@ -477,6 +552,7 @@ const Results = () => {
     })()}
     ${!(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? (() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+      const isIST = isIstResult(r);
       let dominantScore = '';
       if (isPP) {
         const ppMap: Record<string, string> = {
@@ -497,13 +573,14 @@ const Results = () => {
           dominantScore = `${dominant[0]} (${dominant[1]})`;
         }
       }
+      const istSummary = isIST ? getIstSummary(cats, r.score) : null;
       return `
     <div class="section">
       <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
       <div class="score-cards">
         <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
-        <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : 'Skor Akhir'}</div>
-        <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : ''}">${isPP ? dominantScore : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
+        <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : isIST ? 'Skor IST' : 'Skor Akhir'}</div>
+        <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : ''}">${isPP ? dominantScore : isIST ? `${istSummary?.score}<span style="font-size:14pt;color:#64748b;">%</span><div style="font-size:9pt;color:#64748b;margin-top:4px;">Raw ${istSummary?.raw}/${istSummary?.max}</div>` : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
         <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
       </div>
     </div>
@@ -512,7 +589,9 @@ const Results = () => {
 
     ${discChartsHTML}
 
-    <div class="section ${r.test_name.toUpperCase().includes("DISC") ? "hidden" : ""}">
+    ${istProfileHTML}
+
+    <div class="section ${r.test_name.toUpperCase().includes("DISC") || isIstResult(r) ? "hidden" : ""}">
       <div class="section-title">Profil Dimensi & Skor</div>
       ${r.test_name.toUpperCase().includes("DISC") ? 
         // For DISC, show horizontal bar chart with 0 in center, fixed order D, I, S, C
@@ -663,6 +742,7 @@ const Results = () => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isDISC = r.test_name.toUpperCase().includes("DISC");
       if (isDISC) return "";
+      if (isIstResult(r)) return istInterpretationHTML;
       // Full format interpretation for PP
       if (isPP) {
         const ppMap: Record<string, string> = {
@@ -942,6 +1022,42 @@ const Results = () => {
         </div>
       );
     }
+    if (isIstResult(r)) {
+      const summary = getIstSummary(cats, r.score);
+      const chartData = summary.rows.map((row) => ({ name: row.code, value: row.pct, raw: row.raw, max: row.max, fullName: row.name }));
+      return (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
+            <div className="grid gap-3 sm:grid-cols-3 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Skor Mentah</p>
+                <p className="text-2xl font-bold text-foreground">{summary.raw}/{summary.max}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Skor Akhir</p>
+                <p className="text-2xl font-bold text-primary">{summary.score}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Kekuatan Relatif</p>
+                <p className="text-lg font-semibold text-foreground">{summary.strongest.code}</p>
+              </div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+              <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+              <YAxis domain={[0, 100]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+              <Tooltip
+                contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }}
+                formatter={(v: any, _name: any, props: any) => [`${v}% (${props.payload.raw}/${props.payload.max})`, props.payload.fullName]}
+              />
+              <Bar dataKey="value" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
     if (r.test_name === "Kraepelin" || r.test_name.includes("Kraepelin")) {
       return (
         <ResponsiveContainer width="100%" height={280}>
@@ -1218,7 +1334,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                 <p className="text-lg font-bold text-primary mt-1">{r.test_name}</p>
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
-                <p className="text-xs text-muted-foreground">{(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? "IQ Score" : "Skor"}</p>
+                <p className="text-xs text-muted-foreground">{(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? "IQ Score" : isIstResult(r) ? "Skor IST" : "Skor"}</p>
                 <p className="text-3xl font-bold text-foreground mt-1">
                   {(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) 
                     ? (() => {
@@ -1298,9 +1414,16 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                             return <span className="text-4xl font-extrabold text-pink-400">{dominant[0]} ({dominant[1]})</span>;
                           }
                         })()
-                    : `${r.score}%`
+                    : isIstResult(r)
+                      ? `${getIstSummary(cats, r.score).score}%`
+                      : `${r.score}%`
                   }
                 </p>
+                {isIstResult(r) && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Raw {getIstSummary(cats, r.score).raw}/{getIstSummary(cats, r.score).max}
+                  </p>
+                )}
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
                 <p className="text-xs text-muted-foreground">Soal Dijawab</p>
@@ -1419,6 +1542,35 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                     </div>
                   );
                 })()
+                : isIstResult(r) ? (() => {
+                  const summary = getIstSummary(cats, r.score);
+                  return (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Subtes</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Aspek</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Level</th>
+                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                      </tr></thead>
+                      <tbody>
+                        {summary.rows.map((row) => (
+                          <tr key={row.code} className="border-b border-border/50">
+                            <td className="py-2 px-3 text-foreground font-semibold">{row.code} - {row.name}</td>
+                            <td className="py-2 px-3 text-muted-foreground">{row.area}</td>
+                            <td className="py-2 px-3 text-foreground">{row.raw}/{row.max} <span className="text-muted-foreground">({row.pct}%)</span></td>
+                            <td className="py-2 px-3 text-foreground">{row.level}</td>
+                            <td className="py-2 px-3 w-40">
+                              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                <div className={`h-full rounded-full ${row.pct >= 65 ? "bg-emerald-400" : row.pct >= 45 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.pct, 100)}%` }} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  );
+                })()
                 : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
                   const ppMap: Record<string, string> = {
                     K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
@@ -1492,13 +1644,16 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
             {/* Interpretation — pakai narasi otomatis untuk Personality Plus */}
             {(() => {
               const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
+              const isIST = isIstResult(r);
               const interpText = isPP
                 ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40)
+                : isIST
+                  ? buildIstInterpretation(cats, r.score)
                 : r.interpretation;
               if (!interpText) return null;
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
-                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : ''}</h3>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : ''}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
                 </div>
               );
