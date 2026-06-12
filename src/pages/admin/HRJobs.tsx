@@ -19,7 +19,7 @@ const HRJobs = () => {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -157,12 +157,12 @@ const HRJobs = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Kelola Lowongan</h1>
-            <p className="text-muted-foreground">Buat dan kelola lowongan pekerjaan dengan sistem rekrutmen modern</p>
+        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Kelola Lowongan</h1>
+            <p className="text-sm text-muted-foreground">Buat dan kelola lowongan pekerjaan dengan sistem rekrutmen modern</p>
           </div>
           <div className="flex items-center gap-2">
             <Dialog open={settingsModalOpen} onOpenChange={setSettingsModalOpen}>
@@ -238,7 +238,7 @@ const HRJobs = () => {
               </DialogContent>
             </Dialog>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Buat Lowongan</Button></DialogTrigger>
+              <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-2" /> Buat Lowongan</Button></DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader><DialogTitle>Buat Lowongan Baru</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
@@ -266,19 +266,19 @@ const HRJobs = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="rounded-lg border border-border bg-card p-3">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Cari posisi atau departemen..." 
-                className="pl-10 bg-background border-border" 
+                className="h-9 pl-10 bg-background border-border" 
                 value={search} 
                 onChange={(e) => setSearch(e.target.value)} 
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48 bg-background border-border">
+              <SelectTrigger className="h-9 w-full bg-background border-border sm:w-44">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter Status" />
               </SelectTrigger>
@@ -289,7 +289,7 @@ const HRJobs = () => {
                 <SelectItem value="draft">Draft</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex gap-1 p-1 bg-muted rounded-lg border border-border">
+            <div className="flex gap-1 rounded-md border border-border bg-muted p-1">
               <Button 
                 variant={viewMode === "grid" ? "default" : "ghost"} 
                 size="sm" 
@@ -311,7 +311,7 @@ const HRJobs = () => {
         </div>
 
         {/* Dashboard Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             { 
               label: "Lowongan Aktif", 
@@ -335,77 +335,67 @@ const HRJobs = () => {
               bg: "bg-warning/10 border-warning/20"
             },
           ].map((s) => (
-            <div key={s.label} className={`relative overflow-hidden rounded-xl border ${s.bg} p-6 transition-all hover:shadow-lg`}>
+            <div key={s.label} className={`rounded-lg border ${s.bg} p-3`}>
               <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className={`text-3xl font-bold ${s.color}`}>{s.count}</p>
-                  <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
+                <div>
+                  <p className={`text-2xl font-bold leading-none ${s.color}`}>{s.count}</p>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">{s.label}</p>
                 </div>
-                <div className={`h-12 w-12 rounded-lg ${s.bg} flex items-center justify-center`}>
-                  <s.icon className={`h-6 w-6 ${s.color}`} />
+                <div className={`flex h-8 w-8 items-center justify-center rounded-md ${s.bg}`}>
+                  <s.icon className={`h-4 w-4 ${s.color}`} />
                 </div>
               </div>
-              <div className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full bg-gradient-to-br from-transparent to-current opacity-5"></div>
             </div>
           ))}
         </div>
 
         {isLoading ? (
           viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[1,2,3,4,5,6].map(i => <div key={i} className="card-elevated p-5 h-48 animate-pulse bg-muted/30 rounded-xl" />)}</div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{[1,2,3,4,5,6].map(i => <div key={i} className="h-36 animate-pulse rounded-lg bg-muted/30" />)}</div>
           ) : (
-            <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="card-elevated p-5 h-20 animate-pulse bg-muted/30 rounded-xl" />)}</div>
+            <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 animate-pulse rounded-lg bg-muted/30" />)}</div>
           )
         ) : (
           viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((job: any, i: number) => (
                 <motion.div 
                   key={job.id} 
                   initial={{ opacity: 0, y: 20 }} 
                   animate={{ opacity: 1, y: 0 }} 
-                  transition={{ delay: i * 0.1 }} 
-                  className="group relative bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:border-primary/20"
+                  transition={{ delay: Math.min(i * 0.03, 0.15) }} 
+                  className="group rounded-lg border border-border bg-card transition-colors hover:border-primary/30"
                 >
-                  {/* Gradient Border Effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  
-                  <div className="relative p-6">
+                  <div className="p-4">
                     {/* Header */}
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <Briefcase className="h-7 w-7 text-primary" />
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
+                        <Briefcase className="h-4 w-4 text-primary" />
                       </div>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${statusBadge[job.status]} ${job.status === 'active' ? 'shadow-sm shadow-success/20' : ''}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusBadge[job.status]}`}>
                         {statusLabel[job.status]}
                       </span>
                     </div>
                     
                     {/* Content */}
-                    <div className="space-y-4 mb-6">
+                    <div className="mb-4 space-y-3">
                       <div>
-                        <h3 className="font-bold text-xl text-foreground mb-2 group-hover:text-primary transition-colors duration-300">{job.title}</h3>
-                        <p className="text-sm text-muted-foreground font-medium">{job.department}</p>
+                        <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground group-hover:text-primary">{job.title}</h3>
+                        <p className="mt-1 text-xs font-medium text-muted-foreground">{job.department}</p>
                       </div>
                       
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                            <MapPin className="h-4 w-4" />
-                          </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5" />
                           <span>{job.location}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                            <Clock className="h-4 w-4" />
-                          </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
                           <span>{job.employment_type}</span>
                         </div>
                         {job.closes_at && (
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                              <Users className="h-4 w-4" />
-                            </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Users className="h-3.5 w-3.5" />
                             <span>Deadline: {new Date(job.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
                           </div>
                         )}
@@ -413,13 +403,13 @@ const HRJobs = () => {
                     </div>
                     
                     {/* Actions */}
-                    <div className="flex flex-col gap-3 pt-4 border-t border-border/50">
+                    <div className="flex flex-col gap-2 border-t border-border/50 pt-3">
                       <div className="flex items-center gap-2">
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => handleViewDetail(job)} 
-                          className="flex-1 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                          className="h-8 flex-1"
                         >
                           <Eye className="h-4 w-4 mr-2" /> Detail
                         </Button>
@@ -427,7 +417,7 @@ const HRJobs = () => {
                           variant="outline" 
                           size="sm" 
                           onClick={() => handleEdit(job)} 
-                          className="flex-1 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                          className="h-8 flex-1"
                         >
                           <Edit className="h-4 w-4 mr-2" /> Edit
                         </Button>
@@ -437,14 +427,14 @@ const HRJobs = () => {
                           variant="ghost" 
                           size="sm" 
                           onClick={() => toggleStatus(job.id, job.status)} 
-                          className={`flex-1 ${job.status === 'active' ? 'hover:bg-destructive/10' : 'hover:bg-success/10'} transition-all duration-200`}
+                          className={`h-8 flex-1 ${job.status === 'active' ? 'hover:bg-destructive/10' : 'hover:bg-success/10'}`}
                         >
                           {job.status === "active" ? <ToggleRight className="h-5 w-5 text-destructive" /> : <ToggleLeft className="h-5 w-5 text-success" />}
                           {job.status === "active" ? "Nonaktifkan" : "Aktifkan"}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="hover:bg-muted transition-colors">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -461,48 +451,42 @@ const HRJobs = () => {
               ))}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filtered.map((job: any, i: number) => (
                 <motion.div 
                   key={job.id} 
                   initial={{ opacity: 0, x: -20 }} 
                   animate={{ opacity: 1, x: 0 }} 
-                  transition={{ delay: i * 0.1 }} 
-                  className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-primary/20"
+                  transition={{ delay: Math.min(i * 0.03, 0.15) }} 
+                  className="group rounded-lg border border-border bg-card transition-colors hover:border-primary/30"
                 >
-                  <div className="p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  <div className="p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       {/* Left Content */}
-                      <div className="flex items-start gap-4 flex-1">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                          <Building2 className="h-6 w-6 text-primary" />
+                      <div className="flex flex-1 items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                          <Building2 className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 flex-wrap mb-2">
-                            <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors duration-300">{job.title}</h3>
-                            <span className={`px-3 py-1 text-xs font-medium rounded-full ${statusBadge[job.status]} ${job.status === 'active' ? 'shadow-sm shadow-success/20' : ''}`}>
+                          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold leading-snug text-foreground group-hover:text-primary">{job.title}</h3>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusBadge[job.status]}`}>
                               {statusLabel[job.status]}
                             </span>
                           </div>
-                          <p className="text-sm text-muted-foreground font-medium mb-3">{job.department}</p>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">{job.department}</p>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                             <div className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-lg bg-muted/50 flex items-center justify-center">
-                                <MapPin className="h-3 w-3" />
-                              </div>
+                              <MapPin className="h-3.5 w-3.5" />
                               <span>{job.location}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-lg bg-muted/50 flex items-center justify-center">
-                                <Clock className="h-3 w-3" />
-                              </div>
+                              <Clock className="h-3.5 w-3.5" />
                               <span>{job.employment_type}</span>
                             </div>
                             {job.closes_at && (
                               <div className="flex items-center gap-2">
-                                <div className="h-6 w-6 rounded-lg bg-muted/50 flex items-center justify-center">
-                                  <Users className="h-3 w-3" />
-                                </div>
+                                <Users className="h-3.5 w-3.5" />
                                 <span>Deadline: {new Date(job.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
                               </div>
                             )}
@@ -511,13 +495,13 @@ const HRJobs = () => {
                       </div>
                       
                       {/* Right Actions */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      <div className="flex items-center gap-2 lg:justify-end">
                         <div className="flex items-center gap-2">
                           <Button 
                             variant="outline" 
                             size="sm" 
                             onClick={() => handleViewDetail(job)}
-                            className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                            className="h-8"
                           >
                             <Eye className="h-4 w-4 mr-2" /> Detail
                           </Button>
@@ -525,7 +509,7 @@ const HRJobs = () => {
                             variant="outline" 
                             size="sm" 
                             onClick={() => handleEdit(job)}
-                            className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                            className="h-8"
                           >
                             <Edit className="h-4 w-4 mr-2" /> Edit
                           </Button>
@@ -533,13 +517,13 @@ const HRJobs = () => {
                             variant="ghost" 
                             size="sm" 
                             onClick={() => toggleStatus(job.id, job.status)} 
-                            className={`${job.status === 'active' ? 'hover:bg-destructive/10' : 'hover:bg-success/10'} transition-all duration-200`}
+                            className={`h-8 ${job.status === 'active' ? 'hover:bg-destructive/10' : 'hover:bg-success/10'}`}
                           >
                             {job.status === "active" ? <ToggleRight className="h-5 w-5 text-destructive" /> : <ToggleLeft className="h-5 w-5 text-success" />}
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="hover:bg-muted transition-colors">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
