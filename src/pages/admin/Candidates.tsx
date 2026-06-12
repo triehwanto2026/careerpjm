@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Eye, Trash2, Plus, Pencil, Upload, X, User, Users, UserPlus, MailCheck, CheckCircle, XCircle, Key, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, FileText, Save, Brain } from "lucide-react";
+import { Search, Eye, Trash2, Plus, Pencil, Upload, X, User, Users, UserPlus, MailCheck, CheckCircle, XCircle, Key, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, FileText, Save, Brain, Download } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
+import DocumentPreview from "@/components/DocumentPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCandidatePhoto } from "@/lib/photoUpload";
+import { resolveStorageUrl } from "@/lib/storage";
 
 const SWAL_THEME = () => ({
   background: "hsl(var(--card))",
@@ -128,6 +130,8 @@ const Candidates = () => {
   const [candidateResults, setCandidateResults] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<"personal" | "family" | "education" | "skills" | "experience" | "salary" | "documents" | "additional">("personal");
+  const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
+  const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordCandidate, setPasswordCandidate] = useState<CandidateRow | null>(null);
   const [passwordMode, setPasswordMode] = useState<"default" | "custom">("default");
@@ -1263,6 +1267,19 @@ Terima kasih.`;
     setDetailLoading(false);
   };
 
+  const handleDocumentDownload = async (doc: any) => {
+    const url = String(doc?.file_url || "");
+    if (!url) return;
+    const resolvedUrl = await resolveStorageUrl(url);
+    const anchor = document.createElement("a");
+    anchor.href = resolvedUrl;
+    anchor.download = formatInfoValue(doc?.file_name) !== "-" ? formatInfoValue(doc.file_name) : "dokumen-kandidat";
+    anchor.target = "_blank";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+  };
+
   const handleDelete = async (candidate: CandidateRow) => {
     const r = await Swal.fire({
       icon: "warning",
@@ -2307,14 +2324,29 @@ Terima kasih.`;
                               <p className="text-sm font-medium text-foreground truncate">{formatInfoValue(doc.file_name)}</p>
                               <p className="text-xs text-muted-foreground">{formatInfoValue(doc.document_type)}</p>
                             </div>
-                            <a
-                              href={doc.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:brightness-110"
-                            >
-                              Lihat
-                            </a>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDocPreviewUrl(doc.file_url);
+                                  setDocPreviewName(formatInfoValue(doc.file_name) !== "-" ? formatInfoValue(doc.file_name) : "Dokumen Kandidat");
+                                }}
+                                className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                                title="Preview dokumen"
+                                aria-label="Preview dokumen"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDocumentDownload(doc)}
+                                className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-emerald-500/10 hover:text-emerald-500"
+                                title="Download dokumen"
+                                aria-label="Download dokumen"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -2415,6 +2447,17 @@ Terima kasih.`;
             </div>
           </div>
         </div>
+      )}
+
+      {docPreviewUrl && (
+        <DocumentPreview
+          url={docPreviewUrl}
+          name={docPreviewName}
+          onClose={() => {
+            setDocPreviewUrl(null);
+            setDocPreviewName(undefined);
+          }}
+        />
       )}
 
       {showPsychTestModal && psychTestCandidate && (
@@ -3307,14 +3350,32 @@ Terima kasih.`;
                             <div className="flex items-center gap-3">
                               <FileText className="h-5 w-5 text-muted-foreground" />
                               <div>
-                                <p className="text-sm font-medium">{doc.file_name}</p>
-                                <p className="text-xs text-muted-foreground">{doc.document_type} - {doc.created_at ? formatDate(doc.created_at) : "-"}</p>
+                                <p className="text-sm font-medium">{formatInfoValue(doc.file_name)}</p>
+                                <p className="text-xs text-muted-foreground">{formatInfoValue(doc.document_type)} - {doc.created_at ? formatDate(doc.created_at) : "-"}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="px-3 py-1 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80">
-                                Lihat
-                              </a>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDocPreviewUrl(doc.file_url);
+                                  setDocPreviewName(formatInfoValue(doc.file_name) !== "-" ? formatInfoValue(doc.file_name) : "Dokumen Kandidat");
+                                }}
+                                className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                                title="Preview dokumen"
+                                aria-label="Preview dokumen"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDocumentDownload(doc)}
+                                className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-emerald-500/10 hover:text-emerald-500"
+                                title="Download dokumen"
+                                aria-label="Download dokumen"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         ))}
