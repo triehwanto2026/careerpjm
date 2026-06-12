@@ -1,6 +1,8 @@
 import React from "react";
 import { PrintResult, PrintAnswer } from "@/utils/printUtils";
 import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
+import { getPapiRows, isPapiName } from "@/lib/papiScoring";
 import {
   ResponsiveContainer,
   RadarChart,
@@ -33,8 +35,11 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
   const isDISC = result.test_name.toUpperCase().includes("DISC");
   const isPersonalityPlus = result.test_name === "Personality Plus" || result.test_name.includes("Personality Plus");
   const isKraepelin = result.test_name === "Kraepelin" || result.test_name.includes("Kraepelin");
-  const isPapikostik = result.test_name === "PAPIKOSTIK";
+  const isPapikostik = isPapiName(result.test_name);
   const isCFIT = isCfitName(result.test_name);
+  const isMBTI = isMbtiName(result.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
+  const mbtiRows = isMBTI ? getMbtiRows(cats) : [];
+  const mbtiType = isMBTI ? getMbtiType(cats) : "";
   const kraepelinRows = [
     { key: "speed", label: "Kecepatan", value: Number(cats.speed || 0) },
     { key: "accuracy", label: "Ketelitian", value: Number(cats.accuracy || 0) },
@@ -253,16 +258,32 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
       );
     }
 
-    if (isPapikostik) {
+    if (isMBTI) {
+      const data = mbtiRows.map((row) => ({ name: row.pair, value: row.strength, dominant: row.dominant }));
       return (
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={data} layout="vertical" margin={{ left: 100 }}>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={data} margin={{ left: 20, right: 20, top: 20, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-            <XAxis type="number" domain={[0, 9]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
-            <YAxis type="category" dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} width={95} />
-            <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-            <Bar dataKey="value" fill="#2dd4bf" radius={[0, 4, 4, 0]} />
+            <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 12, fontWeight: 600 }} />
+            <YAxis domain={[0, 100]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} allowDecimals={false} />
+            <Tooltip formatter={(value: any, _name: any, props: any) => [`${value}%`, `Dominan ${props.payload.dominant}`]} contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+            <Bar dataKey="value" fill="#2dd4bf" radius={[8, 8, 0, 0]} />
           </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+
+    if (isPapikostik) {
+      const papiData = getPapiRows(cats).map((row) => ({ name: row.code, label: row.label, value: row.value }));
+      return (
+        <ResponsiveContainer width="100%" height={360}>
+          <RadarChart data={papiData}>
+            <PolarGrid stroke="hsl(220, 14%, 25%)" />
+            <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11, fontWeight: 700 }} />
+            <PolarRadiusAxis angle={30} domain={[0, 9]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+            <Tooltip formatter={(v: any, _name: any, props: any) => [`${v}/9`, `${props.payload.name} - ${props.payload.label}`]} contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+            <Radar name="Profil PAPI" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.24} strokeWidth={2} />
+          </RadarChart>
         </ResponsiveContainer>
       );
     }
@@ -466,6 +487,38 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
       );
     }
 
+    if (isMBTI) {
+      return (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Pasangan</th>
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dominan</th>
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Kekuatan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mbtiRows.map((row) => (
+              <tr key={row.pair} className="border-b border-border/50">
+                <td className="py-2 px-3 text-foreground font-medium">{row.pair}</td>
+                <td className="py-2 px-3 text-foreground">{row.a}={row.av} / {row.b}={row.bv}</td>
+                <td className="py-2 px-3 text-foreground">{row.dominant} - {row.label}</td>
+                <td className="py-2 px-3 w-40">
+                  <div className="flex items-center gap-2">
+                    <span className="w-10 text-xs text-muted-foreground">{row.strength}%</span>
+                    <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${row.strength}%` }} />
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
     return (
       <table className="w-full text-sm">
         <thead>
@@ -487,9 +540,25 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
               </td>
             </tr>
           ))}
+          {isPapikostik && getPapiRows(cats).map(row => {
+            const pct = (row.value / 9) * 100;
+            return (
+              <tr key={row.code} className="border-b border-border/50">
+                <td className="py-2 px-3 text-foreground font-medium">{row.code} - {row.label}</td>
+                <td className="py-2 px-3 text-foreground">{row.value}/9</td>
+                <td className="py-2 px-3 w-40">
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className={`h-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
           {catEntries.map(([dim, val]) => {
             if (isKraepelin) return null;
+            if (isPapikostik) return null;
             if (isCFIT) return null;
+            if (isMBTI) return null;
             const maxVal = isPapikostik ? 9 : 100;
             const pct = maxVal > 0 ? (Number(val) / maxVal) * 100 : 0;
             return (
@@ -518,6 +587,8 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
 
   const interpretationText = isPersonalityPlus
     ? result.interpretation || buildPersonalityPlusInterpretation(cats, result.total_questions || 40)
+    : isMBTI
+      ? buildMbtiInterpretation(cats)
     : result.interpretation;
 
   return (
@@ -547,7 +618,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           <div><span className="text-muted-foreground">Email:</span> <span className="text-foreground">{profile.email || "-"}</span></div>
           <div><span className="text-muted-foreground">Telepon:</span> <span className="text-foreground">{profile.phone || "-"}</span></div>
           <div><span className="text-muted-foreground">Tanggal Tes:</span> <span className="text-foreground">{formatDate(result.completed_at)}</span></div>
-          <div><span className="text-muted-foreground">{isCFIT ? "IQ:" : "Skor:"}</span> <span className="text-foreground">{isCFIT ? getCfitIqInfoFromResult(result).iq : `${result.score}%`}</span></div>
+          <div><span className="text-muted-foreground">{isCFIT ? "IQ:" : isMBTI ? "Tipe:" : "Skor:"}</span> <span className="text-foreground">{isCFIT ? getCfitIqInfoFromResult(result).iq : isMBTI ? mbtiType : `${result.score}%`}</span></div>
           <div><span className="text-muted-foreground">Soal Dijawab:</span> <span className="text-foreground">{result.answered_questions} / {result.total_questions}</span></div>
           <div><span className="text-muted-foreground">Nama Tes:</span> <span className="text-foreground">{result.test_name}</span></div>
         </div>
@@ -559,8 +630,8 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           <p className="text-lg font-bold text-primary mt-1">{result.test_name}</p>
         </div>
         <div className="glass rounded-xl p-5 glow-border text-center">
-          <p className="text-xs text-muted-foreground">{isCFIT ? "IQ Score" : "Skor Akhir"}</p>
-          <p className="text-3xl font-bold text-foreground mt-1">{isCFIT ? getCfitIqInfoFromResult(result).iq : `${result.score}%`}</p>
+          <p className="text-xs text-muted-foreground">{isCFIT ? "IQ Score" : isMBTI ? "Tipe MBTI" : "Skor Akhir"}</p>
+          <p className={`text-3xl font-bold text-foreground mt-1 ${isMBTI ? "tracking-widest" : ""}`}>{isCFIT ? getCfitIqInfoFromResult(result).iq : isMBTI ? mbtiType : `${result.score}%`}</p>
         </div>
         <div className="glass rounded-xl p-5 glow-border text-center">
           <p className="text-xs text-muted-foreground">Soal Dijawab</p>
@@ -580,7 +651,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
 
       {interpretationText && (
         <div className="glass rounded-xl p-5 glow-border">
-          <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPersonalityPlus ? ' — Profil 4 Temperamen' : ''}</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPersonalityPlus ? ' — Profil 4 Temperamen' : isMBTI ? ' — Profil MBTI' : ''}</h3>
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpretationText}</p>
         </div>
       )}

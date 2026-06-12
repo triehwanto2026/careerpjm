@@ -5,6 +5,10 @@ import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildDiscInterpretation as buildSharedDiscInterpretation } from "@/lib/discScoring";
+import { buildMbtiInterpretation as buildSharedMbtiInterpretation, getMbtiRows as getSharedMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
+import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES } from "@/lib/papiScoring";
+import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -115,67 +119,20 @@ Interpretasi per aspek menunjukkan gambaran struktur inteligensi: aspek verbal t
 
 const isMbtiResult = (r: Pick<ResultRow, "test_name" | "categories">) => {
   const keys = Object.keys(r.categories || {});
-  return r.test_name.toUpperCase().includes("MBTI") || ["E", "I", "S", "N", "T", "F", "J", "P"].every((k) => keys.includes(k));
+  return isMbtiName(r.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((k) => keys.includes(k));
 };
 
 const getMbtiSummary = (cats: Record<string, number>) => {
-  const pairs = [["E", "I"], ["S", "N"], ["T", "F"], ["J", "P"]] as const;
-  const rows = pairs.map(([a, b]) => {
-    const av = Number(cats[a] || 0);
-    const bv = Number(cats[b] || 0);
-    const dominant = av >= bv ? a : b;
-    const total = av + bv || 1;
-    return { pair: `${a}/${b}`, a, b, av, bv, dominant, pct: Math.round((Math.max(av, bv) / total) * 100) };
-  });
-  return { type: rows.map((row) => row.dominant).join(""), rows };
+  const rows = getSharedMbtiRows(cats).map((row) => ({ ...row, pct: row.strength }));
+  return { type: getMbtiType(cats), rows };
 };
 
-const buildMbtiInterpretation = (cats: Record<string, number>) => {
-  const summary = getMbtiSummary(cats);
-  const labels: Record<string, string> = {
-    E: "lebih energik melalui interaksi sosial",
-    I: "lebih nyaman memproses secara reflektif dan mandiri",
-    S: "cenderung praktis, faktual, dan berorientasi detail nyata",
-    N: "cenderung konseptual, imajinatif, dan melihat kemungkinan",
-    T: "menimbang keputusan secara logis dan objektif",
-    F: "menimbang keputusan dengan empati dan dampak personal",
-    J: "menyukai struktur, rencana, dan kepastian",
-    P: "lebih fleksibel, adaptif, dan terbuka pada perubahan",
-  };
-  return `Tipe MBTI kandidat adalah ${summary.type}. Profil ini menunjukkan kandidat ${summary.type.split("").map((x) => labels[x]).join(", ")}.
+const buildMbtiInterpretation = buildSharedMbtiInterpretation;
 
-Distribusi pasangan dimensi: ${summary.rows.map((r) => `${r.pair}: ${r.a}=${r.av}, ${r.b}=${r.bv}`).join("; ")}. Gunakan tipe ini sebagai gambaran preferensi kerja, bukan label kemampuan mutlak.`;
-};
-
-const PAPI_LABELS: Record<string, string> = {
-  A: "Need to Achieve", B: "Need to Belong to Groups", C: "Organized Type", D: "Leadership Role",
-  E: "Emotional Resistance", F: "Need to Support Authority", G: "Hard Intense Worked", I: "Ease in Decision Making",
-  K: "Need to be Forceful", L: "Leadership Role", N: "Need to Finish Task", O: "Need for Closeness and Affection",
-  P: "Need to Control Others", R: "Theoretical Type", S: "Social Extension", T: "Pace",
-  V: "Vigorous Type", W: "Need for Rules and Supervision", X: "Need to be Noticed", Z: "Need for Change",
-};
+const PAPI_LABELS: Record<string, string> = Object.fromEntries(PAPI_SCALES.map((scale) => [scale.code, scale.label]));
 
 const isPapiResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
-  r.test_name.toUpperCase().includes("PAPI") || (!isMbtiResult(r) && Object.keys(r.categories || {}).some((key) => PAPI_LABELS[key]));
-
-const getPapiRows = (cats: Record<string, number>) =>
-  Object.entries(PAPI_LABELS)
-    .map(([code, label]) => {
-      const value = Number(cats[code] || 0);
-      const level = value >= 7 ? "Tinggi" : value >= 4 ? "Sedang" : "Rendah";
-      return { code, label, value, level };
-    })
-    .filter((row) => row.value > 0)
-    .sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
-
-const buildPapiInterpretation = (cats: Record<string, number>) => {
-  const rows = getPapiRows(cats);
-  const top = rows.slice(0, 3);
-  const low = rows.filter((row) => row.level === "Rendah").slice(0, 3);
-  return `Profil PAPI Kostick menunjukkan skala paling menonjol pada ${top.map((row) => `${row.code} - ${row.label} (${row.value})`).join(", ") || "belum ada skala dominan"}.
-
-Skala tinggi menggambarkan kebutuhan/peran kerja yang paling tampak pada kandidat. ${low.length ? `Skala yang relatif rendah: ${low.map((row) => `${row.code} - ${row.label} (${row.value})`).join(", ")}.` : ""} Interpretasi perlu dikaitkan dengan tuntutan jabatan, wawancara, dan observasi perilaku.`;
-};
+  isPapiName(r.test_name) || (!isMbtiResult(r) && Object.keys(r.categories || {}).some((key) => PAPI_LABELS[key]));
 
 const isKraepelinResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
   r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in (r.categories || {}));
@@ -892,7 +849,7 @@ const Results = () => {
     ${(() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isDISC = r.test_name.toUpperCase().includes("DISC");
-	      if (isDISC) return "";
+      if (isDISC) return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil DISC</div><div class="interpretation" style="white-space:pre-line;">${buildSharedDiscInterpretation(cats, r.total_questions || 24).replace(/</g, '&lt;')}</div></div>`;
 	      if (isIstResult(r)) return istInterpretationHTML;
 	      if (specialInterpretationHTML) return specialInterpretationHTML;
       // Full format interpretation for PP
@@ -1276,16 +1233,19 @@ const Results = () => {
       );
     }
     if (isPapiResult(r)) {
-      const papiData = getPapiRows(cats).map((row) => ({ name: `${row.code} - ${row.label}`, value: row.value }));
+      const papiData = getPapiRows(cats).map((row) => ({ name: row.code, label: row.label, value: row.value, group: row.group }));
       return (
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={papiData} layout="vertical" margin={{ left: 150 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-            <XAxis type="number" domain={[0, 9]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
-            <YAxis type="category" dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} width={145} />
-            <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
-            <Bar dataKey="value" fill="#2dd4bf" radius={[0, 4, 4, 0]} />
-          </BarChart>
+        <ResponsiveContainer width="100%" height={380}>
+          <RadarChart data={papiData}>
+            <PolarGrid stroke="hsl(220,14%,25%)" />
+            <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11, fontWeight: 700 }} />
+            <PolarRadiusAxis angle={30} domain={[0, 9]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+            <Tooltip
+              contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }}
+              formatter={(v: any, _name: any, props: any) => [`${v}/9`, `${props.payload.name} - ${props.payload.label}`]}
+            />
+            <Radar name="Profil PAPI" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.24} strokeWidth={2} />
+          </RadarChart>
         </ResponsiveContainer>
       );
     }
@@ -1370,55 +1330,7 @@ const Results = () => {
 
   // === Interpretasi otomatis Personality Plus (4 Temperamen) ===
   const buildPersonalityPlusInterpretation = (cats: Record<string, number>, total: number) => {
-    const ppMap: Record<string, string> = {
-      K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
-      S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
-      M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
-      P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
-    };
-    const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
-    Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
-    const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
-    const [dom, domVal] = sorted[0];
-    const [sec, secVal] = sorted[1];
-    const sumAll = sorted.reduce((s, [, v]) => s + v, 0) || 1;
-    const pct = (v: number) => Math.round((v / sumAll) * 100);
-
-    const desc: Record<string, { kekuatan: string; kelemahan: string; kerja: string }> = {
-      Sanguinis: {
-        kekuatan: "Ekspresif, antusias, ramah, mudah bergaul, optimis, kreatif, dan mampu memotivasi orang lain. Cocok di lingkungan yang membutuhkan komunikasi intensif.",
-        kelemahan: "Cenderung impulsif, kurang disiplin pada detail, mudah teralihkan, dan kadang sulit menyelesaikan tugas yang berulang/monoton.",
-        kerja: "Marketing, Public Relations, Sales, Trainer, Customer Engagement, Event Organizer.",
-      },
-      Koleris: {
-        kekuatan: "Tegas, berorientasi pada hasil, pemimpin alami, mandiri, cepat mengambil keputusan, dan tidak takut tantangan.",
-        kelemahan: "Cenderung dominan, kurang sabar terhadap detail emosional rekan kerja, dan dapat dipersepsikan keras kepala.",
-        kerja: "Manajer Operasional, Project Lead, Supervisor Lapangan, Entrepreneur, Pemimpin Tim.",
-      },
-      Melankolis: {
-        kekuatan: "Analitis, perfeksionis, terstruktur, teliti, setia, dan memiliki standar mutu yang tinggi terhadap pekerjaan.",
-        kelemahan: "Cenderung pesimistis, perfeksionisme berlebihan dapat memperlambat eksekusi, sensitif terhadap kritik.",
-        kerja: "Akuntan, Auditor, Quality Control, Riset & Pengembangan, Analis Data, Engineer.",
-      },
-      Plegmatis: {
-        kekuatan: "Tenang, sabar, diplomatis, pendengar yang baik, mampu menjadi penengah dalam konflik, dan stabil di bawah tekanan.",
-        kelemahan: "Kurang inisiatif, sulit mengambil keputusan tegas, cenderung menghindari konfrontasi dan perubahan mendadak.",
-        kerja: "HR, Mediator, Administrasi, Customer Service, Konselor, Asisten Eksekutif.",
-      },
-    };
-
-    const d = desc[dom];
-    const s = desc[sec];
-    return `Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen DOMINAN: ${dom} (${domVal} jawaban — ${pct(domVal)}%) dengan dukungan SEKUNDER: ${sec} (${secVal} jawaban — ${pct(secVal)}%). Distribusi jumlah jawaban — Sanguinis: ${norm.Sanguinis}, Koleris: ${norm.Koleris}, Melankolis: ${norm.Melankolis}, Plegmatis: ${norm.Plegmatis}.
-
-KEKUATAN (${dom}): ${d.kekuatan}
-AREA PERHATIAN (${dom}): ${d.kelemahan}
-
-Kombinasi ${dom}-${sec}: kandidat memiliki karakter utama ${dom.toLowerCase()} yang dilengkapi nuansa ${sec.toLowerCase()} (${s.kekuatan.split('.')[0].toLowerCase()}). Kombinasi ini memperkaya profil dan memperluas zona efektivitas kerja.
-
-REKOMENDASI POSISI: ${d.kerja}
-
-CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didampingi wawancara mendalam (kompetensi & nilai) untuk validasi konteks pekerjaan. Skor tertinggi adalah karakter natural; tidak menutup kemungkinan kandidat menampilkan perilaku temperamen lain situasionalnya.`;
+    return buildSharedPersonalityPlusInterpretation(cats, total);
   };
 
 

@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadCandidatePhoto } from "@/lib/photoUpload";
 import { resolveStorageUrl } from "@/lib/storage";
 import { getCfitIqInfoFromResult } from "@/lib/cfitScoring";
+import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
+import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES } from "@/lib/papiScoring";
 
 const SWAL_THEME = () => ({
   background: "hsl(var(--card))",
@@ -3715,27 +3717,18 @@ const buildIstSummary = (result: any): TestSummary => {
 const isMbtiCandidateResult = (result: any) => {
   const categories = getResultCategories(result);
   const keys = Object.keys(categories);
-  return getResultTestName(result).toUpperCase().includes("MBTI") || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => keys.includes(key));
+  return isMbtiName(getResultTestName(result)) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => keys.includes(key));
 };
 
 const buildMbtiSummary = (result: any): TestSummary => {
   const categories = getResultCategories(result);
-  const labels: Record<string, string> = {
-    E: "ekstrovert", I: "introvert", S: "sensing", N: "intuition", T: "thinking", F: "feeling", J: "judging", P: "perceiving",
-  };
-  const pairs = [["E", "I"], ["S", "N"], ["T", "F"], ["J", "P"]] as const;
-  const rows = pairs.map(([a, b]) => {
-    const av = Number(categories[a] || 0);
-    const bv = Number(categories[b] || 0);
-    const dominant = av >= bv ? a : b;
-    return { pair: `${a}/${b}`, a, b, av, bv, dominant };
-  });
-  const type = rows.map((row) => row.dominant).join("");
+  const rows = getMbtiRows(categories);
+  const type = getMbtiType(categories);
 
   return {
     badge: type,
-    metrics: rows.map((row) => ({ label: row.pair, value: `${row.a} ${row.av} / ${row.b} ${row.bv}`, note: `Dominan ${row.dominant}` })),
-    text: `Tipe MBTI kandidat adalah ${type}. Secara preferensi kerja, kandidat cenderung ${type.split("").map((key) => labels[key]).join(", ")}.\n\nHasil MBTI sebaiknya dibaca sebagai preferensi gaya kerja dan komunikasi, bukan ukuran kemampuan mutlak. Cocok digunakan untuk memahami kecenderungan kolaborasi, pengambilan keputusan, dan kebutuhan lingkungan kerja.`,
+    metrics: rows.map((row) => ({ label: row.pair, value: `${row.a} ${row.av} / ${row.b} ${row.bv}`, note: `Dominan ${row.dominant} (${row.strength}%)` })),
+    text: buildMbtiInterpretation(categories),
   };
 };
 
@@ -3760,36 +3753,24 @@ const buildKraepelinSummary = (result: any): TestSummary => {
   };
 };
 
-const PAPI_LABELS_FOR_CANDIDATE: Record<string, string> = {
-  A: "Need to Achieve", B: "Need to Belong", C: "Organized Type", D: "Leadership Role",
-  E: "Emotional Resistance", F: "Support Authority", G: "Hard Intense Worked", I: "Decision Making",
-  K: "Need to be Forceful", L: "Leadership Role", N: "Finish Task", O: "Closeness",
-  P: "Control Others", R: "Theoretical Type", S: "Social Extension", T: "Pace",
-  V: "Vigorous Type", W: "Rules/Supervision", X: "Need to be Noticed", Z: "Need for Change",
-};
+const PAPI_LABELS_FOR_CANDIDATE: Record<string, string> = Object.fromEntries(PAPI_SCALES.map((scale) => [scale.code, scale.label]));
 
 const isPapiCandidateResult = (result: any) => {
   const name = getResultTestName(result).toUpperCase();
   const keys = Object.keys(getResultCategories(result));
-  return name.includes("PAPI") || keys.some((key) => PAPI_LABELS_FOR_CANDIDATE[key]);
+  return isPapiName(name) || keys.some((key) => PAPI_LABELS_FOR_CANDIDATE[key]);
 };
 
 const buildPapiSummary = (result: any): TestSummary => {
   const categories = getResultCategories(result);
-  const rows = Object.entries(PAPI_LABELS_FOR_CANDIDATE)
-    .map(([code, label]) => {
-      const value = Number(categories[code] || 0);
-      const level = value >= 7 ? "Tinggi" : value >= 4 ? "Sedang" : "Rendah";
-      return { code, label, value, level };
-    })
-    .filter((row) => row.value > 0)
+  const rows = getPapiRows(categories)
     .sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
-  const top = rows.slice(0, 4);
+  const top = rows.filter((row) => row.value > 0).slice(0, 4);
 
   return {
     badge: top[0] ? `${top[0].code} ${top[0].value}/9` : "PAPI",
     metrics: top.map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/9`, note: row.level })),
-    text: `Profil PAPI Kostick kandidat paling menonjol pada ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9; ${row.level})`).join(", ") || "belum ada skala dominan"}.\n\nSkala tinggi menggambarkan kebutuhan dan peran kerja yang paling tampak. Gunakan profil ini untuk membaca motivasi kerja, gaya relasi, kebutuhan struktur, dorongan pencapaian, dan kecenderungan kepemimpinan kandidat.`,
+    text: buildPapiInterpretation(categories),
   };
 };
 

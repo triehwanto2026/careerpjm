@@ -1,5 +1,7 @@
 // Shared print utilities for Results page and RecruitmentProcess modal
 import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
+import { getPapiRows, isPapiName } from "@/lib/papiScoring";
 
 export interface PrintResult {
   id: string;
@@ -136,7 +138,11 @@ export const generatePrintHTML = (
   const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
   const cfitInfo = isCfitName(r.test_name) ? getCfitIqInfoFromResult(r) : null;
   const cfitProfileRows = cfitInfo ? getCfitProfileRows(r) : [];
+  const isMbti = isMbtiName(r.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
+  const mbtiRows = isMbti ? getMbtiRows(cats) : [];
+  const mbtiType = isMbti ? getMbtiType(cats) : "";
   const isKraepelin = r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in cats);
+  const isPapi = isPapiName(r.test_name) || Object.keys(cats).some((key) => getPapiRows(cats).some((row) => row.code === key));
   const kraepelinRows = [
     { label: "Kecepatan", value: `${Number(cats.speed || 0)}%`, note: "Tempo kerja hitung" },
     { label: "Ketelitian", value: `${Number(cats.accuracy || 0)}%`, note: "Akurasi jawaban" },
@@ -300,12 +306,34 @@ export const generatePrintHTML = (
     <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
     <div class="score-cards">
       <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
-      <div class="score-card"><div class="label">${cfitInfo ? "IQ Score" : "Skor Akhir"}</div><div class="value">${cfitInfo ? cfitInfo.iq : `${r.score}%`}</div></div>
+      <div class="score-card"><div class="label">${cfitInfo ? "IQ Score" : isMbti ? "Tipe MBTI" : "Skor Akhir"}</div><div class="value" style="${isMbti ? "letter-spacing:3px;" : ""}">${cfitInfo ? cfitInfo.iq : isMbti ? mbtiType : `${r.score}%`}</div></div>
       <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
     </div>
   </div>
 
-  ${r.test_name.toUpperCase().includes("DISC") ? discChartsHTML : `
+  ${r.test_name.toUpperCase().includes("DISC") ? discChartsHTML : isMbti ? `
+  <div class="section">
+    <div class="section-title">Profil MBTI</div>
+    <table class="dim-table">
+      <thead>
+        <tr>
+          <th>Pasangan</th>
+          <th>Skor</th>
+          <th>Dominan</th>
+          <th>Kekuatan</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${mbtiRows.map((row) => `<tr>
+          <td><strong>${row.pair}</strong></td>
+          <td>${row.a}=${row.av} / ${row.b}=${row.bv}</td>
+          <td><strong>${row.dominant}</strong> - ${row.label}</td>
+          <td>${row.strength}%</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+  ` : `
   <div class="section">
     <div class="section-title">Profil Dimensi & Skor</div>
     <table class="dim-table">
@@ -317,7 +345,7 @@ export const generatePrintHTML = (
         </tr>
       </thead>
       <tbody>
-        ${(cfitInfo ? cfitProfileRows : isKraepelin ? kraepelinRows : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
+        ${(cfitInfo ? cfitProfileRows : isKraepelin ? kraepelinRows : isPapi ? getPapiRows(cats).map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/9`, note: row.level })) : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
           <td><strong>${row.label}</strong></td>
           <td>${row.value}</td>
           <td>${row.note}</td>
@@ -329,7 +357,14 @@ export const generatePrintHTML = (
 
   ${discInterpretation}
 
-  ${r.interpretation ? `
+  ${isMbti ? `
+  <div class="section">
+    <div class="section-title">Interpretasi Psikolog - Profil MBTI</div>
+    <div class="interpretation">${buildMbtiInterpretation(cats).replace(/</g, '&lt;').replace(/\n/g, '<br/>')}</div>
+  </div>
+  ` : ''}
+
+  ${r.interpretation && !isMbti ? `
   <div class="section">
     <div class="section-title">Interpretasi Psikolog</div>
     <div class="interpretation">${r.interpretation.replace(/</g, '&lt;').replace(/\n/g, '<br/>')}</div>

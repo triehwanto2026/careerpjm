@@ -43,8 +43,11 @@ const TestPage = () => {
   const [currentSubtest, setCurrentSubtest] = useState<string | null>(null);
   const [subtestStartedAt, setSubtestStartedAt] = useState<number>(Date.now());
   const [subtestIntroActive, setSubtestIntroActive] = useState(false);
+  const [testIntroActive, setTestIntroActive] = useState(false);
   const shownIstSubtestsRef = useRef<Set<string>>(new Set());
   const shownCfitSubtestsRef = useRef<Set<string>>(new Set());
+  const shownTestInstructionsRef = useRef<Set<string>>(new Set());
+  const testInstructionInProgressRef = useRef(false);
 
   const loadAssignedTests = useCallback(async () => {
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -730,9 +733,128 @@ const TestPage = () => {
     });
   }, []);
 
+  const showTestInstructions = useCallback(async (test: DbInstrument) => {
+    const name = test.name || "Tes";
+    const upper = name.toUpperCase();
+    let title = `Petunjuk ${name}`;
+    let html = `
+      <div style="text-align:left;line-height:1.6">
+        <div style="padding:12px;border-radius:8px;background:hsla(174,72%,46%,0.1);border:1px solid hsla(174,72%,46%,0.3);margin-bottom:12px">
+          Baca petunjuk dengan teliti sebelum mulai menjawab.
+        </div>
+        <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+          <li>Kerjakan sesuai instruksi pada layar.</li>
+          <li>Jawab dengan tenang dan konsisten.</li>
+          <li>Waktu tes akan mulai/berjalan setelah Anda menekan tombol OK.</li>
+        </ul>
+      </div>
+    `;
+
+    if (upper.includes("DISC")) {
+      title = "Petunjuk Tes DISC";
+      html = `
+        <div style="text-align:left;line-height:1.6">
+          <p style="margin:0 0 12px;color:hsl(210,20%,75%)">Setiap nomor berisi beberapa pernyataan. Pilih satu pernyataan yang <b>paling</b> menggambarkan diri Anda dan satu pernyataan yang <b>paling tidak</b> menggambarkan diri Anda.</p>
+          <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+            <li>Tidak ada jawaban benar atau salah.</li>
+            <li>Jawab spontan sesuai kebiasaan kerja Anda.</li>
+            <li>Waktu berjalan setelah tombol OK ditekan.</li>
+          </ul>
+        </div>`;
+    } else if (upper.includes("PERSONALITY") || upper.includes("TEMPERAMEN")) {
+      title = "Petunjuk Personality Plus";
+      html = `
+        <div style="text-align:left;line-height:1.6">
+          <p style="margin:0 0 12px;color:hsl(210,20%,75%)">Pilih pernyataan/kata yang paling menggambarkan diri Anda dalam kehidupan sehari-hari.</p>
+          <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+            <li>Jawab sesuai kecenderungan alami, bukan yang dianggap paling baik.</li>
+            <li>Tidak ada jawaban benar atau salah.</li>
+            <li>Waktu berjalan setelah tombol OK ditekan.</li>
+          </ul>
+        </div>`;
+    } else if (upper.includes("PAPI")) {
+      title = "Petunjuk PAPI Kostick";
+      html = `
+        <div style="text-align:left;line-height:1.6">
+          <div style="padding:12px;border-radius:8px;background:hsla(174,72%,46%,0.1);border:1px solid hsla(174,72%,46%,0.3);margin-bottom:12px">
+            Setiap soal berisi dua pernyataan. Pilih pernyataan yang paling dominan atau paling mencerminkan diri Anda dalam konteks kerja.
+          </div>
+          <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+            <li>Tidak ada jawaban benar atau salah.</li>
+            <li>Pilih salah satu dari dua pernyataan yang tersedia.</li>
+            <li>Jawab seluruh pertanyaan secara konsisten.</li>
+            <li>Waktu berjalan setelah tombol OK ditekan.</li>
+          </ul>
+        </div>`;
+    } else if (upper.includes("KRAEPELIN")) {
+      title = "Petunjuk Tes Kraepelin";
+      html = `
+        <div style="text-align:left;line-height:1.6">
+          <div style="padding:12px;border-radius:8px;background:hsla(174,72%,46%,0.1);border:1px solid hsla(174,72%,46%,0.3);margin-bottom:12px">
+            Jumlahkan dua angka pada setiap baris, lalu tulis <b>angka satuan</b> hasilnya. Contoh: 7 + 8 = 15, maka tulis 5.
+          </div>
+          <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+            <li>Kerjakan dari atas ke bawah pada kolom yang sedang aktif.</li>
+            <li>Saat waktu kolom habis, sistem pindah ke kolom berikutnya.</li>
+            <li>Waktu kolom berjalan setelah tombol OK/Mulai ditekan.</li>
+          </ul>
+        </div>`;
+    } else if (upper.includes("CFIT") || upper.includes("CULTURE FAIR")) {
+      title = "Petunjuk CFIT 3A";
+      html = `
+        <div style="text-align:left;line-height:1.6">
+          <p style="margin:0 0 12px;color:hsl(210,20%,75%)">Tes ini mengukur penalaran nonverbal melalui pola gambar. Perhatikan contoh pada setiap segmen sebelum menjawab.</p>
+          <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+            <li>Tes 2 meminta tepat dua pilihan jawaban.</li>
+            <li>Setiap segmen memiliki instruksi dan waktu sendiri.</li>
+            <li>Waktu berjalan setelah tombol OK/Mulai ditekan.</li>
+          </ul>
+        </div>`;
+    } else if (upper.includes("IST")) {
+      title = "Petunjuk IST";
+      html = `
+        <div style="text-align:left;line-height:1.6">
+          <p style="margin:0 0 12px;color:hsl(210,20%,75%)">Tes IST terdiri dari beberapa subtes. Baca contoh dan petunjuk tiap subtes sebelum mulai menjawab.</p>
+          <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+            <li>Kerjakan sesuai instruksi subtes yang sedang aktif.</li>
+            <li>Anda tidak dapat kembali ke subtes sebelumnya.</li>
+            <li>Waktu berjalan setelah tombol OK/Mulai ditekan.</li>
+          </ul>
+        </div>`;
+    }
+
+    await Swal.fire({
+      title,
+      html,
+      confirmButtonText: "OK, Mulai",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      ...SWAL_THEME,
+      customClass: { popup: "ist-example-modal" },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!currentTest || submitted) return;
+    const introKey = currentTest.id;
+    if (shownTestInstructionsRef.current.has(introKey)) return;
+    shownTestInstructionsRef.current.add(introKey);
+    testInstructionInProgressRef.current = true;
+    setTestIntroActive(true);
+    (async () => {
+      const pauseStartedAt = Date.now();
+      await showTestInstructions(currentTest);
+      const pauseDuration = Date.now() - pauseStartedAt;
+      const testStartedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+      sessionStorage.setItem("psytest_started_at", String(testStartedAt + pauseDuration));
+      testInstructionInProgressRef.current = false;
+      setTestIntroActive(false);
+    })();
+  }, [currentTestIdx, currentTest, submitted, showTestInstructions]);
+
   // Track current IST/CFIT subtest when question changes
   useEffect(() => {
-    if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
+    if (!testIntroActive && !testInstructionInProgressRef.current && usesSubtestIntro(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
       const nextSubtest = currentQuestion.subtest_code;
       const introKey = `${currentTest.id}:${nextSubtest}`;
       setCurrentSubtest(nextSubtest);
@@ -764,56 +886,7 @@ const TestPage = () => {
         setSubtestIntroActive(false);
       })();
     }
-  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample, showCfitSubtestExample, showKraepelinColumnIntro, showMemoryItems]);
-
-  // PAPIKOSTIK instructions effect is declared after showPAPIKOSTIKInstructions below
-
-  // Show PAPIKOSTIK instructions and example
-  const showPAPIKOSTIKInstructions = useCallback(() => {
-    let html = '<div style="text-align:left;max-height:70vh;overflow-y:auto;">';
-    html += '<div style="margin-bottom:20px;padding:12px;background:hsla(174,72%,46%,0.1);border-radius:8px;border:1px solid hsla(174,72%,46%,0.3);">';
-    html += '<h3 style="margin:0 0 8px 0;color:hsl(174,72%,46%);">PETUNJUK PENGISIAN</h3>';
-    html += '<ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%);line-height:1.6">';
-    html += '<li>Dalam Lembar ini terdapat 90 pertanyaan (Tidak ada batasan waktu)</li>';
-    html += '<li>Semua pilihan dalam lembar ini bukanlah bersifat BENAR atau SALAH, jadi TIDAK ADA JAWABAN YANG SALAH</li>';
-    html += '<li>Pilihlah pernyataan paling dominant atau paling mencerminkan diri anda atau menggambarkan perasaan anda saat ini</li>';
-    html += '<li>Anda harus memilih jawaban a atau b dari dua pernyataan yang tersedia</li>';
-    html += '<li>Seluruh pertanyaan harus dijawab</li>';
-    html += '</ul>';
-    html += '</div>';
-    
-    html += '<h4 style="margin-bottom:15px;color:hsl(210,20%,92%);">CONTOH:</h4>';
-    html += '<div style="margin-bottom:20px;padding:12px;background:hsla(210,14%,15%,0.6);border-radius:8px;border:1px solid hsla(210,14%,25%);">';
-    html += '<p style="margin:0 0 10px 0;color:hsl(210,20%,92%);font-weight:500;">Contoh Soal 1:</p>';
-    html += '<p style="margin:0 0 8px 0;color:hsl(210,20%,75%);">a. Saya Seorang Pekerja Giat</p>';
-    html += '<p style="margin:0 0 8px 0;color:hsl(210,20%,75%);">b. Saya Bukan Seorang Pemurung</p>';
-    html += '<p style="margin:5px 0 0 0;color:hsl(174,72%,46%);font-size:13px;font-style:italic;">Bila anda merasa bahwa pernyataan pertama "Saya seorang pekerja giat" lebih mencerminkan diri anda saat ini ketimbang pernyataan kedua "Saya Bukan seorang pemurung" maka pilihlah a. Begitu pula sebaliknya.</p>';
-    html += '</div>';
-    
-    html += '</div>';
-    
-    Swal.fire({
-      title: 'SOAL PAPI Kostick',
-      html: html,
-      confirmButtonText: 'Mulai Tes',
-      showConfirmButton: true,
-      showCloseButton: false,
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      ...SWAL_THEME,
-      customClass: {
-        popup: 'papikostik-modal'
-      }
-    });
-  }, []);
-
-  // Show PAPIKOSTIK instructions when test starts
-  useEffect(() => {
-    const isPAPIKOSTIK = currentTest?.name.toLowerCase().includes('papikostick') || currentTest?.name.toLowerCase().includes('papi');
-    if (isPAPIKOSTIK && currentQIdx === 0) {
-      showPAPIKOSTIKInstructions();
-    }
-  }, [currentTestIdx, currentTest, currentQIdx, showPAPIKOSTIKInstructions]);
+  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, testIntroActive, showSubtestExample, showCfitSubtestExample, showKraepelinColumnIntro, showMemoryItems]);
 
   // Subtest info for IST strict mode (computed each render — also used by useEffect below)
   const subtestQuestions = usesSubtestIntro(currentTest) && currentSubtest
@@ -1180,7 +1253,7 @@ const TestPage = () => {
             <span className="hidden text-sm font-semibold text-foreground sm:inline">PsyTest</span>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} initialSeconds={initialSeconds} onTimeUp={handleTimeUp} paused={subtestIntroActive} />
+            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} initialSeconds={initialSeconds} onTimeUp={handleTimeUp} paused={subtestIntroActive || testIntroActive} />
             <button onClick={() => setShowEnglish(!showEnglish)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${showEnglish ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}>
               <Languages className="h-3.5 w-3.5" /><span className="hidden sm:inline">EN</span>
