@@ -1,6 +1,6 @@
 import React from "react";
 import { PrintResult, PrintAnswer } from "@/utils/printUtils";
-import { getCfitIqInfoFromResult, isCfitName } from "@/lib/cfitScoring";
+import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
 import {
   ResponsiveContainer,
   RadarChart,
@@ -471,6 +471,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
         </thead>
         <tbody>
           {catEntries.map(([dim, val]) => {
+            if (isCFIT) return null;
             const maxVal = isPapikostik ? 9 : 100;
             const pct = maxVal > 0 ? (Number(val) / maxVal) * 100 : 0;
             return (
@@ -485,6 +486,13 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
               </tr>
             );
           })}
+          {isCFIT && getCfitProfileRows(result).map(row => (
+            <tr key={row.label} className="border-b border-border/50">
+              <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
+              <td className="py-2 px-3 text-foreground">{row.value}</td>
+              <td className="py-2 px-3 text-muted-foreground">{row.note}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     );

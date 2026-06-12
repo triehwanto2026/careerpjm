@@ -1,5 +1,5 @@
 // Shared print utilities for Results page and RecruitmentProcess modal
-import { getCfitIqInfoFromResult, isCfitName } from "@/lib/cfitScoring";
+import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
 
 export interface PrintResult {
   id: string;
@@ -135,6 +135,7 @@ export const generatePrintHTML = (
   const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
   const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
   const cfitInfo = isCfitName(r.test_name) ? getCfitIqInfoFromResult(r) : null;
+  const cfitProfileRows = cfitInfo ? getCfitProfileRows(r) : [];
 
   // Generate DISC charts and interpretation if test is DISC
   let discChartsHTML = "";
@@ -309,10 +310,10 @@ export const generatePrintHTML = (
         </tr>
       </thead>
       <tbody>
-        ${catEntries.map(([dim, val]) => `<tr>
-          <td><strong>${dim}</strong></td>
-          <td>${val}</td>
-          <td>${val > 0 ? 'Positif' : 'Netral'}</td>
+        ${(cfitInfo ? cfitProfileRows : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
+          <td><strong>${row.label}</strong></td>
+          <td>${row.value}</td>
+          <td>${row.note}</td>
         </tr>`).join("")}
       </tbody>
     </table>

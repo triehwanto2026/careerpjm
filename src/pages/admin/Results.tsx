@@ -4,7 +4,7 @@ import { Search, Eye, Download, Printer, FileText } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { getCfitIqInfoFromResult, isCfitName } from "@/lib/cfitScoring";
+import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -338,6 +338,7 @@ const Results = () => {
     const profile = r.candidate_profile as Record<string, string> | null;
     const cats = r.categories as Record<string, number>;
     const catEntries = Object.entries(cats);
+    const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
     const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
     const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
     const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
@@ -855,6 +856,18 @@ const Results = () => {
         </div>
         `;
       })()
+      : isCfitName(r.test_name) ? `
+        <table class="dim-table">
+          <thead><tr><th style="width:35%">Aspek</th><th style="width:20%">Nilai</th><th>Keterangan</th></tr></thead>
+          <tbody>
+            ${cfitProfileRows.map(row => `<tr>
+              <td><strong>${row.label}</strong></td>
+              <td>${row.value}</td>
+              <td>${row.note}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      `
       : `
         <table class="dim-table">
           <thead><tr><th style="width:35%">Dimensi / Aspek</th><th style="width:15%">Skor</th><th>Indikator Visual</th></tr></thead>
@@ -1439,6 +1452,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
     const r = selectedResult;
     const cats = r.categories as Record<string, number>;
     const catEntries = Object.entries(cats);
+    const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
     const profile = r.candidate_profile as Record<string, string> | null;
 
     return (
@@ -1859,7 +1873,13 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                       </tr>
                     </thead>
                     <tbody>
-                      {catEntries.map(([dim, val]) => {
+                      {isCfitName(r.test_name) ? cfitProfileRows.map(row => (
+                        <tr key={row.label} className="border-b border-border/50">
+                          <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
+                          <td className="py-2 px-3 text-foreground">{row.value}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{row.note}</td>
+                        </tr>
+                      )) : catEntries.map(([dim, val]) => {
                         const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
                         const pct = (val / maxVal) * 100;
                         return (

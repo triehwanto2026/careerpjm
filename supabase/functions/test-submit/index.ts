@@ -281,6 +281,13 @@ Deno.serve(async (req) => {
           const correctIds = q.options.filter((o: any) => o.is_correct).map((o: any) => o.id);
           const allCorrect = correctIds.length > 0 && ids.length === correctIds.length && ids.every((id) => correctIds.includes(id));
           if (allCorrect) correctCount++;
+          if (isCfit) {
+            const dim = categoryKey(q);
+            const scoreValue = allCorrect ? 1 : 0;
+            totalScore += scoreValue;
+            cats[dim] = (cats[dim] || 0) + scoreValue;
+            continue;
+          }
           picked.forEach((opt: any) => {
             totalScore += Number(opt.score_value || 0);
             const dim = opt.category_target?.trim() || categoryKey(q);
