@@ -1,14 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Search, Eye, Download, Printer, FileText } from "lucide-react";
+import { Search, Eye, Download, Printer, FileText, Trash2 } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildCfitInterpretation, getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
 import { buildDiscInterpretation as buildSharedDiscInterpretation } from "@/lib/discScoring";
+import { buildIstInterpretation as buildSharedIstInterpretation, getIstRows as getSharedIstRows, getIstSummary as getSharedIstSummary } from "@/lib/istScoring";
 import { buildMbtiInterpretation as buildSharedMbtiInterpretation, getMbtiRows as getSharedMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
 import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES } from "@/lib/papiScoring";
-import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
+import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation, getPersonalityPlusRows } from "@/lib/personalityPlusScoring";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -91,30 +92,14 @@ const getIstSubtestScore = (cats: Record<string, number>, code: string) => {
   return Number(match?.[1] || 0);
 };
 
-const getIstRows = (cats: Record<string, number>) =>
-  IST_SUBTESTS.map((subtest) => {
-    const raw = getIstSubtestScore(cats, subtest.code);
-    const pct = Math.round((raw / subtest.max) * 100);
-    const level = pct >= 80 ? "Sangat Tinggi" : pct >= 65 ? "Tinggi" : pct >= 45 ? "Sedang" : pct >= 30 ? "Rendah" : "Sangat Rendah";
-    return { ...subtest, raw, pct, level };
-  });
+const getIstRows = (cats: Record<string, number>) => getSharedIstRows(cats);
 
 const getIstSummary = (cats: Record<string, number>, fallbackScore: number) => {
-  const rows = getIstRows(cats);
-  const raw = Number(cats["IST Raw Score"] ?? rows.reduce((sum, row) => sum + row.raw, 0));
-  const max = Number(cats["IST Max Score"] ?? rows.reduce((sum, row) => sum + row.max, 0));
-  const score = max > 0 ? Math.round((raw / max) * 100) : fallbackScore;
-  const strongest = [...rows].sort((a, b) => b.pct - a.pct)[0];
-  const weakest = [...rows].sort((a, b) => a.pct - b.pct)[0];
-  return { rows, raw, max, score, strongest, weakest };
+  return getSharedIstSummary(cats, fallbackScore);
 };
 
 const buildIstInterpretation = (cats: Record<string, number>, fallbackScore: number) => {
-  const summary = getIstSummary(cats, fallbackScore);
-  const overall = summary.score >= 80 ? "sangat tinggi" : summary.score >= 65 ? "tinggi" : summary.score >= 45 ? "cukup/sedang" : summary.score >= 30 ? "rendah" : "sangat rendah";
-  return `Skor total IST kandidat adalah ${summary.raw}/${summary.max} (${summary.score}%), berada pada kategori ${overall}. Kekuatan relatif terlihat pada subtes ${summary.strongest.code} - ${summary.strongest.name} (${summary.strongest.raw}/${summary.strongest.max}; ${summary.strongest.level}), sedangkan area yang perlu diperhatikan adalah ${summary.weakest.code} - ${summary.weakest.name} (${summary.weakest.raw}/${summary.weakest.max}; ${summary.weakest.level}).
-
-Interpretasi per aspek menunjukkan gambaran struktur inteligensi: aspek verbal tercermin dari SE, WA, AN, dan GE; aspek numerik dari RA dan ZR; aspek figural-spasial dari FA dan WU; serta daya ingat dari ME. Gunakan hasil ini bersama wawancara, riwayat pendidikan, dan tuntutan jabatan sebelum mengambil keputusan akhir.`;
+  return buildSharedIstInterpretation(cats, fallbackScore);
 };
 
 const isMbtiResult = (r: Pick<ResultRow, "test_name" | "categories">) => {
@@ -132,10 +117,80 @@ const buildMbtiInterpretation = buildSharedMbtiInterpretation;
 const PAPI_LABELS: Record<string, string> = Object.fromEntries(PAPI_SCALES.map((scale) => [scale.code, scale.label]));
 
 const isPapiResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
-  isPapiName(r.test_name) || (!isMbtiResult(r) && Object.keys(r.categories || {}).some((key) => PAPI_LABELS[key]));
+  isPapiName(r.test_name) || (
+    !r.test_name.toUpperCase().includes("DISC")
+    && !isMbtiResult(r)
+    && Object.keys(r.categories || {}).filter((key) => PAPI_LABELS[key]).length >= 8
+  );
 
 const isKraepelinResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
   r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in (r.categories || {}));
+
+const isPersonalityPlusResult = (r: Pick<ResultRow, "test_name" | "categories">) => {
+  const upper = r.test_name.toUpperCase();
+  const keys = Object.keys(r.categories || {}).map((key) => key.toUpperCase());
+  return upper.includes("PERSONALITY") || upper.includes("TEMPERAMEN") || ["KOLERIS", "MELANKOLIS", "PLEGMATIS", "SANGUINIS"].some((key) => keys.includes(key));
+};
+
+const getResultConclusion = (r: ResultRow) => {
+  const cats = r.categories || {};
+  const upper = r.test_name.toUpperCase();
+
+  if (upper.includes("DISC")) {
+    const ranked = buildDiscRows(cats, r.total_questions || 24).sort((a, b) => b.net - a.net);
+    return ranked.slice(0, 2).map((row) => `${row.dim}(${row.net})`).join("/");
+  }
+
+  if (isPersonalityPlusResult(r)) {
+    const codeMap: Record<string, string> = { Sanguinis: "S", Koleris: "K", Melankolis: "M", Plegmatis: "P" };
+    const ranked = getPersonalityPlusRows(cats).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+    return ranked.slice(0, 2).map((row) => `${codeMap[row.name] || row.name[0]}(${row.value})`).join("/");
+  }
+
+  if (isCfitName(r.test_name)) {
+    const info = getCfitIqInfoFromResult(r);
+    return `IQ ${info.iq} (${info.classification})`;
+  }
+
+  if (isMbtiResult(r)) {
+    return `MBTI ${getMbtiSummary(cats).type}`;
+  }
+
+  if (isIstResult(r)) {
+    const summary = getIstSummary(cats, r.score);
+    return `IST ${summary.score}%`;
+  }
+
+  if (isPapiResult(r)) {
+    const ranked = getPapiRows(cats).sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
+    return ranked.slice(0, 2).map((row) => `${row.code}(${row.value})`).join("/");
+  }
+
+  if (isKraepelinResult(r)) {
+    const rows = getKraepelinRows(cats);
+    const accuracy = rows.find((row) => row.key === "accuracy")?.value ?? 0;
+    const stability = rows.find((row) => row.key === "stability")?.value ?? 0;
+    return `Akurasi ${accuracy}% / Stabil ${stability}%`;
+  }
+
+  return r.total_questions ? `${r.answered_questions}/${r.total_questions} soal` : `${r.score}%`;
+};
+
+const getResultStatusBadge = (r: ResultRow) => {
+  const statusText = `${r.status || ""} ${r.interpretation || ""}`.toLowerCase();
+  if (/(cheat|cheating|pelanggaran|violation|kamera)/i.test(statusText)) {
+    return { label: "Cheat", className: "bg-destructive/10 text-destructive" };
+  }
+  if (r.total_questions > 0 && r.answered_questions < r.total_questions) {
+    return { label: "Tidak Selesai", className: "bg-amber-400/10 text-amber-400" };
+  }
+  return { label: "Selesai", className: "bg-emerald-400/10 text-emerald-400" };
+};
+
+const escapeCsv = (value: unknown) => {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
 
 const getKraepelinRows = (cats: Record<string, number>) => [
   { key: "speed", label: "Kecepatan", value: Number(cats.speed || 0) },
@@ -236,6 +291,53 @@ const Results = () => {
     setAnswers((data as any) as AnswerRow[]);
   };
 
+  const handleDeleteResult = async (r: ResultRow) => {
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Hapus Hasil Tes?",
+      html: `
+        <div style="text-align:left;line-height:1.6">
+          <p>Hasil tes ini akan dihapus permanen dari halaman admin.</p>
+          <p style="margin-top:8px"><b>Kandidat:</b> ${r.candidate_name}</p>
+          <p><b>Tes:</b> ${r.test_name}</p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Ya, Hapus",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "hsl(0, 72%, 51%)",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const { error: answersError } = await supabase.from("test_answers").delete().eq("test_result_id", r.id);
+      if (answersError) throw answersError;
+
+      const { error: resultError } = await supabase.from("test_results").delete().eq("id", r.id);
+      if (resultError) throw resultError;
+
+      if (selectedResult?.id === r.id) {
+        setSelectedResult(null);
+        setAnswers([]);
+      }
+      setResults((prev) => prev.filter((item) => item.id !== r.id));
+
+      await Swal.fire({
+        icon: "success",
+        title: "Hasil Tes Dihapus",
+        text: "Data hasil tes berhasil dihapus.",
+        timer: 1600,
+        showConfirmButton: false,
+      });
+    } catch (error: any) {
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal Menghapus",
+        text: error?.message || "Terjadi kesalahan saat menghapus hasil tes.",
+      });
+    }
+  };
+
   const handleSelectResult = async (r: ResultRow) => {
     let enrichedResult = r;
     const currentProfile = (r.candidate_profile || {}) as Record<string, any>;
@@ -269,7 +371,12 @@ const Results = () => {
       r.position.toLowerCase().includes(search.toLowerCase()) ||
       r.test_name.toLowerCase().includes(search.toLowerCase())
   ).filter((r) => {
-    if (filterStatus !== "all" && r.status !== filterStatus) return false;
+    if (filterStatus !== "all") {
+      const status = getResultStatusBadge(r).label;
+      if (filterStatus === "completed" && status !== "Selesai") return false;
+      if (filterStatus === "incomplete" && status !== "Tidak Selesai") return false;
+      if (filterStatus === "cheat" && status !== "Cheat") return false;
+    }
     if (filterTest !== "all" && r.test_name !== filterTest) return false;
     if (filterDateFrom && r.completed_at && r.completed_at < filterDateFrom) return false;
     if (filterDateTo && r.completed_at && r.completed_at > filterDateTo + "T23:59:59") return false;
@@ -315,30 +422,11 @@ const Results = () => {
       const dominant = topCategories[0];
       const secondary = topCategories[1];
       
-      // Generate interpretation based on DISC results
-      const interpretations: Record<string, string> = {
-        'D': `Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.`,
-        'I': `Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.`,
-        'S': `Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.`,
-        'C': `Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.`
-      };
-      
-      const jobMatches: Record<string, string> = {
-        'D': "Manager, Entrepreneur, Sales Director, Director, CEO, Project Leader",
-        'I': "Sales, Public Relations, Marketing, Trainer, Public Speaker, Event Coordinator",
-        'S': "Counselor, Teacher, Nurse, HR, Customer Service, Therapist, Administrator",
-        'C': "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer, Auditor"
-      };
-      
       discInterpretation = `
         <div class="section">
           <div class="section-title">Interpretasi Psikolog - Analisa DISC</div>
           <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 14px; border-radius: 0 8px 8px 0; font-size: 10pt; line-height: 1.7; color: #422006;">
-            <p style="font-weight: 700; margin-bottom: 8px;">Profil Dominan: ${dominant}${secondary ? ` & ${secondary}` : ''}</p>
-            <p style="margin-bottom: 8px;">${interpretations[dominant] || ''}</p>
-            ${secondary ? `<p style="margin-bottom: 8px;">Kombinasi dengan ${secondary} memberikan keseimbangan antara kekuatan ${dominant} dan stabilitas ${secondary}.</p>` : ''}
-            <p style="margin-top: 12px; font-weight: 600;"><strong>Pekerjaan yang Sesuai:</strong> ${jobMatches[dominant] || 'Berbagai peran profesional'}</p>
-            <p style="margin-top: 8px;"><strong>Rekomendasi:</strong> Kandidat menunjukkan potensi tinggi untuk peran yang sesuai dengan profil ${dominant}. Pertimbangkan untuk penempatan di posisi yang memanfaatkan kekuatan alami ini.</p>
+            <div style="white-space:pre-line;">${buildSharedDiscInterpretation(cats, r.total_questions || 24).replace(/</g, '&lt;')}</div>
           </div>
         </div>`;
       
@@ -433,7 +521,9 @@ const Results = () => {
     let papiProfileHTML = "";
     let kraepelinProfileHTML = "";
     let specialInterpretationHTML = "";
-    if (isMbtiResult(r)) {
+    if (isCfitName(r.test_name)) {
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil CFIT 3A</div><div class="interpretation" style="white-space:pre-line;">${buildCfitInterpretation(r).replace(/</g, '&lt;')}</div></div>`;
+    } else if (isMbtiResult(r)) {
       const summary = getMbtiSummary(cats);
       mbtiProfileHTML = `
         <div class="section">
@@ -854,6 +944,7 @@ const Results = () => {
 	      if (specialInterpretationHTML) return specialInterpretationHTML;
       // Full format interpretation for PP
       if (isPP) {
+        return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div><div class="interpretation" style="white-space:pre-line;">${buildSharedPersonalityPlusInterpretation(cats, r.total_questions || 40).replace(/</g, '&lt;')}</div></div>`;
         const ppMap: Record<string, string> = {
           K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
           S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
@@ -985,8 +1076,20 @@ const Results = () => {
 
   const handleExport = () => {
     const csv = [
-      "Nama,Posisi,Tes,Skor,Dijawab,Total,Tanggal,Status",
-      ...results.map(r => `${r.candidate_name},${r.position},${r.test_name},${r.score},${r.answered_questions},${r.total_questions},${r.completed_at},${r.status}`),
+      "Nama,Posisi,Tes,Kesimpulan,Dijawab,Total,Tanggal,Status",
+      ...results.map((r) => {
+        const status = getResultStatusBadge(r);
+        return [
+          r.candidate_name,
+          r.position,
+          r.test_name,
+          getResultConclusion(r),
+          r.answered_questions,
+          r.total_questions,
+          r.completed_at,
+          status.label,
+        ].map(escapeCsv).join(",");
+      }),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -1086,13 +1189,6 @@ const Results = () => {
       const dominant = sortedCats[0][0];
       const secondary = sortedCats[1][0];
 
-      const interpretations: Record<string, string> = {
-        'D': `Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.`,
-        'I': `Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.`,
-        'S': `Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.`,
-        'C': `Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.`
-      };
-
       return (
         <div className="space-y-4">
           <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5 p-4 text-center">
@@ -1118,17 +1214,7 @@ const Results = () => {
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-3">Interpretasi Profil DISC</p>
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">Profil Dominan: {dominant} & {secondary}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{interpretations[dominant] || ''}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Kombinasi dengan {secondary} memberikan keseimbangan antara kekuatan {dominant} dan karakter {secondary}.
-              </p>
-              <div>
-                <p className="text-xs font-medium text-foreground">Pekerjaan yang Sesuai:</p>
-                <p className="text-xs text-muted-foreground">{jobMatch[dominant]}</p>
-              </div>
-            </div>
+            <p className="whitespace-pre-line text-xs text-muted-foreground leading-relaxed">{buildSharedDiscInterpretation(cats, r.total_questions || 24)}</p>
           </div>
         </div>
       );
@@ -1794,6 +1880,8 @@ const Results = () => {
                 ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40)
                 : isIST
                   ? buildIstInterpretation(cats, r.score)
+                : isCfitName(r.test_name)
+                  ? buildCfitInterpretation(r)
                 : isMbtiResult(r)
                   ? buildMbtiInterpretation(cats)
                 : isKraepelinResult(r)
@@ -1804,7 +1892,7 @@ const Results = () => {
               if (!interpText) return null;
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
-                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : ''}</h3>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : ''}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
                 </div>
               );
@@ -1905,9 +1993,9 @@ const Results = () => {
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
               className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
               <option value="all">Semua Status</option>
-              <option value="passed">Lulus</option>
-              <option value="review">Review</option>
-              <option value="failed">Gagal</option>
+              <option value="completed">Selesai</option>
+              <option value="incomplete">Tidak Selesai</option>
+              <option value="cheat">Cheat</option>
             </select>
           </div>
 
@@ -1957,7 +2045,7 @@ const Results = () => {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nama Kandidat</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Posisi</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tes</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Skor</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Kesimpulan</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Soal</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tanggal</th>
                 <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
@@ -1967,7 +2055,10 @@ const Results = () => {
             <tbody>
               {loading ? (
                 <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat data...</td></tr>
-              ) : paginatedResults.map((r) => (
+              ) : paginatedResults.map((r) => {
+                const conclusion = getResultConclusion(r);
+                const status = getResultStatusBadge(r);
+                return (
                 <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
                     <p className="font-medium text-foreground">{r.candidate_name}</p>
@@ -1977,12 +2068,9 @@ const Results = () => {
                     <span className="inline-block rounded-md bg-primary/10 text-primary px-2 py-0.5 font-medium">{r.test_name}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground">{r.score}%</span>
-                      <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
-                        <div className={`h-full rounded-full transition-all ${r.score >= 75 ? "bg-emerald-400" : r.score >= 50 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${r.score}%` }} />
-                      </div>
-                    </div>
+                    <span className="inline-flex max-w-[220px] rounded-md bg-muted px-2.5 py-1 text-xs font-semibold text-foreground">
+                      {conclusion}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell">
                     {r.answered_questions}/{r.total_questions}
@@ -1991,10 +2079,8 @@ const Results = () => {
                     {r.completed_at?.split("T")[0]}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      r.status === "passed" ? "bg-emerald-400/10 text-emerald-400" : r.status === "review" ? "bg-amber-400/10 text-amber-400" : "bg-destructive/10 text-destructive"
-                    }`}>
-                      {r.status === "passed" ? "Lulus" : r.status === "review" ? "Review" : "Gagal"}
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                      {status.label}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -2005,10 +2091,14 @@ const Results = () => {
                       <button onClick={() => { setSelectedResult(r); handlePrint(); }} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Cetak Laporan">
                         <Printer className="h-4 w-4" />
                       </button>
+                      <button onClick={() => handleDeleteResult(r)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus Hasil Tes">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {!loading && paginatedResults.length === 0 && (
                 <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">Tidak ada data ditemukan</td></tr>
               )}

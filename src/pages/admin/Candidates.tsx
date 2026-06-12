@@ -7,9 +7,12 @@ import DocumentPreview from "@/components/DocumentPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCandidatePhoto } from "@/lib/photoUpload";
 import { resolveStorageUrl } from "@/lib/storage";
-import { getCfitIqInfoFromResult } from "@/lib/cfitScoring";
+import { buildCfitInterpretation, getCfitIqInfoFromResult } from "@/lib/cfitScoring";
+import { buildDiscInterpretation } from "@/lib/discScoring";
+import { buildIstInterpretation } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
 import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES } from "@/lib/papiScoring";
+import { buildPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 
 const SWAL_THEME = () => ({
   background: "hsl(var(--card))",
@@ -3556,7 +3559,7 @@ const buildDiscSummary = (result: any) => {
   return {
     badge: `Profil ${dominant} & ${secondary}`,
     metrics: dims.map(({ dim, value }) => ({ label: `Mirror ${dim}`, value: value > 0 ? `+${value}` : value, note: labels[dim] })),
-    text: `Profil DISC kandidat adalah ${dominant} & ${secondary} (${labels[dominant]} - ${labels[secondary]}).\n\n${interpretations[dominant]}\n\nKombinasi dengan ${secondary} memberi warna ${secondaryText[secondary]}, sehingga pola kerja kandidat tidak hanya dipengaruhi dimensi utama ${dominant}, tetapi juga perlu dibaca bersama kecenderungan ${secondary}.`,
+    text: buildDiscInterpretation(categories, Number(result?.total_questions || 24)),
   };
 };
 
@@ -3599,7 +3602,7 @@ const buildPersonalityPlusSummary = (result: any) => {
   return {
     badge: `${dominant} / ${secondary}`,
     metrics: Object.entries(normalized).map(([label, value]) => ({ label, value, note: `${pct(value)}%` })),
-    text: `Temperamen dominan kandidat adalah ${dominant} (${dominantValue}; ${pct(dominantValue)}%) dengan temperamen sekunder ${secondary} (${secondaryValue}; ${pct(secondaryValue)}%).\n\n${desc[dominant] || ""}\n\nKombinasi ${dominant}-${secondary} menunjukkan gaya perilaku utama ${dominant.toLowerCase()} yang dipengaruhi kecenderungan ${secondary.toLowerCase()}. Hasil ini perlu divalidasi lewat wawancara, terutama pada konteks tuntutan jabatan dan budaya kerja.`,
+    text: buildPersonalityPlusInterpretation(categories, Number(result?.total_questions || 40)),
   };
 };
 
@@ -3667,7 +3670,7 @@ const buildCfitSummary = (result: any) => {
       { label: "Raw Score", value: `${info.raw}/${info.max}` },
       { label: "Area Ukur", value: "Nonverbal", note: "pola & abstraksi" },
     ],
-    text: `Estimasi IQ CFIT kandidat adalah ${info.iq} dengan klasifikasi ${info.classification}. Raw score terhitung ${info.raw} dari ${info.max} soal.\n\nSecara psikologis, hasil ini menunjukkan ${info.note}. Interpretasi CFIT terutama membaca kemampuan penalaran nonverbal, pengenalan pola, dan kemampuan menyelesaikan masalah abstrak yang relatif minim pengaruh bahasa/budaya.\n\nCatatan psikolog: hasil perlu dipadukan dengan wawancara, riwayat pendidikan/kerja, dan observasi perilaku saat tes sebelum dijadikan keputusan akhir seleksi.`,
+    text: buildCfitInterpretation(result),
   };
 };
 
@@ -3710,7 +3713,7 @@ const buildIstSummary = (result: any): TestSummary => {
   return {
     badge: `IST ${score}%`,
     metrics: rows.map((row) => ({ label: row.code, value: `${row.raw}/${row.max}`, note: `${row.level} - ${row.area}` })),
-    text: `Skor total IST kandidat adalah ${raw}/${max} (${score}%), berada pada kategori ${overall}.\n\nKekuatan relatif terlihat pada ${strongest.code} - ${strongest.name} (${strongest.level}), sedangkan area yang perlu diperhatikan adalah ${weakest.code} - ${weakest.name} (${weakest.level}). Profil ini memberi gambaran struktur inteligensi verbal, numerik, figural-spasial, dan daya ingat yang perlu dipadukan dengan tuntutan jabatan.`,
+    text: buildIstInterpretation(categories, Number(result?.score || 0)),
   };
 };
 
@@ -3758,7 +3761,7 @@ const PAPI_LABELS_FOR_CANDIDATE: Record<string, string> = Object.fromEntries(PAP
 const isPapiCandidateResult = (result: any) => {
   const name = getResultTestName(result).toUpperCase();
   const keys = Object.keys(getResultCategories(result));
-  return isPapiName(name) || keys.some((key) => PAPI_LABELS_FOR_CANDIDATE[key]);
+  return isPapiName(name) || (!name.includes("DISC") && keys.filter((key) => PAPI_LABELS_FOR_CANDIDATE[key]).length >= 8);
 };
 
 const buildPapiSummary = (result: any): TestSummary => {

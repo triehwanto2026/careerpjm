@@ -1,8 +1,11 @@
 import React from "react";
 import { PrintResult, PrintAnswer } from "@/utils/printUtils";
-import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildCfitInterpretation, getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildDiscInterpretation } from "@/lib/discScoring";
+import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { getPapiRows, isPapiName } from "@/lib/papiScoring";
+import { buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
+import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 import {
   ResponsiveContainer,
   RadarChart,
@@ -37,6 +40,7 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
   const isKraepelin = result.test_name === "Kraepelin" || result.test_name.includes("Kraepelin");
   const isPapikostik = isPapiName(result.test_name);
   const isCFIT = isCfitName(result.test_name);
+  const isIST = isIstName(result.test_name) || Object.keys(cats).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
   const isMBTI = isMbtiName(result.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
   const mbtiRows = isMBTI ? getMbtiRows(cats) : [];
   const mbtiType = isMBTI ? getMbtiType(cats) : "";
@@ -141,18 +145,6 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
       const sortedCats = dims.map((d) => [d, getN(d)] as [string, number]).sort((a, b) => b[1] - a[1]);
       const dominant = sortedCats[0]?.[0] || "D";
       const secondary = sortedCats[1]?.[0] || "I";
-      const interpretations: Record<string, string> = {
-        D: "Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.",
-        I: "Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.",
-        S: "Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.",
-        C: "Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.",
-      };
-      const jobMatch: Record<string, string> = {
-        D: "Manager, Entrepreneur, Sales Director, Director, CEO, Project Leader",
-        I: "Sales, Public Relations, Marketing, Trainer, Public Speaker, Event Coordinator",
-        S: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist, Administrator",
-        C: "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer, Auditor",
-      };
 
       const renderMini = (title: string, chartData: { name: string; value: number }[], color: string, allowNegative = false) => {
         const values = chartData.map((item) => item.value);
@@ -203,15 +195,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           </div>
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-3">Interpretasi Profil DISC</p>
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">Profil Dominan: {dominant} & {secondary}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{interpretations[dominant] || ''}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">Kombinasi dengan {secondary} memberikan keseimbangan antara kekuatan {dominant} dan karakter {secondary}.</p>
-              <div>
-                <p className="text-xs font-medium text-foreground">Pekerjaan yang Sesuai:</p>
-                <p className="text-xs text-muted-foreground">{jobMatch[dominant]}</p>
-              </div>
-            </div>
+            <p className="whitespace-pre-line text-xs text-muted-foreground leading-relaxed">{buildDiscInterpretation(cats, result.total_questions || 24)}</p>
           </div>
         </div>
       );
@@ -586,9 +570,17 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
   };
 
   const interpretationText = isPersonalityPlus
-    ? result.interpretation || buildPersonalityPlusInterpretation(cats, result.total_questions || 40)
+    ? buildSharedPersonalityPlusInterpretation(cats, result.total_questions || 40)
+    : isDISC
+      ? buildDiscInterpretation(cats, result.total_questions || 24)
+    : isIST
+      ? buildIstInterpretation(cats, result.score)
+    : isCFIT
+      ? buildCfitInterpretation(result)
     : isMBTI
       ? buildMbtiInterpretation(cats)
+    : isPapikostik
+      ? buildPapiInterpretation(cats)
     : result.interpretation;
 
   return (
@@ -651,7 +643,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
 
       {interpretationText && (
         <div className="glass rounded-xl p-5 glow-border">
-          <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPersonalityPlus ? ' — Profil 4 Temperamen' : isMBTI ? ' — Profil MBTI' : ''}</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPersonalityPlus ? ' — Profil 4 Temperamen' : isDISC ? ' — Profil DISC' : isIST ? ' — Profil IST' : isCFIT ? ' — Profil CFIT 3A' : isMBTI ? ' — Profil MBTI' : isPapikostik ? ' — Profil PAPI' : ''}</h3>
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpretationText}</p>
         </div>
       )}

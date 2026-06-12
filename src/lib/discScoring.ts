@@ -60,7 +60,7 @@ const DISC_PROFILE: Record<DiscDim, { strength: string; watch: string; work: str
     watch: "dapat menghindari konflik, lambat merespons perubahan mendadak, dan perlu dorongan untuk menyampaikan keberatan secara terbuka",
     work: "efektif pada lingkungan suportif, stabil, memiliki ritme kerja jelas, dan membutuhkan konsistensi layanan",
     communication: "sampaikan perubahan secara bertahap, beri kepastian, dan gunakan komunikasi yang tenang serta suportif",
-    roles: "HR, customer service, account support, administration, counselor, coordinator, service operations",
+    roles: "Counselor, Teacher, Nurse, HR, Customer Service, Therapist, Administrator, Account Support, Service Operations",
   },
   C: {
     strength: "analitis, teliti, sistematis, patuh standar, objektif, dan kuat menjaga kualitas pekerjaan",
@@ -80,10 +80,12 @@ export const buildDiscInterpretation = (categories: Record<string, unknown>, tot
   const secondaryProfile = DISC_PROFILE[secondary.dim];
   const distribution = rows.map((row) => `${row.dim}: M=${row.m}, L=${row.l}, Net=${row.net} (${row.level}, rank #${row.rank})`).join("; ");
 
-  return `Profil DISC kandidat adalah ${primary.dim}${secondary ? ` & ${secondary.dim}` : ""} (${primary.label}${secondary ? ` - ${secondary.label}` : ""}).
+  return `Profil Dominan: ${primary.dim}${secondary ? ` & ${secondary.dim}` : ""}
+
+${primary.label} (${primary.dim}) yang tinggi menunjukkan kandidat cenderung ${profile.strength}. Profil ini cocok untuk peran yang membutuhkan pola kerja sesuai karakter ${primary.dim}, dengan tetap mempertimbangkan tuntutan jabatan dan konteks tim.
 
 Kekuatan utama:
-Kandidat cenderung ${profile.strength}. Dimensi ${primary.dim} menjadi pola paling menonjol berdasarkan skor Mirror/Net.
+Dimensi ${primary.dim} menjadi pola paling menonjol berdasarkan skor Mirror/Net. Kandidat berpotensi menunjukkan kekuatan utama berupa ${profile.strength}.
 
 Kombinasi profil:
 Dimensi sekunder ${secondary.dim} (${secondary.label}) memberi warna tambahan: kandidat juga menunjukkan kecenderungan ${secondaryProfile.strength}. Kombinasi ini perlu dibaca bersama, karena perilaku kerja kandidat tidak hanya dipengaruhi satu dimensi dominan.
@@ -97,8 +99,8 @@ Kandidat biasanya paling efektif bila ${profile.work}.
 Gaya komunikasi:
 Pendekatan komunikasi yang disarankan: ${profile.communication}.
 
-Rekomendasi kecocokan peran:
-Peran yang relatif selaras: ${profile.roles}. Tetap sesuaikan dengan pengalaman, kompetensi teknis, budaya tim, dan tuntutan jabatan.
+Pekerjaan yang Sesuai:
+${profile.roles}. Tetap sesuaikan dengan pengalaman, kompetensi teknis, budaya tim, dan tuntutan jabatan.
 
 Distribusi skor DISC:
 ${distribution}.

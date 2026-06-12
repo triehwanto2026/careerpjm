@@ -44,10 +44,13 @@ const TestPage = () => {
   const [subtestStartedAt, setSubtestStartedAt] = useState<number>(Date.now());
   const [subtestIntroActive, setSubtestIntroActive] = useState(false);
   const [testIntroActive, setTestIntroActive] = useState(false);
+  const [cameraStatus, setCameraStatus] = useState<"pending" | "active" | "error">("pending");
   const shownIstSubtestsRef = useRef<Set<string>>(new Set());
   const shownCfitSubtestsRef = useRef<Set<string>>(new Set());
   const shownTestInstructionsRef = useRef<Set<string>>(new Set());
   const testInstructionInProgressRef = useRef(false);
+  const cameraViolationHandledRef = useRef(false);
+  const cameraPauseStartedRef = useRef<number | null>(Date.now());
 
   const loadAssignedTests = useCallback(async () => {
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -166,6 +169,86 @@ const TestPage = () => {
       last_active_at: new Date().toISOString(),
     } as any, { onConflict: "activation_code_id,candidate_email" });
   }, [answers, completedSubtests, currentQIdx, currentTestIdx, instruments]);
+
+  const handleCameraViolation = useCallback(async (message?: string) => {
+    if (cameraViolationHandledRef.current || submitted) return;
+    cameraViolationHandledRef.current = true;
+
+    const candRaw = sessionStorage.getItem("psytest_candidate");
+    const cand = candRaw ? JSON.parse(candRaw) : null;
+    const instrument = instruments[currentTestIdx];
+    const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const remaining = Math.max(0, ((instrument?.duration_minutes || 30) * 60) - elapsed);
+
+    if (cand?.activationCodeId) {
+      await supabase.from("test_sessions").upsert({
+        activation_code_id: cand.activationCodeId,
+        candidate_email: cand.email,
+        answers: answers as any,
+        seconds_remaining: remaining,
+        current_test_idx: currentTestIdx,
+        current_question_idx: currentQIdx,
+        completed_subtests: Array.from(completedSubtests),
+        last_active_at: new Date().toISOString(),
+        last_violation_at: new Date().toISOString(),
+      } as any, { onConflict: "activation_code_id,candidate_email" });
+
+      const { data } = await supabase.from("test_sessions")
+        .select("violation_count")
+        .eq("activation_code_id", cand.activationCodeId)
+        .eq("candidate_email", cand.email)
+        .maybeSingle();
+      await supabase.from("test_sessions")
+        .update({ violation_count: ((data?.violation_count as number) || 0) + 1 } as any)
+        .eq("activation_code_id", cand.activationCodeId)
+        .eq("candidate_email", cand.email);
+    }
+
+    const fromCandidate = sessionStorage.getItem("psytest_origin") === "candidate";
+    sessionStorage.removeItem("psytest_auth");
+    sessionStorage.removeItem("psytest_candidate");
+    sessionStorage.removeItem("psytest_started_at");
+    sessionStorage.removeItem("psytest_origin");
+    if (!fromCandidate) {
+      try { await supabase.auth.signOut(); } catch {}
+    }
+
+    await Swal.fire({
+      icon: "error",
+      title: "Pelanggaran Kamera Terdeteksi",
+      html: message || "Kamera wajib aktif selama tes. Kamera tidak aktif/ditolak sehingga sesi ini dicatat sebagai <b>cheating</b>.",
+      ...SWAL_THEME,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+    });
+    navigate(fromCandidate ? "/candidate/tests" : "/", { replace: true });
+  }, [answers, completedSubtests, currentQIdx, currentTestIdx, instruments, navigate, submitted]);
+
+  const handleCameraStatusChange = useCallback((status: "pending" | "active" | "error") => {
+    setCameraStatus(status);
+  }, []);
+
+  useEffect(() => {
+    if (loading || submitted || instruments.length === 0) return;
+    if (cameraStatus !== "error") return;
+    handleCameraViolation("Kamera wajib aktif untuk mengikuti tes psikologi. Kamera tidak tersedia, ditolak, tertutup, atau dimatikan sehingga sesi dicatat sebagai <b>cheating</b>.");
+  }, [cameraStatus, handleCameraViolation, instruments.length, loading, submitted]);
+
+  useEffect(() => {
+    if (submitted) return;
+    if (cameraStatus !== "active") {
+      if (cameraPauseStartedRef.current === null) cameraPauseStartedRef.current = Date.now();
+      return;
+    }
+    if (cameraPauseStartedRef.current !== null) {
+      const pauseDuration = Date.now() - cameraPauseStartedRef.current;
+      const testStartedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+      sessionStorage.setItem("psytest_started_at", String(testStartedAt + pauseDuration));
+      setSubtestStartedAt(prev => prev + pauseDuration);
+      cameraPauseStartedRef.current = null;
+    }
+  }, [cameraStatus, submitted]);
 
   useEffect(() => {
     if (resumed || instruments.length === 0) return;
@@ -1006,17 +1089,39 @@ const TestPage = () => {
     sum + t.questions.filter(q => isStoredAnswerComplete(q, answers[`${t.id}:${q.id}`])).length
   ), 0);
   const progress = totalAllQuestions > 0 ? (totalAnsweredAll / totalAllQuestions) * 100 : 0;
+  const isCameraReady = cameraStatus === "active";
 
-  const handleAnswer = (instrumentId: string, questionId: string, value: string) => {
+  const ensureCameraActive = async () => {
+    if (isCameraReady && webcamRef.current?.isActive()) return true;
+    await Swal.fire({
+      icon: "warning",
+      title: "Kamera Wajib Aktif",
+      html: "Kamera wajib menyala selama tes psikologi. Aktifkan/izinkan kamera untuk melanjutkan. Jika kamera tetap tidak aktif, sesi akan dicatat sebagai <b>cheating</b>.",
+      ...SWAL_THEME,
+      confirmButtonText: "Saya Mengerti",
+    });
+    if (cameraStatus === "error" || !webcamRef.current?.isActive()) {
+      await handleCameraViolation("Kamera tidak aktif saat kandidat mencoba melanjutkan tes. Sesi dicatat sebagai <b>cheating</b>.");
+    }
+    return false;
+  };
+
+  const handleAnswer = async (instrumentId: string, questionId: string, value: string) => {
+    if (!(await ensureCameraActive())) return;
     setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: value }));
     // Auto-advance to next question
     handleNext();
   };
   const handleNumericAnswer = (instrumentId: string, questionId: string, value: string) => {
+    if (!isCameraReady) return;
     const cleaned = value.replace(/\D/g, "").slice(0, 2);
     setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: cleaned }));
   };
   const handleKraepelinAnswer = (instrumentId: string, questionId: string, value: string) => {
+    if (!isCameraReady) {
+      ensureCameraActive();
+      return false;
+    }
     const cleaned = value.replace(/\D/g, "").slice(-1);
     setAnswers(prev => {
       const next = { ...prev };
@@ -1024,8 +1129,13 @@ const TestPage = () => {
       else delete next[`${instrumentId}:${questionId}`];
       return next;
     });
+    return Boolean(cleaned);
   };
   const handleMultiPick = (instrumentId: string, questionId: string, optId: string, maxPick = 2) => {
+    if (!isCameraReady) {
+      ensureCameraActive();
+      return;
+    }
     const key = `${instrumentId}:${questionId}`;
     const current = (answers[key] as string) || "";
     const set = new Set(current ? current.split("+").filter(Boolean) : []);
@@ -1047,6 +1157,10 @@ const TestPage = () => {
     });
   };
   const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
+    if (!isCameraReady) {
+      ensureCameraActive();
+      return;
+    }
     const key = `${instrumentId}:${questionId}`;
     const current = (answers[key] as string) || "";
     const parts: Record<string, string> = { M: "", L: "" };
@@ -1085,8 +1199,9 @@ const TestPage = () => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!currentTest) return;
+    if (!(await ensureCameraActive())) return;
     if (currentQuestion?.question_type === "multi_choice" && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])) {
       Swal.fire({
         icon: "warning",
@@ -1131,6 +1246,7 @@ const TestPage = () => {
   );
 
   const handleSubmit = async () => {
+    if (!(await ensureCameraActive())) return;
     const incompleteMulti = instruments.flatMap(t => (
       t.questions
         .filter(q => q.question_type === "multi_choice" && !isStoredAnswerComplete(q, answers[`${t.id}:${q.id}`]))
@@ -1159,6 +1275,11 @@ const TestPage = () => {
     // Auto-capture webcam snap
     let snapUrl: string | null = null;
     const dataUrl = webcamRef.current?.capture();
+    if (!dataUrl) {
+      setSubmitted(false);
+      await handleCameraViolation("Kamera wajib aktif sampai tes selesai. Snapshot kamera gagal diambil sehingga sesi dicatat sebagai <b>cheating</b>.");
+      return;
+    }
     if (dataUrl) snapUrl = await uploadDataUrlAsPhoto(dataUrl, `snap-${candidate?.email || "anon"}`);
 
     // Build per-instrument answers map { question_id -> optId } for the server.
@@ -1253,7 +1374,7 @@ const TestPage = () => {
             <span className="hidden text-sm font-semibold text-foreground sm:inline">PsyTest</span>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} initialSeconds={initialSeconds} onTimeUp={handleTimeUp} paused={subtestIntroActive || testIntroActive} />
+            <TestTimer key={currentTest?.id || 'test-timer'} durationMinutes={currentDuration} initialSeconds={initialSeconds} onTimeUp={handleTimeUp} paused={subtestIntroActive || testIntroActive || !isCameraReady} />
             <button onClick={() => setShowEnglish(!showEnglish)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${showEnglish ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}>
               <Languages className="h-3.5 w-3.5" /><span className="hidden sm:inline">EN</span>
@@ -1275,9 +1396,15 @@ const TestPage = () => {
         </div>
       )}
 
+      {!isCameraReady && !submitted && (
+        <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-center text-xs font-semibold text-destructive">
+          Kamera wajib aktif selama tes. Izinkan kamera di browser/perangkat untuk melanjutkan. Kamera mati/ditolak akan dicatat sebagai cheating.
+        </div>
+      )}
+
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:flex-row md:p-6">
         <aside className="flex flex-row gap-4 md:w-64 md:flex-col md:gap-5">
-          <div className="w-1/2 md:w-full"><WebcamPreview ref={webcamRef} /></div>
+          <div className="w-1/2 md:w-full"><WebcamPreview ref={webcamRef} onStatusChange={handleCameraStatusChange} /></div>
           <div className="flex flex-1 flex-col gap-4">
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs text-muted-foreground"><span>Progres Total</span><span>{totalAnsweredAll}/{totalAllQuestions}</span></div>
@@ -1355,7 +1482,21 @@ const TestPage = () => {
                         pattern="[0-9]*"
                         maxLength={1}
                         value={(answers[`${currentTest.id}:${q.id}`] as string) || ""}
-                        onChange={(e) => handleKraepelinAnswer(currentTest.id, q.id, e.target.value)}
+                        onChange={(e) => {
+                          const filled = handleKraepelinAnswer(currentTest.id, q.id, e.target.value);
+                          if (!filled) return;
+                          window.setTimeout(() => {
+                            const nextInput = document.querySelector<HTMLInputElement>(`[data-kraepelin-index="${idx + 1}"]`);
+                            if (nextInput) {
+                              nextInput.focus();
+                              nextInput.select();
+                              return;
+                            }
+                            const moved = finishCurrentSubtest();
+                            if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                          }, 80);
+                        }}
+                        data-kraepelin-index={idx}
                         className="ml-auto h-9 w-10 rounded-md border border-border bg-muted text-center text-lg font-bold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </label>
@@ -1428,7 +1569,14 @@ const TestPage = () => {
                         pattern="[0-9]*"
                         autoFocus
                         value={currentAns || ""}
-                        onChange={(e) => handleNumericAnswer(currentTest.id, currentQuestion.id, e.target.value)}
+                        onChange={(e) => {
+                          if (isKraepelinTest(currentTest)) {
+                            const filled = handleKraepelinAnswer(currentTest.id, currentQuestion.id, e.target.value);
+                            if (filled) window.setTimeout(() => { void handleNext(); }, 100);
+                            return;
+                          }
+                          handleNumericAnswer(currentTest.id, currentQuestion.id, e.target.value);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && currentAns) handleNext();
                         }}
@@ -1520,7 +1668,8 @@ const TestPage = () => {
                 <Send className="h-4 w-4" />Selesaikan Semua Tes
               </button>
             ) : isKraepelinTest(currentTest) ? (
-              <button onClick={() => {
+              <button onClick={async () => {
+                  if (!(await ensureCameraActive())) return;
                   const moved = finishCurrentSubtest();
                   if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
                 }}

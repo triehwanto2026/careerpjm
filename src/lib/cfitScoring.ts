@@ -110,9 +110,67 @@ export const getCfitIqInfoFromResult = (result: CfitResultLike) => {
 
 export const getCfitProfileRows = (result: CfitResultLike) => {
   const info = getCfitIqInfoFromResult(result);
+  const categories = result.categories || {};
+  const segments = [
+    { key: "Series", alt: "S1 - Series", label: "Series", max: 13, note: "penalaran urutan dan kelanjutan pola" },
+    { key: "Classifications", alt: "S2 - Classifications", label: "Classifications", max: 14, note: "kemampuan mengelompokkan dan membedakan karakteristik visual" },
+    { key: "Matrices", alt: "S3 - Matrices", label: "Matrices", max: 13, note: "analisis relasi visual dan pola matriks" },
+    { key: "Conditions", alt: "S4 - Conditions", label: "Conditions", max: 10, note: "penalaran kondisi, aturan, dan konsistensi visual" },
+  ].map((segment) => {
+    const raw = toNumber(categories[segment.alt] ?? categories[segment.key]);
+    const pct = Math.round((raw / segment.max) * 100);
+    const level = pct >= 80 ? "Sangat Tinggi" : pct >= 65 ? "Tinggi" : pct >= 45 ? "Sedang" : pct >= 30 ? "Rendah" : "Sangat Rendah";
+    return { ...segment, raw, pct, level };
+  });
   return [
     { label: "Raw Score", value: `${info.raw}/${info.max}`, note: "Jumlah soal benar" },
     { label: "IQ Score", value: String(info.iq), note: "Konversi raw score CFIT 3A" },
     { label: "Klasifikasi", value: info.classification, note: info.note },
+    ...segments.map((segment) => ({
+      label: segment.label,
+      value: `${segment.raw}/${segment.max}`,
+      note: `${segment.level} - ${segment.note}`,
+    })),
   ];
+};
+
+export const buildCfitInterpretation = (result: CfitResultLike) => {
+  const info = getCfitIqInfoFromResult(result);
+  const categories = result.categories || {};
+  const segments = [
+    { key: "Series", alt: "S1 - Series", label: "Series", max: 13, insight: "kemampuan mengenali urutan, kelanjutan pola, dan penalaran induktif visual" },
+    { key: "Classifications", alt: "S2 - Classifications", label: "Classifications", max: 14, insight: "kemampuan membedakan karakteristik, mengelompokkan stimulus, dan memilih elemen yang sesuai/tidak sesuai" },
+    { key: "Matrices", alt: "S3 - Matrices", label: "Matrices", max: 13, insight: "kemampuan memahami relasi visual kompleks, analogi figural, dan pola matriks" },
+    { key: "Conditions", alt: "S4 - Conditions", label: "Conditions", max: 10, insight: "kemampuan mengikuti aturan visual, konsistensi kondisi, dan ketepatan logika nonverbal" },
+  ].map((segment) => {
+    const raw = toNumber(categories[segment.alt] ?? categories[segment.key]);
+    const pct = Math.round((raw / segment.max) * 100);
+    const level = pct >= 80 ? "Sangat Tinggi" : pct >= 65 ? "Tinggi" : pct >= 45 ? "Sedang" : pct >= 30 ? "Rendah" : "Sangat Rendah";
+    return { ...segment, raw, pct, level };
+  });
+  const best = [...segments].sort((a, b) => b.pct - a.pct)[0];
+  const watch = [...segments].sort((a, b) => a.pct - b.pct)[0];
+  const segmentText = segments.map((segment) => `${segment.label}: ${segment.raw}/${segment.max} (${segment.pct}%, ${segment.level})`).join("; ");
+  const highSegments = segments.filter((segment) => segment.pct >= 65);
+  const lowSegments = segments.filter((segment) => segment.pct < 45);
+
+  return `Estimasi IQ CFIT 3A kandidat adalah ${info.iq} dengan klasifikasi ${info.classification}. Raw score terhitung ${info.raw}/${info.max}; secara umum hasil ini menunjukkan ${info.note}.
+
+Insight umum:
+CFIT 3A terutama membaca penalaran nonverbal, kemampuan menangkap pola, klasifikasi visual, relasi figural, dan pemecahan masalah abstrak yang relatif minim pengaruh bahasa. Kekuatan relatif kandidat tampak pada segmen ${best.label} (${best.raw}/${best.max}; ${best.level}), yang berkaitan dengan ${best.insight}. Area yang perlu diperhatikan adalah ${watch.label} (${watch.raw}/${watch.max}; ${watch.level}), yang berkaitan dengan ${watch.insight}.
+
+Profil segmen:
+${segmentText}.
+
+Kekuatan utama:
+${highSegments.length ? highSegments.map((segment) => `${segment.label}: ${segment.insight} berada pada taraf ${segment.level.toLowerCase()}.`).join("\n") : "Tidak ada segmen yang sangat menonjol; profil lebih perlu dibaca dari skor total dan konsistensi antar segmen."}
+
+Area pengembangan:
+${lowSegments.length ? lowSegments.map((segment) => `${segment.label}: ${segment.insight} perlu divalidasi lebih lanjut, terutama bila posisi menuntut aspek tersebut.`).join("\n") : "Tidak ada segmen rendah yang menonjol."}
+
+Implikasi kerja:
+Skor CFIT yang lebih tinggi umumnya mendukung pekerjaan yang membutuhkan pemahaman pola baru, analisis abstrak, problem solving nonverbal, dan belajar cepat dari struktur yang belum familiar. Untuk posisi yang lebih prosedural atau sangat verbal, interpretasi CFIT tetap perlu diseimbangkan dengan tes lain, wawancara, dan bukti pengalaman kerja.
+
+Catatan psikolog:
+CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Hasil dapat dipengaruhi kondisi saat tes, pemahaman instruksi, kecepatan kerja, dan konsentrasi. Gunakan bersama observasi perilaku, riwayat pendidikan/kerja, dan tuntutan jabatan.`;
 };

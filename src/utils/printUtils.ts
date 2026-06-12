@@ -1,7 +1,10 @@
 // Shared print utilities for Results page and RecruitmentProcess modal
-import { getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildCfitInterpretation, getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildDiscInterpretation } from "@/lib/discScoring";
+import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { getPapiRows, isPapiName } from "@/lib/papiScoring";
+import { buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
+import { buildPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 
 export interface PrintResult {
   id: string;
@@ -142,7 +145,21 @@ export const generatePrintHTML = (
   const mbtiRows = isMbti ? getMbtiRows(cats) : [];
   const mbtiType = isMbti ? getMbtiType(cats) : "";
   const isKraepelin = r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in cats);
-  const isPapi = isPapiName(r.test_name) || Object.keys(cats).some((key) => getPapiRows(cats).some((row) => row.code === key));
+  const isPapi = isPapiName(r.test_name) || (
+    !r.test_name.toUpperCase().includes("DISC")
+    && Object.keys(cats).filter((key) => getPapiRows(cats).some((row) => row.code === key)).length >= 8
+  );
+  const isPersonalityPlus = r.test_name.toUpperCase().includes("PERSONALITY PLUS") || r.test_name.toUpperCase().includes("TEMPERAMEN");
+  const isIst = isIstName(r.test_name) || Object.keys(cats).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
+  const autoInterpretation = isPersonalityPlus
+    ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40)
+    : isIst
+      ? buildIstInterpretation(cats, r.score)
+    : cfitInfo
+      ? buildCfitInterpretation(r)
+    : isPapi
+      ? buildPapiInterpretation(cats)
+    : r.interpretation || "";
   const kraepelinRows = [
     { label: "Kecepatan", value: `${Number(cats.speed || 0)}%`, note: "Tempo kerja hitung" },
     { label: "Ketelitian", value: `${Number(cats.accuracy || 0)}%`, note: "Akurasi jawaban" },
@@ -160,29 +177,11 @@ export const generatePrintHTML = (
     const dominant = topCategories[0];
     const secondary = topCategories[1];
 
-    const interpretations: Record<string, string> = {
-      'D': `Dominance (D) yang tinggi menunjukkan kandidat memiliki kemampuan leadership yang kuat, berorientasi pada hasil, dan tegas dalam pengambilan keputusan. Cocok untuk peran manajerial, entrepreneur, atau posisi yang membutuhkan kemampuan mengarahkan dan memotivasi orang lain.`,
-      'I': `Influence (I) yang tinggi menunjukkan kandidat memiliki kemampuan komunikasi dan interpersonal yang baik, persuasif, dan energik. Cocok untuk peran sales, marketing, public relations, atau posisi yang membutuhkan interaksi intensif dengan orang lain.`,
-      'S': `Steadiness (S) yang tinggi menunjukkan kandidat memiliki sifat stabil, sabar, dan mendukung tim. Cocok untuk peran customer service, HR, counseling, atau posisi yang membutuhkan konsistensi dan kemampuan membangun hubungan jangka panjang.`,
-      'C': `Conscientiousness (C) yang tinggi menunjukkan kandidat memiliki ketelitian tinggi, analitis, dan memprioritaskan kualitas. Cocok untuk peran analyst, quality control, engineering, atau posisi yang membutuhkan akurasi dan perhatian detail.`
-    };
-
-    const jobMatches: Record<string, string> = {
-      'D': "Manager, Entrepreneur, Sales Director, Director, CEO, Project Leader",
-      'I': "Sales, Public Relations, Marketing, Trainer, Public Speaker, Event Coordinator",
-      'S': "Counselor, Teacher, Nurse, HR, Customer Service, Therapist, Administrator",
-      'C': "Accountant, Engineer, Analyst, Researcher, Quality Control, Programmer, Auditor"
-    };
-
     discInterpretation = `
       <div class="section">
         <div class="section-title">Interpretasi Psikolog - Analisa DISC</div>
         <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 14px; border-radius: 0 8px 8px 0; font-size: 10pt; line-height: 1.7; color: #422006;">
-          <p style="font-weight: 700; margin-bottom: 8px;">Profil Dominan: ${dominant}${secondary ? ` & ${secondary}` : ''}</p>
-          <p style="margin-bottom: 8px;">${interpretations[dominant] || ''}</p>
-          ${secondary ? `<p style="margin-bottom: 8px;">Kombinasi dengan ${secondary} memberikan keseimbangan antara kekuatan ${dominant} dan stabilitas ${secondary}.</p>` : ''}
-          <p style="margin-top: 12px; font-weight: 600;"><strong>Pekerjaan yang Sesuai:</strong> ${jobMatches[dominant] || 'Berbagai peran profesional'}</p>
-          <p style="margin-top: 8px;"><strong>Rekomendasi:</strong> Kandidat menunjukkan potensi tinggi untuk peran yang sesuai dengan profil ${dominant}. Pertimbangkan untuk penempatan di posisi yang memanfaatkan kekuatan alami ini.</p>
+          <div style="white-space:pre-line;">${buildDiscInterpretation(cats, r.total_questions || 24).replace(/</g, '&lt;')}</div>
         </div>
       </div>`;
 
@@ -364,10 +363,10 @@ export const generatePrintHTML = (
   </div>
   ` : ''}
 
-  ${r.interpretation && !isMbti ? `
+  ${autoInterpretation && !isMbti && !r.test_name.toUpperCase().includes("DISC") ? `
   <div class="section">
     <div class="section-title">Interpretasi Psikolog</div>
-    <div class="interpretation">${r.interpretation.replace(/</g, '&lt;').replace(/\n/g, '<br/>')}</div>
+    <div class="interpretation">${autoInterpretation.replace(/</g, '&lt;').replace(/\n/g, '<br/>')}</div>
   </div>
   ` : ''}
 

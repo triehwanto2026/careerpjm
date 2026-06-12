@@ -4,19 +4,32 @@ import { Camera, CameraOff } from "lucide-react";
 export interface WebcamHandle {
   /** Capture current frame and return a data URL (jpeg). Null if camera not ready. */
   capture: () => string | null;
+  isActive: () => boolean;
 }
 
-const WebcamPreview = forwardRef<WebcamHandle>((_props, ref) => {
+type WebcamStatus = "pending" | "active" | "error";
+
+interface WebcamPreviewProps {
+  onStatusChange?: (status: WebcamStatus) => void;
+}
+
+const WebcamPreview = forwardRef<WebcamHandle, WebcamPreviewProps>(({ onStatusChange }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isActive, setIsActive] = useState(false);
   const [error, setError] = useState(false);
 
+  const updateStatus = (status: WebcamStatus) => {
+    setIsActive(status === "active");
+    setError(status === "error");
+    onStatusChange?.(status);
+  };
+
   useImperativeHandle(ref, () => ({
     capture: () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      if (!video || !canvas || !isActive) return null;
+      if (!video || !canvas || !isActive || video.readyState < 2 || video.videoWidth === 0) return null;
       canvas.width = video.videoWidth || 320;
       canvas.height = video.videoHeight || 240;
       const ctx = canvas.getContext("2d");
@@ -24,25 +37,35 @@ const WebcamPreview = forwardRef<WebcamHandle>((_props, ref) => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL("image/jpeg", 0.85);
     },
+    isActive: () => isActive,
   }), [isActive]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
+    let cancelled = false;
     const startWebcam = async () => {
+      onStatusChange?.("pending");
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 320, height: 240, facingMode: "user" },
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setIsActive(true);
-        }
+        if (cancelled || !videoRef.current) return;
+        stream.getVideoTracks().forEach((track) => {
+          track.addEventListener("ended", () => updateStatus("error"), { once: true });
+          track.addEventListener("mute", () => updateStatus("error"), { once: true });
+        });
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        if (!cancelled) updateStatus("active");
       } catch {
-        setError(true);
+        if (!cancelled) updateStatus("error");
       }
     };
     startWebcam();
-    return () => { stream?.getTracks().forEach((t) => t.stop()); };
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
   }, []);
 
   return (

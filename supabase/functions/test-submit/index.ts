@@ -446,9 +446,21 @@ Deno.serve(async (req) => {
             : normalizedCats,
           status,
           interpretation: isIst
-            ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor mentah ${Math.round(totalScore)} dari maksimum ${Math.round(maxPossibleScore)}; skor akhir ${score}%. Profil subtes menunjukkan distribusi kemampuan pada aspek verbal, generalisasi, numerik, figural, spasial, dan memori.`
+            ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor mentah ${Math.round(totalScore)} dari maksimum ${Math.round(maxPossibleScore)}; skor akhir ${score}%.
+
+Insight umum: hasil IST menggambarkan struktur kemampuan intelektual kandidat pada aspek verbal, konseptual, numerik, figural-spasial, dan memori. Distribusi subtes perlu dibaca untuk melihat kekuatan relatif dan area yang memerlukan dukungan, bukan hanya skor total.
+
+Profil subtes: ${Object.entries(normalizedCats).filter(([key]) => /^[A-Z]{2}\s*-/.test(key)).map(([key, value]) => `${key}=${value}`).join("; ")}.
+
+Catatan psikolog: interpretasi IST perlu dipadukan dengan wawancara, riwayat pendidikan/kerja, observasi perilaku saat tes, dan tuntutan jabatan. Skor rendah pada satu subtes tidak otomatis menggugurkan kandidat bila aspek tersebut tidak dominan pada posisi yang dilamar.`
             : isCfit && cfitIqInfo
-              ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Raw score ${correctCount} dari ${questions.length}; estimasi IQ ${cfitIqInfo.iq} dengan klasifikasi ${cfitIqInfo.classification}.`
+              ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Raw score ${correctCount} dari ${questions.length}; estimasi IQ ${cfitIqInfo.iq} dengan klasifikasi ${cfitIqInfo.classification}.
+
+Insight umum: CFIT 3A membaca kemampuan penalaran nonverbal, pengenalan pola, klasifikasi visual, relasi figural, dan pemecahan masalah abstrak yang relatif minim pengaruh bahasa. Hasil ini membantu memperkirakan kecepatan kandidat memahami struktur baru dan menyelesaikan masalah berbasis pola.
+
+Profil segmen: ${Object.entries(normalizedCats).filter(([key]) => ["Series", "Classifications", "Matrices", "Conditions", "S1 - Series", "S2 - Classifications", "S3 - Matrices", "S4 - Conditions"].includes(key)).map(([key, value]) => `${key}=${value}`).join("; ")}.
+
+Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Hasil perlu dipadukan dengan wawancara, observasi perilaku, riwayat pendidikan/kerja, serta tuntutan jabatan.`
             : isKraepelin && kraepelinMetrics
               ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Benar ${correctCount}, salah ${Math.max(0, answeredCount - correctCount)}. Kecepatan ${kraepelinMetrics.speed}%, ketelitian ${kraepelinMetrics.accuracy}%, stabilitas ${kraepelinMetrics.stability}%, dan kapasitas kerja ${kraepelinMetrics.work_capacity}%.`
             : isMbti
