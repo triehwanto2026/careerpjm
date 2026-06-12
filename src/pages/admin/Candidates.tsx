@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Key, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, FileText, Save } from "lucide-react";
+import { Search, Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Key, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, FileText, Save, Brain } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,6 +133,14 @@ const Candidates = () => {
   const [passwordMode, setPasswordMode] = useState<"default" | "custom">("default");
   const [newCandidatePassword, setNewCandidatePassword] = useState(generateStrongPassword());
   const [authActionLoading, setAuthActionLoading] = useState(false);
+  const [activeInstruments, setActiveInstruments] = useState<{ id: string; name: string }[]>([]);
+  const [showPsychTestModal, setShowPsychTestModal] = useState(false);
+  const [psychTestCandidate, setPsychTestCandidate] = useState<CandidateRow | null>(null);
+  const [psychSelectedTests, setPsychSelectedTests] = useState<string[]>([]);
+  const [psychExpiresAt, setPsychExpiresAt] = useState("");
+  const [psychProcessing, setPsychProcessing] = useState(false);
+  const [psychAccess, setPsychAccess] = useState<{ code: string; password: string } | null>(null);
+  const [psychExistingCodes, setPsychExistingCodes] = useState<any[]>([]);
 
   // Edit modal states
   const [showEditModal, setShowEditModal] = useState(false);
@@ -393,10 +401,24 @@ const Candidates = () => {
 
   useEffect(() => { 
     load(); 
+    loadActiveInstruments();
     if (activeView === 'verify') {
       loadUnverifiedCandidates();
     }
   }, [activeView]);
+
+  const loadActiveInstruments = async () => {
+    const { data, error } = await supabase
+      .from("test_instruments")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name");
+    if (error) {
+      console.error("Error loading active instruments:", error);
+      return;
+    }
+    setActiveInstruments((data as { id: string; name: string }[]) || []);
+  };
   
   const loadUnverifiedCandidates = async () => {
     setLoadingUnverified(true);
@@ -581,6 +603,121 @@ const Candidates = () => {
         Swal.fire({ icon: 'error', title: 'Gagal', text: error.message, ...SWAL_THEME() });
       }
     }
+  };
+
+  const randomCodePart = (length: number) => {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  };
+
+  const isBcryptPassword = (password?: string | null) => /^\$2[aby]\$\d{2}\$/.test(String(password || ""));
+
+  const openPsychTestModal = async (candidate: CandidateRow) => {
+    setPsychTestCandidate(candidate);
+    setPsychSelectedTests([]);
+    setPsychExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+    setPsychAccess(null);
+    setPsychExistingCodes([]);
+    setShowPsychTestModal(true);
+
+    const { data, error } = await supabase
+      .from("activation_codes")
+      .select("*")
+      .eq("candidate_email", candidate.email)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error loading activation codes:", error);
+      return;
+    }
+
+    const codes = data || [];
+    setPsychExistingCodes(codes);
+    const reusableCode = codes.find((code: any) => code.password && !isBcryptPassword(code.password));
+    if (reusableCode) {
+      setPsychSelectedTests(reusableCode.assigned_tests || []);
+      setPsychExpiresAt(reusableCode.expires_at ? reusableCode.expires_at.split("T")[0] : "");
+      setPsychAccess({ code: reusableCode.code, password: reusableCode.password });
+    }
+  };
+
+  const togglePsychTest = (id: string) => {
+    setPsychSelectedTests((prev) => prev.includes(id) ? prev.filter((testId) => testId !== id) : [...prev, id]);
+  };
+
+  const getPsychSelectedNames = (ids = psychSelectedTests) => ids
+    .map((id) => activeInstruments.find((instrument) => instrument.id === id)?.name || id)
+    .join(", ");
+
+  const buildPsychTestMessage = () => {
+    if (!psychTestCandidate || !psychAccess) return "";
+    return `Yth. ${psychTestCandidate.name},
+
+Berikut akses Tes Psikologi Anda:
+Halaman tes: ${window.location.origin}/test-login
+Kode: ${psychAccess.code}
+Password: ${psychAccess.password}
+Tes: ${getPsychSelectedNames() || "-"}
+
+Mohon mengerjakan tes sebelum tanggal ${psychExpiresAt || "-"}.
+
+Terima kasih.`;
+  };
+
+  const savePsychTestCode = async () => {
+    if (!psychTestCandidate) return;
+    if (psychSelectedTests.length === 0) {
+      Swal.fire({ icon: "warning", title: "Pilih tes", text: "Pilih minimal 1 alat tes.", ...SWAL_THEME() });
+      return;
+    }
+    setPsychProcessing(true);
+    try {
+      const code = `PSY-${randomCodePart(6)}`;
+      const password = randomCodePart(8);
+      const payload = {
+        code,
+        password,
+        candidate_name: psychTestCandidate.name,
+        candidate_email: psychTestCandidate.email,
+        position: psychTestCandidate.position || "Tes Psikologi",
+        status: "active",
+        expires_at: psychExpiresAt || null,
+        assigned_tests: psychSelectedTests,
+      };
+      const { data, error } = await supabase.from("activation_codes").insert(payload as any).select("*").single();
+      if (error) throw error;
+      setPsychAccess({ code, password });
+      setPsychExistingCodes((prev) => [data || payload, ...prev]);
+      Swal.fire({ icon: "success", title: "Kode Tes Dibuat", text: "Kode dan password siap dikirim ke kandidat.", timer: 1600, showConfirmButton: false, ...SWAL_THEME() });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Gagal membuat kode tes", text: error.message || "Terjadi kesalahan.", ...SWAL_THEME() });
+    } finally {
+      setPsychProcessing(false);
+    }
+  };
+
+  const normalizeWhatsAppPhone = (phone?: string) => {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("62")) return digits;
+    if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+    return digits;
+  };
+
+  const sendPsychAccessWhatsApp = () => {
+    if (!psychTestCandidate || !psychAccess) return;
+    const phone = normalizeWhatsAppPhone(psychTestCandidate.phone);
+    if (!phone) {
+      Swal.fire({ icon: "warning", title: "Nomor belum tersedia", text: "Nomor WhatsApp kandidat belum tersedia.", ...SWAL_THEME() });
+      return;
+    }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildPsychTestMessage())}`, "_blank", "noopener,noreferrer");
+  };
+
+  const sendPsychAccessEmail = () => {
+    if (!psychTestCandidate || !psychAccess) return;
+    const subject = "Akses Tes Psikologi";
+    window.location.href = `mailto:${psychTestCandidate.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(buildPsychTestMessage())}`;
   };
 
   const handleActivateLogin = async (candidate: CandidateRow) => {
@@ -1112,12 +1249,15 @@ const Candidates = () => {
       .order("created_at", { ascending: false });
     setCandidateDocs(docsData || []);
     
-    // Fetch test results
-    const { data: resultsData } = await supabase
-      .from("test_results")
-      .select("*, test:test_instruments(name, category)")
-      .eq("candidate_id", c.id)
-      .order("created_at", { ascending: false });
+    // Fetch test results from every candidate identifier used across modules.
+    const resultCandidateIds = [c.id, c.user_id, c.profile_id, profileData?.id, profileData?.user_id].filter(Boolean);
+    const { data: resultsData } = resultCandidateIds.length > 0
+      ? await supabase
+          .from("test_results")
+          .select("*, test:test_instruments(name, category)")
+          .in("candidate_id", resultCandidateIds)
+          .order("created_at", { ascending: false })
+      : { data: [] };
     setCandidateResults(resultsData || []);
     
     setDetailLoading(false);
@@ -1584,13 +1724,15 @@ const Candidates = () => {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {c.photo_url ? (
-                        <img src={c.photo_url} alt={c.name} className="h-10 w-10 rounded-full object-cover border border-border" />
+                        <img src={c.photo_url} alt={c.name || c.email || "Kandidat"} className="h-10 w-10 rounded-full object-cover border border-border" />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">{c.name.charAt(0)}</div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">
+                          {(c.name || c.email || "K").charAt(0).toUpperCase()}
+                        </div>
                       )}
                       <div>
-                        <p className="font-medium text-foreground">{c.name}</p>
-                        <p className="text-xs text-muted-foreground">{c.email}</p>
+                        <p className="font-medium text-foreground">{c.name || c.email || "Kandidat"}</p>
+                        <p className="text-xs text-muted-foreground">{c.email || "-"}</p>
                         {c.is_complete && (
                           <span className="mt-1 inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">Profil lengkap</span>
                         )}
@@ -1634,6 +1776,9 @@ const Candidates = () => {
                       </button>
                       <button onClick={() => handleResetPassword(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-500 transition-colors" title="Reset Password">
                         <Key className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => openPsychTestModal(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-500 transition-colors" title="Tes Psikologi">
+                        <Brain className="h-4 w-4" />
                       </button>
                       <button onClick={() => handleActivateLogin(c)} disabled={authActionLoading} className="rounded-md p-1.5 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors disabled:opacity-50" title="Aktivasi Login Tanpa Email">
                         <CheckCircle className="h-4 w-4" />
@@ -1880,7 +2025,9 @@ const Candidates = () => {
                     <button type="button" onClick={() => setForm(f => ({ ...f, photo_url: null }))} className="absolute -right-1 -top-1 rounded-full bg-destructive p-1 text-destructive-foreground"><X className="h-3.5 w-3.5" /></button>
                   </div>
                 ) : (
-                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-muted text-muted-foreground text-3xl font-bold">{form.name.charAt(0).toUpperCase() || "?"}</div>
+                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-muted text-muted-foreground text-3xl font-bold">
+                    {(form.name || form.email || "?").charAt(0).toUpperCase()}
+                  </div>
                 )}
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onPickFile(e.target.files[0])} />
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
@@ -1918,26 +2065,31 @@ const Candidates = () => {
       {/* Detail Modal */}
       {showDetailModal && selectedCandidate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowDetailModal(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="glass relative w-full max-w-2xl rounded-2xl glow-border max-h-[90vh] overflow-y-auto">
+          <div onClick={(e) => e.stopPropagation()} className="glass relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl glow-border">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-6 py-4">
               <h2 className="text-lg font-bold text-foreground">Detail Kandidat</h2>
               <button type="button" onClick={() => setShowDetailModal(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-5 w-5" /></button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
               {/* Profile Header */}
-              <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-border">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 {selectedCandidate.photo_url || candidateProfile?.photo_url ? (
-                  <img src={selectedCandidate.photo_url || candidateProfile?.photo_url} alt={selectedCandidate.name} className="h-32 w-32 rounded-full object-cover border-4 border-primary/30 shadow-lg" />
+                  <img src={selectedCandidate.photo_url || candidateProfile?.photo_url} alt={selectedCandidate.name || "Kandidat"} className="h-20 w-20 rounded-xl object-cover border border-border shadow-sm" />
                 ) : (
-                  <div className="flex h-32 w-32 items-center justify-center rounded-full bg-primary/10 text-primary text-5xl font-bold border-4 border-primary/30 shadow-lg">
-                    {selectedCandidate.name.charAt(0)}
+                  <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 text-primary text-2xl font-bold border border-primary/20">
+                    {(selectedCandidate.name || selectedCandidate.email || "K").charAt(0).toUpperCase()}
                   </div>
                 )}
-                <div className="flex-1 text-center sm:text-left">
-                  <h3 className="text-2xl font-bold text-foreground mb-2">{selectedCandidate.name}</h3>
-                  <p className="text-muted-foreground mb-3">{selectedCandidate.position || candidateProfile?.current_position || "Posisi tidak ditentukan"}</p>
-                  <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xl font-bold text-foreground">{selectedCandidate.name || selectedCandidate.email || "Kandidat"}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <span className="break-all">{selectedCandidate.email}</span>
+                    <span>{selectedCandidate.phone || "-"}</span>
+                    <span>{selectedCandidate.position || candidateProfile?.current_position || "Posisi tidak ditentukan"}</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${statusMap[selectedCandidate.status]?.cls}`}>
                       {statusMap[selectedCandidate.status]?.label || selectedCandidate.status}
                     </span>
@@ -1947,6 +2099,11 @@ const Candidates = () => {
                       </span>
                     )}
                   </div>
+                </div>
+                <button onClick={() => openPsychTestModal(selectedCandidate)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-500 hover:bg-violet-500/20">
+                  <Brain className="h-4 w-4" />
+                  Tes Psikologi
+                </button>
                 </div>
               </div>
 
@@ -2025,7 +2182,7 @@ const Candidates = () => {
                         <>
                           {/* Data Pribadi */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">📋 Data Pribadi</h4>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><User className="h-4 w-4 text-primary" />Data Pribadi</h4>
                             <div className="grid gap-3 sm:grid-cols-2 text-sm">
                               <InfoRow label="NIK" value={candidateProfile.nik || "-"} />
                               <InfoRow label="NPWP" value={candidateProfile.npwp || "-"} />
@@ -2043,7 +2200,7 @@ const Candidates = () => {
 
                           {/* Alamat */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">🏠 Alamat</h4>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Home className="h-4 w-4 text-primary" />Alamat</h4>
                             <div className="grid gap-3 text-sm">
                               <InfoRow label="Alamat Lengkap" value={candidateProfile.address || "-"} full />
                               <div className="grid sm:grid-cols-3 gap-3">
@@ -2056,7 +2213,7 @@ const Candidates = () => {
 
                           {/* Data Fisik */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">💪 Data Fisik</h4>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Ruler className="h-4 w-4 text-primary" />Data Fisik</h4>
                             <div className="grid gap-3 sm:grid-cols-4 text-sm">
                               <InfoRow label="Tinggi" value={candidateProfile.height_cm ? `${candidateProfile.height_cm} cm` : "-"} />
                               <InfoRow label="Berat" value={candidateProfile.weight_kg ? `${candidateProfile.weight_kg} kg` : "-"} />
@@ -2069,7 +2226,7 @@ const Candidates = () => {
 
                           {/* Pendidikan */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">🎓 Pendidikan</h4>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><GraduationCap className="h-4 w-4 text-primary" />Pendidikan</h4>
                             <div className="grid gap-3 sm:grid-cols-2 text-sm">
                               <InfoRow label="Jenjang" value={candidateProfile.education_level || "-"} />
                               <InfoRow label="Jurusan" value={candidateProfile.education_major || "-"} />
@@ -2081,7 +2238,7 @@ const Candidates = () => {
 
                           {/* Data Keluarga */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">👨‍👩‍👧‍👦 Data Keluarga</h4>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Heart className="h-4 w-4 text-primary" />Data Keluarga</h4>
                             <div className="grid gap-3 sm:grid-cols-2 text-sm">
                               <InfoRow label="Nama Ayah" value={candidateProfile.father_name || "-"} />
                               <InfoRow label="Nama Ibu" value={candidateProfile.mother_name || "-"} />
@@ -2092,7 +2249,7 @@ const Candidates = () => {
 
                           {/* Kontak Darurat */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">🚨 Kontak Darurat</h4>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Phone className="h-4 w-4 text-primary" />Kontak Darurat</h4>
                             <div className="grid gap-3 sm:grid-cols-3 text-sm">
                               <InfoRow label="Nama Kontak" value={candidateProfile.emergency_contact_name || "-"} />
                               <InfoRow label="Hubungan" value={candidateProfile.emergency_contact_relation || "-"} />
@@ -2102,7 +2259,7 @@ const Candidates = () => {
 
                           {/* Informasi Lainnya */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">ℹ️ Informasi Lainnya</h4>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Informasi Lainnya</h4>
                             <div className="grid gap-3 sm:grid-cols-2 text-sm">
                               <InfoRow label="Hobi" value={candidateProfile.hobbies || "-"} />
                               <InfoRow label="SIM" value={candidateProfile.vehicle_license || "-"} />
@@ -2128,7 +2285,7 @@ const Candidates = () => {
                         candidateDocs.map((doc) => (
                           <div key={doc.id} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              �
+                              <FileText className="h-5 w-5 text-primary" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
@@ -2149,34 +2306,64 @@ const Candidates = () => {
                   )}
 
                   {activeDetailTab === "additional" && (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {candidateResults.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           Belum ada hasil tes
                         </div>
                       ) : (
-                        candidateResults.map((result) => (
-                          <div key={result.id} className="p-4 bg-muted/30 rounded-xl">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold text-foreground">{(result.test as any)?.name || "Tes"}</h4>
-                              <span className="text-xs text-muted-foreground">{result.created_at?.split("T")[0]}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-3">{(result.test as any)?.category || "-"}</p>
-                            {result.score !== null && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">Score:</span>
-                                <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-sm font-semibold">
-                                  {result.score}
-                                </span>
+                        <>
+                          {(() => {
+                            const scored = candidateResults.filter((result) => typeof result.score === "number");
+                            const avg = scored.length ? Math.round(scored.reduce((sum, result) => sum + Number(result.score || 0), 0) / scored.length) : null;
+                            const interpreted = candidateResults.filter((result) => result.interpretation).length;
+                            return (
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div className="rounded-xl border border-border bg-card p-4">
+                                  <div className="text-xs text-muted-foreground">Total Tes</div>
+                                  <div className="mt-1 text-2xl font-bold text-foreground">{candidateResults.length}</div>
+                                </div>
+                                <div className="rounded-xl border border-border bg-card p-4">
+                                  <div className="text-xs text-muted-foreground">Rata-rata Skor</div>
+                                  <div className="mt-1 text-2xl font-bold text-foreground">{avg ?? "-"}</div>
+                                </div>
+                                <div className="rounded-xl border border-border bg-card p-4">
+                                  <div className="text-xs text-muted-foreground">Interpretasi</div>
+                                  <div className="mt-1 text-2xl font-bold text-foreground">{interpreted}</div>
+                                </div>
                               </div>
-                            )}
-                            {result.interpretation && (
-                              <div className="mt-2 text-sm text-muted-foreground">
-                                <span className="font-medium">Interpretasi:</span> {result.interpretation}
+                            );
+                          })()}
+
+                          <div className="space-y-3">
+                            {candidateResults.map((result) => (
+                              <div key={result.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                  <div>
+                                    <h4 className="font-semibold text-foreground">{(result.test as any)?.name || result.test_name || "Tes Psikologi"}</h4>
+                                    <p className="text-sm text-muted-foreground">{(result.test as any)?.category || result.status || "-"}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {result.score !== null && result.score !== undefined && (
+                                      <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                                        Skor {result.score}
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">{(result.completed_at || result.created_at)?.split("T")[0] || "-"}</span>
+                                  </div>
+                                </div>
+                                <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kesimpulan Interpretasi</div>
+                                  <p className="mt-1 text-sm leading-relaxed text-foreground">
+                                    {formatInfoValue(result.interpretation) !== "-"
+                                      ? formatInfoValue(result.interpretation)
+                                      : "Belum ada interpretasi tersimpan untuk hasil tes ini."}
+                                  </p>
+                                </div>
                               </div>
-                            )}
+                            ))}
                           </div>
-                        ))
+                        </>
                       )}
                     </div>
                   )}
@@ -2187,6 +2374,138 @@ const Candidates = () => {
             <div className="sticky bottom-0 flex items-center justify-end border-t border-border bg-card/95 backdrop-blur-xl px-6 py-3">
               <button onClick={() => setShowDetailModal(false)} className="rounded-lg border border-border bg-card px-5 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPsychTestModal && psychTestCandidate && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-2 sm:p-4">
+          <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+            <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-border bg-muted/20 p-4">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Buat Kode Tes Psikologi</h2>
+                <p className="text-sm text-muted-foreground">{psychTestCandidate.name} - {psychTestCandidate.email}</p>
+              </div>
+              <button onClick={() => setShowPsychTestModal(false)} className="rounded p-1 text-muted-foreground hover:bg-muted">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+              <div className="rounded-lg border border-border bg-background p-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                  <span className="font-semibold text-foreground">{psychTestCandidate.name}</span>
+                  <span className="text-muted-foreground break-all">{psychTestCandidate.email}</span>
+                  <span className="text-muted-foreground">{psychTestCandidate.phone || "-"}</span>
+                  <span className="text-muted-foreground">{psychTestCandidate.position || "Tes Psikologi"}</span>
+                </div>
+              </div>
+
+              {psychExistingCodes.length > 0 && (
+                <div className="rounded-lg border border-border bg-muted/20 p-3">
+                  <div className="mb-2 text-sm font-semibold text-foreground">Kode Aktivasi Tersedia</div>
+                  <div className="space-y-2">
+                    {psychExistingCodes.map((code: any) => {
+                      const canSendPassword = code.password && !isBcryptPassword(code.password);
+                      const selected = psychAccess?.code === code.code;
+                      return (
+                        <div key={code.id || code.code} className={`rounded-lg border p-3 ${selected ? "border-emerald-300 bg-emerald-50" : "border-border bg-background"}`}>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="font-mono text-sm font-semibold text-primary">{code.code}</div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {code.assigned_tests?.length ? `Tes: ${getPsychSelectedNames(code.assigned_tests)}` : "Belum ada tes terpilih"}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {code.expires_at ? `Berlaku hingga ${formatDate(code.expires_at)}` : "Tanpa tanggal expire"}
+                              </div>
+                              {!canSendPassword && (
+                                <div className="mt-1 text-xs text-amber-600">Password lama tersimpan sebagai hash, buat kode baru untuk mengirim password asli.</div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!canSendPassword}
+                              onClick={() => {
+                                setPsychSelectedTests(code.assigned_tests || []);
+                                setPsychExpiresAt(code.expires_at ? code.expires_at.split("T")[0] : "");
+                                setPsychAccess({ code: code.code, password: code.password });
+                              }}
+                              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {selected ? "Dipakai" : "Pakai & Kirim"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Pilih Tes</label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {activeInstruments.map((instrument) => (
+                    <button
+                      key={instrument.id}
+                      type="button"
+                      onClick={() => togglePsychTest(instrument.id)}
+                      className={`min-h-12 rounded-lg border px-3 py-2 text-left transition ${psychSelectedTests.includes(instrument.id) ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-muted"}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium leading-tight text-foreground">{instrument.name}</span>
+                        {psychSelectedTests.includes(instrument.id) && <CheckCircle className="h-4 w-4 flex-shrink-0 text-primary" />}
+                      </div>
+                    </button>
+                  ))}
+                  {activeInstruments.length === 0 && (
+                    <div className="text-sm text-muted-foreground">Tidak ada alat tes aktif.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr]">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">Tanggal Expire</label>
+                  <input
+                    type="date"
+                    value={psychExpiresAt}
+                    onChange={(e) => setPsychExpiresAt(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <div className="text-xs text-muted-foreground">Ringkasan</div>
+                  <div className="mt-1 text-sm text-foreground">{psychSelectedTests.length ? `Tes dipilih: ${getPsychSelectedNames()}` : "Belum ada tes dipilih."}</div>
+                </div>
+              </div>
+
+              {psychAccess && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+                  <div className="text-sm font-semibold">Akses tes siap dikirim</div>
+                  <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                    <div>Kode: <span className="font-mono font-bold">{psychAccess.code}</span></div>
+                    <div>Password: <span className="font-mono font-bold">{psychAccess.password}</span></div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={sendPsychAccessWhatsApp} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                      <MessageSquare className="h-4 w-4" /> Kirim WA
+                    </button>
+                    <button onClick={sendPsychAccessEmail} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                      <Mail className="h-4 w-4" /> Kirim Email
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-shrink-0 flex-col-reverse gap-2 border-t border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-end">
+              <button onClick={() => setShowPsychTestModal(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Batal</button>
+              <button onClick={savePsychTestCode} disabled={psychProcessing} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60">
+                {psychProcessing ? "Menyimpan..." : psychAccess ? "Buat Kode Lagi" : "Buat Kode Tes"}
               </button>
             </div>
           </div>
@@ -3046,10 +3365,27 @@ const InfoCard = ({ label, value, icon }: { label: string; value: string; icon: 
   </div>
 );
 
-const InfoRow = ({ label, value, full }: { label: string; value: string; full?: boolean }) => (
+const formatInfoValue = (value: any) => {
+  if (value == null || value === "") return "-";
+  if (Array.isArray(value)) {
+    const text = value
+      .map((item) => {
+        if (item == null || item === "") return "";
+        if (typeof item === "object") return item.name || item.label || item.value || Object.values(item).filter(Boolean).join(" - ");
+        return String(item);
+      })
+      .filter(Boolean)
+      .join(", ");
+    return text || "-";
+  }
+  if (typeof value === "object") return Object.values(value).filter(Boolean).join(" - ") || "-";
+  return String(value);
+};
+
+const InfoRow = ({ label, value, full }: { label: string; value: any; full?: boolean }) => (
   <div className={`${full ? 'sm:col-span-2' : ''} flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3`}>
     <span className="text-xs text-muted-foreground sm:w-32 shrink-0">{label}</span>
-    <span className="text-foreground font-medium">{value}</span>
+    <span className="text-foreground font-medium break-words">{formatInfoValue(value)}</span>
   </div>
 );
 
