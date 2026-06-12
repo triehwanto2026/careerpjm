@@ -4,6 +4,7 @@ import { Search, Eye, Download, Printer, FileText } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { getCfitIqInfoFromResult, isCfitName } from "@/lib/cfitScoring";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -616,7 +617,7 @@ const Results = () => {
     ${(() => {
       // For CFIT, calculate IQ from correct answers
       let cfitIqHtml = '';
-      if (r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) {
+      if (isCfitName(r.test_name)) {
         const iqClassification: Record<number, { iq: number; classification: string }> = {
           49: { iq: 183, classification: "GENIUS" },
           48: { iq: 179, classification: "GENIUS" },
@@ -669,20 +670,19 @@ const Results = () => {
           1: { iq: 40, classification: "MODERATE MENTAL RETARDATION" },
           0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" }
         };
-        const correctCount = answers.filter(a => a.is_correct === true).length;
-        const iqInfo = iqClassification[correctCount] || { iq: 0, classification: "UNKNOWN" };
+        const iqInfo = getCfitIqInfoFromResult(r);
         cfitIqHtml = `
           <div class="score-cards">
             <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
             <div class="score-card"><div class="label">IQ Score</div><div class="value">${iqInfo.iq}</div></div>
             <div class="score-card"><div class="label">Klasifikasi</div><div class="value" style="font-size:13pt;margin-top:8px;">${iqInfo.classification}</div></div>
           </div>
-          <p style="text-align:center;font-size:9pt;color:#64748b;margin-top:8px;">Jawaban Benar: ${correctCount} / ${r.total_questions}</p>
+          <p style="text-align:center;font-size:9pt;color:#64748b;margin-top:8px;">Raw Score: ${iqInfo.raw} / ${iqInfo.max}</p>
         `;
       }
       return cfitIqHtml;
     })()}
-    ${!(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? (() => {
+    ${!isCfitName(r.test_name) ? (() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isIST = isIstResult(r);
       let dominantScore = '';
@@ -1275,7 +1275,7 @@ const Results = () => {
       );
     }
     // CFIT 3A - Culture Fair Intelligence Test
-    if (r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) {
+    if (isCfitName(r.test_name)) {
       // CFIT IQ Classification Table based on Raw Score (correct answers)
       const iqClassification: Record<number, { iq: number; classification: string }> = {
         49: { iq: 183, classification: "GENIUS" },
@@ -1330,10 +1330,8 @@ const Results = () => {
         0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" }
       };
 
-      // Calculate raw score from correct answers
-      const correctAnswers = answers.filter(a => a.is_correct === true).length;
-      const rawScore = correctAnswers;
-      const iqInfo = iqClassification[rawScore] || { iq: 0, classification: "UNKNOWN" };
+      const iqInfo = getCfitIqInfoFromResult(r);
+      const rawScore = iqInfo.raw;
 
       return (
         <div className="space-y-4">
@@ -1351,7 +1349,7 @@ const Results = () => {
                 <p className="text-xs text-muted-foreground mt-1">Klasifikasi</p>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">Jawaban Benar: {rawScore} / {r.total_questions}</p>
+            <p className="text-xs text-muted-foreground mt-3">Raw Score: {rawScore} / {iqInfo.max}</p>
           </div>
 
           {/* Line Chart with visible number scale */}
@@ -1499,9 +1497,9 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                 <p className="text-lg font-bold text-primary mt-1">{r.test_name}</p>
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
-                <p className="text-xs text-muted-foreground">{(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) ? "IQ Score" : isIstResult(r) ? "Skor IST" : isMbtiResult(r) ? "Tipe MBTI" : "Skor"}</p>
+                <p className="text-xs text-muted-foreground">{isCfitName(r.test_name) ? "IQ Score" : isIstResult(r) ? "Skor IST" : isMbtiResult(r) ? "Tipe MBTI" : "Skor"}</p>
                 <p className="text-3xl font-bold text-foreground mt-1">
-                  {(r.test_name.includes("CFIT") || r.test_name.includes("Culture Fair")) 
+                  {isCfitName(r.test_name) 
                     ? (() => {
                         const iqClassification: Record<number, { iq: number; classification: string }> = {
                           49: { iq: 183, classification: "GENIUS" },
@@ -1555,9 +1553,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                           1: { iq: 40, classification: "MODERATE MENTAL RETARDATION" },
                           0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" }
                         };
-                        const correctCount = answers.filter(a => a.is_correct === true).length;
-                        const iqInfo = iqClassification[correctCount] || { iq: 0, classification: "UNKNOWN" };
-                        return iqInfo.iq;
+                        return getCfitIqInfoFromResult(r).iq;
                       })()
                     : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus"))
                       ? (() => {

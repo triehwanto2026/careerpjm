@@ -1,4 +1,6 @@
 // Shared print utilities for Results page and RecruitmentProcess modal
+import { getCfitIqInfoFromResult, isCfitName } from "@/lib/cfitScoring";
+
 export interface PrintResult {
   id: string;
   candidate_name: string;
@@ -132,6 +134,7 @@ export const generatePrintHTML = (
   const catEntries = Object.entries(cats);
   const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
   const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
+  const cfitInfo = isCfitName(r.test_name) ? getCfitIqInfoFromResult(r) : null;
 
   // Generate DISC charts and interpretation if test is DISC
   let discChartsHTML = "";
@@ -289,7 +292,7 @@ export const generatePrintHTML = (
     <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
     <div class="score-cards">
       <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
-      <div class="score-card"><div class="label">Skor Akhir</div><div class="value">${r.score}${r.test_name.includes("CFIT") ? "" : "%"}</div></div>
+      <div class="score-card"><div class="label">${cfitInfo ? "IQ Score" : "Skor Akhir"}</div><div class="value">${cfitInfo ? cfitInfo.iq : `${r.score}%`}</div></div>
       <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
     </div>
   </div>

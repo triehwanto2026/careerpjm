@@ -44,6 +44,7 @@ const TestPage = () => {
   const [subtestStartedAt, setSubtestStartedAt] = useState<number>(Date.now());
   const [subtestIntroActive, setSubtestIntroActive] = useState(false);
   const shownIstSubtestsRef = useRef<Set<string>>(new Set());
+  const shownCfitSubtestsRef = useRef<Set<string>>(new Set());
 
   const loadAssignedTests = useCallback(async () => {
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -371,6 +372,8 @@ const TestPage = () => {
   };
 
   const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
+  const isCFIT = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("CFIT") || t.name.toUpperCase().includes("CULTURE FAIR"));
+  const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t);
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
 
@@ -627,24 +630,106 @@ const TestPage = () => {
     });
   }, []);
 
-  // Track current IST subtest when question changes
+  const showCfitSubtestExample = useCallback(async (subtestCode: string) => {
+    const code = String(subtestCode || "").toUpperCase();
+    const examples: Record<string, { title: string; instruction: string; example: string; note: string }> = {
+      S1: {
+        title: "CFIT 3A - Tes 1: Series",
+        instruction: "Pilih satu gambar/huruf yang paling tepat untuk melanjutkan deret pola.",
+        example: "Contoh: A B A B ? maka pola berikutnya adalah A.",
+        note: "Perhatikan perubahan bentuk, posisi, arah, jumlah, dan urutan pola.",
+      },
+      SERIES: {
+        title: "CFIT 3A - Tes 1: Series",
+        instruction: "Pilih satu gambar/huruf yang paling tepat untuk melanjutkan deret pola.",
+        example: "Contoh: A B A B ? maka pola berikutnya adalah A.",
+        note: "Perhatikan perubahan bentuk, posisi, arah, jumlah, dan urutan pola.",
+      },
+      S2: {
+        title: "CFIT 3A - Tes 2: Classifications",
+        instruction: "Pilih dua gambar/huruf yang bersama-sama membentuk kelompok jawaban yang tepat.",
+        example: "Contoh: jika jawaban yang benar adalah B dan E, pilih B serta E.",
+        note: "Pada Tes 2 setiap soal harus memilih tepat 2 pilihan.",
+      },
+      CLASSIFICATIONS: {
+        title: "CFIT 3A - Tes 2: Classifications",
+        instruction: "Pilih dua gambar/huruf yang bersama-sama membentuk kelompok jawaban yang tepat.",
+        example: "Contoh: jika jawaban yang benar adalah B dan E, pilih B serta E.",
+        note: "Pada Tes 2 setiap soal harus memilih tepat 2 pilihan.",
+      },
+      S3: {
+        title: "CFIT 3A - Tes 3: Matrices",
+        instruction: "Pilih satu gambar/huruf yang paling tepat untuk melengkapi matriks/pola.",
+        example: "Contoh: cari aturan baris dan kolom, lalu pilih opsi yang melengkapi bagian kosong.",
+        note: "Perhatikan relasi antar bentuk secara horizontal dan vertikal.",
+      },
+      MATRICES: {
+        title: "CFIT 3A - Tes 3: Matrices",
+        instruction: "Pilih satu gambar/huruf yang paling tepat untuk melengkapi matriks/pola.",
+        example: "Contoh: cari aturan baris dan kolom, lalu pilih opsi yang melengkapi bagian kosong.",
+        note: "Perhatikan relasi antar bentuk secara horizontal dan vertikal.",
+      },
+      S4: {
+        title: "CFIT 3A - Tes 4: Conditions",
+        instruction: "Pilih satu gambar/huruf yang memenuhi kondisi atau aturan yang sama dengan contoh.",
+        example: "Contoh: jika titik berada di dalam lingkaran tetapi di luar segitiga, pilih opsi dengan kondisi yang sama.",
+        note: "Baca kondisi posisi/relasi bentuk dengan teliti.",
+      },
+      CONDITIONS: {
+        title: "CFIT 3A - Tes 4: Conditions",
+        instruction: "Pilih satu gambar/huruf yang memenuhi kondisi atau aturan yang sama dengan contoh.",
+        example: "Contoh: jika titik berada di dalam lingkaran tetapi di luar segitiga, pilih opsi dengan kondisi yang sama.",
+        note: "Baca kondisi posisi/relasi bentuk dengan teliti.",
+      },
+    };
+    const item = examples[code];
+    if (!item) return;
+
+    await Swal.fire({
+      title: item.title,
+      html: `
+        <div style="text-align:left;line-height:1.6">
+          <div style="padding:12px;border-radius:8px;background:hsla(174,72%,46%,0.1);border:1px solid hsla(174,72%,46%,0.3);margin-bottom:12px">
+            <strong>Petunjuk:</strong><br/>${item.instruction}
+          </div>
+          <div style="padding:12px;border-radius:8px;background:hsla(210,14%,15%,0.6);border:1px solid hsla(210,14%,25%);margin-bottom:12px">
+            <strong>Contoh:</strong><br/>${item.example}
+          </div>
+          <p style="margin:0;color:hsl(210,20%,75%)">${item.note}</p>
+          <p style="margin:12px 0 0;color:hsl(174,72%,46%);font-size:13px">Waktu segmen akan mulai berjalan setelah Anda menekan tombol Mulai.</p>
+        </div>
+      `,
+      confirmButtonText: "Mulai Segmen",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      ...SWAL_THEME,
+      customClass: { popup: "ist-example-modal" },
+    });
+  }, []);
+
+  // Track current IST/CFIT subtest when question changes
   useEffect(() => {
-    if (isIST(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
+    if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
       const nextSubtest = currentQuestion.subtest_code;
       const introKey = `${currentTest.id}:${nextSubtest}`;
       setCurrentSubtest(nextSubtest);
+      const shownRef = isCFIT(currentTest) ? shownCfitSubtestsRef : shownIstSubtestsRef;
 
-      if (shownIstSubtestsRef.current.has(introKey)) {
+      if (shownRef.current.has(introKey)) {
         setSubtestStartedAt(Date.now());
         return;
       }
 
-      shownIstSubtestsRef.current.add(introKey);
+      shownRef.current.add(introKey);
       setSubtestIntroActive(true);
       (async () => {
         const pauseStartedAt = Date.now();
-        await showSubtestExample(nextSubtest);
-        if (nextSubtest === 'ME') {
+        if (isCFIT(currentTest)) {
+          await showCfitSubtestExample(nextSubtest);
+        } else {
+          await showSubtestExample(nextSubtest);
+        }
+        if (isIST(currentTest) && nextSubtest === 'ME') {
           await showMemoryItems();
         }
         const pauseDuration = Date.now() - pauseStartedAt;
@@ -654,7 +739,7 @@ const TestPage = () => {
         setSubtestIntroActive(false);
       })();
     }
-  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample, showMemoryItems]);
+  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample, showCfitSubtestExample, showMemoryItems]);
 
   // PAPIKOSTIK instructions effect is declared after showPAPIKOSTIKInstructions below
 
@@ -706,7 +791,7 @@ const TestPage = () => {
   }, [currentTestIdx, currentTest, currentQIdx, showPAPIKOSTIKInstructions]);
 
   // Subtest info for IST strict mode (computed each render — also used by useEffect below)
-  const subtestQuestions = isIST(currentTest) && currentSubtest
+  const subtestQuestions = usesSubtestIntro(currentTest) && currentSubtest
     ? currentTest.questions.filter(q => q.subtest_code === currentSubtest) : [];
   const subtestTimeLimit = subtestQuestions[0]?.time_limit_minutes || 6;
   const elapsedSec = Math.floor((Date.now() - subtestStartedAt) / 1000);
@@ -724,7 +809,7 @@ const TestPage = () => {
   }, [currentTestIdx, instruments.length]);
 
   const finishCurrentSubtest = useCallback(() => {
-    if (!isIST(currentTest) || !currentSubtest) return false;
+    if (!usesSubtestIntro(currentTest) || !currentSubtest) return false;
     const newSet = new Set(completedSubtests); newSet.add(currentSubtest);
     setCompletedSubtests(newSet);
     const allQs = currentTest.questions;
@@ -736,9 +821,9 @@ const TestPage = () => {
     return false;
   }, [currentTest, currentSubtest, completedSubtests]);
 
-  // Check time-up for current IST subtest
+  // Check time-up for current IST/CFIT subtest
   useEffect(() => {
-    if (!isIST(currentTest) || !currentSubtest || submitted || subtestIntroActive) return;
+    if (!usesSubtestIntro(currentTest) || !currentSubtest || submitted || subtestIntroActive) return;
     if (remainingSec <= 0) {
       Swal.fire({ icon: "info", title: `Waktu Subtes ${currentSubtest} Habis`, text: "Otomatis pindah ke subtes berikutnya.", timer: 1800, showConfirmButton: false, ...SWAL_THEME });
       const moved = finishCurrentSubtest();
@@ -877,8 +962,8 @@ const TestPage = () => {
 
   const handleNext = () => {
     if (!currentTest) return;
-    // IST strict: if next question belongs to a different subtest, treat as auto-advance
-    if (isIST(currentTest) && currentQuestion?.subtest_code) {
+    // Subtest based tests: if next question belongs to a different subtest, mark current subtest completed.
+    if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code) {
       const nextQ = currentTest.questions[currentQIdx + 1];
       if (nextQ && nextQ.subtest_code !== currentQuestion.subtest_code) {
         const newSet = new Set(completedSubtests); newSet.add(currentQuestion.subtest_code);
@@ -997,6 +1082,7 @@ const TestPage = () => {
   
   const currentAnsKey = currentQuestion ? `${currentTest.id}:${currentQuestion.id}` : "";
   const currentAns = answers[currentAnsKey] as string | undefined;
+  const currentMultiPickLimit = currentQuestion?.question_type === "multi_choice" ? 2 : 1;
 
   // For IST: cannot go back across subtest boundary
   const prevQ = currentTest?.questions[currentQIdx - 1];
@@ -1026,11 +1112,11 @@ const TestPage = () => {
         </div>
       </header>
 
-      {/* IST subtest banner */}
-      {isIST(currentTest) && currentSubtest && (
+      {/* Subtest/segment banner */}
+      {usesSubtestIntro(currentTest) && currentSubtest && (
         <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-center text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center justify-center gap-2">
           <Clock className="h-3.5 w-3.5" />
-          Subtes <b>{currentSubtest}</b> · Sisa waktu: {Math.floor(remainingSec / 60)}:{String(remainingSec % 60).padStart(2, "0")} · Tidak bisa kembali ke subtes sebelumnya
+          {isCFIT(currentTest) ? "Segmen CFIT" : "Subtes"} <b>{currentSubtest}</b> · Sisa waktu: {Math.floor(remainingSec / 60)}:{String(remainingSec % 60).padStart(2, "0")} · Tidak bisa kembali ke segmen sebelumnya
         </div>
       )}
 
@@ -1071,7 +1157,7 @@ const TestPage = () => {
               })}
             </div>
 
-            {currentTest && currentTest.questions.length > 0 && !isIST(currentTest) && (
+            {currentTest && currentTest.questions.length > 0 && !usesSubtestIntro(currentTest) && (
               <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
                 {currentTest.questions.map((q, i) => (
                   <button key={q.id} onClick={() => setCurrentQIdx(i)}
@@ -1195,12 +1281,12 @@ const TestPage = () => {
                     </div>
                   ) : currentQuestion.question_type === "multi_choice" ? (
                     <>
-                      <p className="text-xs text-amber-400 font-medium">Pilih 2 jawaban yang benar.</p>
+                      <p className="text-xs text-amber-400 font-medium">Pilih {currentMultiPickLimit} jawaban yang benar.</p>
                       {currentQuestion.options.map(opt => {
                         const picked = new Set(((currentAns as string) || "").split("+").filter(Boolean));
                         const isSelected = picked.has(opt.id);
                         return (
-                          <button key={opt.id} onClick={() => handleMultiPick(currentTest.id, currentQuestion.id, opt.id, 2)}
+                          <button key={opt.id} onClick={() => handleMultiPick(currentTest.id, currentQuestion.id, opt.id, currentMultiPickLimit)}
                             className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
                             <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{isSelected ? "✓" : opt.option_label}</span>
                             <div className="flex-1">

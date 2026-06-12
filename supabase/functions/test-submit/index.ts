@@ -46,6 +46,64 @@ const IST_SUBTEST_MAX: Record<string, number> = {
   ME: 20,
 };
 
+const CFIT_IQ_TABLE: Record<number, { iq: number; classification: string }> = {
+  49: { iq: 183, classification: "Genius" },
+  48: { iq: 179, classification: "Genius" },
+  47: { iq: 176, classification: "Genius" },
+  46: { iq: 173, classification: "Genius" },
+  45: { iq: 169, classification: "Very Superior" },
+  44: { iq: 167, classification: "Very Superior" },
+  43: { iq: 165, classification: "Very Superior" },
+  42: { iq: 161, classification: "Very Superior" },
+  41: { iq: 157, classification: "Very Superior" },
+  40: { iq: 155, classification: "Very Superior" },
+  39: { iq: 152, classification: "Very Superior" },
+  38: { iq: 149, classification: "Very Superior" },
+  37: { iq: 145, classification: "Very Superior" },
+  36: { iq: 142, classification: "Very Superior" },
+  35: { iq: 140, classification: "Very Superior" },
+  34: { iq: 137, classification: "Superior" },
+  33: { iq: 133, classification: "Superior" },
+  32: { iq: 131, classification: "Superior" },
+  31: { iq: 128, classification: "Superior" },
+  30: { iq: 124, classification: "Superior" },
+  29: { iq: 121, classification: "Superior" },
+  28: { iq: 119, classification: "High Average" },
+  27: { iq: 116, classification: "High Average" },
+  26: { iq: 113, classification: "High Average" },
+  25: { iq: 109, classification: "Average" },
+  24: { iq: 106, classification: "Average" },
+  23: { iq: 103, classification: "Average" },
+  22: { iq: 100, classification: "Average" },
+  21: { iq: 96, classification: "Average" },
+  20: { iq: 94, classification: "Average" },
+  19: { iq: 91, classification: "Average" },
+  18: { iq: 88, classification: "Low Average" },
+  17: { iq: 85, classification: "Low Average" },
+  16: { iq: 81, classification: "Low Average" },
+  15: { iq: 78, classification: "Borderline" },
+  14: { iq: 75, classification: "Borderline" },
+  13: { iq: 72, classification: "Borderline" },
+  12: { iq: 70, classification: "Borderline" },
+  11: { iq: 67, classification: "Mild" },
+  10: { iq: 65, classification: "Mild" },
+  9: { iq: 60, classification: "Mild" },
+  8: { iq: 57, classification: "Mild" },
+  7: { iq: 55, classification: "Mild" },
+  6: { iq: 52, classification: "Mild" },
+  5: { iq: 48, classification: "Moderate" },
+  4: { iq: 47, classification: "Moderate" },
+  3: { iq: 45, classification: "Moderate" },
+  2: { iq: 43, classification: "Moderate" },
+  1: { iq: 40, classification: "Moderate" },
+  0: { iq: 38, classification: "Moderate" },
+};
+
+const getCfitIqInfo = (rawScore: number) => {
+  const raw = Math.max(0, Math.min(49, Math.round(rawScore)));
+  return CFIT_IQ_TABLE[raw] || CFIT_IQ_TABLE[0];
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -142,6 +200,7 @@ Deno.serve(async (req) => {
         || questions.some((q: any) => q.question_number === 61 && String(q.question_text || "").toLowerCase().includes("mawar"));
       const upperName = String(inst.name || "").toUpperCase();
       const scoringMethod = String(inst.scoring_method || "").toLowerCase();
+      const isCfit = upperName.includes("CFIT") || upperName.includes("CULTURE FAIR");
       const isMbti = upperName.includes("MBTI") || scoringMethod === "typological";
       const isPapi = upperName.includes("PAPI") || scoringMethod === "papi_scales"
         || questions.some((q: any) => q.scoring_rule === "papikostik_dimension");
@@ -278,6 +337,7 @@ Deno.serve(async (req) => {
 
       const normalizedCats: Record<string, number> = {};
       Object.entries(cats).forEach(([k, v]) => (normalizedCats[k] = Math.round(v)));
+      const cfitIqInfo = isCfit ? getCfitIqInfo(correctCount) : null;
 
       const { data: resultData, error: insErr } = await admin
         .from("test_results")
@@ -291,10 +351,14 @@ Deno.serve(async (req) => {
           answered_questions: answeredCount,
           categories: isIst
             ? { ...normalizedCats, "IST Raw Score": Math.round(totalScore), "IST Max Score": Math.round(maxPossibleScore) }
+            : isCfit && cfitIqInfo
+              ? { ...normalizedCats, "CFIT Raw Score": correctCount, "CFIT Max Score": questions.length, "CFIT IQ": cfitIqInfo.iq }
             : normalizedCats,
           status,
           interpretation: isIst
             ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor mentah ${Math.round(totalScore)} dari maksimum ${Math.round(maxPossibleScore)}; skor akhir ${score}%. Profil subtes menunjukkan distribusi kemampuan pada aspek verbal, generalisasi, numerik, figural, spasial, dan memori.`
+            : isCfit && cfitIqInfo
+              ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Raw score ${correctCount} dari ${questions.length}; estimasi IQ ${cfitIqInfo.iq} dengan klasifikasi ${cfitIqInfo.classification}.`
             : isKraepelin && kraepelinMetrics
               ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Benar ${correctCount}, salah ${Math.max(0, answeredCount - correctCount)}. Kecepatan ${kraepelinMetrics.speed}%, ketelitian ${kraepelinMetrics.accuracy}%, stabilitas ${kraepelinMetrics.stability}%, dan kapasitas kerja ${kraepelinMetrics.work_capacity}%.`
             : isMbti

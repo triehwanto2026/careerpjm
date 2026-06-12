@@ -7,6 +7,7 @@ import DocumentPreview from "@/components/DocumentPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCandidatePhoto } from "@/lib/photoUpload";
 import { resolveStorageUrl } from "@/lib/storage";
+import { getCfitIqInfoFromResult } from "@/lib/cfitScoring";
 
 const SWAL_THEME = () => ({
   background: "hsl(var(--card))",
@@ -3654,21 +3655,17 @@ const CFIT_IQ_TABLE: Record<number, { iq: number; classification: string; note: 
 };
 
 const buildCfitSummary = (result: any) => {
-  const totalQuestions = Number(result?.total_questions) || 50;
-  const rawFromCategories = Object.values(getResultCategories(result)).reduce((sum, value) => sum + Number(value || 0), 0);
-  const rawFromScore = Math.round((Number(result?.score) || 0) / 100 * totalQuestions);
-  const rawScore = Math.max(0, Math.min(49, rawFromCategories || rawFromScore));
-  const info = CFIT_IQ_TABLE[rawScore] || CFIT_IQ_TABLE[0];
+  const info = getCfitIqInfoFromResult(result);
 
   return {
     badge: `IQ ${info.iq}`,
     metrics: [
       { label: "IQ", value: info.iq },
       { label: "Klasifikasi", value: info.classification },
-      { label: "Raw Score", value: `${rawScore}/${totalQuestions}` },
+      { label: "Raw Score", value: `${info.raw}/${info.max}` },
       { label: "Area Ukur", value: "Nonverbal", note: "pola & abstraksi" },
     ],
-    text: `Estimasi IQ CFIT kandidat adalah ${info.iq} dengan klasifikasi ${info.classification}. Raw score terhitung ${rawScore} dari ${totalQuestions} soal.\n\nSecara psikologis, hasil ini menunjukkan ${info.note}. Interpretasi CFIT terutama membaca kemampuan penalaran nonverbal, pengenalan pola, dan kemampuan menyelesaikan masalah abstrak yang relatif minim pengaruh bahasa/budaya.\n\nCatatan psikolog: hasil perlu dipadukan dengan wawancara, riwayat pendidikan/kerja, dan observasi perilaku saat tes sebelum dijadikan keputusan akhir seleksi.`,
+    text: `Estimasi IQ CFIT kandidat adalah ${info.iq} dengan klasifikasi ${info.classification}. Raw score terhitung ${info.raw} dari ${info.max} soal.\n\nSecara psikologis, hasil ini menunjukkan ${info.note}. Interpretasi CFIT terutama membaca kemampuan penalaran nonverbal, pengenalan pola, dan kemampuan menyelesaikan masalah abstrak yang relatif minim pengaruh bahasa/budaya.\n\nCatatan psikolog: hasil perlu dipadukan dengan wawancara, riwayat pendidikan/kerja, dan observasi perilaku saat tes sebelum dijadikan keputusan akhir seleksi.`,
   };
 };
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { PrintResult, PrintAnswer } from "@/utils/printUtils";
+import { getCfitIqInfoFromResult, isCfitName } from "@/lib/cfitScoring";
 import {
   ResponsiveContainer,
   RadarChart,
@@ -33,7 +34,7 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
   const isPersonalityPlus = result.test_name === "Personality Plus" || result.test_name.includes("Personality Plus");
   const isKraepelin = result.test_name === "Kraepelin" || result.test_name.includes("Kraepelin");
   const isPapikostik = result.test_name === "PAPIKOSTIK";
-  const isCFIT = result.test_name.includes("CFIT") || result.test_name.includes("Culture Fair");
+  const isCFIT = isCfitName(result.test_name);
 
   const statusLabel = result.status === "passed" ? "Lulus" : result.status === "review" ? "Review" : "Tidak Lulus";
   const statusClass = result.status === "passed" ? "bg-emerald-100 text-emerald-700" : result.status === "review" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700";
@@ -261,7 +262,6 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
     }
 
     if (isCFIT) {
-      const correctCount = answers.filter((a) => a.is_correct).length;
       const iqClassification: Record<number, { iq: number; classification: string }> = {
         49: { iq: 183, classification: "GENIUS" },
         48: { iq: 179, classification: "GENIUS" },
@@ -314,13 +314,13 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
         1: { iq: 40, classification: "MODERATE MENTAL RETARDATION" },
         0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" },
       };
-      const info = iqClassification[correctCount] || { iq: 0, classification: "UNKNOWN" };
+      const info = getCfitIqInfoFromResult(result);
       return (
         <div className="space-y-2 text-center">
           <div className="text-xs text-muted-foreground">IQ Score Estimasi</div>
           <div className="text-3xl font-bold text-foreground">{info.iq}</div>
           <div className="text-xs text-muted-foreground">Klasifikasi: {info.classification}</div>
-          <div className="text-xs text-muted-foreground">Jawaban Benar: {correctCount} / {result.total_questions}</div>
+          <div className="text-xs text-muted-foreground">Raw Score: {info.raw} / {info.max}</div>
         </div>
       );
     }
@@ -510,9 +510,9 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
             <p className="text-sm text-muted-foreground">{result.position || "-"}</p>
             <span className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}>{statusLabel}</span>
           </div>
-          {profile.webcam_photo_url && (
+          {result.webcam_photo_url && (
             <div className="text-center">
-              <img src={profile.webcam_photo_url} alt="Verifikasi" className="h-20 w-24 rounded border border-border object-cover" />
+              <img src={result.webcam_photo_url} alt="Verifikasi" className="h-20 w-24 rounded border border-border object-cover" />
               <p className="text-[10px] text-muted-foreground mt-1">Verifikasi saat tes</p>
             </div>
           )}
@@ -521,7 +521,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           <div><span className="text-muted-foreground">Email:</span> <span className="text-foreground">{profile.email || "-"}</span></div>
           <div><span className="text-muted-foreground">Telepon:</span> <span className="text-foreground">{profile.phone || "-"}</span></div>
           <div><span className="text-muted-foreground">Tanggal Tes:</span> <span className="text-foreground">{formatDate(result.completed_at)}</span></div>
-          <div><span className="text-muted-foreground">Skor:</span> <span className="text-foreground">{result.score}{(result.test_name.includes("CFIT") || result.test_name.includes("Culture Fair")) ? "" : "%"}</span></div>
+          <div><span className="text-muted-foreground">{isCFIT ? "IQ:" : "Skor:"}</span> <span className="text-foreground">{isCFIT ? getCfitIqInfoFromResult(result).iq : `${result.score}%`}</span></div>
           <div><span className="text-muted-foreground">Soal Dijawab:</span> <span className="text-foreground">{result.answered_questions} / {result.total_questions}</span></div>
           <div><span className="text-muted-foreground">Nama Tes:</span> <span className="text-foreground">{result.test_name}</span></div>
         </div>
@@ -533,8 +533,8 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           <p className="text-lg font-bold text-primary mt-1">{result.test_name}</p>
         </div>
         <div className="glass rounded-xl p-5 glow-border text-center">
-          <p className="text-xs text-muted-foreground">Skor Akhir</p>
-          <p className="text-3xl font-bold text-foreground mt-1">{result.score}{(result.test_name.includes("CFIT") || result.test_name.includes("Culture Fair")) ? "" : "%"}</p>
+          <p className="text-xs text-muted-foreground">{isCFIT ? "IQ Score" : "Skor Akhir"}</p>
+          <p className="text-3xl font-bold text-foreground mt-1">{isCFIT ? getCfitIqInfoFromResult(result).iq : `${result.score}%`}</p>
         </div>
         <div className="glass rounded-xl p-5 glow-border text-center">
           <p className="text-xs text-muted-foreground">Soal Dijawab</p>

@@ -247,7 +247,7 @@ export default function CandidateProfile() {
     const docsData = (d as any) || [];
     setDocs(docsData);
     const photoDoc = docsData.find((doc: any) => doc.document_type === "photo");
-    if (!profile.photo_url && photoDoc) {
+    if (!(p as any)?.photo_url && photoDoc) {
       setProfile((prev) => ({ ...prev, photo_url: photoDoc.file_url }));
     }
   };
@@ -484,6 +484,9 @@ export default function CandidateProfile() {
     });
     if (type === "photo") {
       await supabase.from("candidate_profiles").upsert({ user_id: userId, photo_url: fileUrl }, { onConflict: "user_id" });
+      await supabase.from("candidates").update({ photo_url: fileUrl }).eq("email", profile.email);
+      setProfile((prev) => ({ ...prev, photo_url: fileUrl }));
+      window.dispatchEvent(new CustomEvent("candidate-profile-photo-updated", { detail: { photo_url: fileUrl } }));
     }
     load();
   };
@@ -495,6 +498,9 @@ export default function CandidateProfile() {
     await supabase.from("candidate_documents").delete().eq("id", id);
     if (docToDelete?.document_type === "photo") {
       await supabase.from("candidate_profiles").upsert({ user_id: userId, photo_url: null }, { onConflict: "user_id" });
+      await supabase.from("candidates").update({ photo_url: null }).eq("email", profile.email);
+      setProfile((prev) => ({ ...prev, photo_url: null }));
+      window.dispatchEvent(new CustomEvent("candidate-profile-photo-updated", { detail: { photo_url: null } }));
     }
     load();
   };
