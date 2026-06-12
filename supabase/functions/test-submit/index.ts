@@ -124,28 +124,8 @@ const getMbtiType = (cats: Record<string, number>) =>
     .map(([a, b]) => Number(cats[a] || 0) >= Number(cats[b] || 0) ? a : b)
     .join("");
 
-const MBTI_TYPE_PROFILES: Record<string, { name: string; summary: string; strengths: string; watchouts: string; workStyle: string; communication: string; roles: string }> = {
-  ISTJ: { name: "Inspector / Logistician", summary: "Terstruktur, bertanggung jawab, realistis, dan kuat menjaga prosedur.", strengths: "Teliti, konsisten, disiplin, dapat dipercaya, kuat dalam dokumentasi dan kontrol kualitas.", watchouts: "Dapat kaku pada perubahan mendadak dan kurang nyaman dengan ambiguitas.", workStyle: "Efektif pada target jelas, aturan tegas, data konkret, dan standar terukur.", communication: "Berikan informasi faktual, ringkas, urut, beserta tenggat dan standar keberhasilan.", roles: "Administrasi, finance, audit, compliance, quality control, operasional, project control." },
-  ISFJ: { name: "Protector / Defender", summary: "Suportif, teliti, stabil, dan berorientasi pelayanan.", strengths: "Sabar, loyal, rapi, bertanggung jawab, menjaga harmoni, dan detail.", watchouts: "Cenderung menghindari konflik dan sulit menolak permintaan.", workStyle: "Efektif dalam lingkungan stabil, kooperatif, dan menghargai pelayanan.", communication: "Gunakan arahan sopan, jelas, personal, dan beri ruang menyampaikan kekhawatiran.", roles: "HR administration, customer service, healthcare support, sekretaris, payroll, employee relations." },
-  INFJ: { name: "Counselor / Advocate", summary: "Visioner, reflektif, empatik, dan kuat membaca makna serta arah jangka panjang.", strengths: "Memahami motif orang, menyusun gagasan mendalam, menjaga nilai, dan menghubungkan strategi dengan dampak manusia.", watchouts: "Dapat terlalu idealis, sensitif terhadap konflik nilai, dan membutuhkan waktu refleksi.", workStyle: "Efektif pada pekerjaan bermakna, strategis, dan memberi ruang analisis mendalam.", communication: "Hargai konteks, tujuan, nilai, dan dampak keputusan pada orang lain.", roles: "HR development, counseling, OD, research, strategy, content, coaching." },
-  INTJ: { name: "Strategist / Architect", summary: "Analitis, mandiri, konseptual, dan kuat membangun sistem atau strategi.", strengths: "Melihat pola kompleks, menyusun rencana, berpikir kritis, dan meningkatkan efektivitas sistem.", watchouts: "Dapat tampak terlalu kritis dan kurang sabar pada proses yang tidak efisien.", workStyle: "Efektif dengan otonomi, tantangan intelektual, dan ruang merancang solusi sistemik.", communication: "Gunakan komunikasi logis, berbasis data, langsung pada inti masalah.", roles: "Strategy, business analyst, product planning, data, engineering, consulting, R&D." },
-  ISTP: { name: "Craftsperson / Virtuoso", summary: "Praktis, observatif, tenang, dan kuat memahami cara kerja sesuatu.", strengths: "Adaptif, solutif, efisien, kuat troubleshooting, dan tenang pada situasi teknis.", watchouts: "Kurang menyukai rutinitas administratif dan aturan berlebih.", workStyle: "Efektif dalam pekerjaan hands-on, teknis, dan problem solving cepat.", communication: "Instruksi singkat, konkret, fokus masalah, dan beri ruang mencoba solusi.", roles: "Teknisi, engineering, IT support, operations troubleshooting, maintenance, field work." },
-  ISFP: { name: "Artist / Adventurer", summary: "Fleksibel, peka, praktis, dan berorientasi pengalaman nyata serta nilai personal.", strengths: "Empatik, adaptif, memperhatikan detail estetis/manusiawi, dan mendukung secara praktis.", watchouts: "Menghindari konflik langsung dan kurang nyaman dengan struktur terlalu kaku.", workStyle: "Efektif pada lingkungan suportif, fleksibel, dan pekerjaan dengan hasil nyata.", communication: "Komunikasi hangat, tidak memaksa, konkret, dan menghargai pilihan personal.", roles: "Creative support, design, customer care, hospitality, healthcare support, social service." },
-  INFP: { name: "Mediator / Idealist", summary: "Reflektif, idealis, empatik, dan kuat memahami nilai serta potensi manusia.", strengths: "Kreatif, mendalam, suportif, kuat menulis/menyusun ide, dan menjaga autentisitas.", watchouts: "Sensitif terhadap kritik dan membutuhkan prioritas jelas agar ide tidak melebar.", workStyle: "Efektif dalam pekerjaan bermakna, kreatif, human-centered, dan memberi ruang refleksi.", communication: "Hargai nilai dan alasan keputusan; kritik disampaikan konstruktif.", roles: "Content, copywriting, counseling, HR development, community, creative, learning development." },
-  INTP: { name: "Thinker / Logician", summary: "Analitis, konseptual, independen, dan kuat membedah ide atau sistem.", strengths: "Objektif, inovatif, menemukan inkonsistensi, kuat pada masalah abstrak.", watchouts: "Dapat menunda eksekusi karena terlalu menganalisis dan kurang tertarik administrasi.", workStyle: "Efektif pada eksplorasi ide, riset, desain sistem, dan kebebasan intelektual.", communication: "Diskusi logis, terbuka, tidak terlalu emosional, dan boleh mempertanyakan asumsi.", roles: "Research, data science, software, system analyst, product logic, innovation." },
-  ESTP: { name: "Doer / Entrepreneur", summary: "Energik, taktis, cepat bertindak, dan nyaman menghadapi situasi dinamis.", strengths: "Pragmatis, persuasif, berani mengambil peluang, kuat negosiasi dan problem solving lapangan.", watchouts: "Kurang sabar pada perencanaan panjang dan perlu menjaga follow-up.", workStyle: "Efektif pada lingkungan cepat, kompetitif, target nyata, dan interaksi langsung.", communication: "Instruksi langsung, singkat, berbasis hasil, dan beri ruang bergerak cepat.", roles: "Sales, business development, field operations, crisis handling, event, account executive." },
-  ESFP: { name: "Performer / Entertainer", summary: "Ramah, ekspresif, adaptif, dan kuat membangun energi sosial.", strengths: "Komunikatif, spontan, mudah membangun relasi, tanggap suasana, dan baik dalam engagement.", watchouts: "Kurang menyukai pekerjaan monoton/detail panjang dan perlu struktur target.", workStyle: "Efektif pada pekerjaan interaktif, praktis, people-oriented, dan variatif.", communication: "Komunikasi hangat, konkret, cepat, dengan contoh nyata.", roles: "Customer relations, sales, hospitality, event, training delivery, PR, front office." },
-  ENFP: { name: "Campaigner / Inspirer", summary: "Antusias, kreatif, people-oriented, dan kuat melihat peluang.", strengths: "Inspiratif, fleksibel, kuat brainstorming, networking, dan membaca motivasi orang.", watchouts: "Perlu menjaga fokus detail rutin dan sistem follow-through.", workStyle: "Efektif pada lingkungan terbuka, kolaboratif, kreatif, dan eksploratif.", communication: "Diskusi visioner, apresiasi, kebebasan ide, dan tujuan bermakna.", roles: "Marketing, employer branding, HR development, creative strategy, community, partnership." },
-  ENTP: { name: "Debater / Visionary", summary: "Cepat berpikir, eksploratif, dan kuat melihat kemungkinan baru.", strengths: "Inovatif, strategis, adaptif, menantang asumsi, dan mencari cara lebih efektif.", watchouts: "Dapat tampak konfrontatif, bosan pada rutinitas, dan perlu prioritas eksekusi.", workStyle: "Efektif pada ide baru, negosiasi, strategi, pemecahan masalah, dan perubahan.", communication: "Diskusi terbuka, logis, cepat, dan ruang debat konstruktif.", roles: "Business development, product strategy, consulting, entrepreneurship, innovation." },
-  ESTJ: { name: "Supervisor / Executive", summary: "Tegas, terorganisir, realistis, dan kuat mengarahkan proses menuju target.", strengths: "Leadership operasional, disiplin, berorientasi hasil, ekspektasi jelas, kontrol progres.", watchouts: "Dapat dominan dan perlu menjaga empati saat memberi koreksi.", workStyle: "Efektif pada struktur jelas, target tinggi, tanggung jawab, dan akuntabilitas.", communication: "Komunikasi langsung, data/status jelas, keputusan cepat, dan komitmen tindakan.", roles: "Operations manager, supervisor, project manager, sales manager, logistics, compliance lead." },
-  ESFJ: { name: "Provider / Consul", summary: "Kooperatif, suportif, terorganisir, dan kuat menjaga relasi kelompok.", strengths: "Ramah, bertanggung jawab, peka kebutuhan orang, kuat koordinasi dan pelayanan.", watchouts: "Butuh menjaga objektivitas saat keputusan tidak populer dan tidak terlalu mencari penerimaan.", workStyle: "Efektif pada lingkungan kolaboratif, jelas, stabil, dan menghargai kontribusi interpersonal.", communication: "Komunikasi hangat, jelas, menghargai usaha, dan memperhatikan dampak pada tim.", roles: "HR, customer success, administration, coordinator, education, employee relations." },
-  ENFJ: { name: "Teacher / Protagonist", summary: "Karismatik, empatik, terarah, dan kuat mengembangkan orang.", strengths: "Memotivasi, membaca dinamika tim, membangun komitmen, dan memfasilitasi komunikasi.", watchouts: "Dapat terlalu mengambil tanggung jawab emosional tim dan perlu menjaga batas objektivitas.", workStyle: "Efektif pada people leadership, coaching, komunikasi, dan transformasi organisasi.", communication: "Tujuan bersama, dampak manusia, apresiasi, dan dialog dua arah.", roles: "HR manager, learning development, trainer, PR, OD, team lead, partnership." },
-  ENTJ: { name: "Commander / Fieldmarshal", summary: "Strategis, tegas, visioner, dan kuat mengorganisasi sumber daya untuk target besar.", strengths: "Leadership kuat, berpikir sistemik, berani memutuskan, fokus hasil, dan membangun arah jangka panjang.", watchouts: "Dapat terlalu menekan dan perlu mendengar perspektif tim sebelum eksekusi besar.", workStyle: "Efektif pada tantangan besar, wewenang jelas, target ambisius, dan perubahan sistemik.", communication: "Komunikasi langsung, logis, strategis, dengan opsi keputusan dan ukuran keberhasilan.", roles: "General manager, business head, strategy lead, entrepreneur, project director, operations director." },
-};
-
 const buildMbtiInterpretation = (cats: Record<string, number>, answered: number, total: number, testName: string) => {
   const type = getMbtiType(cats);
-  const typeProfile = MBTI_TYPE_PROFILES[type];
   const labels: Record<string, string> = {
     E: "lebih energik melalui interaksi sosial",
     I: "lebih nyaman memproses secara reflektif dan mandiri",
@@ -157,40 +137,11 @@ const buildMbtiInterpretation = (cats: Record<string, number>, answered: number,
     P: "fleksibel, adaptif, dan terbuka pada perubahan",
   };
   const distribution = [["E", "I"], ["S", "N"], ["T", "F"], ["J", "P"]]
-    .map(([a, b]) => {
-      const av = Number(cats[a] || 0);
-      const bv = Number(cats[b] || 0);
-      const totalPair = av + bv;
-      const dominant = av >= bv ? a : b;
-      const strength = totalPair > 0 ? Math.round((Math.max(av, bv) / totalPair) * 100) : 0;
-      return `${a}/${b}: ${a}=${av}, ${b}=${bv} (${dominant} ${strength}%)`;
-    })
+    .map(([a, b]) => `${a}/${b}: ${a}=${Number(cats[a] || 0)}, ${b}=${Number(cats[b] || 0)}`)
     .join("; ");
-  return `Kandidat menjawab ${answered} dari ${total} soal pada tes ${testName}. Tipe MBTI kandidat adalah ${type}${typeProfile ? ` - ${typeProfile.name}` : ""}. Profil ini menunjukkan kandidat ${type.split("").map((key) => labels[key]).join(", ")}.
+  return `Kandidat menjawab ${answered} dari ${total} soal pada tes ${testName}. Tipe MBTI kandidat adalah ${type}. Profil ini menunjukkan kandidat ${type.split("").map((key) => labels[key]).join(", ")}.
 
-Ringkasan tipe:
-${typeProfile?.summary || "Profil tipe menunjukkan kombinasi preferensi kandidat pada empat pasangan dimensi MBTI."}
-
-Kekuatan utama:
-${typeProfile?.strengths || "Kekuatan utama perlu dibaca dari dimensi dominan dan konteks pekerjaan."}
-
-Area perhatian:
-${typeProfile?.watchouts || "Area perhatian perlu divalidasi melalui wawancara dan observasi perilaku kerja."}
-
-Gaya kerja:
-${typeProfile?.workStyle || "Gaya kerja dipengaruhi oleh preferensi energi, informasi, keputusan, dan struktur kerja."}
-
-Gaya komunikasi:
-${typeProfile?.communication || "Komunikasi paling efektif mengikuti preferensi dominan kandidat dan kebutuhan situasi kerja."}
-
-Rekomendasi kecocokan peran:
-${typeProfile?.roles || "Gunakan hasil ini untuk mendukung pemetaan peran, bukan sebagai satu-satunya dasar keputusan."}
-
-Distribusi pasangan dimensi:
-${distribution}.
-
-Catatan psikolog:
-Hasil MBTI dibaca sebagai preferensi gaya kerja, komunikasi, pengambilan keputusan, dan kebutuhan lingkungan kerja, bukan ukuran kemampuan mutlak, bukan diagnosis klinis, dan bukan penentu tunggal kelayakan kandidat. Interpretasi akhir tetap perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, serta tuntutan jabatan.`;
+Distribusi pasangan dimensi: ${distribution}. Hasil MBTI dibaca sebagai preferensi gaya kerja dan komunikasi, bukan ukuran kemampuan mutlak.`;
 };
 
 const PAPI_LABELS: Record<string, string> = {

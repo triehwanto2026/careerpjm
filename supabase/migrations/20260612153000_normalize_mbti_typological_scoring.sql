@@ -67,28 +67,3 @@ CROSS JOIN (
 ) AS seed(key, min_value, max_value, text_id, text_en)
 WHERE upper(i.name) LIKE '%MBTI%'
    OR upper(i.name) LIKE '%MYERS%';
-
-INSERT INTO public.test_interpretations (instrument_id, interpretation_key, category, min_value, max_value, interpretation_text, interpretation_text_en)
-SELECT i.id, seed.key, 'MBTI_TYPE', 0, 999, seed.text_id, seed.text_en
-FROM public.test_instruments i
-CROSS JOIN (
-  VALUES
-    ('ISTJ', 'ISTJ - Inspector / Logistician: terstruktur, bertanggung jawab, realistis, teliti, konsisten, kuat pada prosedur, dokumentasi, kontrol kualitas, dan penyelesaian tugas. Area perhatian: dapat kaku terhadap perubahan mendadak dan perlu alasan faktual sebelum menyesuaikan pendekatan.', 'ISTJ - structured, responsible, realistic, detail-oriented, and consistent.'),
-    ('ISFJ', 'ISFJ - Protector / Defender: suportif, teliti, stabil, loyal, menjaga harmoni, dan berorientasi pelayanan. Area perhatian: cenderung menghindari konflik, sulit menolak permintaan, dan perlu batas kerja yang jelas.', 'ISFJ - supportive, careful, stable, loyal, and service-oriented.'),
-    ('INFJ', 'INFJ - Counselor / Advocate: visioner, reflektif, empatik, kuat membaca makna, nilai, dan arah jangka panjang. Area perhatian: dapat terlalu idealis, sensitif terhadap konflik nilai, dan membutuhkan waktu refleksi.', 'INFJ - visionary, reflective, empathic, and meaning-oriented.'),
-    ('INTJ', 'INTJ - Strategist / Architect: analitis, mandiri, konseptual, kuat membangun strategi dan sistem. Area perhatian: dapat tampak terlalu kritis, kurang sabar pada proses tidak efisien, dan perlu menjaga sensitivitas interpersonal.', 'INTJ - analytical, independent, conceptual, and strategic.'),
-    ('ISTP', 'ISTP - Craftsperson / Virtuoso: praktis, observatif, tenang, adaptif, kuat dalam troubleshooting dan solusi teknis. Area perhatian: kurang menyukai rutinitas administratif dan aturan berlebih.', 'ISTP - practical, observant, calm, adaptive, and technically resourceful.'),
-    ('ISFP', 'ISFP - Artist / Adventurer: fleksibel, peka, praktis, empatik, dan berorientasi nilai personal. Area perhatian: dapat menghindari konflik langsung dan kurang nyaman dengan struktur terlalu kaku.', 'ISFP - flexible, sensitive, practical, empathic, and value-oriented.'),
-    ('INFP', 'INFP - Mediator / Idealist: reflektif, idealis, empatik, kreatif, dan kuat memahami nilai serta potensi manusia. Area perhatian: sensitif terhadap kritik dan membutuhkan prioritas jelas agar ide tidak melebar.', 'INFP - reflective, idealistic, empathic, creative, and values-driven.'),
-    ('INTP', 'INTP - Thinker / Logician: analitis, konseptual, independen, objektif, inovatif, kuat membedah ide dan sistem. Area perhatian: dapat menunda eksekusi karena terlalu menganalisis.', 'INTP - analytical, conceptual, independent, objective, and innovative.'),
-    ('ESTP', 'ESTP - Doer / Entrepreneur: energik, taktis, cepat bertindak, pragmatis, persuasif, kuat pada negosiasi dan problem solving lapangan. Area perhatian: perlu menjaga perencanaan dan follow-up.', 'ESTP - energetic, tactical, pragmatic, persuasive, and action-oriented.'),
-    ('ESFP', 'ESFP - Performer / Entertainer: ramah, ekspresif, adaptif, komunikatif, spontan, kuat membangun relasi dan engagement. Area perhatian: perlu struktur agar target dan detail tetap tercapai.', 'ESFP - friendly, expressive, adaptive, communicative, and engaging.'),
-    ('ENFP', 'ENFP - Campaigner / Inspirer: antusias, kreatif, people-oriented, inspiratif, fleksibel, kuat networking dan brainstorming. Area perhatian: perlu fokus detail dan sistem follow-through.', 'ENFP - enthusiastic, creative, people-oriented, inspirational, and flexible.'),
-    ('ENTP', 'ENTP - Debater / Visionary: cepat berpikir, eksploratif, inovatif, strategis, menantang asumsi, dan melihat peluang baru. Area perhatian: dapat tampak konfrontatif dan perlu prioritas eksekusi.', 'ENTP - quick-thinking, exploratory, innovative, strategic, and opportunity-oriented.'),
-    ('ESTJ', 'ESTJ - Supervisor / Executive: tegas, terorganisir, realistis, leadership operasional kuat, disiplin, dan berorientasi hasil. Area perhatian: perlu menjaga empati saat memberi koreksi.', 'ESTJ - decisive, organized, realistic, operationally strong, and result-oriented.'),
-    ('ESFJ', 'ESFJ - Provider / Consul: kooperatif, suportif, terorganisir, ramah, peka pada kebutuhan orang, kuat koordinasi dan pelayanan. Area perhatian: perlu menjaga objektivitas saat keputusan tidak populer.', 'ESFJ - cooperative, supportive, organized, warm, and service-oriented.'),
-    ('ENFJ', 'ENFJ - Teacher / Protagonist: karismatik, empatik, terarah, kuat mengembangkan orang, memotivasi, dan membaca dinamika tim. Area perhatian: perlu menjaga batas objektivitas dan tidak mengambil beban emosional tim berlebihan.', 'ENFJ - charismatic, empathic, directional, developmental, and motivating.'),
-    ('ENTJ', 'ENTJ - Commander / Fieldmarshal: strategis, tegas, visioner, leadership kuat, berpikir sistemik, dan fokus pada target besar. Area perhatian: perlu mendengar perspektif tim sebelum eksekusi besar.', 'ENTJ - strategic, decisive, visionary, systemic, and goal-driven.')
-) AS seed(key, text_id, text_en)
-WHERE upper(i.name) LIKE '%MBTI%'
-   OR upper(i.name) LIKE '%MYERS%';

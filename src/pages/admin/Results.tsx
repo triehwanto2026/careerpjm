@@ -849,7 +849,7 @@ const Results = () => {
     ${(() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isDISC = r.test_name.toUpperCase().includes("DISC");
-      if (isDISC) return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil DISC</div><div class="interpretation" style="white-space:pre-line;">${buildSharedDiscInterpretation(cats, r.total_questions || 24).replace(/</g, '&lt;')}</div></div>`;
+	      if (isDISC) return "";
 	      if (isIstResult(r)) return istInterpretationHTML;
 	      if (specialInterpretationHTML) return specialInterpretationHTML;
       // Full format interpretation for PP
