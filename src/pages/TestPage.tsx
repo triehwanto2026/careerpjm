@@ -891,8 +891,22 @@ const TestPage = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Memuat tes...</div>;
   if (instruments.length === 0) return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Tidak ada tes tersedia.</div>;
 
+  const getRequiredPickCount = (q?: DbQuestion) => q?.question_type === "multi_choice" ? 2 : 1;
+  const isStoredAnswerComplete = (q: DbQuestion, value: unknown) => {
+    if (q.question_type === "multi_choice") {
+      return String(value || "").split("+").filter(Boolean).length === getRequiredPickCount(q);
+    }
+    if (q.question_type === "disc_pair") {
+      const text = String(value || "");
+      return /M:[^|]+/.test(text) && /L:[^|]+/.test(text);
+    }
+    return String(value || "").trim().length > 0;
+  };
+
   const totalAllQuestions = instruments.reduce((sum, t) => sum + t.questions.length, 0);
-  const totalAnsweredAll = Object.keys(answers).length;
+  const totalAnsweredAll = instruments.reduce((sum, t) => (
+    sum + t.questions.filter(q => isStoredAnswerComplete(q, answers[`${t.id}:${q.id}`])).length
+  ), 0);
   const progress = totalAllQuestions > 0 ? (totalAnsweredAll / totalAllQuestions) * 100 : 0;
 
   const handleAnswer = (instrumentId: string, questionId: string, value: string) => {
@@ -918,7 +932,12 @@ const TestPage = () => {
       }
     }
     const sorted = Array.from(set).sort().join("+");
-    setAnswers(prev => ({ ...prev, [key]: sorted }));
+    setAnswers(prev => {
+      const next = { ...prev };
+      if (sorted) next[key] = sorted;
+      else delete next[key];
+      return next;
+    });
   };
   const handleDiscPick = (instrumentId: string, questionId: string, kind: "M" | "L", optId: string) => {
     const key = `${instrumentId}:${questionId}`;
@@ -934,8 +953,7 @@ const TestPage = () => {
     if (currentTestIdx < instruments.length - 1) {
       // Hanya boleh lanjut ke test berikutnya jika test saat ini selesai (semua soal terjawab)
       const currentTest = instruments[currentTestIdx];
-      const questionsInTest = currentTest.questions.map(q => `${currentTest.id}:${q.id}`);
-      const allAnswered = questionsInTest.every(key => key in answers);
+      const allAnswered = currentTest.questions.every(q => isStoredAnswerComplete(q, answers[`${currentTest.id}:${q.id}`]));
       
       if (allAnswered) {
         const nextTestIdx = currentTestIdx + 1;
@@ -946,8 +964,8 @@ const TestPage = () => {
         setCurrentSubtest(null);
       } else {
         // Belum semua soal terjawab
-        const answered = questionsInTest.filter(key => key in answers).length;
-        const total = questionsInTest.length;
+        const answered = currentTest.questions.filter(q => isStoredAnswerComplete(q, answers[`${currentTest.id}:${q.id}`])).length;
+        const total = currentTest.questions.length;
         Swal.fire({
           icon: "warning",
           title: "Belum Selesai",
@@ -962,6 +980,17 @@ const TestPage = () => {
 
   const handleNext = () => {
     if (!currentTest) return;
+    if (currentQuestion?.question_type === "multi_choice" && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])) {
+      Swal.fire({
+        icon: "warning",
+        title: "Jawaban Belum Lengkap",
+        text: `Pilih tepat ${getRequiredPickCount(currentQuestion)} jawaban untuk soal ini.`,
+        ...SWAL_THEME,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+      return;
+    }
     // Subtest based tests: if next question belongs to a different subtest, mark current subtest completed.
     if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code) {
       const nextQ = currentTest.questions[currentQIdx + 1];
@@ -990,6 +1019,20 @@ const TestPage = () => {
   const isLastQuestion = currentTestIdx === instruments.length - 1 && currentQIdx === (currentTest?.questions.length || 1) - 1;
 
   const handleSubmit = async () => {
+    const incompleteMulti = instruments.flatMap(t => (
+      t.questions
+        .filter(q => q.question_type === "multi_choice" && !isStoredAnswerComplete(q, answers[`${t.id}:${q.id}`]))
+        .map(q => q.question_number)
+    ));
+    if (incompleteMulti.length > 0) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Jawaban Pilihan Ganda Belum Lengkap",
+        text: `Pilih tepat 2 jawaban pada soal nomor ${incompleteMulti.slice(0, 8).join(", ")}${incompleteMulti.length > 8 ? "..." : ""}.`,
+        ...SWAL_THEME,
+      });
+      return;
+    }
     if (totalAnsweredAll < totalAllQuestions) {
       const r = await Swal.fire({ icon: "question", title: "Belum Semua Dijawab", html: `Dijawab <b>${totalAnsweredAll}</b>/<b>${totalAllQuestions}</b>. Yakin kirim?`, showCancelButton: true, confirmButtonText: "Ya, Kirim", cancelButtonText: "Kembali", ...SWAL_THEME });
       if (r.isConfirmed) await completeSubmission();
@@ -1082,7 +1125,7 @@ const TestPage = () => {
   
   const currentAnsKey = currentQuestion ? `${currentTest.id}:${currentQuestion.id}` : "";
   const currentAns = answers[currentAnsKey] as string | undefined;
-  const currentMultiPickLimit = currentQuestion?.question_type === "multi_choice" ? 2 : 1;
+  const currentMultiPickLimit = getRequiredPickCount(currentQuestion);
 
   // For IST: cannot go back across subtest boundary
   const prevQ = currentTest?.questions[currentQIdx - 1];

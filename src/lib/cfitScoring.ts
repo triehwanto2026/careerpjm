@@ -69,6 +69,8 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const clampRawScore = (value: number, max: number) => Math.max(0, Math.min(Math.max(1, max), Math.round(value)));
+
 export const isCfitName = (name?: string | null) => {
   const upper = String(name || "").toUpperCase();
   return upper.includes("CFIT") || upper.includes("CULTURE FAIR");
@@ -85,19 +87,19 @@ export const getCfitRawScore = (result: CfitResultLike) => {
     categories["CFIT Raw Score"] ?? categories.cfit_raw_score ?? categories.raw_score ?? categories.correct_answers,
   );
   const max = Math.max(1, toNumber(result.total_questions) || toNumber(categories["CFIT Max Score"]) || 50);
-  if (explicit > 0) return Math.max(0, Math.min(49, Math.round(explicit)));
+  if (explicit > 0) return clampRawScore(explicit, max);
 
   const interpretedCorrect = String(result.interpretation || "").match(/(\d+)\s+jawaban\s+benar/i);
-  if (interpretedCorrect) return Math.max(0, Math.min(49, Number(interpretedCorrect[1])));
+  if (interpretedCorrect) return clampRawScore(Number(interpretedCorrect[1]), max);
 
   const subtestKeys = ["S1 - Series", "S2 - Classifications", "S3 - Matrices", "S4 - Conditions", "Series", "Classifications", "Matrices", "Conditions"];
   const subtestSum = subtestKeys.reduce((sum, key) => sum + toNumber(categories[key]), 0);
   const classificationScore = toNumber(categories["S2 - Classifications"] ?? categories.Classifications);
   const looksLikeOptionScore = classificationScore > 14 || subtestSum > max;
-  if (subtestSum > 0 && !looksLikeOptionScore) return Math.max(0, Math.min(49, Math.round(subtestSum)));
+  if (subtestSum > 0 && !looksLikeOptionScore) return clampRawScore(subtestSum, max);
 
   const fromScore = Math.round((toNumber(result.score) / 100) * max);
-  return Math.max(0, Math.min(49, fromScore));
+  return clampRawScore(fromScore, max);
 };
 
 export const getCfitIqInfoFromResult = (result: CfitResultLike) => {

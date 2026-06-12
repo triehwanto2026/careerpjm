@@ -1289,62 +1289,30 @@ const Results = () => {
     }
     // CFIT 3A - Culture Fair Intelligence Test
     if (isCfitName(r.test_name)) {
-      // CFIT IQ Classification Table based on Raw Score (correct answers)
-      const iqClassification: Record<number, { iq: number; classification: string }> = {
-        49: { iq: 183, classification: "GENIUS" },
-        48: { iq: 179, classification: "GENIUS" },
-        47: { iq: 176, classification: "GENIUS" },
-        46: { iq: 173, classification: "GENIUS" },
-        45: { iq: 169, classification: "VERY SUPERIOR" },
-        44: { iq: 167, classification: "VERY SUPERIOR" },
-        43: { iq: 165, classification: "VERY SUPERIOR" },
-        42: { iq: 161, classification: "VERY SUPERIOR" },
-        41: { iq: 157, classification: "VERY SUPERIOR" },
-        40: { iq: 155, classification: "VERY SUPERIOR" },
-        39: { iq: 152, classification: "VERY SUPERIOR" },
-        38: { iq: 149, classification: "VERY SUPERIOR" },
-        37: { iq: 145, classification: "VERY SUPERIOR" },
-        36: { iq: 142, classification: "VERY SUPERIOR" },
-        35: { iq: 140, classification: "VERY SUPERIOR" },
-        34: { iq: 137, classification: "SUPERIOR" },
-        33: { iq: 133, classification: "SUPERIOR" },
-        32: { iq: 131, classification: "SUPERIOR" },
-        31: { iq: 128, classification: "SUPERIOR" },
-        30: { iq: 124, classification: "SUPERIOR" },
-        29: { iq: 121, classification: "SUPERIOR" },
-        28: { iq: 119, classification: "HIGH AVERAGE" },
-        27: { iq: 116, classification: "HIGH AVERAGE" },
-        26: { iq: 113, classification: "HIGH AVERAGE" },
-        25: { iq: 109, classification: "AVERAGE" },
-        24: { iq: 106, classification: "AVERAGE" },
-        23: { iq: 103, classification: "AVERAGE" },
-        22: { iq: 100, classification: "AVERAGE" },
-        21: { iq: 96, classification: "AVERAGE" },
-        20: { iq: 94, classification: "AVERAGE" },
-        19: { iq: 91, classification: "AVERAGE" },
-        18: { iq: 88, classification: "LOW AVERAGE" },
-        17: { iq: 85, classification: "LOW AVERAGE" },
-        16: { iq: 81, classification: "LOW AVERAGE" },
-        15: { iq: 78, classification: "BOEDERLINE MENTAL RETARDATION" },
-        14: { iq: 75, classification: "BOEDERLINE MENTAL RETARDATION" },
-        13: { iq: 72, classification: "BOEDERLINE MENTAL RETARDATION" },
-        12: { iq: 70, classification: "BOEDERLINE MENTAL RETARDATION" },
-        11: { iq: 67, classification: "MILD MENTAL RETARDATION" },
-        10: { iq: 65, classification: "MILD MENTAL RETARDATION" },
-        9: { iq: 60, classification: "MILD MENTAL RETARDATION" },
-        8: { iq: 57, classification: "MILD MENTAL RETARDATION" },
-        7: { iq: 55, classification: "MILD MENTAL RETARDATION" },
-        6: { iq: 52, classification: "MILD MENTAL RETARDATION" },
-        5: { iq: 48, classification: "MODERATE MENTAL RETARDATION" },
-        4: { iq: 47, classification: "MODERATE MENTAL RETARDATION" },
-        3: { iq: 45, classification: "MODERATE MENTAL RETARDATION" },
-        2: { iq: 43, classification: "MODERATE MENTAL RETARDATION" },
-        1: { iq: 40, classification: "MODERATE MENTAL RETARDATION" },
-        0: { iq: 38, classification: "MODERATE MENTAL RETARDATION" }
-      };
-
       const iqInfo = getCfitIqInfoFromResult(r);
       const rawScore = iqInfo.raw;
+      const segmentMax: Record<string, number> = { Series: 13, Classifications: 14, Matrices: 13, Conditions: 10 };
+      const normalizeSegment = (category?: string | null) => {
+        const text = String(category || "").toUpperCase();
+        if (text.includes("SERIES") || text === "S1") return "Series";
+        if (text.includes("CLASSIFICATION") || text === "S2") return "Classifications";
+        if (text.includes("MATRICES") || text === "S3") return "Matrices";
+        if (text.includes("CONDITION") || text === "S4") return "Conditions";
+        return "";
+      };
+      const segmentCounts = answers.reduce<Record<string, number>>((acc, answer) => {
+        if (answer.is_correct !== true) return acc;
+        const segment = normalizeSegment(answer.category);
+        if (!segment) return acc;
+        acc[segment] = (acc[segment] || 0) + 1;
+        return acc;
+      }, {});
+      const segmentData = Object.keys(segmentMax).map((name) => ({
+        name,
+        value: segmentCounts[name] || 0,
+        max: segmentMax[name],
+      }));
+      const hasSegmentAnswers = answers.some((answer) => answer.is_correct !== null && normalizeSegment(answer.category));
 
       return (
         <div className="space-y-4">
@@ -1365,19 +1333,23 @@ const Results = () => {
             <p className="text-xs text-muted-foreground mt-3">Raw Score: {rawScore} / {iqInfo.max}</p>
           </div>
 
-          {/* Line Chart with visible number scale */}
-          <div className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-xs font-semibold text-foreground mb-3">Grafik Hasil — CFIT 3A (Culture Fair Intelligence Test)</p>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={data} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
-                <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
-                <YAxis domain={[0, 50]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} label={{ value: 'Skor', angle: -90, position: 'insideLeft', fill: 'hsl(210,20%,60%)', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any) => [v, 'Skor']} />
-                <Line type="monotone" dataKey="value" stroke="#2dd4bf" strokeWidth={3} dot={{ fill: '#2dd4bf', r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} label={{ position: 'top', fill: '#2dd4bf', fontSize: 11, fontWeight: 700 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {hasSegmentAnswers && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-xs font-semibold text-foreground mb-3">Benar per Segmen CFIT</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={segmentData} margin={{ left: 20, right: 30, top: 20, bottom: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+                  <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} />
+                  <YAxis domain={[0, 14]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any, _name: any, item: any) => [`${v}/${item.payload.max}`, "Benar"]} />
+                  <Bar dataKey="value" fill="#2dd4bf" radius={[4, 4, 0, 0]} label={({ x, y, width, value, index }: any) => {
+                    const max = segmentData[index]?.max || 0;
+                    return <text x={x + width / 2} y={y - 6} textAnchor="middle" fill="#2dd4bf" fontSize={11} fontWeight={700}>{value}/{max}</text>;
+                  }} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       );
     }
