@@ -16,7 +16,7 @@ interface DbOption {
 interface DbQuestion {
   id: string; instrument_id: string; question_number: number; question_text: string; question_text_en: string | null;
   category: string | null; question_type: string; scoring_rule: string;
-  subtest_code?: string | null; time_limit_minutes?: number | null; image_url?: string | null;
+  subtest_code?: string | null; time_limit_minutes?: number | null; group_number?: number | null; image_url?: string | null;
   question_image?: string | null; // Gambar 1: soal/pattern (IST subtest FA)
   options_image?: string | null; // Gambar 2: pilihan jawaban A-E (IST subtest FA)
   options: DbOption[];
@@ -373,7 +373,8 @@ const TestPage = () => {
 
   const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
   const isCFIT = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("CFIT") || t.name.toUpperCase().includes("CULTURE FAIR"));
-  const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t);
+  const isKraepelinTest = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("KRAEPELIN") || t.scoring_method === "speed_accuracy");
+  const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t) || isKraepelinTest(t);
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
 
@@ -707,6 +708,28 @@ const TestPage = () => {
     });
   }, []);
 
+  const showKraepelinColumnIntro = useCallback(async (columnCode: string) => {
+    const match = String(columnCode || "").match(/\d+/);
+    const columnNo = match ? Number(match[0]) : 1;
+    await Swal.fire({
+      title: `Kraepelin - Kolom ${columnNo}`,
+      html: `
+        <div style="text-align:left;line-height:1.6">
+          <div style="padding:12px;border-radius:8px;background:hsla(174,72%,46%,0.1);border:1px solid hsla(174,72%,46%,0.3);margin-bottom:12px">
+            Jumlahkan dua angka yang berdekatan dari atas ke bawah, lalu tulis <b>angka satuan</b> hasilnya.
+          </div>
+          <p style="margin:0;color:hsl(210,20%,75%)">Kerjakan secepat dan seteliti mungkin. Saat waktu kolom habis, sistem otomatis memindahkan Anda ke kolom berikutnya.</p>
+          <p style="margin:12px 0 0;color:hsl(174,72%,46%);font-size:13px">Waktu kolom mulai berjalan setelah tombol Mulai Kolom ditekan.</p>
+        </div>
+      `,
+      confirmButtonText: "Mulai Kolom",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      ...SWAL_THEME,
+      customClass: { popup: "ist-example-modal" },
+    });
+  }, []);
+
   // Track current IST/CFIT subtest when question changes
   useEffect(() => {
     if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code && currentQuestion.subtest_code !== currentSubtest) {
@@ -724,7 +747,9 @@ const TestPage = () => {
       setSubtestIntroActive(true);
       (async () => {
         const pauseStartedAt = Date.now();
-        if (isCFIT(currentTest)) {
+        if (isKraepelinTest(currentTest)) {
+          await showKraepelinColumnIntro(nextSubtest);
+        } else if (isCFIT(currentTest)) {
           await showCfitSubtestExample(nextSubtest);
         } else {
           await showSubtestExample(nextSubtest);
@@ -739,7 +764,7 @@ const TestPage = () => {
         setSubtestIntroActive(false);
       })();
     }
-  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample, showCfitSubtestExample, showMemoryItems]);
+  }, [currentQIdx, currentTestIdx, currentTest, currentQuestion, currentSubtest, showSubtestExample, showCfitSubtestExample, showKraepelinColumnIntro, showMemoryItems]);
 
   // PAPIKOSTIK instructions effect is declared after showPAPIKOSTIKInstructions below
 
@@ -793,7 +818,7 @@ const TestPage = () => {
   // Subtest info for IST strict mode (computed each render — also used by useEffect below)
   const subtestQuestions = usesSubtestIntro(currentTest) && currentSubtest
     ? currentTest.questions.filter(q => q.subtest_code === currentSubtest) : [];
-  const subtestTimeLimit = subtestQuestions[0]?.time_limit_minutes || 6;
+  const subtestTimeLimit = isKraepelinTest(currentTest) ? 0.5 : (subtestQuestions[0]?.time_limit_minutes || 6);
   const elapsedSec = Math.floor((Date.now() - subtestStartedAt) / 1000);
   const remainingSec = subtestIntroActive ? subtestTimeLimit * 60 : Math.max(0, subtestTimeLimit * 60 - elapsedSec);
 
@@ -825,7 +850,7 @@ const TestPage = () => {
   useEffect(() => {
     if (!usesSubtestIntro(currentTest) || !currentSubtest || submitted || subtestIntroActive) return;
     if (remainingSec <= 0) {
-      Swal.fire({ icon: "info", title: `Waktu Subtes ${currentSubtest} Habis`, text: "Otomatis pindah ke subtes berikutnya.", timer: 1800, showConfirmButton: false, ...SWAL_THEME });
+      Swal.fire({ icon: "info", title: `Waktu ${isKraepelinTest(currentTest) ? "Kolom" : "Subtes"} ${currentSubtest} Habis`, text: `Otomatis pindah ke ${isKraepelinTest(currentTest) ? "kolom" : "subtes"} berikutnya.`, timer: 1800, showConfirmButton: false, ...SWAL_THEME });
       const moved = finishCurrentSubtest();
       if (!moved) handleNextTest();
     }
@@ -918,6 +943,15 @@ const TestPage = () => {
     const cleaned = value.replace(/\D/g, "").slice(0, 2);
     setAnswers(prev => ({ ...prev, [`${instrumentId}:${questionId}`]: cleaned }));
   };
+  const handleKraepelinAnswer = (instrumentId: string, questionId: string, value: string) => {
+    const cleaned = value.replace(/\D/g, "").slice(-1);
+    setAnswers(prev => {
+      const next = { ...prev };
+      if (cleaned) next[`${instrumentId}:${questionId}`] = cleaned;
+      else delete next[`${instrumentId}:${questionId}`];
+      return next;
+    });
+  };
   const handleMultiPick = (instrumentId: string, questionId: string, optId: string, maxPick = 2) => {
     const key = `${instrumentId}:${questionId}`;
     const current = (answers[key] as string) || "";
@@ -1004,10 +1038,10 @@ const TestPage = () => {
   };
 
   const handlePrev = () => {
-    // IST strict: cannot go back to a completed subtest, and cannot go back across subtest
-    if (isIST(currentTest) && currentQuestion?.subtest_code) {
+    // Segment based tests: cannot go back to a completed subtest/column.
+    if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code) {
       const prevQ = currentTest.questions[currentQIdx - 1];
-      if (!prevQ || prevQ.subtest_code !== currentQuestion.subtest_code) return; // block
+      if (!prevQ || prevQ.subtest_code !== currentQuestion.subtest_code) return;
     }
     if (currentQIdx > 0) setCurrentQIdx(currentQIdx - 1);
     else if (currentTestIdx > 0) {
@@ -1016,7 +1050,12 @@ const TestPage = () => {
     }
   };
 
-  const isLastQuestion = currentTestIdx === instruments.length - 1 && currentQIdx === (currentTest?.questions.length || 1) - 1;
+  const isLastKraepelinColumn = isKraepelinTest(currentTest) && currentSubtest
+    ? currentTest.questions.filter(q => q.subtest_code === currentSubtest).slice(-1)[0]?.question_number === currentTest.questions.slice(-1)[0]?.question_number
+    : false;
+  const isLastQuestion = currentTestIdx === instruments.length - 1 && (
+    isLastKraepelinColumn || currentQIdx === (currentTest?.questions.length || 1) - 1
+  );
 
   const handleSubmit = async () => {
     const incompleteMulti = instruments.flatMap(t => (
@@ -1127,10 +1166,10 @@ const TestPage = () => {
   const currentAns = answers[currentAnsKey] as string | undefined;
   const currentMultiPickLimit = getRequiredPickCount(currentQuestion);
 
-  // For IST: cannot go back across subtest boundary
+  // For subtest/column based tests: cannot go back across segment boundary
   const prevQ = currentTest?.questions[currentQIdx - 1];
   const canPrev = !(currentTestIdx === 0 && currentQIdx === 0) &&
-    !(isIST(currentTest) && prevQ && prevQ.subtest_code !== currentQuestion?.subtest_code);
+    !(usesSubtestIntro(currentTest) && prevQ && prevQ.subtest_code !== currentQuestion?.subtest_code);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -1218,7 +1257,39 @@ const TestPage = () => {
             <div className="mb-5 flex items-center justify-between text-sm text-muted-foreground">
               <span><span className="font-semibold text-primary">{currentTest.name}</span> · Soal <span className="font-semibold text-foreground">{currentQIdx + 1}</span> dari {currentTest.questions.length}</span>
             </div>
-            {currentQuestion ? (
+            {isKraepelinTest(currentTest) && currentSubtest ? (
+              <div className="animate-fade-in space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kolom Kraepelin</p>
+                    <h3 className="text-xl font-bold text-foreground">{currentSubtest.replace(/^K/i, "Kolom ")}</h3>
+                  </div>
+                  <div className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary">
+                    Sisa waktu {Math.floor(remainingSec / 60)}:{String(Math.floor(remainingSec % 60)).padStart(2, "0")}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                  Tulis angka satuan dari hasil penjumlahan. Contoh 7 + 8 = 15, tulis 5.
+                </div>
+                <div className="grid max-h-[62vh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-5">
+                  {subtestQuestions.map((q, idx) => (
+                    <label key={q.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
+                      <span className="w-12 text-xs font-semibold text-muted-foreground">{idx + 1}.</span>
+                      <span className="min-w-14 text-sm font-bold text-foreground">{q.question_text}</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        value={(answers[`${currentTest.id}:${q.id}`] as string) || ""}
+                        onChange={(e) => handleKraepelinAnswer(currentTest.id, q.id, e.target.value)}
+                        className="ml-auto h-9 w-10 rounded-md border border-border bg-muted text-center text-lg font-bold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : currentQuestion ? (
               <div className="animate-fade-in space-y-5">
                 {currentQuestion.category && (
                   <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{currentQuestion.category}</span>
@@ -1374,6 +1445,14 @@ const TestPage = () => {
               <button onClick={handleSubmit}
                 className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98] glow-primary">
                 <Send className="h-4 w-4" />Selesaikan Semua Tes
+              </button>
+            ) : isKraepelinTest(currentTest) ? (
+              <button onClick={() => {
+                  const moved = finishCurrentSubtest();
+                  if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98]">
+                Kolom Berikutnya<ChevronRight className="h-4 w-4" />
               </button>
             ) : (
               <button onClick={handleNext}

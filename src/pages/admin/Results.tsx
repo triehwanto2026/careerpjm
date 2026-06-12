@@ -192,7 +192,9 @@ const buildKraepelinInterpretation = (cats: Record<string, number>) => {
   const level = (v: number) => v >= 80 ? "sangat tinggi" : v >= 60 ? "tinggi" : v >= 40 ? "cukup" : v >= 20 ? "rendah" : "sangat rendah";
   return `Profil Kraepelin menunjukkan ${rows.map((row) => `${row.label.toLowerCase()} ${level(row.value)} (${row.value}%)`).join(", ")}.
 
-Jawaban benar ${Number(cats.correct_answers || 0)} dan salah ${Number(cats.wrong_answers || 0)}. Hasil ini menggambarkan pola kerja hitung sederhana dalam tekanan waktu: kecepatan, ketelitian, konsistensi, dan kapasitas kerja perlu dibaca bersama kebutuhan jabatan.`;
+Jawaban benar ${Number(cats.correct_answers || 0)} dan salah ${Number(cats.wrong_answers || 0)}. Kolom terselesaikan ${Number(cats.columns_completed || 0)}, rata-rata benar per kolom ${Number(cats.average_column || 0)}, dan puncak benar per kolom ${Number(cats.peak_column || 0)}.
+
+Secara psikologis, hasil ini menggambarkan pola kerja hitung sederhana dalam tekanan waktu: tempo kerja, ketelitian, stabilitas/fluktuasi performa antar kolom, dan daya tahan kerja rutin. Interpretasi akhir perlu dibandingkan dengan tuntutan jabatan, terutama toleransi kesalahan, kebutuhan konsistensi, dan ritme kerja target.`;
 };
 
 const renderDiscPrintMiniChart = (

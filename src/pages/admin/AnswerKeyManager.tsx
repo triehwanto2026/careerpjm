@@ -6,7 +6,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Inst { id: string; name: string; category: string; scoring_method: string; }
-interface Q { id: string; question_number: number; question_text: string; category: string | null; subtest_code: string | null; question_type: string; }
+interface Q { id: string; question_number: number; question_text: string; question_text_en: string | null; category: string | null; subtest_code: string | null; question_type: string; group_number?: number | null; }
 interface O { id: string; question_id: string; option_label: string; option_text: string; score_value: number; category_target: string | null; is_correct: boolean | null; display_order: number; }
 interface IstSeedOption { label?: string; text: string; score: number; }
 
@@ -23,6 +23,14 @@ const getCfitMeta = (questionNumber: number) => {
   if (questionNumber <= 27) return { subtest_code: "S2", category: "Classifications", question_type: "multi_choice", time_limit_minutes: 4, group_number: 2, labels: ["A", "B", "C", "D", "E"] };
   if (questionNumber <= 40) return { subtest_code: "S3", category: "Matrices", question_type: "single_choice", time_limit_minutes: 3, group_number: 3, labels: ["A", "B", "C", "D", "E", "F"] };
   return { subtest_code: "S4", category: "Conditions", question_type: "single_choice", time_limit_minutes: 3, group_number: 4, labels: ["A", "B", "C", "D", "E"] };
+};
+
+const getKraepelinAnswer = (q: Q) => {
+  const marker = String(q.question_text_en || "").match(/CORRECT_ANSWER\s*:\s*(\d+)/i);
+  if (marker) return marker[1];
+  const sum = String(q.question_text || "").match(/(\d+)\s*\+\s*(\d+)/);
+  if (!sum) return "-";
+  return String((Number(sum[1]) + Number(sum[2])) % 10);
 };
 
 const IST_ANSWER_KEY: Record<number, string | number> = {
@@ -148,6 +156,9 @@ const AnswerKeyManager = () => {
   const isCfitSelected = currentInstrument?.name.toUpperCase().includes("CFIT")
     || currentInstrument?.name.toUpperCase().includes("CULTURE FAIR")
     || questions.some(q => q.question_number === 14 && q.question_number <= 27);
+  const isKraepelinSelected = currentInstrument?.name.toUpperCase().includes("KRAEPELIN")
+    || currentInstrument?.scoring_method === "speed_accuracy"
+    || questions.some(q => q.question_type === "numeric" && q.subtest_code?.startsWith("K"));
 
   const applyIstAnswerKey = async () => {
     if (!isIstSelected) return;
@@ -340,7 +351,7 @@ const AnswerKeyManager = () => {
 
   const load = async (id: string) => {
     setLoading(true); setDirty({});
-    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, category, subtest_code, question_type").eq("instrument_id", id).order("question_number");
+    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, question_text_en, category, subtest_code, question_type, group_number").eq("instrument_id", id).order("question_number");
     setQuestions((qs as Q[]) || []);
     if (qs && qs.length) {
       const { data: os } = await supabase.from("test_question_options").select("*").in("question_id", qs.map((q: any) => q.id)).order("display_order");
@@ -431,8 +442,59 @@ const AnswerKeyManager = () => {
           <p className="text-sm text-muted-foreground py-8 text-center glass rounded-xl glow-border">Belum ada soal. Tambahkan via Bank Soal.</p>
         )}
 
+        {!loading && selected && isKraepelinSelected && questions.length > 0 && (
+          <div className="glass rounded-xl p-4 glow-border">
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Kunci Jawaban Kraepelin</h2>
+                <p className="text-xs text-muted-foreground">Tes input angka: kunci adalah angka satuan hasil penjumlahan. Tidak menggunakan opsi A-E.</p>
+              </div>
+              <div className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
+                {questions.length} soal · {new Set(questions.map(q => q.group_number || q.subtest_code)).size} kolom
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              {Array.from(new Set(questions.map(q => q.group_number || Number(String(q.subtest_code || "").replace(/\D/g, "")) || 1))).sort((a, b) => Number(a) - Number(b)).map(col => {
+                const colQuestions = questions.filter(q => (q.group_number || Number(String(q.subtest_code || "").replace(/\D/g, "")) || 1) === col);
+                return (
+                  <div key={String(col)} className="rounded-lg border border-border bg-muted/20 p-3">
+                    <p className="text-xs font-bold text-foreground">Kolom {String(col).padStart(2, "0")}</p>
+                    <p className="text-[11px] text-muted-foreground">{colQuestions.length} item · 30 detik</p>
+                    <p className="mt-1 text-[11px] text-primary">Kunci: {colQuestions.slice(0, 12).map(getKraepelinAnswer).join(" ")}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {!loading && questions.map(q => {
           const oo = opts[q.id] || [];
+          if (isKraepelinSelected || q.question_type === "numeric") {
+            const columnNo = q.group_number || Number(String(q.subtest_code || "").replace(/\D/g, "")) || 1;
+            return (
+              <div key={q.id} className="glass rounded-xl p-4 glow-border">
+                <div className="grid gap-3 sm:grid-cols-[80px_1fr_120px_120px] sm:items-center">
+                  <span className="flex h-8 w-16 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-bold">No. {q.question_number}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{q.question_text}</p>
+                    <div className="mt-1 flex flex-wrap gap-2 text-[10px]">
+                      <span className="rounded bg-amber-400/10 text-amber-400 px-1.5 py-0.5">Kolom {String(columnNo).padStart(2, "0")}</span>
+                      <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5">Input angka satuan</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-center">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Kunci</p>
+                    <p className="text-xl font-bold text-foreground">{getKraepelinAnswer(q)}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-center">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Skor</p>
+                    <p className="text-sm font-semibold text-foreground">Benar = 1</p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={q.id} className="glass rounded-xl p-4 glow-border">
               <div className="flex items-start gap-3 mb-3">

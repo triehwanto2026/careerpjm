@@ -35,6 +35,12 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
   const isKraepelin = result.test_name === "Kraepelin" || result.test_name.includes("Kraepelin");
   const isPapikostik = result.test_name === "PAPIKOSTIK";
   const isCFIT = isCfitName(result.test_name);
+  const kraepelinRows = [
+    { key: "speed", label: "Kecepatan", value: Number(cats.speed || 0) },
+    { key: "accuracy", label: "Ketelitian", value: Number(cats.accuracy || 0) },
+    { key: "stability", label: "Stabilitas", value: Number(cats.stability || 0) },
+    { key: "work_capacity", label: "Kapasitas Kerja", value: Number(cats.work_capacity || 0) },
+  ];
 
   const statusLabel = result.status === "passed" ? "Lulus" : result.status === "review" ? "Review" : "Tidak Lulus";
   const statusClass = result.status === "passed" ? "bg-emerald-100 text-emerald-700" : result.status === "review" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700";
@@ -209,9 +215,9 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
     if (isKraepelin) {
       return (
         <ResponsiveContainer width="100%" height={280}>
-          <RadarChart data={data}>
+          <RadarChart data={kraepelinRows}>
             <PolarGrid stroke="hsl(220, 14%, 25%)" />
-            <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+            <PolarAngleAxis dataKey="label" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
             <Radar name={result.test_name} dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.25} strokeWidth={2} />
           </RadarChart>
@@ -470,7 +476,19 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           </tr>
         </thead>
         <tbody>
+          {isKraepelin && kraepelinRows.map(row => (
+            <tr key={row.key} className="border-b border-border/50">
+              <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
+              <td className="py-2 px-3 text-foreground">{row.value}%</td>
+              <td className="py-2 px-3 w-40">
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className={`h-full ${row.value >= 70 ? "bg-emerald-400" : row.value >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.value, 100)}%` }} />
+                </div>
+              </td>
+            </tr>
+          ))}
           {catEntries.map(([dim, val]) => {
+            if (isKraepelin) return null;
             if (isCFIT) return null;
             const maxVal = isPapikostik ? 9 : 100;
             const pct = maxVal > 0 ? (Number(val) / maxVal) * 100 : 0;

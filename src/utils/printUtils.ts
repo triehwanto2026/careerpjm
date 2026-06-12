@@ -136,6 +136,13 @@ export const generatePrintHTML = (
   const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
   const cfitInfo = isCfitName(r.test_name) ? getCfitIqInfoFromResult(r) : null;
   const cfitProfileRows = cfitInfo ? getCfitProfileRows(r) : [];
+  const isKraepelin = r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in cats);
+  const kraepelinRows = [
+    { label: "Kecepatan", value: `${Number(cats.speed || 0)}%`, note: "Tempo kerja hitung" },
+    { label: "Ketelitian", value: `${Number(cats.accuracy || 0)}%`, note: "Akurasi jawaban" },
+    { label: "Stabilitas", value: `${Number(cats.stability || 0)}%`, note: "Konsistensi antar kolom" },
+    { label: "Kapasitas Kerja", value: `${Number(cats.work_capacity || 0)}%`, note: "Benar terhadap total target" },
+  ];
 
   // Generate DISC charts and interpretation if test is DISC
   let discChartsHTML = "";
@@ -310,7 +317,7 @@ export const generatePrintHTML = (
         </tr>
       </thead>
       <tbody>
-        ${(cfitInfo ? cfitProfileRows : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
+        ${(cfitInfo ? cfitProfileRows : isKraepelin ? kraepelinRows : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
           <td><strong>${row.label}</strong></td>
           <td>${row.value}</td>
           <td>${row.note}</td>

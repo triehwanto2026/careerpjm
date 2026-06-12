@@ -249,8 +249,9 @@ Deno.serve(async (req) => {
           const correctAnswer = getKraepelinCorrectAnswer(q);
           const isCorrect = correctAnswer !== null && selected === correctAnswer;
           if (isCorrect) correctCount++;
-          const segmentSize = Math.max(1, Math.ceil(questions.length / 10));
-          const segment = Math.min(9, Math.floor((Number(q.question_number || 1) - 1) / segmentSize));
+          const parsedSubtest = Number(String(q.subtest_code || "").replace(/\D/g, ""));
+          const fallbackSegmentSize = Math.max(1, Math.ceil(questions.length / 20));
+          const segment = Math.max(0, (Number(q.group_number || parsedSubtest || Math.floor((Number(q.question_number || 1) - 1) / fallbackSegmentSize) + 1) - 1));
           kraepelinSegmentAnswered[segment] = (kraepelinSegmentAnswered[segment] || 0) + 1;
           kraepelinSegmentCorrect[segment] = (kraepelinSegmentCorrect[segment] || 0) + (isCorrect ? 1 : 0);
           continue;
@@ -330,6 +331,9 @@ Deno.serve(async (req) => {
           work_capacity: workCapacity,
           correct_answers: correctCount,
           wrong_answers: Math.max(0, answeredCount - correctCount),
+          columns_completed: activeSegments.length,
+          peak_column: activeSegments.reduce((max, s) => Math.max(max, s.correct), 0),
+          average_column: Math.round(avg),
         };
         Object.assign(cats, kraepelinMetrics);
       }
