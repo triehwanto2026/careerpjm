@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isPastDeadline, syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 const JobDetail = () => {
   const { id } = useParams();
@@ -16,8 +17,10 @@ const JobDetail = () => {
   const { data: job, isLoading } = useQuery({
     queryKey: ["job", id],
     queryFn: async () => {
+      await syncExpiredRecruitment();
       const { data, error } = await supabase.from("job_vacancies").select("*").eq("id", id!).single();
       if (error) throw error;
+      if ((data as any).status !== "active" || isPastDeadline((data as any).closes_at)) return null;
       return data;
     },
     enabled: !!id,

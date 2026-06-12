@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, Printer, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, Printer, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, Brain } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import CandidateTestResultView from "@/components/admin/CandidateTestResultView";
 import { generatePrintHTML, printHTML } from "@/utils/printUtils";
 import { supabase } from "@/integrations/supabase/client";
 import DocumentPreview from "@/components/DocumentPreview";
 import Swal from "sweetalert2";
+import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 interface Doc {
   id: string;
@@ -157,7 +158,9 @@ export default function RecruitmentProcess() {
   const [activationExpiresAt, setActivationExpiresAt] = useState("");
   const [activationProcessing, setActivationProcessing] = useState(false);
   const [activationMode, setActivationMode] = useState<"create_new" | "allow_retake">("create_new");
+  const [contactDraft, setContactDraft] = useState("");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     loadActiveJobs();
@@ -166,6 +169,7 @@ export default function RecruitmentProcess() {
 
   const loadActiveJobs = async () => {
     try {
+      await syncExpiredRecruitment();
       const { data: jobsData, error: jobsError } = await supabase
         .from("job_vacancies")
         .select("*")
@@ -234,12 +238,38 @@ export default function RecruitmentProcess() {
     return "bg-emerald-100 text-emerald-700";
   };
 
+  const isBcryptPassword = (password?: string | null) => /^\$2[aby]\$\d{2}\$/.test(String(password || ""));
+
+  const getActivationPasswordText = (code: ActivationCode) => {
+    if (!code.password) return "-";
+    if (isBcryptPassword(code.password)) return "Password asli tidak dapat ditampilkan";
+    return code.password;
+  };
+
+  const copyActivationAccess = async (code: ActivationCode) => {
+    if (isBcryptPassword(code.password)) {
+      Swal.fire({
+        icon: "info",
+        title: "Password tidak bisa disalin",
+        text: "Password lama tersimpan sebagai hash bcrypt. Buat kode baru jika perlu membagikan password asli ke kandidat.",
+      });
+      return;
+    }
+    await navigator.clipboard.writeText(`Kode: ${code.code}\nPassword: ${code.password}`);
+    Swal.fire({ icon: "success", title: "Kode dan password disalin", timer: 1200, showConfirmButton: false });
+  };
+
+  const getPrimaryActivationCode = (application: JobApplication) => {
+    return application.activation_code || application.activation_codes?.[0] || null;
+  };
+
   const openActivationModal = (application: JobApplication) => {
+    const primaryCode = getPrimaryActivationCode(application);
     setActivationApplication(application);
-    setActivationSelectedTests(application.activation_code?.assigned_tests || []);
+    setActivationSelectedTests(primaryCode?.assigned_tests || []);
     setActivationExpiresAt(
-      application.activation_code?.expires_at
-        ? application.activation_code.expires_at.split("T")[0]
+      primaryCode?.expires_at
+        ? primaryCode.expires_at.split("T")[0]
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
     );
     setShowActivationModal(true);
@@ -272,7 +302,7 @@ export default function RecruitmentProcess() {
     setActivationProcessing(true);
 
     try {
-      const existingCode = activationApplication.activation_code;
+      const existingCode = getPrimaryActivationCode(activationApplication);
 
       if (activationMode === 'allow_retake' && existingCode && existingCode.id) {
         // Allow retake: reset completion and reactivate
@@ -487,17 +517,21 @@ export default function RecruitmentProcess() {
 
       const emails = Array.from(new Set(applicationsWithProfiles.map((app: any) => app.candidate_profile.email).filter(Boolean)));
       const { data: codesData, error: codesError } = emails.length > 0
-        ? await supabase.from("activation_codes").select("*").in("candidate_email", emails)
+        ? await supabase.from("activation_codes").select("*").in("candidate_email", emails).order("created_at", { ascending: false })
         : { data: [], error: null };
 
       if (codesError) {
         console.error("Activation codes error:", codesError);
       }
 
-      const applicationsWithCodes = applicationsWithProfiles.map((application: any) => ({
-        ...application,
-        activation_codes: (codesData || []).filter((code: any) => code.candidate_email === application.candidate_profile.email) || [],
-      }));
+      const applicationsWithCodes = applicationsWithProfiles.map((application: any) => {
+        const activationCodes = (codesData || []).filter((code: any) => code.candidate_email === application.candidate_profile.email) || [];
+        return {
+          ...application,
+          activation_code: activationCodes[0] || null,
+          activation_codes: activationCodes,
+        };
+      });
 
       console.log("Final mapped data:", applicationsWithCodes);
       setApplications(applicationsWithCodes);
@@ -514,6 +548,25 @@ export default function RecruitmentProcess() {
       loadApplications(selectedJob.id);
     }
   }, [selectedJob]);
+
+  useEffect(() => {
+    const jobId = searchParams.get("job");
+    if (!jobId || activeJobs.length === 0 || selectedJob?.id === jobId) return;
+    const targetJob = activeJobs.find((job) => job.id === jobId);
+    if (targetJob) setSelectedJob(targetJob);
+  }, [activeJobs, searchParams, selectedJob?.id]);
+
+  useEffect(() => {
+    const candidateId = searchParams.get("candidate");
+    const action = searchParams.get("action");
+    if (!candidateId || action !== "test" || applications.length === 0) return;
+    const targetApplication = applications.find((application) => application.user_id === candidateId);
+    if (!targetApplication || showActivationModal) return;
+    openActivationModal(targetApplication);
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete("action");
+    window.history.replaceState({}, "", `${window.location.pathname}?${newSearchParams.toString()}`);
+  }, [applications, searchParams, showActivationModal]);
 
   const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
     try {
@@ -534,6 +587,7 @@ export default function RecruitmentProcess() {
 
   const viewApplicationDetail = (application: JobApplication) => {
     setSelectedApplication(application);
+    setContactDraft(buildContactDraft(application));
     setShowDetailModal(true);
   };
 
@@ -792,6 +846,104 @@ export default function RecruitmentProcess() {
         return '8. Ditolak';
       default:
         return status;
+    }
+  };
+
+  const recruitmentSteps = [
+    { status: 'applied', shortLabel: 'Lamaran', label: 'Lamaran Diterima', Icon: CheckCircle },
+    { status: 'screening', shortLabel: 'Screening', label: 'Screening CV', Icon: FileText },
+    { status: 'psychology_test', shortLabel: 'Psikotes', label: 'Tes Psikologi', Icon: Brain },
+    { status: 'hr_interview', shortLabel: 'HR', label: 'Wawancara HR', Icon: Users },
+    { status: 'user_interview', shortLabel: 'User', label: 'Wawancara User', Icon: UserCog },
+    { status: 'offer', shortLabel: 'Offer', label: 'Penawaran', Icon: Award },
+    { status: 'hired', shortLabel: 'Diterima', label: 'Diterima', Icon: CheckCircle },
+  ];
+
+  const getCurrentStepIndex = (status: string) => {
+    if (status === 'rejected') return -1;
+    return recruitmentSteps.findIndex((step) => step.status === status);
+  };
+
+  const contactTemplateKey = (status: string) => `recruitment-contact-template:${status}`;
+
+  const getDefaultContactTemplate = (status: string) => {
+    const stage = getStatusLabel(status).replace(/^\d+\.\s*/, "");
+    const isTest = status === "psychology_test";
+    const isInterview = status === "hr_interview" || status === "user_interview";
+    if (isTest) {
+      return `Yth. {nama},\n\nTerima kasih atas lamaran Anda untuk posisi {posisi}. Kami mengundang Anda untuk mengikuti tahap Tes Psikologi. Mohon konfirmasi ketersediaan Anda agar kami dapat mengirimkan detail jadwal dan akses tes.\n\nTerima kasih.`;
+    }
+    if (isInterview) {
+      return `Yth. {nama},\n\nTerima kasih atas partisipasi Anda dalam proses rekrutmen posisi {posisi}. Kami mengundang Anda untuk mengikuti tahap {tahap}. Mohon konfirmasi ketersediaan jadwal Anda untuk proses interview.\n\nTerima kasih.`;
+    }
+    return `Yth. {nama},\n\nTerima kasih atas lamaran Anda untuk posisi {posisi}. Saat ini lamaran Anda berada pada tahap {tahap}. Kami akan menghubungi Anda untuk informasi proses selanjutnya.\n\nTerima kasih.`;
+  };
+
+  const fillContactTemplate = (application: JobApplication, template: string) => {
+    const candidateName = application.candidate_profile.full_name || "Kandidat";
+    const position = selectedJob?.title || application.candidate_profile.current_position || "posisi yang dilamar";
+    const stage = getStatusLabel(application.status).replace(/^\d+\.\s*/, "");
+    return template
+      .replaceAll("{nama}", candidateName)
+      .replaceAll("{posisi}", position)
+      .replaceAll("{tahap}", stage);
+  };
+
+  const getStoredContactTemplate = (status: string) => {
+    if (typeof window === "undefined") return getDefaultContactTemplate(status);
+    return localStorage.getItem(contactTemplateKey(status)) || getDefaultContactTemplate(status);
+  };
+
+  const buildContactDraft = (application: JobApplication) => {
+    return fillContactTemplate(application, getStoredContactTemplate(application.status));
+  };
+
+  const saveContactDraftTemplate = (application: JobApplication) => {
+    const candidateName = application.candidate_profile.full_name || "Kandidat";
+    const position = selectedJob?.title || application.candidate_profile.current_position || "posisi yang dilamar";
+    const stage = getStatusLabel(application.status).replace(/^\d+\.\s*/, "");
+    const template = (contactDraft || buildContactDraft(application))
+      .replaceAll(candidateName, "{nama}")
+      .replaceAll(position, "{posisi}")
+      .replaceAll(stage, "{tahap}");
+    localStorage.setItem(contactTemplateKey(application.status), template);
+    setContactDraft(fillContactTemplate(application, template));
+    Swal.fire({ icon: "success", title: "Draft awal disimpan", text: "Template akan dipakai lagi untuk tahap yang sama.", timer: 1800, showConfirmButton: false });
+  };
+
+  const normalizePhoneForWhatsApp = (phone?: string) => {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("62")) return digits;
+    if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+    return digits;
+  };
+
+  const openWhatsAppContact = (application: JobApplication) => {
+    const phone = normalizePhoneForWhatsApp(application.candidate_profile.phone);
+    if (!phone) {
+      Swal.fire("Nomor belum tersedia", "Nomor telepon kandidat belum bisa digunakan untuk WhatsApp.", "warning");
+      return;
+    }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(contactDraft || buildContactDraft(application))}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openEmailContact = (application: JobApplication) => {
+    const email = application.candidate_profile.email;
+    if (!email || email === "Unknown") {
+      Swal.fire("Email belum tersedia", "Alamat email kandidat belum tersedia.", "warning");
+      return;
+    }
+    const subject = `Undangan Proses Rekrutmen - ${selectedJob?.title || "Lamaran"}`;
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(contactDraft || buildContactDraft(application))}`;
+  };
+
+  const copyContactDraft = async () => {
+    try {
+      await navigator.clipboard.writeText(contactDraft);
+      Swal.fire({ icon: "success", title: "Draft disalin", timer: 1400, showConfirmButton: false });
+    } catch {
+      Swal.fire("Gagal menyalin", "Browser tidak mengizinkan akses clipboard.", "error");
     }
   };
 
@@ -1116,12 +1268,12 @@ export default function RecruitmentProcess() {
         )}
 
         {showActivationModal && activationApplication && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
-            <div className="bg-card border border-border rounded-xl max-w-3xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden">
-              <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Buat / Perbarui Kode Tes Psikologi</h2>
-                  <p className="text-sm text-muted-foreground">Sama seperti pada halaman Kode Aktivasi.</p>
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center p-2 sm:p-4 z-[70] overflow-hidden">
+            <div className="bg-card border border-border rounded-xl max-w-5xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden shadow-2xl flex flex-col">
+              <div className="flex-shrink-0 p-4 border-b border-border flex items-center justify-between gap-4 bg-muted/20">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-foreground">Buat / Perbarui Kode Tes Psikologi</h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Atur akses tes, tanggal expire, dan retake kandidat.</p>
                 </div>
                 <button
                   onClick={closeActivationModal}
@@ -1130,25 +1282,30 @@ export default function RecruitmentProcess() {
                   <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
-              <div className="p-4 sm:p-6 space-y-5 max-h-[calc(100dvh-9rem)] sm:max-h-[calc(100dvh-11rem)] overflow-y-auto overscroll-contain">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="rounded-lg bg-muted/40 p-4">
-                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Kandidat</div>
-                    <div className="font-semibold text-foreground">{activationApplication.candidate_profile.full_name}</div>
-                    <div className="text-sm text-muted-foreground">{activationApplication.candidate_profile.email}</div>
-                    <div className="text-sm text-muted-foreground">{activationApplication.candidate_profile.current_position || "-"}</div>
-                  </div>
-                  <div className="rounded-lg bg-muted/40 p-4">
-                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Lowongan</div>
-                    <div className="font-semibold text-foreground">{selectedJob?.title || "Tes Psikologi"}</div>
-                    <div className="text-sm text-muted-foreground">{selectedJob?.department || "-"}</div>
+              <div className="min-h-0 flex-1 p-4 space-y-4 overflow-y-auto overscroll-contain">
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Kandidat</span>
+                      <span className="font-semibold text-foreground">{activationApplication.candidate_profile.full_name}</span>
+                      <span className="text-muted-foreground break-all">{activationApplication.candidate_profile.email}</span>
+                      {activationApplication.candidate_profile.phone && activationApplication.candidate_profile.phone !== "Unknown" && (
+                        <span className="text-muted-foreground">{activationApplication.candidate_profile.phone}</span>
+                      )}
+                    </div>
+                    <div className="hidden h-4 w-px bg-border md:block" />
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Lowongan</span>
+                      <span className="font-semibold text-foreground">{selectedJob?.title || "Tes Psikologi"}</span>
+                      <span className="text-muted-foreground">{selectedJob?.department || "-"}</span>
+                    </div>
                   </div>
                 </div>
                 {activationApplication.activation_codes && activationApplication.activation_codes.length > 0 && (
-                  <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-                    <label className="text-sm font-medium text-foreground">Kode Aktivasi Terdaftar ({activationApplication.activation_codes.length})</label>
+                  <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+                    <label className="text-sm font-semibold text-foreground">Kode Aktivasi Terdaftar ({activationApplication.activation_codes.length})</label>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full min-w-[720px] text-xs">
                         <thead>
                           <tr className="border-b border-border">
                             <th className="text-left px-2 py-2 font-medium text-muted-foreground">Kode</th>
@@ -1161,8 +1318,12 @@ export default function RecruitmentProcess() {
                         <tbody>
                           {activationApplication.activation_codes.map((c: any) => (
                             <tr key={c.id} className="border-b border-border/50 hover:bg-background/50 transition">
-                              <td className="px-2 py-2 font-mono text-primary">{c.code}</td>
-                              <td className="px-2 py-2 font-mono text-foreground">{c.password}</td>
+                              <td className="px-2 py-2 font-mono text-primary whitespace-nowrap">{c.code}</td>
+                              <td className="px-2 py-2">
+                                <span className={`font-mono ${isBcryptPassword(c.password) ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                  {getActivationPasswordText(c)}
+                                </span>
+                              </td>
                               <td className="px-2 py-2">
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.test_completed_at ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                   {c.test_completed_at ? 'Selesai' : 'Aktif'}
@@ -1170,7 +1331,15 @@ export default function RecruitmentProcess() {
                               </td>
                               <td className="px-2 py-2 text-xs text-muted-foreground">{formatDate(c.created_at)}</td>
                               <td className="px-2 py-2 text-center">
-                                {c.test_completed_at && (
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => copyActivationAccess(c)}
+                                    className="px-2 py-1 rounded text-xs border border-border text-foreground hover:bg-muted transition"
+                                  >
+                                    Salin
+                                  </button>
+                                  {c.test_completed_at && (
                                   <button
                                     type="button"
                                     onClick={() => allowRetakeForCode(c.id, activationApplication.id)}
@@ -1179,19 +1348,23 @@ export default function RecruitmentProcess() {
                                   >
                                     Izinkan Ulang
                                   </button>
-                                )}
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Password yang sudah berbentuk bcrypt tidak dapat dibalik ke password asli. Untuk membagikan akses baru, gunakan mode buat kode baru.
+                    </p>
                   </div>
                 )}
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-foreground">Mode Kode</label>
-                  <div className="flex items-center gap-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${activationMode === 'create_new' ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
                       <input type="radio" name="activationMode" value="create_new" checked={activationMode === 'create_new'} onChange={() => setActivationMode('create_new')} />
                       <span className="text-sm">Buat kode baru</span>
@@ -1204,17 +1377,17 @@ export default function RecruitmentProcess() {
                   <div className="text-xs text-muted-foreground">Pilih "Izinkan mengerjakan ulang" jika kandidat kehabisan waktu atau perlu mencoba lagi tanpa membuat kode baru.</div>
 
                   <label className="text-sm font-medium text-foreground">Pilih Tes</label>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {activeInstruments.map((inst) => (
                       <button
                         key={inst.id}
                         type="button"
                         onClick={() => toggleActivationTest(inst.id)}
-                        className={`w-full text-left rounded-lg border px-4 py-3 transition ${activationSelectedTests.includes(inst.id) ? 'border-primary bg-primary/10' : 'border-border bg-background hover:bg-muted'}`}
+                        className={`w-full min-h-12 text-left rounded-lg border px-3 py-2 transition ${activationSelectedTests.includes(inst.id) ? 'border-primary bg-primary/10' : 'border-border bg-background hover:bg-muted'}`}
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <span className="font-medium text-foreground">{inst.name}</span>
-                          {activationSelectedTests.includes(inst.id) && <span className="text-xs text-primary">Dipilih</span>}
+                          <span className="text-sm font-medium leading-tight text-foreground">{inst.name}</span>
+                          {activationSelectedTests.includes(inst.id) && <CheckCircle className="h-4 w-4 flex-shrink-0 text-primary" />}
                         </div>
                       </button>
                     ))}
@@ -1223,7 +1396,7 @@ export default function RecruitmentProcess() {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[260px_1fr]">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Tanggal Expire</label>
                     <input
@@ -1233,7 +1406,7 @@ export default function RecruitmentProcess() {
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
-                  <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="rounded-lg border border-border bg-background p-3">
                     <div className="text-xs text-muted-foreground mb-2">Ringkasan</div>
                     <div className="text-sm text-foreground">{activationApplication.activation_code ? 'Memperbarui kode aktivasi yang sudah ada.' : 'Membuat kode aktivasi baru untuk kandidat.'}</div>
                     {activationSelectedTests.length ? (
@@ -1244,14 +1417,14 @@ export default function RecruitmentProcess() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-3 border-t border-border p-4">
+              <div className="flex-shrink-0 flex flex-col-reverse gap-2 border-t border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-end">
                 <button onClick={closeActivationModal} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition">Batal</button>
                 <button
                   onClick={saveActivationCode}
                   disabled={activationProcessing}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {activationProcessing ? 'Menyimpan...' : activationApplication.activation_code ? 'Perbarui Kode Tes Psikologi' : 'Buat Kode Tes Psikologi'}
+                  {activationProcessing ? 'Menyimpan...' : activationApplication.activation_code ? 'Perbarui Kode Tes Psikologi' : 'Buat Tes Lagi'}
                 </button>
               </div>
             </div>
@@ -1438,10 +1611,20 @@ export default function RecruitmentProcess() {
         {/* Detail Modal - Application Info */}
         {showDetailModal && selectedApplication && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
-            <div className="bg-card border border-border rounded-xl max-w-4xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden">
-              <div className="p-4 sm:p-6 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-foreground">Detail Lamaran</h2>
+            <div className="bg-card border border-border rounded-xl max-w-5xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden shadow-2xl">
+              <div className="p-4 sm:p-5 border-b border-border bg-muted/20">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-bold text-foreground">Detail Lamaran</h2>
+                      <span className={`px-2.5 py-1 text-xs rounded-full ${getStatusColor(selectedApplication.status)}`}>
+                        {getStatusLabel(selectedApplication.status)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {selectedApplication.candidate_profile.full_name} untuk {selectedJob?.title || "lowongan terpilih"}
+                    </p>
+                  </div>
                   <button
                     onClick={() => setShowDetailModal(false)}
                     className="p-1 rounded hover:bg-muted transition"
@@ -1451,117 +1634,182 @@ export default function RecruitmentProcess() {
                 </div>
               </div>
               
-              <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain max-h-[calc(100dvh-9rem)] sm:max-h-[calc(100dvh-11rem)]">
+              <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain max-h-[calc(100dvh-9rem)] sm:max-h-[calc(100dvh-11rem)] space-y-5">
                 {/* Job Information */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-primary" />
-                    Informasi Lowongan
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Posisi</p>
-                      <p className="font-medium text-foreground">{selectedJob?.title || '-'}</p>
+                <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-primary" />
+                        Informasi Lowongan
+                      </h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                        <span className="font-semibold text-foreground">{selectedJob?.title || '-'}</span>
+                        <span className="text-muted-foreground">{selectedJob?.department || '-'}</span>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5" /> {selectedJob?.location || '-'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Departemen</p>
-                      <p className="font-medium text-foreground">{selectedJob?.department || '-'}</p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Tipe Kerja</p>
-                      <p className="font-medium text-foreground">{selectedJob?.employment_type || '-'}</p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Tutup Lowongan</p>
-                      <p className="font-medium text-foreground">{formatDate(selectedJob?.closes_at || '')}</p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Status Lowongan</p>
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Aktif</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground">{selectedJob?.employment_type || '-'}</span>
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Aktif</span>
+                      <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground">Tutup: {formatDate(selectedJob?.closes_at || '')}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Application Information */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    Informasi Lamaran
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Nama Pelamar</p>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.full_name}</p>
+                <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" />
+                        Informasi Lamaran
+                      </h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                        <span className="font-semibold text-foreground">{selectedApplication.candidate_profile.full_name}</span>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground break-all">
+                          <Mail className="h-3.5 w-3.5" /> {selectedApplication.candidate_profile.email}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5" /> {selectedApplication.candidate_profile.phone || "-"}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        Pendidikan: <span className="font-medium text-foreground">{getLatestEducation(selectedApplication.candidate_profile)}</span>
+                      </div>
                     </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Email</p>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.email}</p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Telepon</p>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.phone}</p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Tanggal Lamar</p>
-                      <p className="font-medium text-foreground">{formatDate(selectedApplication.applied_at)}</p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Status Saat Ini</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground">Lamar: {formatDate(selectedApplication.applied_at)}</span>
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedApplication.status)}`}>
                         {getStatusLabel(selectedApplication.status)}
                       </span>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground mb-1">Pendidikan Terakhir</p>
-                      <p className="font-medium text-foreground">{selectedApplication.candidate_profile.education_level}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Recruitment Process Timeline */}
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+                  <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                     <Clock className="h-5 w-5 text-primary" />
                     Proses Rekrutmen
                   </h3>
-                  <div className="space-y-3">
-                    {[
-                      { status: 'applied', label: '1. Lamaran Diterima', icon: '📥' },
-                      { status: 'screening', label: '2. Screening CV', icon: '📋' },
-                      { status: 'psychology_test', label: '3. Tes Psikologi', icon: '🧠' },
-                      { status: 'hr_interview', label: '4. Wawancara HR', icon: '👔' },
-                      { status: 'user_interview', label: '5. Wawancara User', icon: '👤' },
-                      { status: 'offer', label: '6. Penawaran', icon: '📄' },
-                      { status: 'hired', label: '7. Diterima', icon: '✅' },
-                      { status: 'rejected', label: '8. Ditolak', icon: '❌' }
-                    ].map((step) => {
-                      const isCurrentStep = selectedApplication.status === step.status;
-                      const isCompleted = ['applied', 'screening', 'psychology_test', 'hr_interview', 'user_interview', 'offer', 'hired'].indexOf(step.status) < 
-                                        ['applied', 'screening', 'psychology_test', 'hr_interview', 'user_interview', 'offer', 'hired'].indexOf(selectedApplication.status);
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
+                    {recruitmentSteps.map((step, index) => {
+                      const currentIndex = getCurrentStepIndex(selectedApplication.status);
+                      const isRejected = selectedApplication.status === 'rejected';
+                      const isCurrentStep = !isRejected && currentIndex === index;
+                      const isCompleted = !isRejected && currentIndex > index;
+                      const Icon = step.Icon;
                       
                       return (
                         <div 
                           key={step.status}
-                          className={`flex items-center gap-3 p-3 rounded-lg border ${
-                            isCurrentStep 
-                              ? 'bg-primary/10 border-primary/20' 
-                              : isCompleted 
-                                ? 'bg-muted/30 border-border' 
-                                : 'bg-muted/10 border-border/50'
+                          className={`relative rounded-xl border p-3 transition ${
+                            isCurrentStep
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-800 shadow-sm'
+                              : isCompleted
+                                ? 'border-slate-200 bg-slate-50 text-slate-700'
+                                : 'border-border bg-muted/20 text-muted-foreground'
                           }`}
                         >
-                          <span className="text-xl">{step.icon}</span>
-                          <div className="flex-1">
-                            <p className="text-sm text-muted-foreground">
-                              {isCurrentStep ? 'Sedang berjalan' : isCompleted ? 'Selesai' : 'Menunggu'}
-                            </p>
+                          <div className="flex items-start gap-2 md:block">
+                            <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-full ${
+                              isCurrentStep ? 'bg-emerald-600 text-white' : isCompleted ? 'bg-slate-700 text-white' : 'bg-background text-muted-foreground border border-border'
+                            }`}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold leading-tight">{step.shortLabel}</p>
+                              <p className="mt-1 text-xs">
+                                {isCurrentStep ? 'Sedang proses' : isCompleted ? 'Selesai' : 'Menunggu'}
+                              </p>
+                            </div>
                           </div>
-                          {isCurrentStep && (
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          )}
                         </div>
                       );
                     })}
+                  </div>
+                  {selectedApplication.status === 'rejected' && (
+                    <div className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+                      <XCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold">Lamaran ditolak</p>
+                        <p className="text-sm text-red-700">Status kandidat sudah berada pada tahap rejected.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 text-primary" />
+                        Komunikasi Kandidat
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">Ubah draft pesan bila perlu, lalu kirim via WhatsApp atau email dari device yang sedang login.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => saveContactDraftTemplate(selectedApplication)}
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        <CheckCircle className="h-4 w-4" /> Simpan Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setContactDraft(buildContactDraft(selectedApplication))}
+                        className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition"
+                      >
+                        <Edit className="h-4 w-4" /> Reset Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={copyContactDraft}
+                        className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition"
+                      >
+                        <FileText className="h-4 w-4" /> Salin
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={contactDraft}
+                    onChange={(e) => setContactDraft(e.target.value)}
+                    rows={6}
+                    className="mt-4 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <button
+                      type="button"
+                      onClick={() => openWhatsAppContact(selectedApplication)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+                    >
+                      <MessageSquare className="h-4 w-4" /> Hubungi Kandidat
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEmailContact(selectedApplication)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                    >
+                      <Mail className="h-4 w-4" /> Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => viewCandidateProfile(selectedApplication)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition"
+                    >
+                      <User className="h-4 w-4" /> Profil Kandidat
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openActivationModal(selectedApplication)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/15 transition"
+                    >
+                      <Brain className="h-4 w-4" /> Atur Tes
+                    </button>
                   </div>
                 </div>
               </div>

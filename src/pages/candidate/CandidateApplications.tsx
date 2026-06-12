@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ClipboardList, CheckCircle2, Clock, XCircle, Briefcase, Calendar, User, FileCheck, DollarSign, AlertCircle } from "lucide-react";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 interface AppRow {
   id: string;
@@ -29,6 +30,7 @@ const STATUS_FLOW = [
   { key: "offered", label: "6. Penawaran", color: "green", icon: DollarSign },
   { key: "accepted", label: "7. Diterima", color: "green", icon: CheckCircle2 },
   { key: "rejected", label: "8. Ditolak", color: "red", icon: XCircle },
+  { key: "expired", label: "Kedaluwarsa", color: "gray", icon: AlertCircle },
 ];
 
 const colors: Record<string, string> = {
@@ -40,6 +42,7 @@ const colors: Record<string, string> = {
   offered: "bg-green-500/15 text-green-500 border-green-500/30",
   accepted: "bg-green-500/15 text-green-500 border-green-500/30",
   rejected: "bg-red-500/15 text-red-500 border-red-500/30",
+  expired: "bg-gray-500/15 text-gray-500 border-gray-500/30",
   withdrawn: "bg-gray-500/15 text-gray-500 border-gray-500/30",
 };
 
@@ -52,6 +55,7 @@ const activeColors: Record<string, string> = {
   offered: "bg-green-500/15 text-green-500 border-green-500/30",
   accepted: "bg-green-500/15 text-green-500 border-green-500/30",
   rejected: "bg-red-500/15 text-red-500 border-red-500/30",
+  expired: "bg-gray-500/15 text-gray-500 border-gray-500/30",
   withdrawn: "bg-gray-500/15 text-gray-500 border-gray-500/30",
 };
 
@@ -61,12 +65,13 @@ export default function CandidateApplications() {
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    await syncExpiredRecruitment();
     const { data } = await supabase.from("job_applications").select("*").eq("user_id", session.user.id).order("applied_at", { ascending: false });
     const list = (data as any) || [];
     // Fetch vacancies
     const ids = Array.from(new Set(list.map((a: any) => a.vacancy_id))) as string[];
     if (ids.length > 0) {
-      const { data: vac } = await supabase.from("job_vacancies").select("id,title,department,location").in("id", ids);
+      const { data: vac } = await supabase.from("job_vacancies").select("id,title,department,location,closes_at").in("id", ids);
       const map = new Map((vac || []).map((v: any) => [v.id, v]));
       list.forEach((a: any) => { a.vacancy = map.get(a.vacancy_id); });
     }
@@ -109,7 +114,7 @@ export default function CandidateApplications() {
           <div className="space-y-4">
             {apps.map((a) => {
               const step = STATUS_FLOW.findIndex((s) => s.key === a.status);
-              const isRejected = a.status === "rejected" || a.status === "withdrawn";
+              const isRejected = a.status === "rejected" || a.status === "withdrawn" || a.status === "expired";
               const currentStatus = STATUS_FLOW.find((s) => s.key === a.status);
               
               return (

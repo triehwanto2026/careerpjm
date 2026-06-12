@@ -1,15 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 // Fetch all jobs (for public pages)
 export const useActiveJobs = () => {
   return useQuery({
     queryKey: ["jobs", "active"],
     queryFn: async () => {
+      await syncExpiredRecruitment();
       const { data, error } = await supabase
         .from("job_vacancies")
         .select("*")
         .eq("status", "active")
+        .or(`closes_at.is.null,closes_at.gte.${new Date().toISOString()}`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -22,6 +25,7 @@ export const useJobs = () => {
   return useQuery({
     queryKey: ["jobs", "all"],
     queryFn: async () => {
+      await syncExpiredRecruitment();
       const { data, error } = await supabase
         .from("job_vacancies")
         .select("*")

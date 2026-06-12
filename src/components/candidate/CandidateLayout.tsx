@@ -108,7 +108,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   const mobileTransform = collapsed ? "-translate-x-full" : "translate-x-0";
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
@@ -201,8 +201,8 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border flex items-center justify-between px-4 lg:px-6 bg-card sticky top-0 z-30">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-30 flex h-14 flex-shrink-0 items-center justify-between border-b border-border bg-card px-4 lg:px-6">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCollapsed((c) => !c)}
@@ -321,7 +321,16 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
             <ThemeToggle />
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 lg:p-6">{children}</main>
+        <footer className="flex-shrink-0 border-t border-border bg-card/50 px-4 py-2 lg:px-6">
+          <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>{publicSettings.app_name || publicSettings.landing_header_title || "PJM Group"}</span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+              Portal Online
+            </span>
+          </div>
+        </footer>
       </div>
     </div>
   );

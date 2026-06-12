@@ -241,12 +241,12 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100 shadow-lg transition-all duration-300 md:static md:translate-x-0 ${
+      <aside className={`fixed inset-y-0 left-0 z-50 flex h-full flex-shrink-0 flex-col bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100 shadow-lg transition-all duration-300 md:static md:translate-x-0 ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       } ${sidebarCollapsed ? "md:w-20" : "w-64 md:w-64"}`}>
         <div className={`flex items-center justify-between border-b border-slate-700 px-5 py-4 ${sidebarCollapsed ? "px-3" : ""}`}>
@@ -363,8 +363,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-card/80 backdrop-blur-xl px-4 py-3 md:px-6">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-30 flex flex-shrink-0 items-center gap-3 border-b border-border bg-card/80 backdrop-blur-xl px-4 py-3 md:px-6">
           <button onClick={() => setSidebarOpen(true)} className="text-muted-foreground md:hidden">
             <Menu className="h-5 w-5" />
           </button>
@@ -418,9 +418,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">{children}</main>
 
-        <footer className="border-t border-border bg-card/50 px-4 py-3 md:px-6">
+        <footer className="flex-shrink-0 border-t border-border bg-card/50 px-4 py-3 md:px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
             <p>© 2024 {adminPanelName}. All rights reserved.</p>
             <p className="flex items-center gap-1">

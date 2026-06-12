@@ -13,6 +13,7 @@ import Swal from "sweetalert2";
 import ProfessionalResume from "../../components/admin/ProfessionalResume";
 import DocumentPreview from "@/components/DocumentPreview";
 import ProfessionalApplicationForm from "../../components/admin/ProfessionalApplicationForm";
+import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 interface Doc {
   id: string;
@@ -107,17 +108,35 @@ export default function Applicants() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [jobFilter, setJobFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [educationFilter, setEducationFilter] = useState("all");
+  const [genderFilter, setGenderFilter] = useState("all");
+  const [experienceFilter, setExperienceFilter] = useState("all");
+  const [documentFilter, setDocumentFilter] = useState("all");
+  const [profileFilter, setProfileFilter] = useState("all");
+  const [dateField, setDateField] = useState<"registered" | "applied">("registered");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCommunicationModal, setShowCommunicationModal] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [showDocPreview, setShowDocPreview] = useState(false);
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [contactDraft, setContactDraft] = useState("");
+  const [activeInstruments, setActiveInstruments] = useState<{ id: string; name: string }[]>([]);
+  const [showApplicantTestModal, setShowApplicantTestModal] = useState(false);
+  const [applicantTestSelectedTests, setApplicantTestSelectedTests] = useState<string[]>([]);
+  const [applicantTestExpiresAt, setApplicantTestExpiresAt] = useState("");
+  const [applicantTestProcessing, setApplicantTestProcessing] = useState(false);
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
     loadCandidates();
+    loadActiveInstruments();
   }, []);
 
   useEffect(() => {
@@ -138,6 +157,7 @@ export default function Applicants() {
   const loadCandidates = async () => {
     try {
       setLoading(true);
+      await syncExpiredRecruitment();
       console.log("Starting to load candidates...");
       
       // Load all candidates first
@@ -179,7 +199,9 @@ export default function Applicants() {
               applied_at,
               job_vacancies(
                 id,
-                title
+                title,
+                department,
+                closes_at
               )
             `)
             .eq("user_id", candidate.user_id);
@@ -248,17 +270,344 @@ export default function Applicants() {
     }
   };
 
+  const loadActiveInstruments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("test_instruments")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      setActiveInstruments((data as { id: string; name: string }[]) || []);
+    } catch (error) {
+      console.error("Error loading active instruments:", error);
+    }
+  };
+
   const candidateMatchesStatusFilter = (candidate: CandidateProfile) => {
     if (statusFilter === "all") return true;
     if (statusFilter === "not_applied") return !candidate.has_applied;
     return candidate.applications?.some((app) => app.status === statusFilter);
   };
 
-  const filteredCandidates = candidates.filter(candidate =>
-    (candidate.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      candidate.email?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    candidateMatchesStatusFilter(candidate)
-  );
+  const getCandidateDateValue = (candidate: CandidateProfile) => {
+    if (dateField === "applied") {
+      const dates = (candidate.applications || [])
+        .map((app) => app.applied_at ? new Date(app.applied_at).getTime() : 0)
+        .filter(Boolean);
+      return dates.length ? Math.max(...dates) : null;
+    }
+    return candidate.created_at ? new Date(candidate.created_at).getTime() : null;
+  };
+
+  const hasRequiredDocument = (candidate: CandidateProfile, type: string) => {
+    const docs = ((candidate as any).documents || []) as Doc[];
+    if (type === "cv") return docs.some((doc) => doc.document_type === "cv") || Boolean(candidate.cv_url);
+    if (type === "photo") return docs.some((doc) => doc.document_type === "photo") || Boolean(candidate.photo_url);
+    return docs.some((doc) => doc.document_type === type);
+  };
+
+  const profileCompletionScore = (candidate: CandidateProfile) => {
+    const checks = [
+      candidate.full_name, candidate.email, candidate.phone, candidate.birth_date, candidate.gender,
+      candidate.address, candidate.education_level, candidate.education_institution, candidate.major,
+      candidate.current_position, candidate.skills && (Array.isArray(candidate.skills) ? candidate.skills.length : String(candidate.skills).length),
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  };
+
+  const getLatestEducationInfo = (profile: any) => {
+    const safeParseJSON = (value: any, defaultValue: any) => {
+      if (!value) return defaultValue;
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'object') return value;
+      try { return JSON.parse(value); } catch { return defaultValue; }
+    };
+
+    const history = safeParseJSON(profile?.education_history, []);
+    if (!Array.isArray(history) || history.length === 0) {
+      return { level: profile?.education_level || null, major: profile?.major || null, institution: profile?.education_institution || null };
+    }
+
+    const educationPriority: Record<string, number> = { 'S3': 8, 'S2': 7, 'S1': 6, 'D4': 5, 'D3': 4, 'D2': 3, 'D1': 2, 'SMA/SMK': 1, 'SMK': 1, 'SMA': 1, 'SMP': 0, 'SD': -1 };
+
+    const latest = history.reduce((latest: any, current: any) => {
+      const lp = educationPriority[(latest.level || latest.education_level) as string] || 0;
+      const cp = educationPriority[(current.level || current.education_level) as string] || 0;
+      if (cp === lp) {
+        const ly = parseInt(latest.end_year || latest.graduation_year || '0') || 0;
+        const cy = parseInt(current.end_year || current.graduation_year || '0') || 0;
+        return cy > ly ? current : latest;
+      }
+      return cp > lp ? current : latest;
+    }, history[0]);
+
+    return {
+      level: latest.level || latest.education_level || null,
+      major: latest.major || latest.field_of_study || latest.education_major || null,
+      institution: latest.school || latest.institution || latest.education_institution || null,
+    };
+  };
+
+  const filteredCandidates = candidates.filter((candidate) => {
+    const q = searchTerm.toLowerCase();
+    const ed = getLatestEducationInfo(candidate);
+    const matchSearch = !q || [
+      candidate.full_name,
+      candidate.email,
+      candidate.phone,
+      candidate.current_position,
+      candidate.current_company,
+      candidate.city,
+      ed.major,
+      ed.institution,
+      ...(Array.isArray(candidate.skills) ? candidate.skills : String(candidate.skills || "").split(/[,;]/)),
+    ].some((value) => String(value || "").toLowerCase().includes(q));
+
+    const matchStatus = candidateMatchesStatusFilter(candidate);
+    const matchJob = jobFilter === "all" || candidate.applications?.some((app) => app.vacancy_id === jobFilter || app.job_vacancies?.id === jobFilter);
+    const matchCity = cityFilter === "all" || (candidate.city || "").toLowerCase() === cityFilter.toLowerCase();
+    const matchEducation = educationFilter === "all" || (ed.level || "").toLowerCase() === educationFilter.toLowerCase();
+    const matchGender = genderFilter === "all" || (candidate.gender || "").toLowerCase() === genderFilter.toLowerCase();
+    const expYears = Number(candidate.experience_years || 0);
+    const matchExperience = experienceFilter === "all"
+      || (experienceFilter === "fresh" && expYears === 0)
+      || (experienceFilter === "1-2" && expYears >= 1 && expYears <= 2)
+      || (experienceFilter === "3-5" && expYears >= 3 && expYears <= 5)
+      || (experienceFilter === "5+" && expYears > 5);
+    const matchDocument = documentFilter === "all" || hasRequiredDocument(candidate, documentFilter);
+    const score = profileCompletionScore(candidate);
+    const matchProfile = profileFilter === "all"
+      || (profileFilter === "complete" && score >= 80)
+      || (profileFilter === "partial" && score >= 50 && score < 80)
+      || (profileFilter === "incomplete" && score < 50);
+
+    const dateValue = getCandidateDateValue(candidate);
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+    const to = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
+    const matchDate = (!from || (dateValue !== null && dateValue >= from)) && (!to || (dateValue !== null && dateValue <= to));
+
+    return matchSearch && matchStatus && matchJob && matchCity && matchEducation && matchGender && matchExperience && matchDocument && matchProfile && matchDate;
+  });
+
+  const uniqueJobs = Array.from(new Map(candidates.flatMap((c) => c.applications || []).map((app) => [app.job_vacancies?.id || app.vacancy_id, app.job_vacancies?.title || "Lowongan"]))).filter(([id]) => id).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  const uniqueCities = Array.from(new Set(candidates.map((c) => c.city).filter(Boolean))).sort();
+  const uniqueEducations = Array.from(new Set(candidates.map((c) => getLatestEducationInfo(c).level).filter(Boolean))).sort();
+  const uniqueGenders = Array.from(new Set(candidates.map((c) => c.gender).filter(Boolean))).sort();
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setJobFilter("all");
+    setCityFilter("all");
+    setEducationFilter("all");
+    setGenderFilter("all");
+    setExperienceFilter("all");
+    setDocumentFilter("all");
+    setProfileFilter("all");
+    setDateField("registered");
+    setDateFrom("");
+    setDateTo("");
+  };
+
+  const exportFilteredCandidates = () => {
+    const escapeCsv = (value: any) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const rows = filteredCandidates.map((candidate) => {
+      const ed = getLatestEducationInfo(candidate);
+      const apps = (candidate.applications || []).map((app) => `${app.job_vacancies?.title || "-"} (${getStatusLabel(app.status)})`).join("; ");
+      return [
+        candidate.full_name,
+        candidate.email,
+        candidate.phone,
+        candidate.city,
+        candidate.gender,
+        ed.level,
+        ed.major,
+        candidate.experience_years,
+        profileCompletionScore(candidate),
+        apps,
+        candidate.created_at,
+      ].map(escapeCsv).join(",");
+    });
+    const csv = [
+      "Nama,Email,Telepon,Kota,Gender,Pendidikan,Jurusan,Pengalaman,Profil %,Lamaran,Tanggal Daftar",
+      ...rows,
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pelamar-filtered-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const applicantContactTemplateKey = "applicant-contact-template";
+
+  const getPrimaryApplication = (candidate: CandidateProfile) => {
+    return candidate.applications?.[0] || null;
+  };
+
+  const getCandidateTargetPosition = (candidate: CandidateProfile) => {
+    const app = getPrimaryApplication(candidate);
+    return app?.job_vacancies?.title || candidate.current_position || "posisi yang tersedia";
+  };
+
+  const getDefaultApplicantContactTemplate = () => {
+    return `Yth. {nama},
+
+Terima kasih telah mendaftar di proses rekrutmen kami untuk {posisi}. Kami ingin menghubungi Anda terkait kelanjutan data pelamar dan proses seleksi. Mohon konfirmasi ketersediaan Anda.
+
+Terima kasih.`;
+  };
+
+  const getStoredApplicantContactTemplate = () => {
+    if (typeof window === "undefined") return getDefaultApplicantContactTemplate();
+    return localStorage.getItem(applicantContactTemplateKey) || getDefaultApplicantContactTemplate();
+  };
+
+  const fillApplicantContactTemplate = (candidate: CandidateProfile, template: string) => {
+    return template
+      .replaceAll("{nama}", candidate.full_name || "Kandidat")
+      .replaceAll("{posisi}", getCandidateTargetPosition(candidate));
+  };
+
+  const buildApplicantContactDraft = (candidate: CandidateProfile) => {
+    return fillApplicantContactTemplate(candidate, getStoredApplicantContactTemplate());
+  };
+
+  const saveApplicantContactDraftTemplate = (candidate: CandidateProfile) => {
+    const template = (contactDraft || buildApplicantContactDraft(candidate))
+      .replaceAll(candidate.full_name || "Kandidat", "{nama}")
+      .replaceAll(getCandidateTargetPosition(candidate), "{posisi}");
+    localStorage.setItem(applicantContactTemplateKey, template);
+    setContactDraft(fillApplicantContactTemplate(candidate, template));
+    Swal.fire({ icon: "success", title: "Draft awal disimpan", timer: 1600, showConfirmButton: false, ...SWAL_THEME() });
+  };
+
+  const openCandidateEmail = (candidate: CandidateProfile) => {
+    if (!candidate.email) {
+      Swal.fire({ icon: "warning", title: "Email belum tersedia", text: "Alamat email kandidat belum tersedia.", ...SWAL_THEME() });
+      return;
+    }
+    const subject = `Informasi Proses Rekrutmen - ${getCandidateTargetPosition(candidate)}`;
+    const body = contactDraft || buildApplicantContactDraft(candidate);
+    window.location.href = `mailto:${candidate.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  const normalizePhoneForWhatsApp = (phone?: string) => {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("62")) return digits;
+    if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+    return digits;
+  };
+
+  const openCandidateWhatsApp = (candidate: CandidateProfile) => {
+    const phone = normalizePhoneForWhatsApp(candidate.phone);
+    if (!phone) {
+      Swal.fire({ icon: "warning", title: "Nomor belum tersedia", text: "Nomor WhatsApp kandidat belum tersedia.", ...SWAL_THEME() });
+      return;
+    }
+    const body = contactDraft || buildApplicantContactDraft(candidate);
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(body)}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openCandidateRecruitmentProcess = (candidate: CandidateProfile) => {
+    const app = getPrimaryApplication(candidate);
+    if (!candidate.has_applied || !app?.vacancy_id) {
+      setSelectedCandidate(candidate);
+      setApplicantTestSelectedTests([]);
+      setApplicantTestExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+      setShowApplicantTestModal(true);
+      return;
+    }
+    const params = new URLSearchParams({
+      job: app.vacancy_id,
+      candidate: candidate.user_id,
+      action: "test",
+    });
+    window.location.href = `/admin/recruitment-process?${params.toString()}`;
+  };
+
+  const openCandidateCommunication = (candidate: CandidateProfile) => {
+    setSelectedCandidate(candidate);
+    setContactDraft(buildApplicantContactDraft(candidate));
+    setShowCommunicationModal(true);
+  };
+
+  const toggleApplicantTest = (id: string) => {
+    setApplicantTestSelectedTests((prev) =>
+      prev.includes(id) ? prev.filter((testId) => testId !== id) : [...prev, id]
+    );
+  };
+
+  const generateRandomString = (length: number) => {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  };
+
+  const getAssignedApplicantTestNames = () => {
+    return applicantTestSelectedTests
+      .map((id) => activeInstruments.find((instrument) => instrument.id === id)?.name || id)
+      .join(", ");
+  };
+
+  const saveApplicantTestCode = async () => {
+    if (!selectedCandidate) return;
+    if (applicantTestSelectedTests.length === 0) {
+      Swal.fire({ icon: "warning", title: "Pilih tes", text: "Pilih minimal 1 alat tes.", ...SWAL_THEME() });
+      return;
+    }
+
+    setApplicantTestProcessing(true);
+    try {
+      const newCode = `PSY-${generateRandomString(6)}`;
+      const newPassword = generateRandomString(8);
+      const { error } = await supabase.from("activation_codes").insert({
+        code: newCode,
+        password: newPassword,
+        candidate_name: selectedCandidate.full_name,
+        candidate_email: selectedCandidate.email,
+        position: getCandidateTargetPosition(selectedCandidate),
+        status: "active",
+        expires_at: applicantTestExpiresAt || null,
+        assigned_tests: applicantTestSelectedTests,
+      } as any);
+      if (error) throw error;
+
+      await Swal.fire({
+        icon: "success",
+        title: "Kode Tes Berhasil Dibuat",
+        html: `<div style="font-size:14px;line-height:1.8"><p>Kode: <b style="color:hsl(174,72%,46%);font-family:monospace;letter-spacing:2px">${newCode}</b></p><p>Password: <b style="font-family:monospace">${newPassword}</b></p><p style="font-size:12px;color:#888;margin-top:8px">Berikan kode & password ini kepada kandidat.</p></div>`,
+        ...SWAL_THEME(),
+      });
+      setShowApplicantTestModal(false);
+    } catch (error: any) {
+      console.error("Error creating applicant test code:", error);
+      Swal.fire({ icon: "error", title: "Gagal membuat kode tes", text: error.message || "Terjadi kesalahan.", ...SWAL_THEME() });
+    } finally {
+      setApplicantTestProcessing(false);
+    }
+  };
+
+  const openCandidatePhone = (candidate: CandidateProfile) => {
+    const phone = String(candidate.phone || "").replace(/[^\d+]/g, "");
+    if (!phone) {
+      Swal.fire({ icon: "warning", title: "Nomor belum tersedia", text: "Nomor telepon kandidat belum tersedia.", ...SWAL_THEME() });
+      return;
+    }
+    window.location.href = `tel:${phone}`;
+  };
+
+  const copyApplicantContactDraft = async () => {
+    try {
+      await navigator.clipboard.writeText(contactDraft);
+      Swal.fire({ icon: "success", title: "Draft disalin", timer: 1200, showConfirmButton: false, ...SWAL_THEME() });
+    } catch {
+      Swal.fire({ icon: "error", title: "Gagal menyalin", text: "Browser tidak mengizinkan akses clipboard.", ...SWAL_THEME() });
+    }
+  };
 
   const getDocumentLabel = (type: string) => {
     switch (type) {
@@ -314,6 +663,7 @@ export default function Applicants() {
       });
       
       setSelectedCandidate(parsedCandidate);
+      setContactDraft(buildApplicantContactDraft(parsedCandidate));
       setShowDetailModal(true);
     } catch (error) {
       console.error('Error parsing candidate data:', error);
@@ -331,8 +681,14 @@ export default function Applicants() {
         skills: [],
       };
       setSelectedCandidate(fallbackCandidate);
+      setContactDraft(buildApplicantContactDraft(fallbackCandidate));
       setShowDetailModal(true);
     }
+  };
+
+  const viewCandidateProfileOnly = (candidate: CandidateProfile) => {
+    setSelectedCandidate(candidate);
+    setShowApplicationForm(true);
   };
 
   const handleDeleteCandidate = async (candidate: CandidateProfile) => {
@@ -408,39 +764,6 @@ export default function Applicants() {
       month: 'long',
       year: 'numeric'
     });
-  };
-
-  const getLatestEducationInfo = (profile: any) => {
-    const safeParseJSON = (value: any, defaultValue: any) => {
-      if (!value) return defaultValue;
-      if (Array.isArray(value)) return value;
-      if (typeof value === 'object') return value;
-      try { return JSON.parse(value); } catch { return defaultValue; }
-    };
-
-    const history = safeParseJSON(profile?.education_history, []);
-    if (!Array.isArray(history) || history.length === 0) {
-      return { level: profile?.education_level || null, major: profile?.major || null, institution: profile?.education_institution || null };
-    }
-
-    const educationPriority: Record<string, number> = { 'S3': 8, 'S2': 7, 'S1': 6, 'D4': 5, 'D3': 4, 'D2': 3, 'D1': 2, 'SMA/SMK': 1, 'SMK': 1, 'SMA': 1, 'SMP': 0, 'SD': -1 };
-
-    const latest = history.reduce((latest: any, current: any) => {
-      const lp = educationPriority[(latest.level || latest.education_level) as string] || 0;
-      const cp = educationPriority[(current.level || current.education_level) as string] || 0;
-      if (cp === lp) {
-        const ly = parseInt(latest.end_year || latest.graduation_year || '0') || 0;
-        const cy = parseInt(current.end_year || current.graduation_year || '0') || 0;
-        return cy > ly ? current : latest;
-      }
-      return cp > lp ? current : latest;
-    }, history[0]);
-
-    return {
-      level: latest.level || latest.education_level || null,
-      major: latest.major || latest.field_of_study || latest.education_major || null,
-      institution: latest.school || latest.institution || latest.education_institution || null,
-    };
   };
 
   const handleDownloadResume = (candidate: CandidateProfile) => {
@@ -594,24 +917,40 @@ export default function Applicants() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'submitted':
       case 'applied': return 'bg-blue-100 text-blue-700';
       case 'screening': return 'bg-yellow-100 text-yellow-700';
+      case 'test':
+      case 'psychology_test': return 'bg-violet-100 text-violet-700';
+      case 'hr_interview': return 'bg-amber-100 text-amber-700';
+      case 'user_interview':
       case 'interview': return 'bg-purple-100 text-purple-700';
+      case 'offered':
       case 'offer': return 'bg-green-100 text-green-700';
       case 'rejected': return 'bg-red-100 text-red-700';
+      case 'accepted':
       case 'hired': return 'bg-emerald-100 text-emerald-700';
+      case 'expired': return 'bg-gray-100 text-gray-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'submitted':
       case 'applied': return 'Lamaran Diterima';
       case 'screening': return 'Screening CV';
+      case 'test':
+      case 'psychology_test': return 'Tes Psikologi';
+      case 'hr_interview': return 'Wawancara HR';
+      case 'user_interview': return 'Wawancara User';
       case 'interview': return 'Wawancara';
+      case 'offered':
       case 'offer': return 'Penawaran';
       case 'rejected': return 'Ditolak';
+      case 'accepted':
       case 'hired': return 'Diterima';
+      case 'expired': return 'Kedaluwarsa';
       default: return status;
     }
   };
@@ -634,7 +973,7 @@ export default function Applicants() {
               <Users className="h-4 w-4" />
               Refresh
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition">
+            <button onClick={exportFilteredCandidates} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 transition">
               <Download className="h-4 w-4" />
               Export
             </button>
@@ -643,35 +982,85 @@ export default function Applicants() {
 
         
         {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Cari nama atau email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Filter className="h-4 w-4 text-primary" />
+              Filter Screening
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{filteredCandidates.length} data</span>
+            </div>
+            <button onClick={resetFilters} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
+              Reset Filter
+            </button>
           </div>
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            >
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="relative md:col-span-2">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Cari nama, email, telepon, posisi, perusahaan, skill, kota..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
               <option value="all">Semua Status</option>
               <option value="not_applied">Belum Melamar</option>
-              <option value="applied">Lamaran Diterima</option>
+              <option value="submitted">Lamaran Diterima</option>
               <option value="screening">Screening CV</option>
-              <option value="psychology_test">Tes Psikologi</option>
+              <option value="test">Tes Psikologi</option>
               <option value="hr_interview">Wawancara HR</option>
               <option value="user_interview">Wawancara User</option>
-              <option value="offer">Penawaran</option>
-              <option value="hired">Diterima</option>
+              <option value="offered">Penawaran</option>
+              <option value="accepted">Diterima</option>
               <option value="rejected">Ditolak</option>
+              <option value="expired">Kedaluwarsa</option>
             </select>
-            <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <select value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="all">Semua Lowongan</option>
+              {uniqueJobs.map(([id, title]) => <option key={String(id)} value={String(id)}>{String(title)}</option>)}
+            </select>
+            <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="all">Semua Kota</option>
+              {uniqueCities.map((city) => <option key={city} value={city}>{city}</option>)}
+            </select>
+            <select value={educationFilter} onChange={(e) => setEducationFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="all">Semua Pendidikan</option>
+              {uniqueEducations.map((ed) => <option key={ed} value={ed}>{ed}</option>)}
+            </select>
+            <select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="all">Semua Gender</option>
+              {uniqueGenders.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
+            </select>
+            <select value={experienceFilter} onChange={(e) => setExperienceFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="all">Semua Pengalaman</option>
+              <option value="fresh">Fresh Graduate / 0 tahun</option>
+              <option value="1-2">1 - 2 tahun</option>
+              <option value="3-5">3 - 5 tahun</option>
+              <option value="5+">&gt; 5 tahun</option>
+            </select>
+            <select value={documentFilter} onChange={(e) => setDocumentFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="all">Semua Dokumen</option>
+              <option value="cv">Ada CV</option>
+              <option value="photo">Ada Foto</option>
+              <option value="ktp">Ada KTP</option>
+              <option value="ijazah">Ada Ijazah</option>
+              <option value="transkrip">Ada Transkrip</option>
+            </select>
+            <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="all">Semua Kelengkapan Profil</option>
+              <option value="complete">Lengkap (&ge;80%)</option>
+              <option value="partial">Sedang (50-79%)</option>
+              <option value="incomplete">Belum Lengkap (&lt;50%)</option>
+            </select>
+            <select value={dateField} onChange={(e) => setDateField(e.target.value as "registered" | "applied")} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="registered">Tanggal Daftar</option>
+              <option value="applied">Tanggal Lamar</option>
+            </select>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
           </div>
         </div>
 
@@ -819,30 +1208,19 @@ export default function Applicants() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => viewCandidateDetail(candidate)}
-                            className="p-1 rounded hover:bg-muted transition"
-                            title="Lihat Detail"
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-muted transition"
+                            title="Profil kandidat"
                           >
-                            <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                          </button>
-                          {candidate.has_applied && (
-                            <button
-                              className="p-1 rounded hover:bg-muted transition"
-                              title="Lihat Lamaran"
-                            >
-                              <FileText className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                            </button>
-                          )}
-                          <button
-                            className="p-1 rounded hover:bg-muted transition"
-                            title="Kirim Email"
-                          >
-                            <Mail className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                            <User className="h-3.5 w-3.5" />
+                            Profil
                           </button>
                           <button
-                            className="p-1 rounded hover:bg-muted transition"
-                            title="Telepon"
+                            onClick={() => openCandidateCommunication(candidate)}
+                            className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/15 transition"
+                            title="Detail dan komunikasi kandidat"
                           >
-                            <Phone className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                            <Eye className="h-3.5 w-3.5" />
+                            Detail
                           </button>
                           <button
                             onClick={() => handleDeleteCandidate(candidate)}
@@ -864,7 +1242,7 @@ export default function Applicants() {
         {/* Professional Detail Modal */}
         {showDetailModal && selectedCandidate && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-card border border-border rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+            <div className="bg-card border border-border rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
               {/* Header */}
               <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6 border-b border-border">
                 <div className="flex items-center justify-between">
@@ -917,7 +1295,7 @@ export default function Applicants() {
               </div>
 
               {/* Tabs Content */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 <Tabs defaultValue="personal" className="w-full">
                   <TabsList className="grid w-full grid-cols-8 bg-muted/50 border-b border-border sticky top-0 z-10 overflow-x-auto">
                     <TabsTrigger value="personal" className="flex items-center gap-2 whitespace-nowrap">
@@ -1659,6 +2037,92 @@ export default function Applicants() {
           </div>
         )}
 
+        {/* Communication Detail Modal */}
+        {showCommunicationModal && selectedCandidate && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-card border border-border rounded-2xl max-w-2xl w-full max-h-[calc(100dvh-1rem)] overflow-hidden shadow-2xl flex flex-col">
+              <div className="flex-shrink-0 border-b border-border bg-muted/20 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">Detail Komunikasi Kandidat</h2>
+                    <p className="text-sm text-muted-foreground">{selectedCandidate.full_name} - {getCandidateTargetPosition(selectedCandidate)}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowCommunicationModal(false)}
+                    className="p-1 rounded hover:bg-muted transition"
+                  >
+                    <XCircle className="h-5 w-5 text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                    <span className="font-semibold text-foreground">{selectedCandidate.full_name}</span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground break-all">
+                      <Mail className="h-3.5 w-3.5" /> {selectedCandidate.email || "-"}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5" /> {selectedCandidate.phone || "-"}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Posisi: <span className="font-medium text-foreground">{getCandidateTargetPosition(selectedCandidate)}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-primary" />
+                        Komunikasi Kandidat
+                      </h3>
+                      <p className="mt-1 text-xs text-muted-foreground">Ubah draft bila perlu, lalu hubungi kandidat via WhatsApp atau email dari device ini.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => saveApplicantContactDraftTemplate(selectedCandidate)}>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Simpan Draft
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setContactDraft(buildApplicantContactDraft(selectedCandidate))}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Reset
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={copyApplicantContactDraft}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Salin
+                      </Button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={contactDraft}
+                    onChange={(e) => setContactDraft(e.target.value)}
+                    rows={7}
+                    className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Button onClick={() => openCandidateWhatsApp(selectedCandidate)} className="bg-emerald-600 hover:bg-emerald-700">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    WhatsApp
+                  </Button>
+                  <Button onClick={() => openCandidateEmail(selectedCandidate)} className="bg-blue-600 hover:bg-blue-700">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </Button>
+                  <Button onClick={() => openCandidateRecruitmentProcess(selectedCandidate)} variant="outline">
+                    <Target className="h-4 w-4 mr-2" />
+                    Tes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Resume Preview Modal */}
         {showResume && selectedCandidate && (
           <ProfessionalResume
@@ -1669,6 +2133,86 @@ export default function Applicants() {
 
         {showDocPreview && docPreviewUrl && (
           <DocumentPreview url={docPreviewUrl} name={docPreviewName} onClose={() => { setShowDocPreview(false); setDocPreviewUrl(null); setDocPreviewName(undefined); }} />
+        )}
+
+        {showApplicantTestModal && selectedCandidate && (
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center p-2 sm:p-4 z-[70] overflow-hidden">
+            <div className="bg-card border border-border rounded-xl max-w-4xl w-full max-h-[calc(100dvh-1rem)] overflow-hidden shadow-2xl flex flex-col">
+              <div className="flex-shrink-0 border-b border-border bg-muted/20 p-4 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Buat Kode Tes Psikologi</h2>
+                  <p className="text-sm text-muted-foreground">{selectedCandidate.full_name} - {selectedCandidate.email}</p>
+                </div>
+                <button
+                  onClick={() => setShowApplicantTestModal(false)}
+                  className="p-1 rounded hover:bg-muted transition"
+                >
+                  <XCircle className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Kandidat</div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    <span className="font-semibold text-foreground">{selectedCandidate.full_name}</span>
+                    <span className="text-muted-foreground break-all">{selectedCandidate.email}</span>
+                    <span className="text-muted-foreground">{selectedCandidate.phone || "-"}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Pilih Tes</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {activeInstruments.map((instrument) => (
+                      <button
+                        key={instrument.id}
+                        type="button"
+                        onClick={() => toggleApplicantTest(instrument.id)}
+                        className={`min-h-12 rounded-lg border px-3 py-2 text-left transition ${applicantTestSelectedTests.includes(instrument.id) ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-muted"}`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-medium leading-tight text-foreground">{instrument.name}</span>
+                          {applicantTestSelectedTests.includes(instrument.id) && <CheckCircle className="h-4 w-4 flex-shrink-0 text-primary" />}
+                        </div>
+                      </button>
+                    ))}
+                    {activeInstruments.length === 0 && (
+                      <div className="text-sm text-muted-foreground">Tidak ada alat tes aktif.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr]">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Tanggal Expire</label>
+                    <input
+                      type="date"
+                      value={applicantTestExpiresAt}
+                      onChange={(e) => setApplicantTestExpiresAt(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="rounded-lg border border-border bg-background p-3">
+                    <div className="text-xs text-muted-foreground mb-2">Ringkasan</div>
+                    {applicantTestSelectedTests.length ? (
+                      <div className="text-sm text-foreground">Tes dipilih: {getAssignedApplicantTestNames()}</div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">Belum ada tes dipilih.</div>
+                    )}
+                    <div className="mt-1 text-xs text-muted-foreground">Kode ini dibuat tanpa harus ada lamaran lowongan terlebih dahulu.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 flex flex-col-reverse gap-2 border-t border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-end">
+                <Button variant="outline" onClick={() => setShowApplicantTestModal(false)}>Batal</Button>
+                <Button onClick={saveApplicantTestCode} disabled={applicantTestProcessing}>
+                  {applicantTestProcessing ? "Menyimpan..." : "Buat Kode Tes"}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Professional Application Form Modal */}

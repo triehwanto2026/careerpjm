@@ -21,6 +21,7 @@ import {
 import { useState, useEffect } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
+import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 interface Job {
   id: string;
@@ -76,10 +77,12 @@ const HomePage = () => {
   };
 
   const loadJobs = async () => {
+    await syncExpiredRecruitment();
     const { data } = await supabase
       .from("job_vacancies")
       .select("*")
       .eq("status", "active")
+      .or(`closes_at.is.null,closes_at.gte.${new Date().toISOString()}`)
       .order("created_at", { ascending: false })
       .limit(6);
     setJobs(data || []);

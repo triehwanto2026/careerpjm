@@ -3,6 +3,7 @@ import { Workflow, Mail, Briefcase, KeyRound } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
+import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 interface AppRow {
   id: string;
@@ -16,16 +17,18 @@ interface AppRow {
   profile?: { full_name: string; email: string; phone: string };
 }
 
-const STATUSES = ["submitted", "screening", "test", "interview", "offered", "accepted", "rejected", "withdrawn"];
+const STATUSES = ["submitted", "screening", "test", "interview", "offered", "accepted", "rejected", "expired", "withdrawn"];
 const STATUS_LABEL: Record<string, string> = {
   submitted: "Lamaran Masuk", screening: "Screening", test: "Tes", interview: "Wawancara",
   offered: "Penawaran", accepted: "Diterima", rejected: "Ditolak", withdrawn: "Dibatalkan",
+  expired: "Kedaluwarsa",
 };
 const STATUS_COLOR: Record<string, string> = {
   submitted: "bg-blue-500/15 text-blue-500", screening: "bg-cyan-500/15 text-cyan-500",
   test: "bg-violet-500/15 text-violet-500", interview: "bg-amber-500/15 text-amber-500",
   offered: "bg-green-500/15 text-green-500", accepted: "bg-green-500/15 text-green-500",
   rejected: "bg-red-500/15 text-red-500", withdrawn: "bg-gray-500/15 text-gray-500",
+  expired: "bg-gray-500/15 text-gray-500",
 };
 
 export default function Recruitment() {
@@ -33,6 +36,7 @@ export default function Recruitment() {
   const [filter, setFilter] = useState<string>("all");
 
   const load = async () => {
+    await syncExpiredRecruitment();
     const { data } = await supabase.from("job_applications").select("*").order("applied_at", { ascending: false });
     const list = (data as any) || [];
     const vIds = Array.from(new Set(list.map((a: any) => a.vacancy_id))) as string[];

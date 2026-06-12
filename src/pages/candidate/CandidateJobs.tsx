@@ -3,6 +3,7 @@ import { Briefcase, MapPin, Building2, Clock, Send, X, Calendar, DollarSign, Use
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
+import { isPastDeadline, syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 interface Vacancy {
   id: string;
@@ -36,7 +37,13 @@ export default function CandidateJobs() {
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) setUserId(session.user.id);
-    const { data } = await supabase.from("job_vacancies").select("*").eq("status", "active").order("created_at", { ascending: false });
+    await syncExpiredRecruitment();
+    const { data } = await supabase
+      .from("job_vacancies")
+      .select("*")
+      .eq("status", "active")
+      .or(`closes_at.is.null,closes_at.gte.${new Date().toISOString()}`)
+      .order("created_at", { ascending: false });
     setVacancies((data as any) || []);
     if (session) {
       const { data: apps } = await supabase.from("job_applications").select("vacancy_id").eq("user_id", session.user.id);
@@ -50,6 +57,13 @@ export default function CandidateJobs() {
 
   const apply = async () => {
     if (!selected) return;
+    if (isPastDeadline(selected.closes_at)) {
+      await syncExpiredRecruitment();
+      Swal.fire({ icon: "warning", title: "Lowongan Kedaluwarsa", text: "Deadline lowongan ini sudah berakhir." });
+      setSelected(null);
+      load();
+      return;
+    }
     if (!profileComplete) {
       Swal.fire({
         icon: "warning",

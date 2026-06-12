@@ -316,20 +316,22 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             
             .section-card {
               background: white;
-              border-radius: 4px;
-              padding: 8px;
+              border-radius: 8px;
+              padding: 10px;
               margin-bottom: 12px;
-              border: 1px solid #1e3a8a;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
               page-break-inside: avoid;
             }
             
             .section-header {
-              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-              color: white;
+              background: #f1f5f9;
+              color: #334155;
               padding: 8px;
               font-weight: bold;
               text-align: center;
-              border-radius: 4px;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
               margin-bottom: 12px;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
@@ -497,7 +499,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
           <div id="application-form-content" className="max-w-5xl mx-auto space-y-6">
             
             {/* Header Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
               <div className="text-center mb-6">
                 <h1 className="text-3xl font-bold text-blue-900 mb-2">PERSONAL HISTORY CARD (PHC)</h1>
                 <p className="text-gray-600">Data Pelamar Lengkap</p>
@@ -546,8 +548,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Data Pribadi Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <User className="w-6 h-6" />
                   DATA PRIBADI
@@ -607,8 +609,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Data Keluarga Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <Heart className="w-6 h-6" />
                   DATA KELUARGA
@@ -648,8 +650,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Pendidikan Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <GraduationCap className="w-6 h-6" />
                   RIWAYAT PENDIDIKAN
@@ -716,8 +718,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Pengalaman Kerja Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <Briefcase className="w-6 h-6" />
                   PENGALAMAN KERJA
@@ -824,8 +826,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Keahlian Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <Star className="w-6 h-6" />
                   KEAHLIAN & KOMPETENSI
@@ -883,8 +885,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Ekspektasi Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <Target className="w-6 h-6" />
                   EKSPETASI & PREFERENSI
@@ -928,8 +930,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Informasi Tambahan Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <MessageSquare className="w-6 h-6" />
                   INFORMASI TAMBAHAN
@@ -1044,8 +1046,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             </div>
 
             {/* Pernyataan Section */}
-            <div className="container-shadow bg-white rounded-xl p-6 border border-blue-900">
-              <div className="section-header">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+              <div className="mb-5 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 shadow-sm">
                 <h2 className="text-xl font-bold flex items-center justify-center gap-2">
                   <CheckCircle className="w-6 h-6" />
                   PERNYATAAN
