@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Key, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, FileText, Save, Brain } from "lucide-react";
+import { Search, Eye, Trash2, Plus, Pencil, Upload, X, User, Users, UserPlus, MailCheck, CheckCircle, XCircle, Key, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, FileText, Save, Brain } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -1290,11 +1290,25 @@ Terima kasih.`;
 
       if (error) {
         const schemaCacheMiss = String(error.message || "").includes("schema cache");
-        if (!schemaCacheMiss) throw error;
+        const permissionDenied = String(error.message || "").toLowerCase().includes("permission denied for function admin_delete_candidate_account");
+        if (!schemaCacheMiss && !permissionDenied) throw error;
 
-        console.warn("Delete RPC not in schema cache, using table fallback:", error);
+        console.warn("Delete RPC unavailable, using table fallback:", error);
         const email = candidate.email;
         const userId = candidate.user_id;
+        const candidateIds = [candidate.id, candidate.profile_id, candidate.user_id].filter(Boolean);
+
+        if (candidateIds.length > 0) {
+          const { data: resultRows } = await supabase
+            .from("test_results")
+            .select("id")
+            .in("candidate_id", candidateIds);
+          const resultIds = (resultRows || []).map((row: any) => row.id).filter(Boolean);
+          if (resultIds.length > 0) {
+            await supabase.from("test_answers").delete().in("test_result_id", resultIds);
+          }
+          await supabase.from("test_results").delete().in("candidate_id", candidateIds);
+        }
 
         if (userId) {
           await supabase.from("job_applications").delete().eq("user_id", userId);
@@ -1307,7 +1321,9 @@ Terima kasih.`;
         await supabase.from("activation_codes").delete().eq("candidate_email", email);
         await supabase.from("candidate_profiles").delete().eq("email", email);
         await supabase.from("candidates").delete().eq("email", email);
-        data = "Data kandidat dihapus dari tabel aplikasi. Akun auth akan ikut terhapus setelah function database terbaca schema cache.";
+        data = permissionDenied
+          ? "Data kandidat dihapus dari tabel aplikasi. Untuk menghapus akun login auth juga, jalankan migrasi permission RPC terbaru di Supabase."
+          : "Data kandidat dihapus dari tabel aplikasi. Akun auth akan ikut terhapus setelah function database terbaca schema cache.";
       } else {
         data = rpcData || data;
       }
@@ -2087,11 +2103,11 @@ Terima kasih.`;
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     <span className="break-all">{selectedCandidate.email}</span>
                     <span>{selectedCandidate.phone || "-"}</span>
-                    <span>{selectedCandidate.position || candidateProfile?.current_position || "Posisi tidak ditentukan"}</span>
+                    <span>{formatInfoValue(selectedCandidate.position || candidateProfile?.current_position || "Posisi tidak ditentukan")}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${statusMap[selectedCandidate.status]?.cls}`}>
-                      {statusMap[selectedCandidate.status]?.label || selectedCandidate.status}
+                      {statusMap[selectedCandidate.status]?.label || formatInfoValue(selectedCandidate.status)}
                     </span>
                     {candidateProfile?.is_complete && (
                       <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium bg-emerald-400/10 text-emerald-400">
@@ -2288,8 +2304,8 @@ Terima kasih.`;
                               <FileText className="h-5 w-5 text-primary" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
-                              <p className="text-xs text-muted-foreground">{doc.document_type}</p>
+                              <p className="text-sm font-medium text-foreground truncate">{formatInfoValue(doc.file_name)}</p>
+                              <p className="text-xs text-muted-foreground">{formatInfoValue(doc.document_type)}</p>
                             </div>
                             <a
                               href={doc.file_url}
@@ -2338,15 +2354,24 @@ Terima kasih.`;
                           <div className="space-y-3">
                             {candidateResults.map((result) => (
                               <div key={result.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                                {(() => {
+                                  const testSummary = buildPsychologicalTestSummary(result);
+                                  return (
+                                    <>
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                   <div>
-                                    <h4 className="font-semibold text-foreground">{(result.test as any)?.name || result.test_name || "Tes Psikologi"}</h4>
-                                    <p className="text-sm text-muted-foreground">{(result.test as any)?.category || result.status || "-"}</p>
+                                    <h4 className="font-semibold text-foreground">{formatInfoValue((result.test as any)?.name || result.test_name || "Tes Psikologi")}</h4>
+                                    <p className="text-sm text-muted-foreground">{formatInfoValue((result.test as any)?.category || result.status || "-")}</p>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {testSummary.badge && (
+                                      <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-500">
+                                        {testSummary.badge}
+                                      </span>
+                                    )}
                                     {result.score !== null && result.score !== undefined && (
                                       <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-                                        Skor {result.score}
+                                        Skor {formatInfoValue(result.score)}
                                       </span>
                                     )}
                                     <span className="text-xs text-muted-foreground">{(result.completed_at || result.created_at)?.split("T")[0] || "-"}</span>
@@ -2354,12 +2379,24 @@ Terima kasih.`;
                                 </div>
                                 <div className="mt-3 rounded-lg bg-muted/40 p-3">
                                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kesimpulan Interpretasi</div>
-                                  <p className="mt-1 text-sm leading-relaxed text-foreground">
-                                    {formatInfoValue(result.interpretation) !== "-"
-                                      ? formatInfoValue(result.interpretation)
-                                      : "Belum ada interpretasi tersimpan untuk hasil tes ini."}
+                                  {testSummary.metrics.length > 0 && (
+                                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                      {testSummary.metrics.map((metric) => (
+                                        <div key={`${metric.label}-${metric.value}`} className="rounded-lg border border-border bg-card px-3 py-2">
+                                          <div className="text-[11px] text-muted-foreground">{metric.label}</div>
+                                          <div className="mt-0.5 text-sm font-bold text-foreground">{metric.value}</div>
+                                          {metric.note && <div className="mt-0.5 text-[11px] text-muted-foreground">{metric.note}</div>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
+                                    {testSummary.text}
                                   </p>
                                 </div>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             ))}
                           </div>
@@ -3380,6 +3417,350 @@ const formatInfoValue = (value: any) => {
   }
   if (typeof value === "object") return Object.values(value).filter(Boolean).join(" - ") || "-";
   return String(value);
+};
+
+const getResultTestName = (result: any) => formatInfoValue((result?.test as any)?.name || result?.test_name || "Tes Psikologi");
+
+const getResultCategories = (result: any): Record<string, number> => {
+  const raw = result?.categories;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw).map(([key, value]) => [key, Number(value) || 0])
+  );
+};
+
+type TestMetric = { label: string; value: string | number; note?: string };
+type TestSummary = { badge: string; metrics: TestMetric[]; text: string };
+
+const getDiscValue = (categories: Record<string, number>, dim: "D" | "I" | "S" | "C") => {
+  const dimMap: Record<typeof dim, string> = {
+    D: "Dominance",
+    I: "Influence",
+    S: "Steadiness",
+    C: "Compliance",
+  };
+  return Number(
+    categories[dim] ??
+    categories[`${dim}_N`] ??
+    categories[`${dim}_M`] ??
+    categories[dimMap[dim]] ??
+    categories[`${dimMap[dim]}_N`] ??
+    categories[`${dimMap[dim]}_M`] ??
+    0
+  );
+};
+
+const getDiscMirrorValue = (categories: Record<string, number>, dim: "D" | "I" | "S" | "C") => {
+  const dimMap: Record<typeof dim, string> = {
+    D: "Dominance",
+    I: "Influence",
+    S: "Steadiness",
+    C: "Compliance",
+  };
+  const direct = categories[dim] ?? categories[`${dim}_N`] ?? categories[dimMap[dim]] ?? categories[`${dimMap[dim]}_N`];
+  if (direct !== undefined) return Number(direct) || 0;
+  const most = Number(categories[`${dim}_M`] ?? categories[`${dimMap[dim]}_M`] ?? 0);
+  const least = Number(categories[`${dim}_L`] ?? categories[`${dimMap[dim]}_L`] ?? 0);
+  return most - least;
+};
+
+const buildDiscSummary = (result: any) => {
+  const categories = getResultCategories(result);
+  const dims = (["D", "I", "S", "C"] as const).map((dim) => ({ dim, value: getDiscMirrorValue(categories, dim) }));
+  const sorted = [...dims].sort((a, b) => b.value - a.value);
+  const dominant = sorted[0]?.dim || "D";
+  const secondary = sorted[1]?.dim || "C";
+  const labels: Record<string, string> = {
+    D: "Dominance",
+    I: "Influence",
+    S: "Steadiness",
+    C: "Conscientiousness",
+  };
+  const interpretations: Record<string, string> = {
+    D: "Profil D menunjukkan pribadi tegas, cepat mengambil keputusan, kompetitif, dan berorientasi hasil. Kandidat biasanya efektif pada situasi yang membutuhkan arah, keberanian mengambil risiko, dan dorongan untuk menyelesaikan target.",
+    I: "Profil I menunjukkan pribadi komunikatif, persuasif, antusias, dan mudah membangun relasi. Kandidat biasanya kuat pada pekerjaan yang membutuhkan pengaruh sosial, presentasi, negosiasi, dan engagement dengan orang lain.",
+    S: "Profil S menunjukkan pribadi stabil, suportif, sabar, dan kooperatif. Kandidat biasanya nyaman pada lingkungan kerja yang membutuhkan konsistensi, kerja sama, pelayanan, dan hubungan jangka panjang.",
+    C: "Profil C menunjukkan pribadi teliti, analitis, sistematis, dan memperhatikan standar mutu. Kandidat biasanya kuat pada pekerjaan yang membutuhkan akurasi, kontrol kualitas, analisis data, kepatuhan prosedur, dan detail teknis.",
+  };
+  const secondaryText: Record<string, string> = {
+    D: "unsur ketegasan dan dorongan hasil",
+    I: "unsur komunikasi dan persuasi",
+    S: "unsur stabilitas dan kerja sama",
+    C: "unsur ketelitian dan kontrol kualitas",
+  };
+
+  return {
+    badge: `Profil ${dominant} & ${secondary}`,
+    metrics: dims.map(({ dim, value }) => ({ label: `Mirror ${dim}`, value: value > 0 ? `+${value}` : value, note: labels[dim] })),
+    text: `Profil DISC kandidat adalah ${dominant} & ${secondary} (${labels[dominant]} - ${labels[secondary]}).\n\n${interpretations[dominant]}\n\nKombinasi dengan ${secondary} memberi warna ${secondaryText[secondary]}, sehingga pola kerja kandidat tidak hanya dipengaruhi dimensi utama ${dominant}, tetapi juga perlu dibaca bersama kecenderungan ${secondary}.`,
+  };
+};
+
+const buildPersonalityPlusSummary = (result: any) => {
+  const categories = getResultCategories(result);
+  const map: Record<string, string> = {
+    K: "Koleris",
+    C: "Koleris",
+    Choleric: "Koleris",
+    Koleris: "Koleris",
+    S: "Sanguinis",
+    Sanguine: "Sanguinis",
+    Sanguinis: "Sanguinis",
+    M: "Melankolis",
+    Melancholy: "Melankolis",
+    Melancholic: "Melankolis",
+    Melankolis: "Melankolis",
+    P: "Plegmatis",
+    Phlegmatic: "Plegmatis",
+    Plegmatis: "Plegmatis",
+    Plegmatic: "Plegmatis",
+  };
+  const normalized: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+  Object.entries(categories).forEach(([key, value]) => {
+    const target = map[key] || key;
+    if (target in normalized) normalized[target] += Number(value) || 0;
+  });
+  const sorted = Object.entries(normalized).sort((a, b) => b[1] - a[1]);
+  const [dominant, dominantValue] = sorted[0] || ["-", 0];
+  const [secondary, secondaryValue] = sorted[1] || ["-", 0];
+  const total = Object.values(normalized).reduce((sum, value) => sum + value, 0) || Number(result?.answered_questions) || 1;
+  const pct = (value: number) => Math.round((value / total) * 100);
+  const desc: Record<string, string> = {
+    Sanguinis: "Sanguinis menggambarkan pribadi ekspresif, optimis, mudah bergaul, dan energik. Kekuatan utamanya ada pada komunikasi, membangun suasana, kreativitas sosial, dan kemampuan memotivasi orang.",
+    Koleris: "Koleris menggambarkan pribadi tegas, mandiri, kompetitif, dan berorientasi hasil. Kekuatan utamanya ada pada kepemimpinan, pengambilan keputusan, dorongan target, dan keberanian menghadapi tantangan.",
+    Melankolis: "Melankolis menggambarkan pribadi analitis, terstruktur, teliti, dan memiliki standar kualitas tinggi. Kekuatan utamanya ada pada perencanaan, evaluasi, ketelitian, konsistensi mutu, dan kedalaman berpikir.",
+    Plegmatis: "Plegmatis menggambarkan pribadi tenang, sabar, diplomatis, dan kooperatif. Kekuatan utamanya ada pada stabilitas emosi, mendengarkan, menjaga harmoni, dan bekerja konsisten dalam tim.",
+  };
+
+  return {
+    badge: `${dominant} / ${secondary}`,
+    metrics: Object.entries(normalized).map(([label, value]) => ({ label, value, note: `${pct(value)}%` })),
+    text: `Temperamen dominan kandidat adalah ${dominant} (${dominantValue}; ${pct(dominantValue)}%) dengan temperamen sekunder ${secondary} (${secondaryValue}; ${pct(secondaryValue)}%).\n\n${desc[dominant] || ""}\n\nKombinasi ${dominant}-${secondary} menunjukkan gaya perilaku utama ${dominant.toLowerCase()} yang dipengaruhi kecenderungan ${secondary.toLowerCase()}. Hasil ini perlu divalidasi lewat wawancara, terutama pada konteks tuntutan jabatan dan budaya kerja.`,
+  };
+};
+
+const CFIT_IQ_TABLE: Record<number, { iq: number; classification: string; note: string }> = {
+  49: { iq: 183, classification: "Genius", note: "kemampuan penalaran nonverbal sangat luar biasa" },
+  48: { iq: 179, classification: "Genius", note: "kemampuan penalaran nonverbal sangat luar biasa" },
+  47: { iq: 176, classification: "Genius", note: "kemampuan penalaran nonverbal sangat luar biasa" },
+  46: { iq: 173, classification: "Genius", note: "kemampuan penalaran nonverbal sangat luar biasa" },
+  45: { iq: 169, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  44: { iq: 167, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  43: { iq: 165, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  42: { iq: 161, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  41: { iq: 157, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  40: { iq: 155, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  39: { iq: 152, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  38: { iq: 149, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  37: { iq: 145, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  36: { iq: 142, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  35: { iq: 140, classification: "Very Superior", note: "kemampuan penalaran abstrak berada pada taraf sangat tinggi" },
+  34: { iq: 137, classification: "Superior", note: "kemampuan penalaran abstrak berada di atas rata-rata tinggi" },
+  33: { iq: 133, classification: "Superior", note: "kemampuan penalaran abstrak berada di atas rata-rata tinggi" },
+  32: { iq: 131, classification: "Superior", note: "kemampuan penalaran abstrak berada di atas rata-rata tinggi" },
+  31: { iq: 128, classification: "Superior", note: "kemampuan penalaran abstrak berada di atas rata-rata tinggi" },
+  30: { iq: 124, classification: "Superior", note: "kemampuan penalaran abstrak berada di atas rata-rata tinggi" },
+  29: { iq: 121, classification: "Superior", note: "kemampuan penalaran abstrak berada di atas rata-rata tinggi" },
+  28: { iq: 119, classification: "High Average", note: "kemampuan penalaran nonverbal berada di atas rata-rata" },
+  27: { iq: 116, classification: "High Average", note: "kemampuan penalaran nonverbal berada di atas rata-rata" },
+  26: { iq: 113, classification: "High Average", note: "kemampuan penalaran nonverbal berada di atas rata-rata" },
+  25: { iq: 109, classification: "Average", note: "kemampuan penalaran nonverbal berada pada taraf rata-rata" },
+  24: { iq: 106, classification: "Average", note: "kemampuan penalaran nonverbal berada pada taraf rata-rata" },
+  23: { iq: 103, classification: "Average", note: "kemampuan penalaran nonverbal berada pada taraf rata-rata" },
+  22: { iq: 100, classification: "Average", note: "kemampuan penalaran nonverbal berada pada taraf rata-rata" },
+  21: { iq: 96, classification: "Average", note: "kemampuan penalaran nonverbal berada pada taraf rata-rata" },
+  20: { iq: 94, classification: "Average", note: "kemampuan penalaran nonverbal berada pada taraf rata-rata" },
+  19: { iq: 91, classification: "Average", note: "kemampuan penalaran nonverbal berada pada taraf rata-rata" },
+  18: { iq: 88, classification: "Low Average", note: "kemampuan penalaran nonverbal berada sedikit di bawah rata-rata" },
+  17: { iq: 85, classification: "Low Average", note: "kemampuan penalaran nonverbal berada sedikit di bawah rata-rata" },
+  16: { iq: 81, classification: "Low Average", note: "kemampuan penalaran nonverbal berada sedikit di bawah rata-rata" },
+  15: { iq: 78, classification: "Borderline", note: "kemampuan penalaran nonverbal berada pada taraf rendah dan membutuhkan dukungan struktur kerja yang jelas" },
+  14: { iq: 75, classification: "Borderline", note: "kemampuan penalaran nonverbal berada pada taraf rendah dan membutuhkan dukungan struktur kerja yang jelas" },
+  13: { iq: 72, classification: "Borderline", note: "kemampuan penalaran nonverbal berada pada taraf rendah dan membutuhkan dukungan struktur kerja yang jelas" },
+  12: { iq: 70, classification: "Borderline", note: "kemampuan penalaran nonverbal berada pada taraf rendah dan membutuhkan dukungan struktur kerja yang jelas" },
+  11: { iq: 67, classification: "Mild", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  10: { iq: 65, classification: "Mild", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  9: { iq: 60, classification: "Mild", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  8: { iq: 57, classification: "Mild", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  7: { iq: 55, classification: "Mild", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  6: { iq: 52, classification: "Mild", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  5: { iq: 48, classification: "Moderate", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  4: { iq: 47, classification: "Moderate", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  3: { iq: 45, classification: "Moderate", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  2: { iq: 43, classification: "Moderate", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  1: { iq: 40, classification: "Moderate", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+  0: { iq: 38, classification: "Moderate", note: "hasil perlu dibaca hati-hati dan dikonfirmasi dengan observasi serta data pendukung" },
+};
+
+const buildCfitSummary = (result: any) => {
+  const totalQuestions = Number(result?.total_questions) || 50;
+  const rawFromCategories = Object.values(getResultCategories(result)).reduce((sum, value) => sum + Number(value || 0), 0);
+  const rawFromScore = Math.round((Number(result?.score) || 0) / 100 * totalQuestions);
+  const rawScore = Math.max(0, Math.min(49, rawFromCategories || rawFromScore));
+  const info = CFIT_IQ_TABLE[rawScore] || CFIT_IQ_TABLE[0];
+
+  return {
+    badge: `IQ ${info.iq}`,
+    metrics: [
+      { label: "IQ", value: info.iq },
+      { label: "Klasifikasi", value: info.classification },
+      { label: "Raw Score", value: `${rawScore}/${totalQuestions}` },
+      { label: "Area Ukur", value: "Nonverbal", note: "pola & abstraksi" },
+    ],
+    text: `Estimasi IQ CFIT kandidat adalah ${info.iq} dengan klasifikasi ${info.classification}. Raw score terhitung ${rawScore} dari ${totalQuestions} soal.\n\nSecara psikologis, hasil ini menunjukkan ${info.note}. Interpretasi CFIT terutama membaca kemampuan penalaran nonverbal, pengenalan pola, dan kemampuan menyelesaikan masalah abstrak yang relatif minim pengaruh bahasa/budaya.\n\nCatatan psikolog: hasil perlu dipadukan dengan wawancara, riwayat pendidikan/kerja, dan observasi perilaku saat tes sebelum dijadikan keputusan akhir seleksi.`,
+  };
+};
+
+const IST_SUBTESTS_FOR_CANDIDATE = [
+  { code: "SE", name: "Sentence Completion", max: 20, area: "pemahaman konsep verbal" },
+  { code: "WA", name: "Word Association", max: 20, area: "abstraksi verbal" },
+  { code: "AN", name: "Analogy", max: 20, area: "penalaran analogis" },
+  { code: "GE", name: "Generalization", max: 32, area: "generalisasi konsep" },
+  { code: "RA", name: "Arithmetic", max: 20, area: "berhitung praktis" },
+  { code: "ZR", name: "Number Series", max: 20, area: "pola numerik" },
+  { code: "FA", name: "Figure Assembly", max: 20, area: "analisis figural" },
+  { code: "WU", name: "Cube Rotation", max: 20, area: "daya ruang" },
+  { code: "ME", name: "Memory", max: 20, area: "daya ingat" },
+];
+
+const isIstCandidateResult = (result: any) => {
+  const testName = getResultTestName(result).toUpperCase();
+  const keys = Object.keys(getResultCategories(result));
+  return testName.includes("IST") || keys.some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
+};
+
+const getIstCandidateRows = (categories: Record<string, number>) => IST_SUBTESTS_FOR_CANDIDATE.map((subtest) => {
+  const match = Object.entries(categories).find(([key]) => key === subtest.code || key.startsWith(`${subtest.code} -`));
+  const raw = Number(match?.[1] || 0);
+  const pct = Math.round((raw / subtest.max) * 100);
+  const level = pct >= 80 ? "Sangat Tinggi" : pct >= 65 ? "Tinggi" : pct >= 45 ? "Sedang" : pct >= 30 ? "Rendah" : "Sangat Rendah";
+  return { ...subtest, raw, pct, level };
+});
+
+const buildIstSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  const rows = getIstCandidateRows(categories);
+  const raw = Number(categories["IST Raw Score"] ?? rows.reduce((sum, row) => sum + row.raw, 0));
+  const max = Number(categories["IST Max Score"] ?? rows.reduce((sum, row) => sum + row.max, 0));
+  const score = max > 0 ? Math.round((raw / max) * 100) : Number(result?.score || 0);
+  const strongest = [...rows].sort((a, b) => b.pct - a.pct)[0];
+  const weakest = [...rows].sort((a, b) => a.pct - b.pct)[0];
+  const overall = score >= 80 ? "sangat tinggi" : score >= 65 ? "tinggi" : score >= 45 ? "sedang" : score >= 30 ? "rendah" : "sangat rendah";
+
+  return {
+    badge: `IST ${score}%`,
+    metrics: rows.map((row) => ({ label: row.code, value: `${row.raw}/${row.max}`, note: `${row.level} - ${row.area}` })),
+    text: `Skor total IST kandidat adalah ${raw}/${max} (${score}%), berada pada kategori ${overall}.\n\nKekuatan relatif terlihat pada ${strongest.code} - ${strongest.name} (${strongest.level}), sedangkan area yang perlu diperhatikan adalah ${weakest.code} - ${weakest.name} (${weakest.level}). Profil ini memberi gambaran struktur inteligensi verbal, numerik, figural-spasial, dan daya ingat yang perlu dipadukan dengan tuntutan jabatan.`,
+  };
+};
+
+const isMbtiCandidateResult = (result: any) => {
+  const categories = getResultCategories(result);
+  const keys = Object.keys(categories);
+  return getResultTestName(result).toUpperCase().includes("MBTI") || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => keys.includes(key));
+};
+
+const buildMbtiSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  const labels: Record<string, string> = {
+    E: "ekstrovert", I: "introvert", S: "sensing", N: "intuition", T: "thinking", F: "feeling", J: "judging", P: "perceiving",
+  };
+  const pairs = [["E", "I"], ["S", "N"], ["T", "F"], ["J", "P"]] as const;
+  const rows = pairs.map(([a, b]) => {
+    const av = Number(categories[a] || 0);
+    const bv = Number(categories[b] || 0);
+    const dominant = av >= bv ? a : b;
+    return { pair: `${a}/${b}`, a, b, av, bv, dominant };
+  });
+  const type = rows.map((row) => row.dominant).join("");
+
+  return {
+    badge: type,
+    metrics: rows.map((row) => ({ label: row.pair, value: `${row.a} ${row.av} / ${row.b} ${row.bv}`, note: `Dominan ${row.dominant}` })),
+    text: `Tipe MBTI kandidat adalah ${type}. Secara preferensi kerja, kandidat cenderung ${type.split("").map((key) => labels[key]).join(", ")}.\n\nHasil MBTI sebaiknya dibaca sebagai preferensi gaya kerja dan komunikasi, bukan ukuran kemampuan mutlak. Cocok digunakan untuk memahami kecenderungan kolaborasi, pengambilan keputusan, dan kebutuhan lingkungan kerja.`,
+  };
+};
+
+const KRAEPELIN_KEYS = [
+  { key: "speed", label: "Kecepatan" },
+  { key: "accuracy", label: "Ketelitian" },
+  { key: "stability", label: "Stabilitas" },
+  { key: "work_capacity", label: "Kapasitas Kerja" },
+];
+
+const buildKraepelinSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  const rows = KRAEPELIN_KEYS.map((item) => ({ ...item, value: Number(categories[item.key] ?? result?.[`${item.key}_score`] ?? result?.[item.key] ?? 0) }));
+  const level = (value: number) => value >= 80 ? "Sangat Tinggi" : value >= 60 ? "Tinggi" : value >= 40 ? "Sedang" : value >= 20 ? "Rendah" : "Sangat Rendah";
+  const best = [...rows].sort((a, b) => b.value - a.value)[0];
+  const watch = [...rows].sort((a, b) => a.value - b.value)[0];
+
+  return {
+    badge: `Kuat: ${best.label}`,
+    metrics: rows.map((row) => ({ label: row.label, value: `${row.value}%`, note: level(row.value) })),
+    text: `Profil Kraepelin menunjukkan kekuatan relatif pada aspek ${best.label.toLowerCase()} dan area perhatian pada ${watch.label.toLowerCase()}.\n\nTes ini menggambarkan pola kerja dalam tekanan waktu: tempo kerja, ketelitian, stabilitas performa, dan daya tahan menyelesaikan tugas rutin. Interpretasi akhir perlu memperhatikan jenis pekerjaan, tuntutan target, dan toleransi kesalahan pada posisi yang dilamar.`,
+  };
+};
+
+const PAPI_LABELS_FOR_CANDIDATE: Record<string, string> = {
+  A: "Need to Achieve", B: "Need to Belong", C: "Organized Type", D: "Leadership Role",
+  E: "Emotional Resistance", F: "Support Authority", G: "Hard Intense Worked", I: "Decision Making",
+  K: "Need to be Forceful", L: "Leadership Role", N: "Finish Task", O: "Closeness",
+  P: "Control Others", R: "Theoretical Type", S: "Social Extension", T: "Pace",
+  V: "Vigorous Type", W: "Rules/Supervision", X: "Need to be Noticed", Z: "Need for Change",
+};
+
+const isPapiCandidateResult = (result: any) => {
+  const name = getResultTestName(result).toUpperCase();
+  const keys = Object.keys(getResultCategories(result));
+  return name.includes("PAPI") || keys.some((key) => PAPI_LABELS_FOR_CANDIDATE[key]);
+};
+
+const buildPapiSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  const rows = Object.entries(PAPI_LABELS_FOR_CANDIDATE)
+    .map(([code, label]) => {
+      const value = Number(categories[code] || 0);
+      const level = value >= 7 ? "Tinggi" : value >= 4 ? "Sedang" : "Rendah";
+      return { code, label, value, level };
+    })
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
+  const top = rows.slice(0, 4);
+
+  return {
+    badge: top[0] ? `${top[0].code} ${top[0].value}/9` : "PAPI",
+    metrics: top.map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/9`, note: row.level })),
+    text: `Profil PAPI Kostick kandidat paling menonjol pada ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9; ${row.level})`).join(", ") || "belum ada skala dominan"}.\n\nSkala tinggi menggambarkan kebutuhan dan peran kerja yang paling tampak. Gunakan profil ini untuk membaca motivasi kerja, gaya relasi, kebutuhan struktur, dorongan pencapaian, dan kecenderungan kepemimpinan kandidat.`,
+  };
+};
+
+const isTechnicalCompletionInterpretation = (value: any) => {
+  const text = formatInfoValue(value).toLowerCase();
+  return text.includes("kandidat menjawab") || text.includes("skor akhir") || text.includes("jawaban benar");
+};
+
+const buildPsychologicalTestSummary = (result: any) => {
+  const testName = getResultTestName(result);
+  const upperName = testName.toUpperCase();
+  if (upperName.includes("DISC")) return buildDiscSummary(result);
+  if (upperName.includes("PERSONALITY PLUS") || upperName.includes("TEMPERAMEN")) return buildPersonalityPlusSummary(result);
+  if (upperName.includes("CFIT") || upperName.includes("CULTURE FAIR")) return buildCfitSummary(result);
+  if (isIstCandidateResult(result)) return buildIstSummary(result);
+  if (isMbtiCandidateResult(result)) return buildMbtiSummary(result);
+  if (upperName.includes("KRAEPELIN")) return buildKraepelinSummary(result);
+  if (isPapiCandidateResult(result)) return buildPapiSummary(result);
+
+  const savedInterpretation = formatInfoValue(result?.interpretation);
+  if (savedInterpretation !== "-" && !isTechnicalCompletionInterpretation(savedInterpretation)) {
+    return { badge: "", metrics: [], text: savedInterpretation };
+  }
+
+  return {
+    badge: "",
+    metrics: [],
+    text: "Belum ada interpretasi psikologis tersimpan untuk hasil tes ini. Silakan lengkapi interpretasi pada Manajer Interpretasi atau halaman hasil tes.",
+  };
 };
 
 const InfoRow = ({ label, value, full }: { label: string; value: any; full?: boolean }) => (
