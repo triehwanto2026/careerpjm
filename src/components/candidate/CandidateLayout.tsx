@@ -35,6 +35,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
 
   const sidebarRef = useRef<HTMLElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
@@ -43,14 +44,47 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) navigate("/candidate/login");
-      else setEmail(data.session.user.email || "");
+      else {
+        setEmail(data.session.user.email || "");
+        loadProfilePhoto(data.session.user.id, data.session.user.email || "");
+      }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (!session) navigate("/candidate/login");
-      else setEmail(session.user.email || "");
+      else {
+        setEmail(session.user.email || "");
+        loadProfilePhoto(session.user.id, session.user.email || "");
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
+
+  const loadProfilePhoto = async (userId: string, userEmail: string) => {
+    const { data } = await supabase
+      .from("candidate_profiles")
+      .select("photo_url")
+      .or(`user_id.eq.${userId},email.eq.${userEmail}`)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setProfilePhotoUrl((data as any)?.photo_url || null);
+  };
+
+  useEffect(() => {
+    const onPhotoUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ photo_url?: string | null }>).detail;
+      if ("photo_url" in (detail || {})) {
+        setProfilePhotoUrl(detail?.photo_url || null);
+        return;
+      }
+      supabase.auth.getSession().then(({ data }) => {
+        const session = data.session;
+        if (session) loadProfilePhoto(session.user.id, session.user.email || "");
+      });
+    };
+    window.addEventListener("candidate-profile-photo-updated", onPhotoUpdated);
+    return () => window.removeEventListener("candidate-profile-photo-updated", onPhotoUpdated);
+  }, []);
 
   useEffect(() => {
     const loadPublicSettings = async () => {
@@ -276,9 +310,13 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
                 }}
                 className="flex items-center gap-2 p-2 rounded-md hover:bg-muted"
               >
-                <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
-                  <User className="h-4 w-4 text-white" />
-                </div>
+                {profilePhotoUrl ? (
+                  <img src={profilePhotoUrl} alt="Foto profil kandidat" className="h-7 w-7 rounded-full border border-border object-cover" />
+                ) : (
+                  <div className="h-7 w-7 bg-primary rounded-full flex items-center justify-center">
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                )}
                 <span className="text-sm font-medium hidden sm:inline">Profil</span>
               </button>
 
