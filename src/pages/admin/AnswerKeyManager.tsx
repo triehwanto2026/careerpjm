@@ -11,6 +11,20 @@ interface O { id: string; question_id: string; option_label: string; option_text
 interface IstSeedOption { label?: string; text: string; score: number; }
 
 const IST_INSTRUMENT_ID = '9dccb6bc-cb33-42e8-b432-8af156ad6d5c';
+const CFIT_ANSWER_KEY: Record<number, string[]> = {
+  1: ["B"], 2: ["C"], 3: ["B"], 4: ["D"], 5: ["E"], 6: ["B"], 7: ["D"], 8: ["B"], 9: ["E"], 10: ["C"], 11: ["B"], 12: ["B"], 13: ["E"],
+  14: ["B", "E"], 15: ["A", "E"], 16: ["A", "D"], 17: ["C", "E"], 18: ["B", "E"], 19: ["A", "D"], 20: ["B", "E"], 21: ["B", "E"], 22: ["A", "D"], 23: ["B", "D"], 24: ["A", "E"], 25: ["C", "D"], 26: ["B", "C"], 27: ["A", "B"],
+  28: ["E"], 29: ["E"], 30: ["E"], 31: ["B"], 32: ["C"], 33: ["D"], 34: ["E"], 35: ["E"], 36: ["A"], 37: ["A"], 38: ["F"], 39: ["C"], 40: ["C"],
+  41: ["B"], 42: ["A"], 43: ["D"], 44: ["D"], 45: ["A"], 46: ["B"], 47: ["C"], 48: ["D"], 49: ["A"], 50: ["D"],
+};
+
+const getCfitMeta = (questionNumber: number) => {
+  if (questionNumber <= 13) return { subtest_code: "S1", category: "Series", question_type: "single_choice", time_limit_minutes: 3, group_number: 1, labels: ["A", "B", "C", "D", "E", "F"] };
+  if (questionNumber <= 27) return { subtest_code: "S2", category: "Classifications", question_type: "multi_choice", time_limit_minutes: 4, group_number: 2, labels: ["A", "B", "C", "D", "E"] };
+  if (questionNumber <= 40) return { subtest_code: "S3", category: "Matrices", question_type: "single_choice", time_limit_minutes: 3, group_number: 3, labels: ["A", "B", "C", "D", "E", "F"] };
+  return { subtest_code: "S4", category: "Conditions", question_type: "single_choice", time_limit_minutes: 3, group_number: 4, labels: ["A", "B", "C", "D", "E"] };
+};
+
 const IST_ANSWER_KEY: Record<number, string | number> = {
   1: 'E', 2: 'C', 3: 'D', 4: 'D', 5: 'D', 6: 'B', 7: 'C', 8: 'A', 9: 'E', 10: 'B',
   11: 'C', 12: 'D', 13: 'D', 14: 'E', 15: 'C', 16: 'A', 17: 'B', 18: 'B', 19: 'C', 20: 'B',
@@ -131,6 +145,9 @@ const AnswerKeyManager = () => {
   const hasIstQuestionSet = questions.some(q => q.question_number === 61 && normalizeIstAnswer(q.question_text).includes("mawar melati"))
     || questions.some(q => q.question_number === 116);
   const isIstSelected = selected === IST_INSTRUMENT_ID || currentInstrument?.name.toUpperCase().includes("IST") || hasIstQuestionSet;
+  const isCfitSelected = currentInstrument?.name.toUpperCase().includes("CFIT")
+    || currentInstrument?.name.toUpperCase().includes("CULTURE FAIR")
+    || questions.some(q => q.question_number === 14 && q.question_number <= 27);
 
   const applyIstAnswerKey = async () => {
     if (!isIstSelected) return;
@@ -218,6 +235,98 @@ const AnswerKeyManager = () => {
     }
   };
 
+  const applyCfitAnswerKey = async () => {
+    if (!isCfitSelected) return;
+    const newDirty: Record<string, Partial<O>> = {};
+    setLoading(true);
+
+    try {
+      let workingOpts: Record<string, O[]> = { ...opts };
+      const updatedQuestions = questions.map(q => {
+        const key = CFIT_ANSWER_KEY[q.question_number];
+        if (!key) return q;
+        const meta = getCfitMeta(q.question_number);
+        return { ...q, category: meta.category, subtest_code: meta.subtest_code, question_type: meta.question_type };
+      });
+
+      for (const q of questions) {
+        const key = CFIT_ANSWER_KEY[q.question_number];
+        if (!key) continue;
+        const meta = getCfitMeta(q.question_number);
+
+        await supabase
+          .from("test_questions")
+          .update({
+            category: meta.category,
+            subtest_code: meta.subtest_code,
+            question_type: meta.question_type,
+            scoring_rule: "correct_only",
+            time_limit_minutes: meta.time_limit_minutes,
+            group_number: meta.group_number,
+          } as any)
+          .eq("id", q.id);
+
+        const existing = workingOpts[q.id] || [];
+        const existingLabels = new Set(existing.map(o => normalizeIstAnswer(o.option_label)));
+        const rowsToInsert = meta.labels
+          .filter(label => !existingLabels.has(normalizeIstAnswer(label)))
+          .map((label, idx) => ({
+            question_id: q.id,
+            option_label: label,
+            option_text: label,
+            option_text_en: label,
+            score_value: key.includes(label) ? 1 : 0,
+            category_target: meta.category,
+            is_correct: key.includes(label),
+            display_order: existing.length + idx + 1,
+          }));
+
+        if (rowsToInsert.length > 0) {
+          const { data: inserted, error } = await supabase
+            .from("test_question_options")
+            .insert(rowsToInsert)
+            .select("*");
+          if (error) throw error;
+          (inserted as O[] || []).forEach(o => { (workingOpts[o.question_id] ||= []).push(o); });
+        }
+
+        workingOpts[q.id] = (workingOpts[q.id] || [])
+          .filter(o => meta.labels.includes(o.option_label.toUpperCase()))
+          .map(o => {
+            const label = o.option_label.toUpperCase();
+            const is_correct = key.includes(label);
+            const score_value = is_correct ? 1 : 0;
+            const category_target = meta.category;
+            if (o.is_correct !== is_correct || Number(o.score_value) !== score_value || o.category_target !== category_target) {
+              newDirty[o.id] = { is_correct, score_value, category_target };
+            }
+            return { ...o, is_correct, score_value, category_target };
+          });
+      }
+
+      setQuestions(updatedQuestions);
+      setOpts(workingOpts);
+
+      if (Object.keys(newDirty).length > 0) {
+        setDirty(prev => ({ ...prev, ...newDirty }));
+      }
+
+      Swal.fire({
+        icon: Object.keys(newDirty).length > 0 ? "success" : "info",
+        title: Object.keys(newDirty).length > 0 ? "Kunci CFIT diterapkan" : "Kunci CFIT sudah sesuai",
+        text: Object.keys(newDirty).length > 0
+          ? `${Object.keys(newDirty).length} opsi disesuaikan. Klik Simpan untuk menyimpan perubahan skor dan centang.`
+          : "Semua centang, skor, dan kategori target CFIT 3A sudah sesuai.",
+        timer: 2200,
+        showConfirmButton: false,
+      });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Gagal menerapkan kunci CFIT", text: error?.message || "Terjadi kesalahan saat menyelaraskan kunci CFIT 3A." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     supabase.from("test_instruments").select("id, name, category, scoring_method").order("name").then(({ data }) => {
       setInstruments((data as Inst[]) || []);
@@ -294,6 +403,11 @@ const AnswerKeyManager = () => {
               {isIstSelected && (
                 <button onClick={applyIstAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
                   Terapkan Kunci IST
+                </button>
+              )}
+              {isCfitSelected && (
+                <button onClick={applyCfitAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
+                  Terapkan Kunci CFIT 3A
                 </button>
               )}
               <button onClick={saveAll} disabled={!Object.keys(dirty).length} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-40">
