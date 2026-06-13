@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, User, UserPlus, Building2 } from "lucide-react";
+import { Mail, Lock, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
 import PublicLayout from "@/components/layout/PublicLayout";
@@ -15,6 +15,25 @@ export default function CandidateRegister() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [brand, setBrand] = useState({ name: "Recruit PJM GROUP", logo: "/pjmgroup-logo.svg" });
+
+  useEffect(() => {
+    const loadBrand = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .in("key", ["app_name", "app_logo_url", "landing_header_title"]);
+      const settings = (data || []).reduce((acc, item) => {
+        acc[item.key] = item.value;
+        return acc;
+      }, {} as Record<string, string>);
+      setBrand({
+        name: settings.app_name || settings.landing_header_title || "Recruit PJM GROUP",
+        logo: settings.app_logo_url || "/pjmgroup-logo.svg",
+      });
+    };
+    loadBrand();
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,12 +161,10 @@ export default function CandidateRegister() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Building2 className="h-8 w-8 text-primary" />
-              </div>
+              <img src={brand.logo} alt={brand.name} className="h-16 w-auto max-w-[180px] rounded-xl bg-white object-contain p-2 shadow-sm" />
             </div>
             <h1 className="text-2xl font-bold">Buat Akun Baru</h1>
-            <p className="text-muted-foreground mt-2">Daftar untuk mulai melamar di Recruit PJM GROUP</p>
+            <p className="text-muted-foreground mt-2">Daftar untuk mulai melamar di {brand.name}</p>
           </div>
 
           <form onSubmit={submit} className="space-y-4">

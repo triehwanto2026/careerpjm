@@ -3,9 +3,9 @@ import PublicLayout from "@/components/layout/PublicLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, Building2 } from "lucide-react";
+import { Mail, Lock } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,6 +15,25 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [brand, setBrand] = useState({ name: "Recruit PJM GROUP", logo: "/pjmgroup-logo.svg" });
+
+  useEffect(() => {
+    const loadBrand = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .in("key", ["app_name", "app_logo_url", "landing_header_title"]);
+      const settings = (data || []).reduce((acc, item) => {
+        acc[item.key] = item.value;
+        return acc;
+      }, {} as Record<string, string>);
+      setBrand({
+        name: settings.app_name || settings.landing_header_title || "Recruit PJM GROUP",
+        logo: settings.app_logo_url || "/pjmgroup-logo.svg",
+      });
+    };
+    loadBrand();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,12 +61,10 @@ const Login = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Building2 className="h-8 w-8 text-primary" />
-              </div>
+              <img src={brand.logo} alt={brand.name} className="h-16 w-auto max-w-[180px] rounded-xl bg-white object-contain p-2 shadow-sm" />
             </div>
             <h1 className="text-2xl font-bold">Selamat Datang Kembali</h1>
-            <p className="text-muted-foreground mt-2">Masuk ke akun Recruit PJM GROUP Anda</p>
+            <p className="text-muted-foreground mt-2">Masuk ke akun {brand.name} Anda</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
