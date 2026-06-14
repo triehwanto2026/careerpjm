@@ -115,7 +115,7 @@ export default function CandidateJobs() {
 
   return (
     <CandidateLayout>
-      <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
+      <div className="mx-auto max-w-[96rem] space-y-5 p-4 md:p-6">
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>

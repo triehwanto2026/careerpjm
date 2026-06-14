@@ -505,9 +505,9 @@ export default function CandidateProfile() {
     load();
   };
 
-  const inp = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary";
-  const inpDisabled = "w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm cursor-not-allowed opacity-60";
-  const lbl = "text-xs font-medium text-muted-foreground mb-1 block";
+  const inp = "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+  const inpDisabled = "w-full rounded-md border border-border bg-muted/60 px-3 py-2 text-sm text-muted-foreground shadow-sm cursor-not-allowed";
+  const lbl = "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
   const [activeTab, setActiveTab] = useState("personal");
   const [progress, setProgress] = useState(0);
 
@@ -551,46 +551,51 @@ export default function CandidateProfile() {
 
   return (
     <CandidateLayout>
-      <div className="min-h-screen w-full flex flex-col">
+      <div className="min-h-screen w-full flex flex-col bg-muted/20">
         {/* Header - Fixed Top */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
-          <div className="w-full px-4 py-4 md:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold">Formulir Kandidat</h1>
-                <p className="text-sm text-muted-foreground">Lengkapi seluruh data untuk meningkatkan peluang Anda</p>
+        <div className="border-b border-border bg-background">
+          <div className="mx-auto w-full max-w-[96rem] px-4 py-4 md:px-6 lg:px-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <ClipboardList className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight md:text-2xl">Formulir Kandidat</h1>
+                  <p className="text-sm text-muted-foreground">Lengkapi seluruh data untuk meningkatkan peluang Anda</p>
+                </div>
               </div>
-              <button onClick={calculateProgress} className="text-sm text-primary hover:underline">Refresh Progress</button>
+              <button onClick={calculateProgress} className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted">Refresh Progress</button>
             </div>
             
             {/* Progress Bar */}
-            <div className="mt-4 bg-card border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Kelengkapan Profil</span>
-                <span className={`text-sm font-bold ${progress >= 50 ? "text-green-500" : "text-amber-500"}`}>{progress}%</span>
+            <div className="mt-4 rounded-xl border border-border bg-card p-3 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-sm font-semibold">Kelengkapan Profil</span>
+                  <p className="text-xs text-muted-foreground">{progress < 50 ? "Minimal 50% untuk bisa melamar pekerjaan" : "Profil sudah memenuhi syarat minimal"}</p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-sm font-bold ${progress >= 50 ? "bg-green-500/10 text-green-600" : "bg-amber-500/10 text-amber-600"}`}>{progress}%</span>
               </div>
-              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div className={`h-full rounded-full transition-all duration-500 ${progress >= 50 ? "bg-green-500" : "bg-amber-500"}`} style={{ width: `${progress}%` }} />
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {progress < 50 ? "⚠️ Minimal 50% untuk bisa melamar pekerjaan" : "✅ Profil sudah memenuhi syarat minimal"}
-              </p>
             </div>
 
             {/* Tabs Navigation */}
-            <div className="mt-4 flex flex-wrap gap-1 bg-muted/50 p-1.5 rounded-xl">
+            <div className="mt-4 flex gap-2 overflow-x-auto rounded-xl border border-border bg-card p-2 shadow-sm">
               {tabs.map((tab) => (
                 <button
                   key={tab.value}
                   onClick={() => handleTabChange(tab.value)}
-                  className={`flex items-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-all ${
                     activeTab === tab.value
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <tab.icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <tab.icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -602,29 +607,30 @@ export default function CandidateProfile() {
 
         {/* TAB: Personal Data */}
         {activeTab === "personal" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
             {/* Data Pribadi */}
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary"/> Data Pribadi</h2>
-              <div className="space-y-4">
-                <div className="bg-muted border border-border rounded-2xl p-4 flex flex-col items-center text-center gap-3">
-                  <div className="h-28 w-28 rounded-xl overflow-hidden bg-white border border-border flex items-center justify-center">
-                    {displayPhotoUrl ? (
-                      <img src={displayPhotoUrl} alt="Foto Formal" className="h-full w-full object-cover" />
-                    ) : (
-                      <User className="h-10 w-10 text-muted-foreground" />
+              <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+                <div className="self-start rounded-xl border border-border bg-muted/50 p-4">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="h-40 w-32 overflow-hidden rounded-xl border border-border bg-white flex items-center justify-center">
+                      {displayPhotoUrl ? (
+                        <img src={displayPhotoUrl} alt="Foto Formal" className="h-full w-full object-cover" />
+                      ) : (
+                        <User className="h-10 w-10 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Foto Formal</p>
+                    </div>
+                    {isEditing && (
+                      <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110">
+                        <Upload className="h-4 w-4" /> Ganti Foto
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadDoc("photo", e.target.files[0])} />
+                      </label>
                     )}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Foto Formal</p>
-                    <p className="text-xs text-muted-foreground">Foto kandidat untuk profil dan PHC.</p>
-                  </div>
-                  {isEditing && (
-                    <label className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground cursor-pointer hover:brightness-110">
-                      <Upload className="h-4 w-4" /> Ganti Foto
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadDoc("photo", e.target.files[0])} />
-                    </label>
-                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div><label className={lbl}>NIK *</label><input className={isEditing ? inp : inpDisabled} value={profile.nik} onChange={(e) => isEditing && upd("nik", e.target.value)} placeholder="16 digit" maxLength={16} disabled={!isEditing} /></div>
@@ -659,20 +665,20 @@ export default function CandidateProfile() {
                   </select>
                 </div>
                 <div><label className={lbl}>Suku/Bangsa</label><input className={isEditing ? inp : inpDisabled} value={profile.ethnicity} onChange={(e) => isEditing && upd("ethnicity", e.target.value)} disabled={!isEditing} /></div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><label className={lbl}>No. BPJS Kesehatan</label><input className={isEditing ? inp : inpDisabled} value={profile.bpjs_kesehatan || ""} onChange={(e) => isEditing && upd("bpjs_kesehatan", e.target.value)} placeholder="Nomor BPJS Kesehatan" disabled={!isEditing} /></div>
-                  <div><label className={lbl}>No. BPJS Ketenagakerjaan</label><input className={isEditing ? inp : inpDisabled} value={profile.bpjs_ketenagakerjaan || ""} onChange={(e) => isEditing && upd("bpjs_ketenagakerjaan", e.target.value)} placeholder="Nomor BPJS Ketenagakerjaan" disabled={!isEditing} /></div>
-                </div>
-                <div className="md:col-span-3"><label className={lbl}>Alamat Lengkap *</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={profile.address} onChange={(e) => isEditing && upd("address", e.target.value)} disabled={!isEditing} /></div>
+                <div><label className={lbl}>No. BPJS Kesehatan</label><input className={isEditing ? inp : inpDisabled} value={profile.bpjs_kesehatan || ""} onChange={(e) => isEditing && upd("bpjs_kesehatan", e.target.value)} placeholder="Nomor BPJS Kesehatan" disabled={!isEditing} /></div>
+                <div><label className={lbl}>No. BPJS Ketenagakerjaan</label><input className={isEditing ? inp : inpDisabled} value={profile.bpjs_ketenagakerjaan || ""} onChange={(e) => isEditing && upd("bpjs_ketenagakerjaan", e.target.value)} placeholder="Nomor BPJS Ketenagakerjaan" disabled={!isEditing} /></div>
+              </div>
+            </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="sm:col-span-2 lg:col-span-3"><label className={lbl}>Alamat Lengkap *</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={profile.address} onChange={(e) => isEditing && upd("address", e.target.value)} disabled={!isEditing} /></div>
                 <div><label className={lbl}>Kota</label><input className={isEditing ? inp : inpDisabled} value={profile.city} onChange={(e) => isEditing && upd("city", e.target.value)} disabled={!isEditing} /></div>
                 <div><label className={lbl}>Provinsi</label><input className={isEditing ? inp : inpDisabled} value={profile.province} onChange={(e) => isEditing && upd("province", e.target.value)} disabled={!isEditing} /></div>
                 <div><label className={lbl}>Kode Pos</label><input className={isEditing ? inp : inpDisabled} value={profile.postal_code} onChange={(e) => isEditing && upd("postal_code", e.target.value)} disabled={!isEditing} /></div>
               </div>
-            </div>
             </section>
 
             {/* Data Fisik */}
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Heart className="h-5 w-5 text-primary"/> Data Fisik</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div><label className={lbl}>Tinggi (cm)</label><input type="number" className={isEditing ? inp : inpDisabled} value={profile.height_cm || ""} onChange={(e) => isEditing && upd("height_cm", parseInt(e.target.value) || null)} disabled={!isEditing} /></div>
@@ -682,7 +688,7 @@ export default function CandidateProfile() {
             </section>
 
             {/* Kontak Darurat */}
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Phone className="h-5 w-5 text-primary"/> Kontak Darurat</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div><label className={lbl}>Nama Kontak</label><input className={isEditing ? inp : inpDisabled} value={profile.emergency_contact_name} onChange={(e) => isEditing && upd("emergency_contact_name", e.target.value)} disabled={!isEditing} /></div>
@@ -700,9 +706,9 @@ export default function CandidateProfile() {
 
         {/* TAB: Family */}
         {activeTab === "family" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
             {/* Data Keluarga */}
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Data Keluarga</h2>
               <div className="overflow-x-auto">
                 <div className="min-w-full">
@@ -714,7 +720,7 @@ export default function CandidateProfile() {
                   ) : (
                     <div className="space-y-3">
                       {familyMembers.map((member, index) => (
-                        <div key={index} className="bg-background rounded-lg border border-border p-4">
+                        <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-medium">Anggota Keluarga #{index + 1}</h4>
                             {isEditing && (
@@ -723,8 +729,8 @@ export default function CandidateProfile() {
                               </button>
                             )}
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 items-end">
-                            <div className="min-w-0">
+                          <div className="grid grid-cols-2 gap-3 md:grid-cols-12 items-end">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Hubungan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.relation || ''} onChange={(e) => isEditing && updateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -733,11 +739,11 @@ export default function CandidateProfile() {
                                 <option value="Saudara">Saudara</option>
                               </select>
                             </div>
-                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
+                            <div className="min-w-0 col-span-2 md:col-span-3">
                               <label className={lbl}>Nama</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.name} onChange={(e) => isEditing && updateFamilyMember(index, 'name', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Jenis Kelamin</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.gender} onChange={(e) => isEditing && updateFamilyMember(index, 'gender', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -745,11 +751,11 @@ export default function CandidateProfile() {
                                 <option value="P">P</option>
                               </select>
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Usia</label>
-                              <input type="number" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateFamilyMember(index, 'age', e.target.value)} disabled={!isEditing} />
+                              <input type="number" min="0" max="999" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateFamilyMember(index, 'age', e.target.value.slice(0, 3))} disabled={!isEditing} />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Pendidikan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.education} onChange={(e) => isEditing && updateFamilyMember(index, 'education', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -764,11 +770,11 @@ export default function CandidateProfile() {
                                 <option value="S3">S3</option>
                               </select>
                             </div>
-                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
+                            <div className="min-w-0 col-span-2 md:col-span-2">
                               <label className={lbl}>Pekerjaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.occupation} onChange={(e) => isEditing && updateFamilyMember(index, 'occupation', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
+                            <div className="min-w-0 col-span-2 md:col-span-2">
                               <label className={lbl}>Perusahaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.company} onChange={(e) => isEditing && updateFamilyMember(index, 'company', e.target.value)} disabled={!isEditing} />
                             </div>
@@ -787,7 +793,7 @@ export default function CandidateProfile() {
             </section>
 
             {/* Keluarga Inti */}
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Users className="h-5 w-5 text-primary"/> Keluarga Inti</h2>
               <div className="overflow-x-auto">
                 <div className="min-w-full">
@@ -799,7 +805,7 @@ export default function CandidateProfile() {
                   ) : (
                     <div className="space-y-3">
                       {immediateFamily.map((member, index) => (
-                        <div key={index} className="bg-background rounded-lg border border-border p-4">
+                        <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-medium">Anggota Keluarga Inti #{index + 1}</h4>
                             {isEditing && (
@@ -808,8 +814,8 @@ export default function CandidateProfile() {
                               </button>
                             )}
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 items-end">
-                            <div className="min-w-0">
+                          <div className="grid grid-cols-2 gap-3 md:grid-cols-12 items-end">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Hubungan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.relation} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'relation', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -818,11 +824,11 @@ export default function CandidateProfile() {
                                 <option value="Anak">Anak</option>
                               </select>
                             </div>
-                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
+                            <div className="min-w-0 col-span-2 md:col-span-3">
                               <label className={lbl}>Nama</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.name} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'name', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Jenis Kelamin</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.gender} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'gender', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -830,11 +836,11 @@ export default function CandidateProfile() {
                                 <option value="P">P</option>
                               </select>
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Usia</label>
-                              <input type="number" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'age', e.target.value)} disabled={!isEditing} />
+                              <input type="number" min="0" max="999" className={isEditing ? inp : inpDisabled} value={member.age} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'age', e.target.value.slice(0, 3))} disabled={!isEditing} />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 md:col-span-1">
                               <label className={lbl}>Pendidikan</label>
                               <select className={isEditing ? inp : inpDisabled} value={member.education} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'education', e.target.value)} disabled={!isEditing}>
                                 <option value="">Pilih...</option>
@@ -851,11 +857,11 @@ export default function CandidateProfile() {
                                 <option value="S3">S3</option>
                               </select>
                             </div>
-                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
+                            <div className="min-w-0 col-span-2 md:col-span-2">
                               <label className={lbl}>Pekerjaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.occupation} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'occupation', e.target.value)} disabled={!isEditing} />
                             </div>
-                            <div className="min-w-0 sm:col-span-2 xl:col-span-3">
+                            <div className="min-w-0 col-span-2 md:col-span-2">
                               <label className={lbl}>Perusahaan</label>
                               <input className={isEditing ? inp : inpDisabled} value={member.company} onChange={(e) => isEditing && updateImmediateFamilyMember(index, 'company', e.target.value)} disabled={!isEditing} />
                             </div>
@@ -877,8 +883,8 @@ export default function CandidateProfile() {
 
         {/* TAB: Education */}
         {activeTab === "education" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary"/> Riwayat Pendidikan Formal</h2>
               <div className="space-y-3">
                 {educationHistory.length === 0 ? (
@@ -888,7 +894,7 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   educationHistory.map((edu, index) => (
-                    <div key={index} className="bg-background rounded-lg border border-border p-4">
+                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Pendidikan #{index + 1}</h4>
                         {isEditing && (
@@ -897,8 +903,8 @@ export default function CandidateProfile() {
                           </button>
                         )}
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
-                        <div className="min-w-0">
+                      <div className="grid grid-cols-2 gap-3 lg:grid-cols-12 items-end">
+                        <div className="min-w-0 lg:col-span-1">
                           <label className={lbl}>Jenjang</label>
                           <select className={isEditing ? inp : inpDisabled} value={edu.level} onChange={(e) => isEditing && updateEducation(index, 'level', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
@@ -912,29 +918,27 @@ export default function CandidateProfile() {
                             <option value="S3">S3</option>
                           </select>
                         </div>
-                        <div className="min-w-0 md:col-span-2 xl:col-span-2">
+                        <div className="min-w-0 col-span-2 lg:col-span-3">
                           <label className={lbl}>Nama Sekolah / Perguruan Tinggi</label>
                           <input className={isEditing ? inp : inpDisabled} value={edu.school} onChange={(e) => isEditing && updateEducation(index, 'school', e.target.value)} disabled={!isEditing} />
                         </div>
-                        <div className="min-w-0 xl:col-span-1">
+                        <div className="min-w-0 col-span-2 lg:col-span-2">
                           <label className={lbl}>Jurusan</label>
                           <input className={isEditing ? inp : inpDisabled} value={edu.major} onChange={(e) => isEditing && updateEducation(index, 'major', e.target.value)} disabled={!isEditing} />
                         </div>
-                        <div className="grid grid-cols-3 gap-3 xl:col-span-4">
-                          <div className="min-w-0">
+                        <div className="min-w-0 lg:col-span-1">
                             <label className={lbl}>Masuk</label>
                             <input type="number" className={isEditing ? inp : inpDisabled} value={edu.start_year} onChange={(e) => isEditing && updateEducation(index, 'start_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
-                          </div>
-                          <div className="min-w-0">
+                        </div>
+                        <div className="min-w-0 lg:col-span-1">
                             <label className={lbl}>Selesai</label>
                             <input type="number" className={isEditing ? inp : inpDisabled} value={edu.end_year} onChange={(e) => isEditing && updateEducation(index, 'end_year', e.target.value)} placeholder="Tahun" disabled={!isEditing} />
-                          </div>
-                          <div className="min-w-0">
+                        </div>
+                        <div className="min-w-0 lg:col-span-1">
                             <label className={lbl}>Nilai</label>
                             <input className={isEditing ? inp : inpDisabled} value={edu.grade} onChange={(e) => isEditing && updateEducation(index, 'grade', e.target.value)} placeholder="Nilai/IPK" disabled={!isEditing} />
-                          </div>
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 lg:col-span-2">
                           <label className={lbl}>Status</label>
                           <select className={isEditing ? inp : inpDisabled} value={edu.status} onChange={(e) => isEditing && updateEducation(index, 'status', e.target.value)} disabled={!isEditing}>
                             <option value="">Pilih...</option>
@@ -954,7 +958,7 @@ export default function CandidateProfile() {
               )}
             </section>
 
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Award className="h-5 w-5 text-primary"/> Pendidikan Informal</h2>
               <div className="space-y-3">
                 {informalEducation.length === 0 ? (
@@ -964,7 +968,7 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   informalEducation.map((edu, index) => (
-                    <div key={index} className="bg-background rounded-lg border border-border p-4">
+                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Pendidikan Informal #{index + 1}</h4>
                         {isEditing && (
@@ -994,8 +998,8 @@ export default function CandidateProfile() {
 
         {/* TAB: Skills & Personality */}
         {activeTab === "skills" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary"/> Keahlian</h2>
                 {isEditing && (
@@ -1012,7 +1016,7 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   skills.map((skill, index) => (
-                    <div key={index} className="bg-background rounded-lg border border-border p-4">
+                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Keahlian #{index + 1}</h4>
                         {isEditing && (
@@ -1040,7 +1044,7 @@ export default function CandidateProfile() {
               </div>
             </section>
 
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold flex items-center gap-2"><Globe className="h-5 w-5 text-primary"/> Bahasa</h2>
                 {isEditing && (
@@ -1057,7 +1061,7 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   languages.map((language, index) => (
-                    <div key={index} className="bg-background rounded-lg border border-border p-4">
+                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Bahasa #{index + 1}</h4>
                         {isEditing && (
@@ -1086,7 +1090,7 @@ export default function CandidateProfile() {
               </div>
             </section>
 
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Star className="h-5 w-5 text-primary"/> Kepribadian</h2>
               <div className="grid grid-cols-1 gap-3">
                 <div><label className={lbl}>Kelebihan (Strengths)</label><textarea className={isEditing ? inp : inpDisabled} rows={3} value={profile.strengths} onChange={(e) => isEditing && upd("strengths", e.target.value)} placeholder="Apa kelebihan Anda?" disabled={!isEditing} /></div>
@@ -1094,7 +1098,7 @@ export default function CandidateProfile() {
               </div>
             </section>
 
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Link className="h-5 w-5 text-primary"/> Media Sosial</h2>
               <div className="grid grid-cols-1 gap-3">
                 <div><label className={lbl}>LinkedIn URL</label><input className={isEditing ? inp : inpDisabled} value={profile.linkedin_url || ""} onChange={(e) => isEditing && upd("linkedin_url", e.target.value)} placeholder="https://linkedin.com/in/username" disabled={!isEditing} /></div>
@@ -1105,7 +1109,7 @@ export default function CandidateProfile() {
 
         {/* TAB: Experience */}
         {activeTab === "experience" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold flex items-center gap-2"><Briefcase className="h-5 w-5 text-primary"/> Pengalaman Kerja</h2>
               {isEditing && (
@@ -1116,13 +1120,13 @@ export default function CandidateProfile() {
             </div>
             
             {workExperience.length === 0 ? (
-              <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border bg-card p-10 shadow-sm text-center text-muted-foreground">
                 <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-40" />
                 <p>Belum ada pengalaman kerja yang ditambahkan.</p>
               </div>
             ) : (
               workExperience.map((exp, index) => (
-                <div key={index} className="bg-card border border-border rounded-2xl p-4 md:p-5 space-y-4">
+                <div key={index} className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-lg">Pengalaman Kerja #{index + 1}</h3>
                     {isEditing && (
@@ -1207,8 +1211,8 @@ export default function CandidateProfile() {
 
         {/* TAB: Salary */}
         {activeTab === "salary" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><DollarSign className="h-5 w-5 text-primary"/> Ekspektasi Gaji</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className={lbl}>Gaji Pokok yang Diharapkan</label><input className={isEditing ? inp : inpDisabled} value={profile.salary_exp_base} onChange={(e) => isEditing && handleCurrencyInput(e.target.value, (value) => upd("salary_exp_base", value))} placeholder="Rp 0" disabled={!isEditing} /></div>
@@ -1223,14 +1227,14 @@ export default function CandidateProfile() {
 
         {/* TAB: Documents */}
         {activeTab === "documents" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><FileCheck className="h-5 w-5 text-primary"/> Dokumen Pendukung</h2>
               <div className="space-y-3">
                 {DOC_TYPES.map((t) => {
                   const existing = docs.find((d) => d.document_type === t.key);
                   return (
-                    <div key={t.key} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border border-border rounded-lg bg-background">
+                    <div key={t.key} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border border-border bg-background/70">
                       <FileText className="h-5 w-5 text-primary flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium">{t.label} {t.required && <span className="text-red-500">*</span>}</div>
@@ -1263,8 +1267,8 @@ export default function CandidateProfile() {
 
         {/* TAB: Additional Info */}
         {activeTab === "additional" && (
-          <div className="space-y-4 max-w-7xl mx-auto">
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+          <div className="space-y-4 max-w-[96rem] mx-auto">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Info className="h-5 w-5 text-primary"/> Informasi Tambahan</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div><label className={lbl}>Hobi</label><input className={isEditing ? inp : inpDisabled} value={profile.hobbies} onChange={(e) => isEditing && upd("hobbies", e.target.value)} placeholder="Contoh: Membaca, Olahraga, Musik" disabled={!isEditing} /></div>
@@ -1291,7 +1295,7 @@ export default function CandidateProfile() {
               </div>
             </section>
 
-            <section className="bg-card border border-border rounded-2xl p-4 md:p-5">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
               <h2 className="font-semibold mb-4 flex items-center gap-2"><Briefcase className="h-5 w-5 text-primary"/> Preferensi Kerja</h2>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">
@@ -1312,7 +1316,7 @@ export default function CandidateProfile() {
         )}
 
         {/* Declaration & Submit */}
-        <section className="bg-card border border-border rounded-2xl p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-6 space-y-4 max-w-[96rem] mx-auto">
           <p className="text-sm text-muted-foreground leading-relaxed">
             Dengan ini saya menyatakan bahwa keterangan yang saya berikan di atas adalah <strong>BENAR</strong>.
             Bilamana ternyata terdapat ketidaksesuaian, maka saya bertanggung jawab penuh atas segala akibatnya,

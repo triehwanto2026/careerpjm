@@ -124,7 +124,7 @@ export default function CandidateApplications() {
     <CandidateLayout>
       <div className="min-h-screen bg-muted/20">
         <div className="border-b border-border bg-card px-4 py-4">
-          <div className="mx-auto flex max-w-6xl flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mx-auto flex max-w-[96rem] flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="text-xl font-bold tracking-tight">Lamaran Saya</h1>
               <p className="text-xs text-muted-foreground">{apps.length} lamaran tercatat</p>
@@ -137,7 +137,7 @@ export default function CandidateApplications() {
         </div>
 
         <div className="w-full px-4 py-5">
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-[96rem]">
             {apps.length === 0 ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
                 <ClipboardList className="mx-auto mb-3 h-10 w-10 opacity-40" />
