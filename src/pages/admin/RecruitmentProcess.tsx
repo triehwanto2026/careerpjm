@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, Printer, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, Brain } from "lucide-react";
+import { Eye, Trash2, Plus, Pencil, Upload, X, Users, UserPlus, MailCheck, CheckCircle, XCircle, Search, Filter, Download, Printer, FileText, MoreVertical, Edit, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, Brain, Banknote } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import CandidateTestResultView from "@/components/admin/CandidateTestResultView";
 import { generatePrintHTML, printHTML } from "@/utils/printUtils";
@@ -160,7 +160,7 @@ export default function RecruitmentProcess() {
   const [activationMode, setActivationMode] = useState<"create_new" | "allow_retake">("create_new");
   const [contactDraft, setContactDraft] = useState("");
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     loadActiveJobs();
@@ -173,6 +173,8 @@ export default function RecruitmentProcess() {
       const { data: jobsData, error: jobsError } = await supabase
         .from("job_vacancies")
         .select("*")
+        .eq("status", "active")
+        .or(`closes_at.is.null,closes_at.gte.${new Date().toISOString()}`)
         .order("created_at", { ascending: false });
 
       if (jobsError) throw jobsError;
@@ -194,6 +196,10 @@ export default function RecruitmentProcess() {
 
       console.log("Jobs with counts:", jobsWithCounts);
       setActiveJobs(jobsWithCounts);
+      setSelectedJob((current) => {
+        if (!current) return current;
+        return jobsWithCounts.some((job: any) => job.id === current.id) ? current : null;
+      });
     } catch (error) {
       console.error("Error loading jobs:", error);
       Swal.fire("Error", "Gagal memuat data lowongan", "error");
@@ -543,6 +549,23 @@ export default function RecruitmentProcess() {
     }
   };
 
+  const selectJob = (job: JobVacancy) => {
+    setSelectedJob(job);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("job", job.id);
+    setSearchParams(nextParams);
+  };
+
+  const clearSelectedJob = () => {
+    setSelectedJob(null);
+    setApplications([]);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("job");
+    nextParams.delete("candidate");
+    nextParams.delete("action");
+    setSearchParams(nextParams, { replace: true });
+  };
+
   useEffect(() => {
     if (selectedJob) {
       loadApplications(selectedJob.id);
@@ -720,6 +743,23 @@ export default function RecruitmentProcess() {
     });
   };
 
+  const formatCompactDate = (dateString: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const formatExpectedSalary = (profile: any) => {
+    const raw = profile?.expected_salary || profile?.salary_exp_base || profile?.expected_salary_range || "";
+    if (!raw) return "-";
+    const numeric = typeof raw === "number" ? raw : Number(String(raw).replace(/[^\d]/g, ""));
+    if (numeric && !Number.isNaN(numeric)) return `Rp ${numeric.toLocaleString("id-ID")}`;
+    return String(raw);
+  };
+
   const getDocumentLabel = (type: string) => {
     switch (type) {
       case 'cv': return 'CV / Resume';
@@ -805,6 +845,8 @@ export default function RecruitmentProcess() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'submitted':
+        return 'bg-blue-100 text-blue-700';
       case 'applied':
         return 'bg-blue-100 text-blue-700';
       case 'screening':
@@ -828,6 +870,8 @@ export default function RecruitmentProcess() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'submitted':
+        return '1. Lamaran Diterima';
       case 'applied':
         return '1. Lamaran Diterima';
       case 'screening':
@@ -850,7 +894,7 @@ export default function RecruitmentProcess() {
   };
 
   const recruitmentSteps = [
-    { status: 'applied', shortLabel: 'Lamaran', label: 'Lamaran Diterima', Icon: CheckCircle },
+    { status: 'applied', aliases: ['applied', 'submitted'], shortLabel: 'Lamaran', label: 'Lamaran Diterima', Icon: CheckCircle },
     { status: 'screening', shortLabel: 'Screening', label: 'Screening CV', Icon: FileText },
     { status: 'psychology_test', shortLabel: 'Psikotes', label: 'Tes Psikologi', Icon: Brain },
     { status: 'hr_interview', shortLabel: 'HR', label: 'Wawancara HR', Icon: Users },
@@ -858,6 +902,13 @@ export default function RecruitmentProcess() {
     { status: 'offer', shortLabel: 'Offer', label: 'Penawaran', Icon: Award },
     { status: 'hired', shortLabel: 'Diterima', label: 'Diterima', Icon: CheckCircle },
   ];
+
+  const getStageCount = (status: string, aliases?: string[]) => {
+    const acceptedStatuses = aliases || [status];
+    return applications.filter((app) => acceptedStatuses.includes(app.status)).length;
+  };
+
+  const finalApplications = applications.filter((app) => app.status === "hired" || app.status === "rejected").length;
 
   const getCurrentStepIndex = (status: string) => {
     if (status === 'rejected') return -1;
@@ -961,7 +1012,10 @@ export default function RecruitmentProcess() {
       app.candidate_profile.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.candidate_profile.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.candidate_profile.current_position.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+    const matchesStatus =
+      statusFilter === "all" ||
+      app.status === statusFilter ||
+      (statusFilter === "applied" && app.status === "submitted");
     return matchesSearch && matchesStatus;
   });
 
@@ -969,29 +1023,53 @@ export default function RecruitmentProcess() {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Proses Rekrutmen</h1>
-            <p className="text-muted-foreground">Kelola proses lamaran untuk setiap lowongan aktif</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <Workflow className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Proses Rekrutmen</h1>
+                <p className="text-sm text-muted-foreground">Kelola proses lamaran untuk setiap lowongan aktif</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <div className="text-lg font-bold text-foreground">{activeJobs.length}</div>
+                <div className="text-[11px] text-muted-foreground">Lowongan aktif</div>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <div className="text-lg font-bold text-foreground">{selectedJob ? applications.length : activeJobs.reduce((sum, job) => sum + (job.application_count || 0), 0)}</div>
+                <div className="text-[11px] text-muted-foreground">Total pelamar</div>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <div className="text-lg font-bold text-foreground">{selectedJob ? finalApplications : "-"}</div>
+                <div className="text-[11px] text-muted-foreground">Final</div>
+              </div>
+            </div>
           </div>
         </div>
 
         {!selectedJob ? (
           /* Job Categories */
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Lowongan Aktif</h2>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Lowongan Aktif</h2>
+                <p className="text-sm text-muted-foreground">Hanya lowongan berstatus aktif dan belum melewati deadline yang ditampilkan.</p>
+              </div>
               <span className="text-sm text-muted-foreground">
                 {activeJobs.length} lowongan aktif
               </span>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border bg-card py-10 text-center text-muted-foreground">
                 Memuat data lowongan...
               </div>
             ) : activeJobs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border bg-card py-10 text-center text-muted-foreground">
                 Tidak ada lowongan aktif
               </div>
             ) : (
@@ -999,22 +1077,22 @@ export default function RecruitmentProcess() {
                 {activeJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition cursor-pointer"
-                    onClick={() => setSelectedJob(job)}
+                    className="group bg-card border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition cursor-pointer"
+                    onClick={() => selectJob(job)}
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Briefcase className="h-6 w-6 text-primary" />
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="h-11 w-11 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <Briefcase className="h-5 w-5 text-primary" />
                       </div>
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                      <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
                         Aktif
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-semibold text-foreground mb-2">{job.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{job.department}</p>
+                    <h3 className="text-base font-semibold leading-snug text-foreground group-hover:text-primary">{job.title}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{job.department}</p>
 
-                    <div className="space-y-2 mb-4">
+                    <div className="space-y-2 my-4">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4" />
                         {job.location}
@@ -1025,15 +1103,17 @@ export default function RecruitmentProcess() {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="h-4 w-4" />
-                        Tutup: {formatDate(job.closes_at)}
+                        Tutup: {job.closes_at ? formatCompactDate(job.closes_at) : "Tidak ditentukan"}
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-4 border-t border-border">
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm font-medium text-foreground">
                         {job.application_count || 0} pelamar
                       </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                        Kelola <ChevronRight className="h-4 w-4" />
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -1045,10 +1125,7 @@ export default function RecruitmentProcess() {
           <div className="space-y-4">
             {/* Back Button */}
             <button
-              onClick={() => {
-                setSelectedJob(null);
-                setApplications([]);
-              }}
+              onClick={clearSelectedJob}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition"
             >
               <ChevronRight className="h-4 w-4 rotate-180" />
@@ -1056,21 +1133,45 @@ export default function RecruitmentProcess() {
             </button>
 
             {/* Job Header */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">{selectedJob.title}</h2>
-                  <p className="text-muted-foreground">{selectedJob.department}</p>
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Building2 className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-bold text-foreground">{selectedJob.title}</h2>
+                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Aktif</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" />{selectedJob.department}</span>
+                      <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" />{selectedJob.location || "-"}</span>
+                      <span className="inline-flex items-center gap-1"><Clock className="h-4 w-4" />{selectedJob.employment_type || "-"}</span>
+                      <span className="inline-flex items-center gap-1"><Calendar className="h-4 w-4" />Deadline: {selectedJob.closes_at ? formatCompactDate(selectedJob.closes_at) : "Tidak ditentukan"}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Total Pelamar</div>
-                  <div className="text-2xl font-bold text-foreground">{applications.length}</div>
+                <div className="grid grid-cols-3 gap-2 text-center lg:min-w-[360px]">
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="text-xl font-bold text-foreground">{applications.length}</div>
+                    <div className="text-[11px] text-muted-foreground">Pelamar</div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="text-xl font-bold text-foreground">{getStageCount("psychology_test")}</div>
+                    <div className="text-[11px] text-muted-foreground">Psikotes</div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="text-xl font-bold text-foreground">{finalApplications}</div>
+                    <div className="text-[11px] text-muted-foreground">Final</div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
@@ -1078,14 +1179,14 @@ export default function RecruitmentProcess() {
                   placeholder="Cari nama, email, atau posisi..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="h-10 w-full pl-10 pr-4 border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
               <div className="relative">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="h-10 w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:w-56"
                 >
                   <option value="all">Semua Status</option>
                   <option value="applied">Lamaran Diterima</option>
@@ -1099,45 +1200,43 @@ export default function RecruitmentProcess() {
                 </select>
                 <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               </div>
+              </div>
             </div>
 
             {/* Status Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-              {[
-                { status: 'applied', label: '1. Lamaran Diterima', icon: CheckCircle },
-                { status: 'screening', label: '2. Screening CV', icon: AlertCircle },
-                { status: 'psychology_test', label: '3. Tes Psikologi', icon: Users },
-                { status: 'hr_interview', label: '4. Wawancara HR', icon: Users },
-                { status: 'user_interview', label: '5. Wawancara User', icon: Users },
-                { status: 'offer', label: '6. Penawaran', icon: Award },
-                { status: 'hired', label: '7. Diterima', icon: CheckCircle },
-                { status: 'rejected', label: '8. Ditolak', icon: XCircle },
-              ].map(({ status, label, icon: Icon }) => (
-                <div key={status} className="bg-card border border-border rounded-lg p-4 text-center">
-                  <Icon className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                  <div className="text-lg font-bold text-foreground">
-                    {applications.filter(app => app.status === status).length}
-                  </div>
-                  <div className="text-xs text-muted-foreground">{label}</div>
-                  {applications.filter(app => app.status === status).length > 0 && (
-                    <div className="mt-2 text-xs text-green-600 font-medium">
-                      {applications.filter(app => app.status === status)[0]?.applied_at && 
-                        formatDate(applications.filter(app => app.status === status)[0].applied_at)
-                      }
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+              {[...recruitmentSteps, { status: 'rejected', shortLabel: 'Ditolak', label: 'Ditolak', Icon: XCircle }].map(({ status, aliases, label, shortLabel, Icon }: any, index) => {
+                const count = getStageCount(status, aliases);
+                return (
+                <div key={status} className="bg-card border border-border rounded-xl p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
                     </div>
-                  )}
+                    <span className="text-[11px] font-semibold text-muted-foreground">#{index + 1}</span>
+                  </div>
+                  <div className="text-xl font-bold text-foreground">{count}</div>
+                  <div className="mt-1 text-xs font-medium text-foreground">{shortLabel}</div>
+                  <div className="text-[11px] text-muted-foreground">{label}</div>
                 </div>
-              ))}
+              )})}
             </div>
 
             {/* Applications Table */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border bg-muted/20 px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Daftar Pelamar</h3>
+                  <p className="text-xs text-muted-foreground">{filteredApplications.length} dari {applications.length} pelamar ditampilkan</p>
+                </div>
+              </div>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[1180px]">
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pelamar</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pendidikan</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ekspektasi Gaji</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tanggal Lamar</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tes</th>
@@ -1147,22 +1246,22 @@ export default function RecruitmentProcess() {
                   <tbody className="divide-y divide-border">
                     {loadingApplications ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                           Memuat data lamaran...
                         </td>
                       </tr>
                     ) : filteredApplications.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                           {searchTerm ? "Tidak ada hasil pencarian" : "Belum ada lamaran untuk lowongan ini"}
                         </td>
                       </tr>
                     ) : (
                       filteredApplications.map((application) => (
-                        <tr key={application.id} className="hover:bg-muted/50 transition">
+                        <tr key={application.id} className="hover:bg-muted/40 transition">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
+                              <div className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center">
                                 <span className="text-xs font-medium text-primary">
                                   {application.candidate_profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                                 </span>
@@ -1175,13 +1274,19 @@ export default function RecruitmentProcess() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="text-sm text-foreground">{getLatestEducation(application.candidate_profile)}</div>
+                            <div className="max-w-[260px] text-sm text-foreground">{getLatestEducation(application.candidate_profile)}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="text-sm text-foreground">{formatDate(application.applied_at)}</div>
+                            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-sm font-semibold text-emerald-700">
+                              <Banknote className="h-4 w-4" />
+                              {formatExpectedSalary(application.candidate_profile)}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(application.status)}`}>
+                            <div className="text-sm text-foreground">{formatCompactDate(application.applied_at)}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex whitespace-nowrap px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(application.status)}`}>
                               {getStatusLabel(application.status)}
                             </span>
                           </td>
@@ -1216,28 +1321,28 @@ export default function RecruitmentProcess() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex min-w-[360px] flex-wrap items-center gap-2">
                               <button
                                 onClick={() => viewApplicationDetail(application)}
-                                className="px-3 py-1 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
+                                className="px-3 py-1.5 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
                               >
                                 Detail
                               </button>
                               <button
                                 onClick={() => viewCandidateProfile(application)}
-                                className="px-3 py-1 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
+                                className="px-3 py-1.5 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
                               >
                                 Profil
                               </button>
                               <button
                                 onClick={() => openActivationModal(application)}
-                                className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition"
+                                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition"
                               >
                                 Tes Psikologi
                               </button>
                               <button
                                 onClick={() => viewTestResults(application)}
-                                className="px-3 py-1 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition"
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition"
                               >
                                 Lihat Hasil Tes
                               </button>
