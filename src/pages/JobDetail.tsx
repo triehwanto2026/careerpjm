@@ -35,6 +35,12 @@ const JobDetail = () => {
   if (!job) return <PublicLayout><div className="container py-16 text-center"><h2 className="text-xl font-bold">Lowongan tidak ditemukan</h2><Button asChild className="mt-4"><Link to="/jobs">Kembali</Link></Button></div></PublicLayout>;
 
   const requirements = (job as any).requirements?.split("\n").filter(Boolean) || ["Sesuai dengan kualifikasi yang dibutuhkan"];
+  const salaryLabel =
+    (job as any).salary_range ||
+    ((job as any).min_salary ? `Rp ${Number((job as any).min_salary).toLocaleString("id-ID")}${(job as any).max_salary ? ` - Rp ${Number((job as any).max_salary).toLocaleString("id-ID")}` : ""}` : "") ||
+    (job as any).salary ||
+    "Negotiable";
+  const showSalary = (job as any).show_salary !== false;
 
   return (
     <PublicLayout>
@@ -54,7 +60,7 @@ const JobDetail = () => {
               <div className="flex flex-wrap gap-3">
                 <Badge variant="secondary" className="gap-1.5"><MapPin className="h-3 w-3" /> {(job as any).location || "-"}</Badge>
                 <Badge variant="secondary" className="gap-1.5"><Briefcase className="h-3 w-3" /> {(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
-                <Badge variant="secondary" className="gap-1.5"><Banknote className="h-3 w-3" /> {(job as any).salary_range || (job as any).salary || "Negotiable"}</Badge>
+                {showSalary && <Badge variant="secondary" className="gap-1.5"><Banknote className="h-3 w-3" /> {salaryLabel}</Badge>}
                 {(job as any).closes_at && <Badge variant="secondary" className="gap-1.5"><Clock className="h-3 w-3" /> Deadline: {new Date((job as any).closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</Badge>}
               </div>
             </div>

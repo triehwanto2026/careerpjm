@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Briefcase, MapPin, Building2, Clock, Send, X, Calendar, DollarSign, Users, FileText } from "lucide-react";
+import { Briefcase, MapPin, Building2, Clock, Send, X, Calendar, DollarSign, Users, FileText, Search, CheckCircle2 } from "lucide-react";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
-import { isPastDeadline, syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
+import { ACTIVE_APPLICATION_STATUSES, isPastDeadline, syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
 interface Vacancy {
   id: string;
@@ -16,6 +16,7 @@ interface Vacancy {
   responsibilities: string;
   min_salary: number | null;
   max_salary: number | null;
+  show_salary?: boolean | null;
   closes_at: string | null;
   created_at: string;
   company_name?: string;
@@ -33,6 +34,8 @@ export default function CandidateJobs() {
   const [coverLetter, setCoverLetter] = useState("");
   const [userId, setUserId] = useState("");
   const [profileComplete, setProfileComplete] = useState(false);
+  const [search, setSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
 
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -46,7 +49,11 @@ export default function CandidateJobs() {
       .order("created_at", { ascending: false });
     setVacancies((data as any) || []);
     if (session) {
-      const { data: apps } = await supabase.from("job_applications").select("vacancy_id").eq("user_id", session.user.id);
+      const { data: apps } = await supabase
+        .from("job_applications")
+        .select("vacancy_id,status")
+        .eq("user_id", session.user.id)
+        .in("status", ACTIVE_APPLICATION_STATUSES);
       setApplied(new Set((apps || []).map((a: any) => a.vacancy_id)));
       const { data: profileData } = await supabase.from("candidate_profiles").select("is_complete").eq("user_id", session.user.id).maybeSingle();
       setProfileComplete(Boolean(profileData?.is_complete));
@@ -72,6 +79,13 @@ export default function CandidateJobs() {
       });
       return;
     }
+    await supabase
+      .from("job_applications")
+      .update({ status: "expired", status_updated_at: new Date().toISOString(), admin_notes: "Lamaran lama ditutup otomatis karena kandidat apply ulang pada lowongan yang diaktifkan kembali." } as any)
+      .eq("user_id", userId)
+      .eq("vacancy_id", selected.id)
+      .in("status", ACTIVE_APPLICATION_STATUSES);
+
     const { error } = await supabase.from("job_applications").insert({
       user_id: userId, vacancy_id: selected.id, cover_letter: coverLetter, status: "submitted",
     });
@@ -85,54 +99,86 @@ export default function CandidateJobs() {
   };
 
   const fmtRp = (n: number | null) => n ? `Rp ${n.toLocaleString("id-ID")}` : "";
+  const hasVisibleSalary = (vacancy: Vacancy) => vacancy.show_salary !== false && Boolean(vacancy.min_salary || vacancy.max_salary);
+  const departments = Array.from(new Set(vacancies.map((v) => v.department).filter(Boolean))).sort();
+  const filteredVacancies = vacancies.filter((v) => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || [v.title, v.department, v.location, v.description, v.skills_required].some((value) => String(value || "").toLowerCase().includes(q));
+    const matchDepartment = departmentFilter === "all" || v.department === departmentFilter;
+    return matchSearch && matchDepartment;
+  });
+  const groupedVacancies = filteredVacancies.reduce((acc: Record<string, Vacancy[]>, v) => {
+    const key = v.department || "Lainnya";
+    (acc[key] ||= []).push(v);
+    return acc;
+  }, {});
 
   return (
     <CandidateLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold">Lowongan Tersedia</h1>
-          <p className="text-sm text-muted-foreground">{vacancies.length} lowongan aktif.</p>
+      <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Lowongan Tersedia</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{vacancies.length} lowongan aktif untuk kandidat.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_180px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari posisi, lokasi, skill..." className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary" />
+              </div>
+              <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary">
+                <option value="all">Semua Departemen</option>
+                {departments.map((department) => <option key={department} value={department}>{department}</option>)}
+              </select>
+            </div>
+          </div>
         </div>
 
         {vacancies.length === 0 ? (
-          <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
             <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-40" />
             Belum ada lowongan tersedia saat ini.
           </div>
+        ) : filteredVacancies.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+            Tidak ada lowongan yang cocok dengan filter Anda.
+          </div>
         ) : (
-          <div className="grid gap-4">
-            {vacancies.map((v) => (
-              <div key={v.id} className="bg-card border border-border rounded-2xl p-5 hover:border-primary transition">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold">{v.title}</h3>
-                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-1">
-                      {v.department && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{v.department}</span>}
-                      {v.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{v.location}</span>}
-                      {v.employment_type && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{v.employment_type.replace("_", " ")}</span>}
-                    </div>
-                    {(v.min_salary || v.max_salary) && (
-                      <div className="text-sm text-primary font-semibold mt-2">{fmtRp(v.min_salary)}{v.max_salary ? ` - ${fmtRp(v.max_salary)}` : ""}</div>
-                    )}
-                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{v.description}</p>
+          <div className="space-y-5">
+            {Object.entries(groupedVacancies).map(([department, items]) => (
+              <section key={department} className="rounded-xl border border-border bg-card p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold">{department}</h2>
+                    <p className="text-xs text-muted-foreground">{items.length} posisi aktif</p>
                   </div>
-                  <div className="flex flex-col gap-2 md:items-end">
-                    <button 
-                      onClick={() => setSelected(v)} 
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/80"
-                    >
-                      <Briefcase className="h-4 w-4" /> Detail
-                    </button>
-                    {applied.has(v.id) ? (
-                      <span className="px-3 py-1.5 rounded-full bg-green-500/15 text-green-500 text-xs font-semibold">✓ Sudah Dilamar</span>
-                    ) : (
-                      <button onClick={() => setSelected(v)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110">
-                        <Send className="h-4 w-4" /> Lamar
-                      </button>
-                    )}
-                  </div>
+                  <Building2 className="h-5 w-5 text-primary" />
                 </div>
-              </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {items.map((v) => (
+                    <article key={v.id} className="rounded-lg border border-border/70 bg-background p-4 transition hover:border-primary/40 hover:bg-primary/5">
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="line-clamp-2 text-sm font-semibold">{v.title}</h3>
+                          <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                            {v.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{v.location}</span>}
+                            {v.employment_type && <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{v.employment_type.replace("_", " ")}</span>}
+                          </div>
+                        </div>
+                        {applied.has(v.id) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 text-[11px] font-semibold text-green-600"><CheckCircle2 className="h-3 w-3" />Dilamar</span>}
+                      </div>
+                      <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{v.description || "Klik detail untuk membaca informasi lowongan."}</p>
+                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                        <span className="text-xs font-semibold text-primary">{hasVisibleSalary(v) ? `${fmtRp(v.min_salary)}${v.max_salary ? ` - ${fmtRp(v.max_salary)}` : ""}` : "Gaji confidential"}</span>
+                        <button onClick={() => setSelected(v)} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110">
+                          {applied.has(v.id) ? "Lihat Detail" : "Detail & Lamar"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
@@ -160,7 +206,7 @@ export default function CandidateJobs() {
             </div>
 
             {/* Salary Info */}
-            {(selected.min_salary || selected.max_salary) && (
+            {hasVisibleSalary(selected) && (
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6">
                 <div className="flex items-center gap-2 text-primary font-bold text-lg">
                   <DollarSign className="h-5 w-5" />

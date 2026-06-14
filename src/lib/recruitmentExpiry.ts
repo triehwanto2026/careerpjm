@@ -1,6 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const ACTIVE_APPLICATION_STATUSES = ["submitted"];
+export const ACTIVE_APPLICATION_STATUSES = [
+  "submitted",
+  "applied",
+  "screening",
+  "test",
+  "psychology_test",
+  "interview",
+  "hr_interview",
+  "user_interview",
+  "offered",
+  "offer",
+];
 
 export const isPastDeadline = (value?: string | null) => {
   if (!value) return false;

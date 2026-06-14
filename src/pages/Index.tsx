@@ -117,21 +117,18 @@ const Index = () => {
     console.error("Error loading jobs:", error);
   }
 
-  // Fallback data if database query fails
-  const fallbackJobs = [
-    { id: "1", title: "Senior Frontend Developer", department: "Engineering", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Kami mencari Senior Frontend Developer berpengalaman." },
-    { id: "2", title: "UI/UX Designer", department: "Design", location: "Bandung", employment_type: "Full-time", closes_at: "2024-12-31", description: "Bertanggung jawab atas desain antarmuka pengguna." },
-    { id: "3", title: "Marketing Specialist", department: "Marketing", location: "Jakarta", employment_type: "Full-time", closes_at: "2024-12-31", description: "Mengembangkan strategi marketing untuk brand awareness." },
-  ];
-
-  const jobsToDisplay = jobs.length > 0 ? jobs : fallbackJobs;
-
-  const filteredJobs = jobsToDisplay.filter((job) => {
+  const filteredJobs = jobs.filter((job) => {
     const matchSearch = job.title.toLowerCase().includes(search.toLowerCase()) ||
       job.department.toLowerCase().includes(search.toLowerCase());
     const matchLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
     return matchSearch && matchLocation;
-  }).slice(0, 6);
+  });
+  const jobsByDepartment = filteredJobs.reduce((acc: Record<string, typeof filteredJobs>, job) => {
+    const department = job.department || "Lainnya";
+    (acc[department] ||= []).push(job);
+    return acc;
+  }, {});
+  const departmentGroups = Object.entries(jobsByDepartment).slice(0, 4);
 
   return (
     <PublicLayout>
@@ -202,34 +199,63 @@ const Index = () => {
       {/* Job Listings */}
       <section id="lowongan" className="container scroll-mt-24 py-16 md:py-20">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div><h2 className="text-3xl font-bold tracking-tight">Lowongan Terbaru</h2><p className="mt-2 text-muted-foreground">Temukan posisi yang sesuai dengan keahlianmu</p></div>
-          <Button variant="outline" asChild className="w-fit rounded-md"><Link to="/jobs">Lihat Semua <ChevronRight className="h-4 w-4 ml-1" /></Link></Button>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Lowongan Terbaru</h2>
+            <p className="mt-2 text-muted-foreground">
+              {jobs.length > 0 ? "Temukan posisi yang sesuai dengan keahlianmu" : "Belum ada lowongan aktif saat ini"}
+            </p>
+          </div>
+          {jobs.length > 0 && <Button variant="outline" asChild className="w-fit rounded-md"><Link to="/jobs">Lihat Semua <ChevronRight className="h-4 w-4 ml-1" /></Link></Button>}
         </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1,2,3].map(i => <div key={i} className="card-elevated h-56 animate-pulse bg-muted/30 p-6" />)}
           </div>
+        ) : jobs.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
+            <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+            <h3 className="text-lg font-semibold">Lowongan belum tersedia</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Saat ini belum ada posisi aktif. Silakan cek kembali secara berkala atau daftar sebagai kandidat untuk melengkapi profil Anda.
+            </p>
+            <Button asChild className="mt-5 rounded-md"><Link to="/register">Daftar Kandidat</Link></Button>
+          </div>
+        ) : filteredJobs.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+            Tidak ada lowongan yang cocok dengan pencarian Anda.
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredJobs.map((job, i) => (
-              <motion.div key={job.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * i, duration: 0.4 }}>
-                <Link to={`/jobs/${job.id}`} className="group block h-full rounded-xl border border-border/70 bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-teal-500/40 hover:shadow-lg">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-teal-500/10"><Building2 className="h-5 w-5 text-teal-600 dark:text-teal-300" /></div>
-                    <Badge className="rounded-md bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300">{job.employment_type}</Badge>
+          <div className="space-y-5">
+            {departmentGroups.map(([department, items], groupIndex) => (
+              <motion.div key={department} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: groupIndex * 0.06, duration: 0.35 }} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold">{department}</h3>
+                    <p className="text-xs text-muted-foreground">{items.length} posisi tersedia</p>
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold leading-snug transition-colors group-hover:text-primary">{job.title}</h3>
-                  <p className="mb-4 text-sm text-muted-foreground">{job.department}</p>
-                  <p className="mb-6 line-clamp-2 text-sm leading-6 text-muted-foreground">{job.description || "Klik untuk melihat detail lowongan ini."}</p>
-                  <div className="flex items-center justify-between border-t border-border pt-4">
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                      <span className="flex min-w-0 items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /> {job.location}</span>
-                      <span className="flex min-w-0 items-center gap-1"><Clock className="h-3 w-3 shrink-0" /> {job.closes_at ? new Date(job.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Open"}</span>
-                    </div>
-                    <ArrowRight className="ml-3 h-4 w-4 shrink-0 text-teal-600 opacity-0 transition-opacity group-hover:opacity-100" />
-                  </div>
-                </Link>
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {items.slice(0, 3).map((job) => (
+                    <Link key={job.id} to={`/jobs/${job.id}`} className="group rounded-lg border border-border/70 bg-background p-4 transition hover:border-primary/40 hover:bg-primary/5">
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <h4 className="line-clamp-2 text-sm font-semibold group-hover:text-primary">{job.title}</h4>
+                        <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-primary" />
+                      </div>
+                      <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{job.description || "Klik untuk melihat detail lowongan ini."}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1"><MapPin className="h-3 w-3" />{job.location}</span>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1"><Clock className="h-3 w-3" />{job.employment_type}</span>
+                      </div>
+                    </Link>
+                  ))}
+                  {items.length > 3 && (
+                    <Link to="/jobs" className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-border bg-background text-sm font-medium text-primary hover:bg-primary/5">
+                      +{items.length - 3} posisi lainnya di {department}
+                    </Link>
+                  )}
+                </div>
               </motion.div>
             ))}
           </div>

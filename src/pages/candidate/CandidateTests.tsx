@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Brain, Play, CheckCircle2, Clock, KeyRound, X } from "lucide-react";
+import { Brain, Play, CheckCircle2, Clock, KeyRound, X, AlertCircle, ClipboardList } from "lucide-react";
 import Swal from "sweetalert2";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -239,30 +239,44 @@ export default function CandidateTests() {
   };
 
   const fmtDate = (s: string | null) => s ? new Date(s).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "—";
+  const activeCodes = codes.filter((c) => !(c.test_completed_at || c.status === "completed") && !(c.expires_at && new Date(c.expires_at) < new Date()));
+  const completedCodes = codes.filter((c) => c.test_completed_at || c.status === "completed");
 
   return (
     <CandidateLayout>
-      <div className="min-h-screen flex flex-col">
-        {/* Header */}
-        <div className="bg-card border-b border-border px-4 py-4">
-          <div className="max-w-6xl mx-auto">
-            <h1 className="text-2xl font-bold">Tes Psikologi</h1>
-            <p className="text-sm text-muted-foreground">Daftar paket tes yang ditugaskan untuk Anda.</p>
+      <div className="min-h-screen bg-muted/20">
+        <div className="border-b border-border bg-card px-4 py-4">
+          <div className="mx-auto max-w-6xl">
+            <h1 className="text-xl font-bold tracking-tight">Tes Psikologi</h1>
+            <p className="text-sm text-muted-foreground">Kelola paket tes, status pengerjaan, dan ringkasan hasil Anda.</p>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 w-full px-4 py-6">
-          <div className="max-w-6xl mx-auto space-y-4">
+        <div className="w-full px-4 py-5">
+          <div className="mx-auto max-w-6xl space-y-5">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-xs text-muted-foreground">Siap Dikerjakan</p>
+                <p className="mt-1 text-2xl font-bold">{activeCodes.length}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-xs text-muted-foreground">Selesai</p>
+                <p className="mt-1 text-2xl font-bold">{completedCodes.length}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-xs text-muted-foreground">Hasil Tersimpan</p>
+                <p className="mt-1 text-2xl font-bold">{results.length}</p>
+              </div>
+            </div>
 
         {codes.length === 0 ? (
-          <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
             <Brain className="h-12 w-12 mx-auto mb-2 opacity-40" />
             <p>Belum ada paket tes yang ditugaskan untuk akun Anda.</p>
             <p className="text-xs mt-2">Admin akan menugaskan paket tes setelah lamaran Anda diproses.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid gap-3 lg:grid-cols-2">
             {codes.map((c) => {
               const done = c.test_completed_at || c.status === "completed";
               const expired = c.expires_at && new Date(c.expires_at) < new Date();
@@ -270,43 +284,59 @@ export default function CandidateTests() {
               return (
                 <div
                   key={c.id}
-                  className={`bg-card border border-border rounded-2xl p-5 ${canStart ? 'cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors' : ''}`}
+                  className={`rounded-xl border bg-card p-4 shadow-sm ${canStart ? 'cursor-pointer border-primary/25 hover:border-primary hover:bg-primary/5 transition-colors' : 'border-border'}`}
                       onClick={() => canStart && openStartModal(c)}
                 >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <KeyRound className="h-4 w-4 text-primary" />
-                        <span className="font-mono text-sm font-bold">{c.code}</span>
-                        {done && <span className="px-2 py-0.5 rounded-full bg-green-500/15 text-green-500 text-[10px] font-semibold">SELESAI</span>}
-                        {!done && expired && <span className="px-2 py-0.5 rounded-full bg-red-500/15 text-red-500 text-[10px] font-semibold">KEDALUWARSA</span>}
-                        {!done && !expired && <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-500 text-[10px] font-semibold">SIAP DIKERJAKAN</span>}
-                      </div>
-                      <div className="text-sm font-semibold">{c.position || "Tes Psikologi"}</div>
-                      <div className="text-xs text-muted-foreground flex flex-wrap gap-3 mt-2">
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />Berlaku hingga: {fmtDate(c.expires_at)}</span>
-                        {done && <span className="flex items-center gap-1 text-green-500"><CheckCircle2 className="h-3 w-3" />Disubmit: {fmtDate(c.test_completed_at)}</span>}
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Brain className="h-4 w-4" /></span>
+                        <div>
+                          <h3 className="line-clamp-1 text-sm font-semibold">{c.position || "Tes Psikologi"}</h3>
+                          <p className="font-mono text-xs text-muted-foreground">{c.code}</p>
+                        </div>
                       </div>
                     </div>
-                        {done ? (
-                          <span className="px-4 py-2 rounded-lg bg-green-500/15 text-green-500 text-xs font-semibold">
-                            Selesai · {fmtDate(c.test_completed_at)}
-                          </span>
-                        ) : expired ? (
-                          <button
-                            disabled
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-100 text-red-600 text-sm font-semibold cursor-not-allowed"
-                          >
-                            Kedaluwarsa
-                          </button>
-                        ) : (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openStartModal(c); }}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110"
-                          >
-                            <Play className="h-4 w-4" /> Masuk ke Tes
-                          </button>
-                        )}
+                    {done ? (
+                      <span className="rounded-full bg-green-500/15 px-2.5 py-1 text-[11px] font-semibold text-green-600">Selesai</span>
+                    ) : expired ? (
+                      <span className="rounded-full bg-red-500/15 px-2.5 py-1 text-[11px] font-semibold text-red-600">Kedaluwarsa</span>
+                    ) : (
+                      <span className="rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] font-semibold text-blue-600">Siap</span>
+                    )}
+                  </div>
+                  <div className="grid gap-2 rounded-lg border border-border/70 bg-muted/20 p-3 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 text-muted-foreground"><Clock className="h-3.5 w-3.5" />Berlaku hingga</span>
+                      <span className="font-medium">{fmtDate(c.expires_at)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 text-muted-foreground"><ClipboardList className="h-3.5 w-3.5" />Jumlah alat tes</span>
+                      <span className="font-medium">{(c.assigned_tests || []).length || "Paket"}</span>
+                    </div>
+                    {done && (
+                      <div className="flex items-center justify-between gap-2 text-green-600">
+                        <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />Disubmit</span>
+                        <span className="font-medium">{fmtDate(c.test_completed_at)}</span>
+                      </div>
+                    )}
+                    {expired && !done && (
+                      <div className="flex items-start gap-2 rounded-md bg-red-500/10 p-2 text-red-600">
+                        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>Kode ini sudah melewati batas waktu pengerjaan.</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    {done ? (
+                      <span className="rounded-md bg-green-500/10 px-3 py-2 text-xs font-semibold text-green-600">Tes telah selesai</span>
+                    ) : expired ? (
+                      <button disabled className="rounded-md bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">Tidak tersedia</button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); openStartModal(c); }} className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:brightness-110">
+                        <Play className="h-3.5 w-3.5" /> Masuk ke Tes
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -315,25 +345,30 @@ export default function CandidateTests() {
         )}
 
         {results.length > 0 && (
-          <div id="test-results" className="bg-card border border-border rounded-2xl p-5">
-            <h2 className="font-semibold mb-3">Riwayat Hasil Tes Saya</h2>
-            <p className="text-xs text-muted-foreground mb-3">Hasil detail dapat dilihat oleh admin/HR. Anda hanya melihat ringkasan.</p>
-            <div className="space-y-2">
+          <div id="test-results" className="rounded-xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">Riwayat Hasil Tes</h2>
+                <p className="text-xs text-muted-foreground">Ringkasan hasil yang sudah tersimpan.</p>
+              </div>
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            </div>
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
               {results.slice(0, 5).map((r) => (
-                <div key={r.id} className="flex items-center justify-between p-3 bg-background rounded-lg border border-border text-sm">
-                  <div>
-                    <div className="font-semibold">{r.test_name}</div>
+                <div key={r.id} className="flex items-center justify-between gap-3 bg-background p-3 text-sm">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold">{r.test_name}</div>
                     <div className="text-xs text-muted-foreground">{fmtDate(r.completed_at)}</div>
                   </div>
-                  <span className="text-xs text-muted-foreground">Telah dinilai</span>
+                  <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-600">Tersimpan</span>
                 </div>
               ))}
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
-      </div>
-    </div>
 
     {false && showLoginModal && null}
     </CandidateLayout>

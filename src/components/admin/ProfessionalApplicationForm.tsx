@@ -47,6 +47,105 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
     });
   };
 
+  const text = (...values: any[]) => {
+    const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+    return found === undefined ? '-' : String(found);
+  };
+
+  const optionalText = (...values: any[]) => {
+    const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+    return found === undefined ? '' : String(found);
+  };
+
+  const escapeHtml = (value: any) => text(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  const formatWorkPeriod = (work: any) => {
+    const start = optionalText(work.join_date, work.start_date, work.start_year);
+    const end = work.still_working ? 'Sekarang' : optionalText(work.end_date, work.end_year);
+    if (start && end) return `${start} - ${end}`;
+    if (start) return start;
+    if (end) return end;
+    return text(work.period, work.duration, '-');
+  };
+
+  const normalizeWorkExperience = (items: any[]) => items
+    .filter((work) => work && typeof work === 'object')
+    .map((work) => ({
+      company: text(work.company_name, work.company, work.employer),
+      businessType: text(work.business_type, work.industry),
+      employeeCount: text(work.employee_count, work.company_size),
+      address: text(work.address, work.company_address),
+      city: text(work.city),
+      period: formatWorkPeriod(work),
+      positionStart: text(work.position_start, work.position, work.role),
+      positionEnd: text(work.position_end, work.position, work.role),
+      salaryStart: text(work.salary_start),
+      salaryEnd: text(work.salary_end, work.salary),
+      supervisorName: text(work.supervisor_name),
+      supervisorPosition: text(work.supervisor_position),
+      supervisorPhone: text(work.supervisor_phone, work.supervisor_contact),
+      duties: text(work.duties, work.description),
+      achievements: text(work.achievements),
+      organizationStructure: text(work.organization_structure),
+      resignationReason: text(work.resignation_reason, work.reason_for_leaving),
+      benefits: text(work.benefits),
+    }));
+
+  const renderWorkExperiencePrint = (items: any[]) => {
+    const normalized = normalizeWorkExperience(items);
+    if (normalized.length === 0) {
+      return '<p style="text-align:center;color:#64748b;padding:10px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">Belum ada data pengalaman kerja</p>';
+    }
+
+    return normalized.map((work) => `
+      <div class="work-card">
+        <div class="work-title">
+          <div>
+            <strong>${escapeHtml(work.positionEnd)}</strong>
+            <span>${escapeHtml(work.company)}</span>
+          </div>
+          <em>${escapeHtml(work.period)}</em>
+        </div>
+        <table class="phc-table">
+          <tbody>
+            <tr>
+              <td><b>Jenis Usaha</b><span>${escapeHtml(work.businessType)}</span></td>
+              <td><b>Jumlah Karyawan</b><span>${escapeHtml(work.employeeCount)}</span></td>
+              <td><b>Kota</b><span>${escapeHtml(work.city)}</span></td>
+            </tr>
+            <tr>
+              <td><b>Jabatan Awal</b><span>${escapeHtml(work.positionStart)}</span></td>
+              <td><b>Jabatan Akhir</b><span>${escapeHtml(work.positionEnd)}</span></td>
+              <td><b>Gaji Akhir</b><span>${escapeHtml(work.salaryEnd)}</span></td>
+            </tr>
+            <tr>
+              <td colspan="3"><b>Alamat Perusahaan</b><span>${escapeHtml(work.address)}</span></td>
+            </tr>
+            <tr>
+              <td><b>Atasan Langsung</b><span>${escapeHtml(work.supervisorName)}</span></td>
+              <td><b>Jabatan Atasan</b><span>${escapeHtml(work.supervisorPosition)}</span></td>
+              <td><b>Kontak Atasan</b><span>${escapeHtml(work.supervisorPhone)}</span></td>
+            </tr>
+            <tr>
+              <td colspan="3"><b>Tugas & Tanggung Jawab</b><span>${escapeHtml(work.duties)}</span></td>
+            </tr>
+            <tr>
+              <td colspan="3"><b>Target / Pencapaian</b><span>${escapeHtml(work.achievements)}</span></td>
+            </tr>
+            <tr>
+              <td colspan="3"><b>Alasan Berhenti / Benefit</b><span>${escapeHtml(work.resignationReason)}${work.benefits !== '-' ? ` | ${escapeHtml(work.benefits)}` : ''}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `).join('');
+  };
+
   const handleDownload = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -273,7 +372,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
           <style>
             @page {
               size: A4;
-              margin: 1.5cm 1.5cm 1.5cm 1.5cm;
+              margin: 1.15cm 1.2cm;
             }
             
             * {
@@ -284,7 +383,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
               body { 
                 print-color-adjust: exact; 
                 -webkit-print-color-adjust: exact; 
-                background: white !important;
+                background: #fff !important;
                 margin: 0;
                 padding: 0;
               }
@@ -306,103 +405,347 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             }
             
             body {
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              background: white;
+              font-family: Arial, 'Segoe UI', Tahoma, sans-serif;
+              background: #fff;
               margin: 0;
               padding: 0;
-              color: #1f2937;
+              color: #172033;
+              font-size: 10.5px;
+              line-height: 1.45;
+            }
+
+            .page {
+              width: 100%;
+              margin: 0;
+            }
+
+            .doc-header {
+              border: 1px solid #cbd5e1;
+              border-radius: 12px;
+              overflow: hidden;
+              margin-bottom: 12px;
+              page-break-inside: avoid;
+            }
+
+            .doc-header-top {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 18px;
+              background: #0f2f6f;
+              color: #fff;
+              padding: 16px 18px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .doc-title {
+              margin: 0;
+              font-size: 22px;
+              letter-spacing: 0.02em;
+              line-height: 1.1;
+            }
+
+            .doc-subtitle {
+              margin: 5px 0 0;
+              color: #bfdbfe;
+              font-size: 10.5px;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
+            }
+
+            .doc-meta {
+              min-width: 150px;
+              border: 1px solid rgba(255,255,255,0.28);
+              border-radius: 10px;
+              padding: 9px 10px;
+              text-align: right;
+              font-size: 9px;
+              color: #dbeafe;
+            }
+
+            .doc-meta strong {
+              display: block;
+              color: #fff;
               font-size: 11px;
+              margin-bottom: 2px;
+            }
+
+            .candidate-summary {
+              display: grid;
+              grid-template-columns: 118px 1fr;
+              gap: 14px;
+              padding: 14px;
+              background: #f8fafc;
+            }
+
+            .photo-box {
+              width: 112px;
+              height: 136px;
+              overflow: hidden;
+              border-radius: 10px;
+              border: 1px solid #cbd5e1;
+              background: #fff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #64748b;
+              font-size: 9px;
+            }
+
+            .photo-box img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            }
+
+            .identity-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px;
+            }
+
+            .identity-item {
+              min-height: 48px;
+              border: 1px solid #dbe3ef;
+              border-radius: 9px;
+              background: #fff;
+              padding: 8px 10px;
+            }
+
+            .identity-item b {
+              display: block;
+              margin-bottom: 3px;
+              color: #1e3a8a;
+              font-size: 8.5px;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+            }
+
+            .identity-item span {
+              display: block;
+              color: #172033;
+              font-size: 11px;
+              font-weight: 600;
+              word-break: break-word;
             }
             
             .section-card {
-              background: white;
-              border-radius: 8px;
-              padding: 10px;
-              margin-bottom: 12px;
-              border: 1px solid #e2e8f0;
-              box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+              background: #fff;
+              border-radius: 10px;
+              padding: 12px;
+              margin-bottom: 10px;
+              border: 1px solid #dbe3ef;
               page-break-inside: avoid;
             }
             
             .section-header {
-              background: #f1f5f9;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              background: #eef4ff;
+              color: #12306b;
+              padding: 8px 10px;
+              font-weight: 800;
+              text-align: left;
+              border: 1px solid #d7e3f8;
+              border-left: 5px solid #1e3a8a;
+              border-radius: 8px;
+              margin-bottom: 10px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              font-size: 11px;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+            }
+            
+            .section-card table:not(.phc-table) {
+              border-collapse: separate !important;
+              border-spacing: 0 !important;
+              border: 1px solid #dbe3ef !important;
+              border-radius: 8px !important;
+              overflow: hidden;
+            }
+
+            .section-card table:not(.phc-table) th {
+              border: 0 !important;
+              border-right: 1px solid #dbe3ef !important;
+              border-bottom: 1px solid #dbe3ef !important;
+              background: #eef4ff !important;
+              color: #12306b !important;
+              padding: 7px 8px !important;
+              font-size: 8.8px !important;
+              text-transform: uppercase;
+              letter-spacing: 0.04em;
+            }
+
+            .section-card table:not(.phc-table) td {
+              border: 0 !important;
+              border-right: 1px solid #e2e8f0 !important;
+              border-bottom: 1px solid #e2e8f0 !important;
+              padding: 7px 8px !important;
+              color: #334155 !important;
+              font-size: 9.5px !important;
+              vertical-align: top;
+              background: #fff !important;
+            }
+
+            .section-card table:not(.phc-table) tr:nth-child(even) td {
+              background: #f8fafc !important;
+            }
+
+            .section-card table:not(.phc-table) td div:first-child {
+              color: #1e3a8a !important;
+              font-size: 8.6px !important;
+              letter-spacing: 0.05em;
+              text-transform: uppercase;
+              margin-bottom: 3px !important;
+            }
+
+            .section-card table:not(.phc-table) td div:last-child {
+              color: #172033 !important;
+              font-size: 10px !important;
+            }
+
+            .phc-table {
+              width: 100%;
+              border-collapse: separate;
+              border-spacing: 0;
+              overflow: hidden;
+              border: 1px solid #cbd5e1;
+              border-radius: 8px;
+            }
+
+            .phc-table td {
+              border-right: 1px solid #e2e8f0;
+              border-bottom: 1px solid #e2e8f0;
+              padding: 7px 8px;
+              vertical-align: top;
+              background: white;
+            }
+
+            .phc-table tr:nth-child(even) td {
+              background: #f8fafc;
+            }
+
+            .phc-table td:last-child {
+              border-right: 0;
+            }
+
+            .phc-table tr:last-child td {
+              border-bottom: 0;
+            }
+
+            .phc-table b {
+              display: block;
+              color: #1e3a8a;
+              font-size: 8.5px;
+              letter-spacing: 0.02em;
+              margin-bottom: 2px;
+            }
+
+            .phc-table span {
+              display: block;
               color: #334155;
-              padding: 8px;
-              font-weight: bold;
-              text-align: center;
-              border: 1px solid #e2e8f0;
-              border-radius: 6px;
-              margin-bottom: 12px;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-              font-size: 12px;
+              font-size: 9.5px;
+              line-height: 1.45;
             }
-            
-            .header-section {
-              text-align: center;
-              padding: 12px;
-              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-              color: white;
-              border-radius: 4px;
-              margin-bottom: 12px;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
+
+            .work-card {
+              border: 1px solid #cbd5e1;
+              border-radius: 10px;
+              overflow: hidden;
+              margin-bottom: 10px;
+              page-break-inside: avoid;
             }
-            
-            .header-section h1 {
-              font-size: 16px;
-              font-weight: bold;
-              margin: 0 0 4px 0;
+
+            .work-title {
+              display: flex;
+              justify-content: space-between;
+              gap: 10px;
+              background: #eef2ff;
+              border-bottom: 1px solid #cbd5e1;
+              padding: 8px 10px;
+              color: #1e3a8a;
             }
-            
-            .header-section p {
+
+            .work-title strong,
+            .work-title span,
+            .work-title em {
+              display: block;
               font-size: 10px;
+              line-height: 1.35;
+            }
+
+            .work-title span,
+            .work-title em {
+              color: #475569;
+              font-style: normal;
+            }
+
+            .statement {
+              display: grid;
+              grid-template-columns: 1fr 210px;
+              gap: 18px;
+              align-items: end;
+            }
+
+            .statement-text {
               margin: 0;
-              opacity: 0.9;
+              color: #334155;
+              font-size: 10px;
+              line-height: 1.65;
+              text-align: justify;
+            }
+
+            .signature-box {
+              text-align: center;
+              color: #172033;
+            }
+
+            .signature-line {
+              height: 58px;
+              border-bottom: 1px solid #94a3b8;
+              margin-bottom: 7px;
+            }
+
+            .doc-footer {
+              margin-top: 10px;
+              border-top: 1px solid #cbd5e1;
+              padding-top: 7px;
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              color: #64748b;
+              font-size: 8.5px;
             }
           </style>
         </head>
         <body>
-          <div style="max-width: 100%; margin: 0;">
-            <div class="section-card">
-              <div class="header-section">
-                <h1>PERSONAL HISTORY CARD (PHC)</h1>
-                <p>Data Pelamar Lengkap</p>
+          <div class="page">
+            <div class="doc-header">
+              <div class="doc-header-top">
+                <div>
+                  <h1 class="doc-title">PERSONAL HISTORY CARD</h1>
+                  <p class="doc-subtitle">Candidate Profile & Employment Record</p>
+                </div>
+                <div class="doc-meta">
+                  <strong>PHC FORM</strong>
+                  Dicetak: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </div>
               </div>
-              
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
-                <tr>
-                  <td style="border: 1px solid #1e3a8a; padding: 8px; width: 120px; vertical-align: top;">
-                    <div style="width: 100px; height: 120px; border: 2px solid #1e3a8a; border-radius: 4px; overflow: hidden; background: #f9fafb; display: flex; align-items: center; justify-content: center;">
-                      ${candidate.photo_url ? `<img src="${candidate.photo_url}" alt="${candidate.full_name}" style="width: 100%; height: 100%; object-fit: cover;" />` : '<span style="font-size: 9px; color: #6b7280;">No Photo</span>'}
-                    </div>
-                  </td>
-                  <td style="border: 1px solid #1e3a8a; padding: 8px; vertical-align: top;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                      <tr>
-                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
-                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Nama Lengkap</div>
-                          <div style="font-size: 10px; color: #374151;">${candidate.full_name || '-'}</div>
-                        </td>
-                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
-                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Email</div>
-                          <div style="font-size: 10px; color: #374151;">${candidate.email || '-'}</div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
-                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Telepon</div>
-                          <div style="font-size: 10px; color: #374151;">${candidate.phone || '-'}</div>
-                        </td>
-                        <td style="border: none; padding: 2px; width: 50%; vertical-align: top;">
-                          <div style="font-size: 9px; font-weight: 600; color: #1e3a8a; margin-bottom: 2px;">Posisi yang Dilamar</div>
-                          <div style="font-size: 10px; color: #374151;">${candidate.current_position || '-'}</div>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
+
+              <div class="candidate-summary">
+                <div class="photo-box">
+                  ${candidate.photo_url ? `<img src="${escapeHtml(candidate.photo_url)}" alt="${escapeHtml(candidate.full_name || 'Candidate')}" />` : '<span>Foto Pelamar</span>'}
+                </div>
+                <div class="identity-grid">
+                  <div class="identity-item"><b>Nama Lengkap</b><span>${escapeHtml(candidate.full_name || '-')}</span></div>
+                  <div class="identity-item"><b>Email</b><span>${escapeHtml(candidate.email || '-')}</span></div>
+                  <div class="identity-item"><b>No. Telepon / WA</b><span>${escapeHtml(candidate.phone || '-')}</span></div>
+                  <div class="identity-item"><b>Posisi Dilamar</b><span>${escapeHtml(candidate.current_position || '-')}</span></div>
+                </div>
+              </div>
             </div>
 
             <div class="section-card">
@@ -418,6 +761,11 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
             <div class="section-card">
               <div class="section-header">RIWAYAT PENDIDIKAN</div>
               ${buildEducationTable()}
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">PENGALAMAN KERJA</div>
+              ${renderWorkExperiencePrint(workExperience)}
             </div>
 
             <div class="section-card">
@@ -437,16 +785,23 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
 
             <div class="section-card">
               <div class="section-header">PERNYATAAN</div>
-              <p style="font-size: 10px; color: #374151; margin-bottom: 8px; line-height: 1.5;">
-                Dengan ini saya menyatakan bahwa seluruh data yang saya berikan adalah benar dan dapat dipertanggungjawabkan. 
-                Apabila di kemudian hari terdapat ketidaksesuaian dengan kenyataan, saya bersedia menerima sanksi dan 
-                pembatalan proses rekrutmen ini tanpa tuntutan apapun.
-              </p>
-              <div style="text-align: right; margin-top: 16px;">
-                <p style="font-size: 9px; color: #374151; margin-bottom: 2px;">Surabaya, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                <div style="height: 48px;"></div>
-                <p style="font-size: 10px; font-weight: bold; color: #374151;">( ${candidate.full_name || 'Nama Pelamar'} )</p>
+              <div class="statement">
+                <p class="statement-text">
+                  Dengan ini saya menyatakan bahwa seluruh data yang saya berikan adalah benar dan dapat dipertanggungjawabkan. 
+                  Apabila di kemudian hari terdapat ketidaksesuaian dengan kenyataan, saya bersedia menerima sanksi dan 
+                  pembatalan proses rekrutmen ini tanpa tuntutan apapun.
+                </p>
+                <div class="signature-box">
+                  <div style="font-size:9px;margin-bottom:4px;">Surabaya, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                  <div class="signature-line"></div>
+                  <strong>( ${escapeHtml(candidate.full_name || 'Nama Pelamar')} )</strong>
+                </div>
               </div>
+            </div>
+
+            <div class="doc-footer">
+              <span>Personal History Card (PHC) - dokumen rekrutmen internal</span>
+              <span>${escapeHtml(candidate.full_name || 'Candidate')}</span>
             </div>
           </div>
           
@@ -473,6 +828,7 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
   const certificates = safeParseArray(candidate.certificates);
   const references = safeParseArray(candidate.references);
   const hobbies = safeParseArray(candidate.hobbies);
+  const normalizedWorkExperience = normalizeWorkExperience(workExperience);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
@@ -726,68 +1082,64 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
                 </h2>
               </div>
               
-              {workExperience.length > 0 ? (
-                <div className="space-y-4">
-                  {workExperience.map((work: any, index: number) => (
-                    <div key={index} className="border-2 border-blue-200 rounded-lg p-4 bg-gray-50">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+              {normalizedWorkExperience.length > 0 ? (
+                <div className="space-y-5">
+                  {normalizedWorkExperience.map((work: any, index: number) => (
+                    <div key={index} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <div className="flex flex-col gap-2 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <label className="text-sm font-semibold text-blue-900">Perusahaan</label>
-                          <p className="text-gray-800 font-medium">{work.company_name || work.company || '-'}</p>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Pengalaman #{index + 1}</p>
+                          <h3 className="text-lg font-bold text-slate-900">{work.positionEnd}</h3>
+                          <p className="text-sm text-slate-600">{work.company}</p>
                         </div>
-                        <div>
-                          <label className="text-sm font-semibold text-blue-900">Posisi</label>
-                          <p className="text-gray-800 font-medium">{work.position_start || work.position || '-'}</p>
+                        <div className="rounded-full border border-blue-200 bg-white px-3 py-1 text-sm font-semibold text-blue-800">
+                          {work.period}
                         </div>
-                        <div>
-                          <label className="text-sm font-semibold text-blue-900">Periode</label>
-                          <p className="text-gray-800">{work.join_date && work.end_date ? `${work.join_date} - ${work.end_date}` : work.period || '-'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-semibold text-blue-900">Gaji Terakhir</label>
-                          <p className="text-gray-800">{work.salary_end || work.salary || '-'}</p>
-                        </div>
-                        {work.industry && (
-                          <div>
-                            <label className="text-sm font-semibold text-blue-900">Industri</label>
-                            <p className="text-gray-800">{work.industry}</p>
-                          </div>
-                        )}
-                        {work.company_size && (
-                          <div>
-                            <label className="text-sm font-semibold text-blue-900">Ukuran Perusahaan</label>
-                            <p className="text-gray-800">{work.company_size}</p>
-                          </div>
-                        )}
-                        {work.reason_for_leaving && (
-                          <div className="md:col-span-2">
-                            <label className="text-sm font-semibold text-blue-900">Alasan Keluar</label>
-                            <p className="text-gray-800">{work.reason_for_leaving}</p>
-                          </div>
-                        )}
                       </div>
-                      <div>
-                        <label className="text-sm font-semibold text-blue-900">Deskripsi Pekerjaan</label>
-                        <p className="text-gray-800 text-sm mt-1">{work.duties || work.description || '-'}</p>
+
+                      <div className="grid grid-cols-1 border-b border-slate-200 md:grid-cols-3">
+                        {[
+                          ['Jenis Usaha', work.businessType],
+                          ['Jumlah Karyawan', work.employeeCount],
+                          ['Kota', work.city],
+                          ['Jabatan Awal', work.positionStart],
+                          ['Jabatan Akhir', work.positionEnd],
+                          ['Gaji Awal', work.salaryStart],
+                          ['Gaji Akhir', work.salaryEnd],
+                          ['Atasan Langsung', work.supervisorName],
+                          ['Kontak Atasan', work.supervisorPhone],
+                        ].map(([label, value]) => (
+                          <div key={label} className="border-t border-slate-100 px-4 py-3 md:border-r md:last:border-r-0">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-blue-800">{label}</label>
+                            <p className="mt-1 text-sm font-medium text-slate-800">{value}</p>
+                          </div>
+                        ))}
                       </div>
-                      {work.achievements && (
-                        <div className="mt-2">
-                          <label className="text-sm font-semibold text-blue-900">Pencapaian</label>
-                          <p className="text-gray-800 text-sm mt-1">{work.achievements}</p>
+
+                      <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
+                        <div className="border-b border-slate-100 px-4 py-3 md:border-r">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-blue-800">Alamat Perusahaan</label>
+                          <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{work.address}</p>
                         </div>
-                      )}
-                      {work.supervisor_name && (
-                        <div className="mt-2">
-                          <label className="text-sm font-semibold text-blue-900">Nama Atasan</label>
-                          <p className="text-gray-800 text-sm">{work.supervisor_name}</p>
+                        <div className="border-b border-slate-100 px-4 py-3">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-blue-800">Alasan Berhenti</label>
+                          <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{work.resignationReason}</p>
                         </div>
-                      )}
-                      {work.supervisor_contact && (
-                        <div className="mt-2">
-                          <label className="text-sm font-semibold text-blue-900">Kontak Atasan</label>
-                          <p className="text-gray-800 text-sm">{work.supervisor_contact}</p>
+                        <div className="border-b border-slate-100 px-4 py-3 md:border-r">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-blue-800">Tugas & Tanggung Jawab</label>
+                          <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{work.duties}</p>
                         </div>
-                      )}
+                        <div className="border-b border-slate-100 px-4 py-3">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-blue-800">Target / Pencapaian</label>
+                          <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{work.achievements}</p>
+                        </div>
+                        <div className="px-4 py-3 md:col-span-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-blue-800">Struktur Organisasi / Benefit</label>
+                          <p className="mt-1 whitespace-pre-line text-sm text-slate-700">
+                            {work.organizationStructure !== '-' ? work.organizationStructure : work.benefits}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

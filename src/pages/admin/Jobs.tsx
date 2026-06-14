@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Briefcase, X, Save } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import Swal from "sweetalert2";
+import { ACTIVE_APPLICATION_STATUSES, isPastDeadline } from "@/lib/recruitmentExpiry";
 
 interface Vacancy {
   id?: string;
@@ -50,12 +51,27 @@ export default function Jobs() {
       return;
     }
     
-    const payload: any = { ...edit };
+    const payload: any = {
+      ...edit,
+      closes_at: edit.status === "active" && isPastDeadline(edit.closes_at) ? null : edit.closes_at,
+    };
     if (edit.id) {
+      const previous = list.find((job) => job.id === edit.id);
       const { error } = await supabase.from("job_vacancies").update(payload).eq("id", edit.id);
       if (error) {
         Swal.fire({ icon: "error", title: "Gagal menyimpan", text: error.message });
         return;
+      }
+      if (previous?.status !== "closed" && edit.status === "closed") {
+        await supabase
+          .from("job_applications")
+          .update({
+            status: "expired",
+            status_updated_at: new Date().toISOString(),
+            admin_notes: "Lowongan ditutup oleh admin. Lamaran ini otomatis diarsipkan.",
+          } as any)
+          .eq("vacancy_id", edit.id)
+          .in("status", ACTIVE_APPLICATION_STATUSES);
       }
     } else {
       delete payload.id;
