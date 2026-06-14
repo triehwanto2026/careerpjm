@@ -39,6 +39,24 @@ export interface PrintAnswer {
   category?: string | null;
 }
 
+const normalizeOptionCode = (value?: string | null) => String(value || "").trim().replace(/\.$/, "").toUpperCase();
+
+const getAnswerDisplayText = (answer: PrintAnswer) => {
+  if (answer.selected_answer?.includes("PALING")) return answer.selected_answer;
+  const label = normalizeOptionCode(answer.selected_answer_label);
+  const text = String(answer.selected_answer || "").trim();
+  if (!text) return label || "-";
+  if (!label || normalizeOptionCode(text) === label) return text;
+  return `${label}. ${text}`;
+};
+
+const getAnswerCategoryText = (answer: PrintAnswer, testName: string) => {
+  if (testName.toUpperCase().includes("DISC") && answer.selected_answer?.includes("PALING") && answer.selected_answer_label) {
+    return answer.selected_answer_label;
+  }
+  return answer.category || "-";
+};
+
 const DISC_DIMS = ["D", "I", "S", "C"] as const;
 type DiscDim = typeof DISC_DIMS[number];
 
@@ -137,8 +155,6 @@ export const generatePrintHTML = (
   const profile = r.candidate_profile || {};
   const cats = (r.categories || {}) as Record<string, number>;
   const catEntries = Object.entries(cats);
-  const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
-  const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
   const cfitInfo = isCfitName(r.test_name) ? getCfitIqInfoFromResult(r) : null;
   const cfitProfileRows = cfitInfo ? getCfitProfileRows(r) : [];
   const isMbti = isMbtiName(r.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
@@ -241,7 +257,6 @@ export const generatePrintHTML = (
     .header-right { text-align: right; }
     .header-right .doc-id { font-size: 8pt; color: #64748b; font-family: 'Courier New', monospace; }
     .header-right .doc-date { font-size: 9pt; color: #475569; margin-top: 2px; }
-    .badge-status { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 9pt; font-weight: 700; letter-spacing: 0.5px; color: #fff; background: ${statusColor}; }
     .section { margin-bottom: 18px; page-break-inside: avoid; }
     .section-title { font-size: 11pt; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
     .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
@@ -277,7 +292,6 @@ export const generatePrintHTML = (
       <p>Sistem Asesmen Rekrutmen — Konfidensial</p>
     </div>
     <div class="header-right">
-      <span class="badge-status">${statusLabel}</span>
       <div class="doc-id">REF: ${r.id.substring(0, 8).toUpperCase()}</div>
       <div class="doc-date">${new Date(r.completed_at).toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}</div>
     </div>
@@ -297,7 +311,6 @@ export const generatePrintHTML = (
           <div class="profile-row"><span class="label">Nama Tes</span><span class="value">${r.test_name}</span></div>
         </div>
       </div>
-      ${r.webcam_photo_url ? `<div style="text-align:center;"><img src="${r.webcam_photo_url}" alt="Screenshot Foto Saat Tes" style="width:110px;height:90px;object-fit:cover;border:1px solid #94a3b8;border-radius:4px;" /><div style="font-size:8pt;color:#64748b;margin-top:4px;">Foto saat tes</div></div>` : ""}
     </div>
   </div>
 
@@ -387,8 +400,8 @@ export const generatePrintHTML = (
         <tr>
           <td style="text-align:center; font-weight:700;">${a.question_number}</td>
           <td>${a.question_text}</td>
-          <td>${a.selected_answer_label || a.selected_answer || "-"}</td>
-          <td>${a.category || "-"}</td>
+          <td>${getAnswerDisplayText(a)}</td>
+          <td>${getAnswerCategoryText(a, r.test_name)}</td>
         </tr>`).join("")}
       </tbody>
     </table>

@@ -32,6 +32,19 @@ interface AnswerRow {
   is_correct: boolean | null; category: string | null;
 }
 
+const normalizeOptionCode = (value?: string | null) => String(value || "").trim().replace(/\.$/, "").toUpperCase();
+
+const isOptionCodeOnly = (value?: string | null) => /^[A-Z]$/.test(normalizeOptionCode(value));
+
+const getAnswerDisplayText = (answer: AnswerRow, showLabel = true) => {
+  if (answer.selected_answer?.includes("PALING")) return answer.selected_answer;
+  const label = normalizeOptionCode(answer.selected_answer_label);
+  const text = String(answer.selected_answer || "").trim();
+  if (!text) return label || "-";
+  if (!showLabel || !label || normalizeOptionCode(text) === label) return text;
+  return `${label}. ${text}`;
+};
+
 const DISC_DIMS = ["D", "I", "S", "C"] as const;
 type DiscDim = typeof DISC_DIMS[number];
 
@@ -286,9 +299,54 @@ const Results = () => {
 
   useEffect(() => { load(); }, []);
 
-  const loadAnswers = async (resultId: string) => {
+  const enrichAnswersWithOptionText = async (result: ResultRow, rows: AnswerRow[]) => {
+    const needsLookup = rows.some((row) => {
+      if (row.selected_answer?.includes("PALING")) return false;
+      return isOptionCodeOnly(row.selected_answer) || isOptionCodeOnly(row.selected_answer_label);
+    });
+    if (!needsLookup) return rows;
+
+    const { data: instrument } = await supabase
+      .from("test_instruments")
+      .select("id")
+      .eq("name", result.test_name)
+      .maybeSingle();
+    if (!instrument?.id) return rows;
+
+    const questionNumbers = Array.from(new Set(rows.map((row) => row.question_number)));
+    const { data: questions } = await supabase
+      .from("test_questions")
+      .select("question_number, test_question_options(option_label, option_text, category_target)")
+      .eq("instrument_id", instrument.id)
+      .in("question_number", questionNumbers);
+
+    const optionByQuestionAndLabel = new Map<string, any>();
+    ((questions as any[]) || []).forEach((question) => {
+      (question.test_question_options || []).forEach((option: any) => {
+        optionByQuestionAndLabel.set(`${question.question_number}:${normalizeOptionCode(option.option_label)}`, option);
+      });
+    });
+
+    return rows.map((row) => {
+      if (row.selected_answer?.includes("PALING")) return row;
+      const lookupLabel = normalizeOptionCode(row.selected_answer_label) || normalizeOptionCode(row.selected_answer);
+      const option = optionByQuestionAndLabel.get(`${row.question_number}:${lookupLabel}`);
+      if (!option?.option_text) return row;
+
+      return {
+        ...row,
+        selected_answer: option.option_text,
+        selected_answer_label: option.option_label || row.selected_answer_label,
+        category: option.category_target?.trim() || row.category,
+      };
+    });
+  };
+
+  const loadAnswers = async (result: ResultRow) => {
+    const resultId = result.id;
     const { data } = await supabase.from("test_answers").select("*").eq("test_result_id", resultId).order("question_number");
-    setAnswers((data as any) as AnswerRow[]);
+    const rows = ((data as any) || []) as AnswerRow[];
+    setAnswers(await enrichAnswersWithOptionText(result, rows));
   };
 
   const handleDeleteResult = async (r: ResultRow) => {
@@ -363,7 +421,7 @@ const Results = () => {
       }
     }
     setSelectedResult(enrichedResult);
-    await loadAnswers(r.id);
+    await loadAnswers(enrichedResult);
   };
 
   const filtered = results.filter(
@@ -406,8 +464,6 @@ const Results = () => {
     const catEntries = Object.entries(cats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
     const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
-    const statusLabel = r.status === "passed" ? "LULUS" : r.status === "review" ? "REVIEW" : "TIDAK LULUS";
-    const statusColor = r.status === "passed" ? "#059669" : r.status === "review" ? "#d97706" : "#dc2626";
 
     // Generate DISC charts and interpretation if test is DISC
     let discChartsHTML = "";
@@ -582,8 +638,6 @@ const Results = () => {
       .header-right .doc-id { font-size: 8pt; color: #64748b; font-family: 'Courier New', monospace; }
       .header-right .doc-date { font-size: 9pt; color: #475569; margin-top: 2px; }
 
-      .badge-status { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 9pt; font-weight: 700; letter-spacing: 0.5px; color: #fff; background: ${statusColor}; }
-
       .section { margin-bottom: 18px; page-break-inside: avoid; }
       .section-title { font-size: 11pt; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
 
@@ -638,7 +692,6 @@ const Results = () => {
         <p>Sistem Asesmen Rekrutmen — Konfidensial</p>
       </div>
       <div class="header-right">
-        <span class="badge-status">${statusLabel}</span>
         <div class="doc-id">REF: ${r.id.substring(0, 8).toUpperCase()}</div>
         <div class="doc-date">${new Date(r.completed_at).toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}</div>
       </div>
@@ -660,7 +713,6 @@ const Results = () => {
             <div class="profile-row"><span class="label">Tanggal Tes</span><span class="value">${new Date(r.completed_at).toLocaleDateString("id-ID", { dateStyle: "long" } as any)}</span></div>
           </div>
         </div>
-        ${r.webcam_photo_url ? `<div style="text-align:center;"><img src="${r.webcam_photo_url}" alt="Foto Verifikasi Tes" style="width:110px;height:90px;object-fit:cover;border:1px solid #94a3b8;border-radius:4px;" /><div style="font-size:8pt;color:#64748b;margin-top:4px;">Verifikasi saat tes</div></div>` : ""}
       </div>
     </div>
 
@@ -1028,7 +1080,7 @@ const Results = () => {
             let categoryDisplay = a.category || "-";
             if ((r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) && a.category) {
               categoryDisplay = ppMap[a.category] || a.category;
-            } else if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
+            } else if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer?.includes("PALING") && a.selected_answer_label) {
               categoryDisplay = a.selected_answer_label;
             } else if (isPapiResult(r) && a.category) {
               categoryDisplay = PAPI_LABELS[a.category] ? `${a.category} - ${PAPI_LABELS[a.category]}` : a.category;
@@ -1040,7 +1092,7 @@ const Results = () => {
                 <div>${a.question_text}</div>
                 ${a.question_text_en ? `<div class="ans-q-en">${a.question_text_en}</div>` : ""}
               </td>
-              <td><span class="ans-pill ${a.is_correct === true ? 'ans-correct' : a.is_correct === false ? 'ans-wrong' : ''}">${a.selected_answer && a.selected_answer.includes('PALING') ? a.selected_answer : (a.selected_answer_label && !r.test_name.toUpperCase().includes("DISC") ? a.selected_answer_label + '. ' : '') + (a.selected_answer || '')}</span></td>
+              <td><span class="ans-pill ${a.is_correct === true ? 'ans-correct' : a.is_correct === false ? 'ans-wrong' : ''}">${getAnswerDisplayText(a, !r.test_name.toUpperCase().includes("DISC"))}</span></td>
               <td class="ans-cat">${categoryDisplay}</td>
             </tr>`;
           }).join("")}
@@ -1451,18 +1503,18 @@ const Results = () => {
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-foreground">{r.candidate_name}</h2>
                   <p className="text-sm text-muted-foreground">{r.position}</p>
-                  <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    r.status === "passed" ? "bg-emerald-400/10 text-emerald-400" : r.status === "review" ? "bg-amber-400/10 text-amber-400" : "bg-destructive/10 text-destructive"
-                  }`}>
-                    {r.status === "passed" ? "Lulus" : r.status === "review" ? "Review" : "Gagal"}
+                  <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${getResultStatusBadge(r).className}`}>
+                    {getResultStatusBadge(r).label}
                   </span>
                 </div>
-                {r.webcam_photo_url && (
-                  <div className="text-center">
-                    <img src={r.webcam_photo_url} alt="Verifikasi" className="h-20 w-24 rounded border border-border object-cover" />
-                    <p className="text-[10px] text-muted-foreground mt-1">Verifikasi saat tes</p>
-                  </div>
-                )}
+                <div className="ml-auto text-center">
+                  {r.webcam_photo_url ? (
+                    <img src={r.webcam_photo_url} alt="Screenshot saat tes" className="h-24 w-32 rounded-lg border border-border object-cover" />
+                  ) : (
+                    <div className="h-24 w-32 rounded-lg border border-dashed border-border bg-muted/30" aria-label="Screenshot saat tes kosong" />
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-1">Screenshot saat tes</p>
+                </div>
               </div>
               {profile && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs border-t border-border pt-4">
@@ -1926,13 +1978,9 @@ const Results = () => {
                             {a.question_text_en && <p className="text-muted-foreground text-xs italic mt-0.5">{a.question_text_en}</p>}
                           </td>
                           <td className="py-2.5 px-3">
-                            {a.selected_answer && a.selected_answer.includes('PALING') ? (
-                              <span className="inline-block rounded-md bg-primary/10 text-primary px-2 py-1 text-xs font-medium leading-relaxed whitespace-pre-wrap max-w-md">{a.selected_answer}</span>
-                            ) : (
-                              <span className="inline-block rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
-                                {a.selected_answer_label ? `${a.selected_answer_label}. ` : ''}{a.selected_answer}
-                              </span>
-                            )}
+                            <span className={`inline-block rounded-md bg-primary/10 text-primary px-2 text-xs font-medium ${a.selected_answer?.includes('PALING') ? 'py-1 leading-relaxed whitespace-pre-wrap max-w-md' : 'py-0.5'}`}>
+                              {getAnswerDisplayText(a, !r.test_name.toUpperCase().includes("DISC"))}
+                            </span>
                           </td>
                           <td className="py-2.5 px-3 text-xs text-muted-foreground">
                             {(() => {
@@ -1945,7 +1993,7 @@ const Results = () => {
                               if ((r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) && a.category) {
                                 return ppMap[a.category] || a.category;
                               }
-                              if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer_label) {
+                              if (r.test_name.toUpperCase().includes("DISC") && a.selected_answer?.includes("PALING") && a.selected_answer_label) {
                                 return a.selected_answer_label;
                               }
                               if (isPapiResult(r) && a.category) {

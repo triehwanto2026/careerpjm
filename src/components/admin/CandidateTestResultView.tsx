@@ -31,6 +31,24 @@ interface CandidateTestResultViewProps {
   profilePhoto?: string;
 }
 
+const normalizeOptionCode = (value?: string | null) => String(value || "").trim().replace(/\.$/, "").toUpperCase();
+
+const getAnswerDisplayText = (answer: PrintAnswer) => {
+  if (answer.selected_answer?.includes("PALING")) return answer.selected_answer;
+  const label = normalizeOptionCode(answer.selected_answer_label);
+  const text = String(answer.selected_answer || "").trim();
+  if (!text) return label || "-";
+  if (!label || normalizeOptionCode(text) === label) return text;
+  return `${label}. ${text}`;
+};
+
+const getAnswerCategoryText = (answer: PrintAnswer, testName: string) => {
+  if (testName.toUpperCase().includes("DISC") && answer.selected_answer?.includes("PALING") && answer.selected_answer_label) {
+    return answer.selected_answer_label;
+  }
+  return answer.category || "-";
+};
+
 const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ result, answers, profilePhoto }) => {
   const profile = result.candidate_profile || {};
   const cats = (result.categories || {}) as Record<string, number>;
@@ -51,8 +69,8 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
     { key: "work_capacity", label: "Kapasitas Kerja", value: Number(cats.work_capacity || 0) },
   ];
 
-  const statusLabel = result.status === "passed" ? "Lulus" : result.status === "review" ? "Review" : "Tidak Lulus";
-  const statusClass = result.status === "passed" ? "bg-emerald-100 text-emerald-700" : result.status === "review" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700";
+  const statusLabel = result.status === "review" ? "Perlu Review" : result.status === "failed" ? "Perlu Tinjauan" : "Selesai";
+  const statusClass = result.status === "review" ? "bg-amber-100 text-amber-700" : result.status === "failed" ? "bg-slate-100 text-slate-700" : "bg-emerald-100 text-emerald-700";
 
   const formatDate = (value: string) => {
     if (!value) return "-";
@@ -599,12 +617,14 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
             <p className="text-sm text-muted-foreground">{result.position || "-"}</p>
             <span className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}>{statusLabel}</span>
           </div>
-          {result.webcam_photo_url && (
-            <div className="text-center">
-              <img src={result.webcam_photo_url} alt="Verifikasi" className="h-20 w-24 rounded border border-border object-cover" />
-              <p className="text-[10px] text-muted-foreground mt-1">Verifikasi saat tes</p>
-            </div>
-          )}
+          <div className="ml-auto text-center">
+            {result.webcam_photo_url ? (
+              <img src={result.webcam_photo_url} alt="Screenshot saat tes" className="h-24 w-32 rounded-lg border border-border object-cover" />
+            ) : (
+              <div className="h-24 w-32 rounded-lg border border-dashed border-border bg-muted/30" aria-label="Screenshot saat tes kosong" />
+            )}
+            <p className="text-[10px] text-muted-foreground mt-1">Screenshot saat tes</p>
+          </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs border-t border-border pt-4">
           <div><span className="text-muted-foreground">Email:</span> <span className="text-foreground">{profile.email || "-"}</span></div>
@@ -668,8 +688,8 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
                   <tr key={answer.id} className="border-b border-border/50">
                     <td className="py-2 px-3 text-foreground font-semibold">{answer.question_number}</td>
                     <td className="py-2 px-3 text-foreground break-words">{answer.question_text}</td>
-                    <td className="py-2 px-3 text-foreground">{answer.selected_answer_label || answer.selected_answer || "-"}</td>
-                    <td className="py-2 px-3 text-muted-foreground">{answer.category || "-"}</td>
+                    <td className="py-2 px-3 text-foreground">{getAnswerDisplayText(answer)}</td>
+                    <td className="py-2 px-3 text-muted-foreground">{getAnswerCategoryText(answer, result.test_name)}</td>
                   </tr>
                 ))}
               </tbody>
