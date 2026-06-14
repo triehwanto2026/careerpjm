@@ -132,6 +132,9 @@ export default function Applicants() {
   const [applicantTestSelectedTests, setApplicantTestSelectedTests] = useState<string[]>([]);
   const [applicantTestExpiresAt, setApplicantTestExpiresAt] = useState("");
   const [applicantTestProcessing, setApplicantTestProcessing] = useState(false);
+  const [applicantExistingCodes, setApplicantExistingCodes] = useState<any[]>([]);
+  const [applicantTestAccess, setApplicantTestAccess] = useState<{ code: string; password: string } | null>(null);
+  const [applicantEditCodeId, setApplicantEditCodeId] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -517,9 +520,7 @@ Terima kasih.`;
     const app = getPrimaryApplication(candidate);
     if (!candidate.has_applied || !app?.vacancy_id) {
       setSelectedCandidate(candidate);
-      setApplicantTestSelectedTests([]);
-      setApplicantTestExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
-      setShowApplicantTestModal(true);
+      openApplicantStandaloneTestModal(candidate);
       return;
     }
     const params = new URLSearchParams({
@@ -528,6 +529,40 @@ Terima kasih.`;
       action: "test",
     });
     window.location.href = `/admin/recruitment-process?${params.toString()}`;
+  };
+
+  const isBcryptPassword = (password?: string | null) => /^\$2[aby]\$\d{2}\$/.test(String(password || ""));
+
+  const openApplicantStandaloneTestModal = async (candidate: CandidateProfile) => {
+    setApplicantTestSelectedTests([]);
+    setApplicantTestExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+    setApplicantExistingCodes([]);
+    setApplicantTestAccess(null);
+    setApplicantEditCodeId(null);
+    setShowApplicantTestModal(true);
+
+    const { data, error } = await supabase
+      .from("activation_codes")
+      .select("*")
+      .eq("candidate_email", candidate.email)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error loading applicant activation codes:", error);
+      return;
+    }
+
+    const codes = data || [];
+    setApplicantExistingCodes(codes);
+    const latestCode = codes[0];
+    if (latestCode) {
+      setApplicantEditCodeId(latestCode.id || null);
+      setApplicantTestSelectedTests(latestCode.assigned_tests || []);
+      setApplicantTestExpiresAt(latestCode.expires_at ? latestCode.expires_at.split("T")[0] : "");
+      if (latestCode.password && !isBcryptPassword(latestCode.password)) {
+        setApplicantTestAccess({ code: latestCode.code, password: latestCode.password });
+      }
+    }
   };
 
   const openCandidateCommunication = (candidate: CandidateProfile) => {
@@ -562,9 +597,34 @@ Terima kasih.`;
 
     setApplicantTestProcessing(true);
     try {
+      if (applicantEditCodeId) {
+        const { error } = await supabase
+          .from("activation_codes")
+          .update({
+            assigned_tests: applicantTestSelectedTests,
+            expires_at: applicantTestExpiresAt || null,
+            status: "active",
+          } as any)
+          .eq("id", applicantEditCodeId);
+        if (error) throw error;
+
+        const updatedCode = applicantExistingCodes.find((code) => code.id === applicantEditCodeId);
+        if (updatedCode?.password && !isBcryptPassword(updatedCode.password)) {
+          setApplicantTestAccess({ code: updatedCode.code, password: updatedCode.password });
+        }
+        setApplicantExistingCodes((prev) => prev.map((code) => code.id === applicantEditCodeId ? {
+          ...code,
+          assigned_tests: applicantTestSelectedTests,
+          expires_at: applicantTestExpiresAt || null,
+          status: "active",
+        } : code));
+        await Swal.fire({ icon: "success", title: "Kode Tes Diperbarui", text: "Pengaturan kode aktivasi berhasil disimpan.", timer: 1600, showConfirmButton: false, ...SWAL_THEME() });
+        return;
+      }
+
       const newCode = `PSY-${generateRandomString(6)}`;
       const newPassword = generateRandomString(8);
-      const { error } = await supabase.from("activation_codes").insert({
+      const { data, error } = await supabase.from("activation_codes").insert({
         code: newCode,
         password: newPassword,
         candidate_name: selectedCandidate.full_name,
@@ -573,8 +633,16 @@ Terima kasih.`;
         status: "active",
         expires_at: applicantTestExpiresAt || null,
         assigned_tests: applicantTestSelectedTests,
-      } as any);
+      } as any).select("*").single();
       if (error) throw error;
+      setApplicantEditCodeId((data as any)?.id || null);
+      setApplicantTestAccess({ code: newCode, password: newPassword });
+      setApplicantExistingCodes((prev) => [data || {
+        code: newCode,
+        password: newPassword,
+        assigned_tests: applicantTestSelectedTests,
+        expires_at: applicantTestExpiresAt || null,
+      }, ...prev]);
 
       await Swal.fire({
         icon: "success",
@@ -582,7 +650,6 @@ Terima kasih.`;
         html: `<div style="font-size:14px;line-height:1.8"><p>Kode: <b style="color:hsl(174,72%,46%);font-family:monospace;letter-spacing:2px">${newCode}</b></p><p>Password: <b style="font-family:monospace">${newPassword}</b></p><p style="font-size:12px;color:#888;margin-top:8px">Berikan kode & password ini kepada kandidat.</p></div>`,
         ...SWAL_THEME(),
       });
-      setShowApplicantTestModal(false);
     } catch (error: any) {
       console.error("Error creating applicant test code:", error);
       Swal.fire({ icon: "error", title: "Gagal membuat kode tes", text: error.message || "Terjadi kesalahan.", ...SWAL_THEME() });
@@ -2161,6 +2228,56 @@ Terima kasih.`;
                   </div>
                 </div>
 
+                {applicantExistingCodes.length > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-foreground">Kode Aktivasi Tersedia</div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setApplicantEditCodeId(null);
+                          setApplicantTestSelectedTests([]);
+                          setApplicantTestExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+                          setApplicantTestAccess(null);
+                        }}
+                      >
+                        Buat Kode Baru
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {applicantExistingCodes.map((code: any) => {
+                        const selected = applicantEditCodeId === code.id;
+                        const canShowPassword = code.password && !isBcryptPassword(code.password);
+                        return (
+                          <div key={code.id || code.code} className={`rounded-lg border p-3 ${selected ? "border-primary bg-primary/10" : "border-border bg-background"}`}>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="font-mono text-sm font-semibold text-primary">{code.code}</div>
+                                <div className="mt-1 text-xs text-muted-foreground">{code.assigned_tests?.length ? `Tes: ${code.assigned_tests.map((id: string) => activeInstruments.find((inst) => inst.id === id)?.name || id).join(", ")}` : "Belum ada tes terpilih"}</div>
+                                <div className="text-xs text-muted-foreground">{code.expires_at ? `Berlaku hingga ${new Date(code.expires_at).toLocaleDateString("id-ID")}` : "Tanpa tanggal expire"}</div>
+                                {!canShowPassword && <div className="mt-1 text-xs text-amber-600">Password lama tersimpan sebagai hash. Pengaturan tes tetap bisa diedit.</div>}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant={selected ? "default" : "outline"}
+                                onClick={() => {
+                                  setApplicantEditCodeId(code.id || null);
+                                  setApplicantTestSelectedTests(code.assigned_tests || []);
+                                  setApplicantTestExpiresAt(code.expires_at ? code.expires_at.split("T")[0] : "");
+                                  setApplicantTestAccess(canShowPassword ? { code: code.code, password: code.password } : null);
+                                }}
+                              >
+                                {selected ? "Sedang Diedit" : "Edit Kode"}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Pilih Tes</label>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -2203,12 +2320,22 @@ Terima kasih.`;
                     <div className="mt-1 text-xs text-muted-foreground">Kode ini dibuat tanpa harus ada lamaran lowongan terlebih dahulu.</div>
                   </div>
                 </div>
+
+                {applicantTestAccess && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+                    <div className="text-sm font-semibold">Akses tes siap dikirim</div>
+                    <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                      <div>Kode: <span className="font-mono font-bold">{applicantTestAccess.code}</span></div>
+                      <div>Password: <span className="font-mono font-bold">{applicantTestAccess.password}</span></div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex-shrink-0 flex flex-col-reverse gap-2 border-t border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-end">
                 <Button variant="outline" onClick={() => setShowApplicantTestModal(false)}>Batal</Button>
                 <Button onClick={saveApplicantTestCode} disabled={applicantTestProcessing}>
-                  {applicantTestProcessing ? "Menyimpan..." : "Buat Kode Tes"}
+                  {applicantTestProcessing ? "Menyimpan..." : applicantEditCodeId ? "Simpan Perubahan Kode" : "Buat Kode Tes"}
                 </Button>
               </div>
             </div>

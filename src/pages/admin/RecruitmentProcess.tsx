@@ -9,6 +9,8 @@ import DocumentPreview from "@/components/DocumentPreview";
 import Swal from "sweetalert2";
 import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
 
+const HIDDEN_RECRUITMENT_APPLICATION_STATUSES = ["expired", "withdrawn"];
+
 interface Doc {
   id: string;
   user_id: string;
@@ -138,6 +140,12 @@ export default function RecruitmentProcess() {
   const [loadingApplications, setLoadingApplications] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [educationFilter, setEducationFilter] = useState("all");
+  const [testFilter, setTestFilter] = useState("all");
+  const [salaryMinFilter, setSalaryMinFilter] = useState("");
+  const [salaryMaxFilter, setSalaryMaxFilter] = useState("");
+  const [appliedFromFilter, setAppliedFromFilter] = useState("");
+  const [appliedToFilter, setAppliedToFilter] = useState("");
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -158,6 +166,7 @@ export default function RecruitmentProcess() {
   const [activationExpiresAt, setActivationExpiresAt] = useState("");
   const [activationProcessing, setActivationProcessing] = useState(false);
   const [activationMode, setActivationMode] = useState<"create_new" | "allow_retake">("create_new");
+  const [activationEditCodeId, setActivationEditCodeId] = useState<string | null>(null);
   const [contactDraft, setContactDraft] = useState("");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -184,7 +193,9 @@ export default function RecruitmentProcess() {
         const { count, error: countError } = await supabase
           .from("job_applications")
           .select("*", { count: 'exact', head: true })
-          .eq("vacancy_id", job.id);
+          .eq("vacancy_id", job.id)
+          .neq("status", HIDDEN_RECRUITMENT_APPLICATION_STATUSES[0])
+          .neq("status", HIDDEN_RECRUITMENT_APPLICATION_STATUSES[1]);
 
         console.log(`Job ${job.title} has ${count} applications`, countError);
         
@@ -272,6 +283,7 @@ export default function RecruitmentProcess() {
   const openActivationModal = (application: JobApplication) => {
     const primaryCode = getPrimaryActivationCode(application);
     setActivationApplication(application);
+    setActivationEditCodeId(primaryCode?.id || null);
     setActivationSelectedTests(primaryCode?.assigned_tests || []);
     setActivationExpiresAt(
       primaryCode?.expires_at
@@ -286,6 +298,7 @@ export default function RecruitmentProcess() {
     setActivationApplication(null);
     setActivationSelectedTests([]);
     setActivationExpiresAt("");
+    setActivationEditCodeId(null);
   };
 
   const toggleActivationTest = (id: string) => {
@@ -309,6 +322,28 @@ export default function RecruitmentProcess() {
 
     try {
       const existingCode = getPrimaryActivationCode(activationApplication);
+
+      if (activationEditCodeId) {
+        const { error } = await supabase.from('activation_codes').update({
+          assigned_tests: activationSelectedTests,
+          expires_at: activationExpiresAt || null,
+          status: 'active',
+        } as any).eq('id', activationEditCodeId);
+        if (error) throw error;
+
+        const { error: updateError } = await supabase
+          .from('job_applications')
+          .update({ activation_code_id: activationEditCodeId, status: 'psychology_test' })
+          .eq('id', activationApplication.id);
+        if (updateError) throw updateError;
+
+        Swal.fire({ icon: 'success', title: 'Kode Tes Diperbarui', text: 'Pengaturan kode aktivasi berhasil disimpan.' });
+        closeActivationModal();
+        if (selectedJob) {
+          await loadApplications(selectedJob.id);
+        }
+        return;
+      }
 
       if (activationMode === 'allow_retake' && existingCode && existingCode.id) {
         // Allow retake: reset completion and reactivate
@@ -416,6 +451,8 @@ export default function RecruitmentProcess() {
         .from("job_applications")
         .select("*")
         .eq("vacancy_id", jobId)
+        .neq("status", HIDDEN_RECRUITMENT_APPLICATION_STATUSES[0])
+        .neq("status", HIDDEN_RECRUITMENT_APPLICATION_STATUSES[1])
         .order("applied_at", { ascending: false });
 
       if (applicationsError) {
@@ -760,6 +797,21 @@ export default function RecruitmentProcess() {
     return String(raw);
   };
 
+  const getExpectedSalaryNumber = (profile: any) => {
+    const raw = profile?.expected_salary || profile?.salary_exp_base || profile?.expected_salary_range || "";
+    if (!raw) return null;
+    const numeric = typeof raw === "number" ? raw : Number(String(raw).replace(/[^\d]/g, ""));
+    return numeric && !Number.isNaN(numeric) ? numeric : null;
+  };
+
+  const getApplicationTestState = (application: JobApplication) => {
+    const codes = application.activation_codes || [];
+    if (codes.length === 0) return "unassigned";
+    if (codes.some((code) => code.test_completed_at)) return "completed";
+    if (codes.some((code) => code.expires_at && new Date(code.expires_at) < new Date())) return "expired";
+    return "active";
+  };
+
   const getDocumentLabel = (type: string) => {
     switch (type) {
       case 'cv': return 'CV / Resume';
@@ -1007,49 +1059,81 @@ export default function RecruitmentProcess() {
     openActivationModal(application);
   };
 
+  const educationOptions = Array.from(new Set(applications.map((app) => getLatestEducation(app.candidate_profile)).filter((value) => value && value !== "-"))).sort();
+
   const filteredApplications = applications.filter(app => {
+    const latestEducation = getLatestEducation(app.candidate_profile);
+    const expectedSalary = getExpectedSalaryNumber(app.candidate_profile);
+    const minSalary = salaryMinFilter ? Number(salaryMinFilter) : null;
+    const maxSalary = salaryMaxFilter ? Number(salaryMaxFilter) : null;
+    const appliedDate = app.applied_at ? new Date(app.applied_at) : null;
+    const fromDate = appliedFromFilter ? new Date(`${appliedFromFilter}T00:00:00`) : null;
+    const toDate = appliedToFilter ? new Date(`${appliedToFilter}T23:59:59`) : null;
+    const testState = getApplicationTestState(app);
     const matchesSearch =
       app.candidate_profile.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.candidate_profile.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.candidate_profile.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      latestEducation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      formatExpectedSalary(app.candidate_profile).toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.candidate_profile.current_position.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === "all" ||
       app.status === statusFilter ||
       (statusFilter === "applied" && app.status === "submitted");
-    return matchesSearch && matchesStatus;
+    const matchesEducation = educationFilter === "all" || latestEducation === educationFilter;
+    const matchesTest = testFilter === "all" || testState === testFilter;
+    const matchesMinSalary = !minSalary || (expectedSalary !== null && expectedSalary >= minSalary);
+    const matchesMaxSalary = !maxSalary || (expectedSalary !== null && expectedSalary <= maxSalary);
+    const matchesFromDate = !fromDate || (appliedDate !== null && appliedDate >= fromDate);
+    const matchesToDate = !toDate || (appliedDate !== null && appliedDate <= toDate);
+    return matchesSearch && matchesStatus && matchesEducation && matchesTest && matchesMinSalary && matchesMaxSalary && matchesFromDate && matchesToDate;
   });
+
+  const resetApplicationFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setEducationFilter("all");
+    setTestFilter("all");
+    setSalaryMinFilter("");
+    setSalaryMaxFilter("");
+    setAppliedFromFilter("");
+    setAppliedToFilter("");
+  };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <Workflow className="h-5 w-5 text-primary" />
+        {!selectedJob && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Workflow className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Proses Rekrutmen</h1>
+                  <p className="text-sm text-muted-foreground">Kelola proses lamaran untuk setiap lowongan aktif</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Proses Rekrutmen</h1>
-                <p className="text-sm text-muted-foreground">Kelola proses lamaran untuk setiap lowongan aktif</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <div className="text-lg font-bold text-foreground">{activeJobs.length}</div>
-                <div className="text-[11px] text-muted-foreground">Lowongan aktif</div>
-              </div>
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <div className="text-lg font-bold text-foreground">{selectedJob ? applications.length : activeJobs.reduce((sum, job) => sum + (job.application_count || 0), 0)}</div>
-                <div className="text-[11px] text-muted-foreground">Total pelamar</div>
-              </div>
-              <div className="rounded-lg border border-border bg-background px-3 py-2">
-                <div className="text-lg font-bold text-foreground">{selectedJob ? finalApplications : "-"}</div>
-                <div className="text-[11px] text-muted-foreground">Final</div>
+              <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <div className="text-lg font-bold text-foreground">{activeJobs.length}</div>
+                  <div className="text-[11px] text-muted-foreground">Lowongan aktif</div>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <div className="text-lg font-bold text-foreground">{activeJobs.reduce((sum, job) => sum + (job.application_count || 0), 0)}</div>
+                  <div className="text-[11px] text-muted-foreground">Total pelamar</div>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <div className="text-lg font-bold text-foreground">-</div>
+                  <div className="text-[11px] text-muted-foreground">Final</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {!selectedJob ? (
           /* Job Categories */
@@ -1170,36 +1254,109 @@ export default function RecruitmentProcess() {
             </div>
 
             {/* Search and Filter */}
-            <div className="rounded-xl border border-border bg-card p-3">
-              <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Cari nama, email, atau posisi..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-10 w-full pl-10 pr-4 border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Filter Screening</h3>
+                  <p className="text-xs text-muted-foreground">Saring kandidat berdasarkan data profil, tahap proses, tes, gaji, dan tanggal apply.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={resetApplicationFilters}>
+                  Reset
+                </Button>
               </div>
-              <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="h-10 w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:w-56"
-                >
-                  <option value="all">Semua Status</option>
-                  <option value="applied">Lamaran Diterima</option>
-                  <option value="screening">Screening CV</option>
-                  <option value="psychology_test">Tes Psikologi</option>
-                  <option value="hr_interview">Wawancara HR</option>
-                  <option value="user_interview">Wawancara User</option>
-                  <option value="offer">Penawaran</option>
-                  <option value="hired">Diterima</option>
-                  <option value="rejected">Ditolak</option>
-                </select>
-                <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              </div>
+              <div className="grid gap-3 lg:grid-cols-12">
+                <div className="relative lg:col-span-4">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama, email, telepon, pendidikan, gaji..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="relative lg:col-span-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="h-10 w-full appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">Semua Status</option>
+                    <option value="applied">Lamaran Diterima</option>
+                    <option value="screening">Screening CV</option>
+                    <option value="psychology_test">Tes Psikologi</option>
+                    <option value="hr_interview">Wawancara HR</option>
+                    <option value="user_interview">Wawancara User</option>
+                    <option value="offer">Penawaran</option>
+                    <option value="hired">Diterima</option>
+                    <option value="rejected">Ditolak</option>
+                  </select>
+                  <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
+                <div className="lg:col-span-3">
+                  <select
+                    value={educationFilter}
+                    onChange={(e) => setEducationFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">Semua Pendidikan</option>
+                    {educationOptions.map((education) => (
+                      <option key={education} value={education}>{education}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="lg:col-span-3">
+                  <select
+                    value={testFilter}
+                    onChange={(e) => setTestFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">Semua Status Tes</option>
+                    <option value="unassigned">Belum Ditugaskan</option>
+                    <option value="active">Tes Aktif</option>
+                    <option value="completed">Tes Selesai</option>
+                    <option value="expired">Tes Expired</option>
+                  </select>
+                </div>
+                <div className="lg:col-span-2">
+                  <input
+                    type="number"
+                    placeholder="Gaji min"
+                    value={salaryMinFilter}
+                    onChange={(e) => setSalaryMinFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <input
+                    type="number"
+                    placeholder="Gaji max"
+                    value={salaryMaxFilter}
+                    onChange={(e) => setSalaryMaxFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <input
+                    type="date"
+                    value={appliedFromFilter}
+                    onChange={(e) => setAppliedFromFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                    title="Tanggal lamar mulai"
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <input
+                    type="date"
+                    value={appliedToFilter}
+                    onChange={(e) => setAppliedToFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                    title="Tanggal lamar sampai"
+                  />
+                </div>
+                <div className="flex items-center rounded-lg border border-border bg-muted/30 px-3 text-xs text-muted-foreground lg:col-span-4">
+                  {filteredApplications.length} kandidat cocok dari {applications.length} pelamar aktif
+                </div>
               </div>
             </div>
 
@@ -1439,6 +1596,18 @@ export default function RecruitmentProcess() {
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     type="button"
+                                    onClick={() => {
+                                      setActivationEditCodeId(c.id);
+                                      setActivationSelectedTests(c.assigned_tests || []);
+                                      setActivationExpiresAt(c.expires_at ? c.expires_at.split("T")[0] : "");
+                                      setActivationMode("create_new");
+                                    }}
+                                    className={`px-2 py-1 rounded text-xs border transition ${activationEditCodeId === c.id ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:bg-muted"}`}
+                                  >
+                                    {activationEditCodeId === c.id ? "Edit" : "Edit"}
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => copyActivationAccess(c)}
                                     className="px-2 py-1 rounded text-xs border border-border text-foreground hover:bg-muted transition"
                                   >
@@ -1470,16 +1639,16 @@ export default function RecruitmentProcess() {
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-foreground">Mode Kode</label>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${activationMode === 'create_new' ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
-                      <input type="radio" name="activationMode" value="create_new" checked={activationMode === 'create_new'} onChange={() => setActivationMode('create_new')} />
+                    <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${activationMode === 'create_new' && !activationEditCodeId ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
+                      <input type="radio" name="activationMode" value="create_new" checked={activationMode === 'create_new' && !activationEditCodeId} onChange={() => { setActivationMode('create_new'); setActivationEditCodeId(null); setActivationSelectedTests([]); setActivationExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]); }} />
                       <span className="text-sm">Buat kode baru</span>
                     </label>
                     <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${activationMode === 'allow_retake' ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
-                      <input type="radio" name="activationMode" value="allow_retake" checked={activationMode === 'allow_retake'} onChange={() => setActivationMode('allow_retake')} />
+                      <input type="radio" name="activationMode" value="allow_retake" checked={activationMode === 'allow_retake'} onChange={() => { setActivationMode('allow_retake'); setActivationEditCodeId(null); }} />
                       <span className="text-sm">Izinkan mengerjakan ulang (retake)</span>
                     </label>
                   </div>
-                  <div className="text-xs text-muted-foreground">Pilih "Izinkan mengerjakan ulang" jika kandidat kehabisan waktu atau perlu mencoba lagi tanpa membuat kode baru.</div>
+                  <div className="text-xs text-muted-foreground">{activationEditCodeId ? "Sedang mengedit kode aktivasi yang sudah dibuat." : 'Pilih "Izinkan mengerjakan ulang" jika kandidat kehabisan waktu atau perlu mencoba lagi tanpa membuat kode baru.'}</div>
 
                   <label className="text-sm font-medium text-foreground">Pilih Tes</label>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -1513,7 +1682,7 @@ export default function RecruitmentProcess() {
                   </div>
                   <div className="rounded-lg border border-border bg-background p-3">
                     <div className="text-xs text-muted-foreground mb-2">Ringkasan</div>
-                    <div className="text-sm text-foreground">{activationApplication.activation_code ? 'Memperbarui kode aktivasi yang sudah ada.' : 'Membuat kode aktivasi baru untuk kandidat.'}</div>
+                    <div className="text-sm text-foreground">{activationEditCodeId ? 'Menyimpan perubahan pada kode aktivasi yang dipilih.' : activationApplication.activation_code ? 'Memperbarui kode aktivasi yang sudah ada.' : 'Membuat kode aktivasi baru untuk kandidat.'}</div>
                     {activationSelectedTests.length ? (
                       <div className="text-xs text-muted-foreground mt-2">Tes yang dipilih: {getAssignedTestNames(activationSelectedTests)}</div>
                     ) : (
@@ -1529,7 +1698,7 @@ export default function RecruitmentProcess() {
                   disabled={activationProcessing}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {activationProcessing ? 'Menyimpan...' : activationApplication.activation_code ? 'Perbarui Kode Tes Psikologi' : 'Buat Tes Lagi'}
+                  {activationProcessing ? 'Menyimpan...' : activationEditCodeId ? 'Simpan Perubahan Kode' : activationApplication.activation_code ? 'Perbarui Kode Tes Psikologi' : 'Buat Tes Lagi'}
                 </button>
               </div>
             </div>

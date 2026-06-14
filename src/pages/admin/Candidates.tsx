@@ -151,6 +151,7 @@ const Candidates = () => {
   const [psychProcessing, setPsychProcessing] = useState(false);
   const [psychAccess, setPsychAccess] = useState<{ code: string; password: string } | null>(null);
   const [psychExistingCodes, setPsychExistingCodes] = useState<any[]>([]);
+  const [psychEditCodeId, setPsychEditCodeId] = useState<string | null>(null);
 
   // Edit modal states
   const [showEditModal, setShowEditModal] = useState(false);
@@ -628,6 +629,7 @@ const Candidates = () => {
     setPsychExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
     setPsychAccess(null);
     setPsychExistingCodes([]);
+    setPsychEditCodeId(null);
     setShowPsychTestModal(true);
 
     const { data, error } = await supabase
@@ -644,10 +646,14 @@ const Candidates = () => {
     const codes = data || [];
     setPsychExistingCodes(codes);
     const reusableCode = codes.find((code: any) => code.password && !isBcryptPassword(code.password));
-    if (reusableCode) {
-      setPsychSelectedTests(reusableCode.assigned_tests || []);
-      setPsychExpiresAt(reusableCode.expires_at ? reusableCode.expires_at.split("T")[0] : "");
-      setPsychAccess({ code: reusableCode.code, password: reusableCode.password });
+    const latestCode = reusableCode || codes[0];
+    if (latestCode) {
+      setPsychEditCodeId(latestCode.id || null);
+      setPsychSelectedTests(latestCode.assigned_tests || []);
+      setPsychExpiresAt(latestCode.expires_at ? latestCode.expires_at.split("T")[0] : "");
+      if (latestCode.password && !isBcryptPassword(latestCode.password)) {
+        setPsychAccess({ code: latestCode.code, password: latestCode.password });
+      }
     }
   };
 
@@ -682,6 +688,31 @@ Terima kasih.`;
     }
     setPsychProcessing(true);
     try {
+      if (psychEditCodeId) {
+        const { error } = await supabase
+          .from("activation_codes")
+          .update({
+            assigned_tests: psychSelectedTests,
+            expires_at: psychExpiresAt || null,
+            status: "active",
+          } as any)
+          .eq("id", psychEditCodeId);
+        if (error) throw error;
+
+        const updatedCode = psychExistingCodes.find((code: any) => code.id === psychEditCodeId);
+        if (updatedCode?.password && !isBcryptPassword(updatedCode.password)) {
+          setPsychAccess({ code: updatedCode.code, password: updatedCode.password });
+        }
+        setPsychExistingCodes((prev) => prev.map((code: any) => code.id === psychEditCodeId ? {
+          ...code,
+          assigned_tests: psychSelectedTests,
+          expires_at: psychExpiresAt || null,
+          status: "active",
+        } : code));
+        Swal.fire({ icon: "success", title: "Kode Tes Diperbarui", text: "Pengaturan kode aktivasi berhasil disimpan.", timer: 1600, showConfirmButton: false, ...SWAL_THEME() });
+        return;
+      }
+
       const code = `PSY-${randomCodePart(6)}`;
       const password = randomCodePart(8);
       const payload = {
@@ -697,6 +728,7 @@ Terima kasih.`;
       const { data, error } = await supabase.from("activation_codes").insert(payload as any).select("*").single();
       if (error) throw error;
       setPsychAccess({ code, password });
+      setPsychEditCodeId((data as any)?.id || null);
       setPsychExistingCodes((prev) => [data || payload, ...prev]);
       Swal.fire({ icon: "success", title: "Kode Tes Dibuat", text: "Kode dan password siap dikirim ke kandidat.", timer: 1600, showConfirmButton: false, ...SWAL_THEME() });
     } catch (error: any) {
@@ -2491,11 +2523,25 @@ Terima kasih.`;
 
               {psychExistingCodes.length > 0 && (
                 <div className="rounded-lg border border-border bg-muted/20 p-3">
-                  <div className="mb-2 text-sm font-semibold text-foreground">Kode Aktivasi Tersedia</div>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-foreground">Kode Aktivasi Tersedia</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPsychEditCodeId(null);
+                        setPsychSelectedTests([]);
+                        setPsychExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+                        setPsychAccess(null);
+                      }}
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                    >
+                      Buat Kode Baru
+                    </button>
+                  </div>
                   <div className="space-y-2">
                     {psychExistingCodes.map((code: any) => {
                       const canSendPassword = code.password && !isBcryptPassword(code.password);
-                      const selected = psychAccess?.code === code.code;
+                      const selected = psychEditCodeId === code.id;
                       return (
                         <div key={code.id || code.code} className={`rounded-lg border p-3 ${selected ? "border-emerald-300 bg-emerald-50" : "border-border bg-background"}`}>
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -2513,15 +2559,15 @@ Terima kasih.`;
                             </div>
                             <button
                               type="button"
-                              disabled={!canSendPassword}
                               onClick={() => {
+                                setPsychEditCodeId(code.id || null);
                                 setPsychSelectedTests(code.assigned_tests || []);
                                 setPsychExpiresAt(code.expires_at ? code.expires_at.split("T")[0] : "");
-                                setPsychAccess({ code: code.code, password: code.password });
+                                setPsychAccess(canSendPassword ? { code: code.code, password: code.password } : null);
                               }}
-                              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
                             >
-                              {selected ? "Dipakai" : "Pakai & Kirim"}
+                              {selected ? "Sedang Diedit" : "Edit Kode"}
                             </button>
                           </div>
                         </div>
@@ -2591,7 +2637,7 @@ Terima kasih.`;
             <div className="flex flex-shrink-0 flex-col-reverse gap-2 border-t border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-end">
               <button onClick={() => setShowPsychTestModal(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Batal</button>
               <button onClick={savePsychTestCode} disabled={psychProcessing} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60">
-                {psychProcessing ? "Menyimpan..." : psychAccess ? "Buat Kode Lagi" : "Buat Kode Tes"}
+                {psychProcessing ? "Menyimpan..." : psychEditCodeId ? "Simpan Perubahan Kode" : "Buat Kode Tes"}
               </button>
             </div>
           </div>

@@ -19,7 +19,6 @@ import UserManagement from "./pages/admin/UserManagement";
 import RoleManagement from "./pages/admin/RoleManagement";
 import Profile from "./pages/admin/Profile";
 import Jobs from "./pages/admin/Jobs";
-import Recruitment from "./pages/admin/Recruitment";
 import HRJobs from "./pages/admin/HRJobs";
 import CandidateSettings from "./pages/admin/CandidateSettings";
 import CandidateRegister from "./pages/candidate/CandidateRegister";
@@ -78,7 +77,7 @@ const App = () => (
             <Route path="/admin/profile" element={<Profile />} />
             <Route path="/admin/jobs" element={<Jobs />} />
             <Route path="/admin/hr-jobs" element={<HRJobs />} />
-            <Route path="/admin/recruitment" element={<Recruitment />} />
+            <Route path="/admin/recruitment" element={<Navigate to="/admin/recruitment-process" replace />} />
             <Route path="/candidate/login" element={<Navigate to="/login" replace />} />
             <Route path="/candidate/register" element={<CandidateRegister />} />
             <Route path="/candidate/profile" element={<CandidateProfile />} />
