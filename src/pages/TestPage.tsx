@@ -116,6 +116,25 @@ const TestPage = () => {
     }
   };
 
+  const getInstrumentDurationSeconds = (instrument?: DbInstrument) => Math.max(1, (instrument?.duration_minutes || 30) * 60);
+
+  const getRemainingSecondsForInstrument = (instrument?: DbInstrument, remainingSecOverride?: number) => {
+    const duration = getInstrumentDurationSeconds(instrument);
+    if (remainingSecOverride !== undefined) {
+      return Math.max(0, Math.min(duration, Math.floor(remainingSecOverride)));
+    }
+
+    const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
+    const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    return Math.max(0, Math.min(duration, duration - elapsed));
+  };
+
+  const startTimerForInstrument = (instrument?: DbInstrument, remainingSeconds?: number) => {
+    const duration = getInstrumentDurationSeconds(instrument);
+    const remaining = Math.max(0, Math.min(duration, Math.floor(remainingSeconds ?? duration)));
+    sessionStorage.setItem("psytest_started_at", String(Date.now() - (duration - remaining) * 1000));
+  };
+
   const persistSession = useCallback(async ({
     testIdx = currentTestIdx,
     qIdx = currentQIdx,
@@ -136,17 +155,7 @@ const TestPage = () => {
     const instrument = instruments[testIdx];
     if (!instrument) return;
 
-    let remaining: number;
-    if (remainingSecOverride !== undefined) {
-      // Jika override diberikan (e.g., test switch, time-up), gunakan itu
-      remaining = remainingSecOverride;
-    } else {
-      // Hitung remaining berdasarkan elapsed time dari psytest_started_at
-      const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const defaultRemaining = (instrument.duration_minutes || 30) * 60;
-      remaining = Math.max(0, defaultRemaining - elapsed);
-    }
+    const remaining = getRemainingSecondsForInstrument(instrument, remainingSecOverride);
 
     const snapshotPayload = {
       answers: answerState,
@@ -177,9 +186,7 @@ const TestPage = () => {
     const candRaw = sessionStorage.getItem("psytest_candidate");
     const cand = candRaw ? JSON.parse(candRaw) : null;
     const instrument = instruments[currentTestIdx];
-    const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    const remaining = Math.max(0, ((instrument?.duration_minutes || 30) * 60) - elapsed);
+    const remaining = getRemainingSecondsForInstrument(instrument);
 
     if (cand?.activationCodeId) {
       await supabase.from("test_sessions").upsert({
@@ -286,7 +293,7 @@ const TestPage = () => {
 
       const savedTestIdx = Math.min(restoredSession?.current_test_idx ?? 0, instruments.length - 1);
       const restoredTest = instruments[savedTestIdx];
-      const defaultDuration = (restoredTest?.duration_minutes || 30) * 60;
+      const defaultDuration = getInstrumentDurationSeconds(restoredTest);
 
       if (restoredSession) {
         // Restore saved progress
@@ -296,7 +303,7 @@ const TestPage = () => {
         setCompletedSubtests(new Set(restoredSession.completed_subtests || []));
 
         // Gunakan seconds_remaining yang tersimpan LANGSUNG (waktu BERHENTI saat keluar)
-        const remaining = Math.max(0, restoredSession.seconds_remaining ?? defaultDuration);
+        const remaining = Math.max(0, Math.min(defaultDuration, restoredSession.seconds_remaining ?? defaultDuration));
 
         if (remaining <= 0 && savedTestIdx < instruments.length - 1) {
           const nextTestIdx = savedTestIdx + 1;
@@ -305,18 +312,14 @@ const TestPage = () => {
           setCurrentQIdx(0);
           setCompletedSubtests(new Set());
           setCurrentSubtest(null);
-          const startTime = Date.now();
-          sessionStorage.setItem("psytest_started_at", String(startTime));
-          await persistSession({ testIdx: nextTestIdx, qIdx: 0, remainingSecOverride: (nextTest.duration_minutes || 30) * 60 });
+          startTimerForInstrument(nextTest);
+          await persistSession({ testIdx: nextTestIdx, qIdx: 0, remainingSecOverride: getInstrumentDurationSeconds(nextTest) });
         } else {
-          // Set synthetic start time untuk countdown dari remaining seconds
-          const syntheticStart = Date.now() - (defaultDuration - remaining) * 1000;
-          sessionStorage.setItem("psytest_started_at", String(syntheticStart));
+          startTimerForInstrument(restoredTest, remaining);
         }
       } else {
         // First time
-        const startTime = Date.now();
-        sessionStorage.setItem("psytest_started_at", String(startTime));
+        startTimerForInstrument(restoredTest);
         await supabase.from("test_sessions").insert({
           activation_code_id: cand.activationCodeId,
           candidate_email: cand.email,
@@ -377,11 +380,8 @@ const TestPage = () => {
         if (!candRaw) return;
         const cand = JSON.parse(candRaw);
 
-        // Hitung sisa waktu pada saat cheat terdeteksi
-        const totalDur = instruments.reduce((s, t) => s + (t.duration_minutes || 30), 0);
-        const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
-        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-        const remainingAtViolation = Math.max(0, totalDur * 60 - elapsed);
+        const currentInstrument = instruments[currentTestIdx];
+        const remainingAtViolation = getRemainingSecondsForInstrument(currentInstrument);
 
         // Simpan + tandai violation. last_active_at = sekarang ⇒ saat login ulang nanti,
         // selisih (now − last_active_at) akan dipotong dari sisa waktu (penalti).
@@ -981,13 +981,14 @@ const TestPage = () => {
   const handleNextTest = useCallback(() => {
     if (currentTestIdx < instruments.length - 1) {
       const nextTestIdx = currentTestIdx + 1;
-      sessionStorage.setItem("psytest_started_at", String(Date.now()));
+      const nextTest = instruments[nextTestIdx];
+      startTimerForInstrument(nextTest);
       setCurrentTestIdx(nextTestIdx);
       setCurrentQIdx(0);
       setCompletedSubtests(new Set());
       setCurrentSubtest(null);
     }
-  }, [currentTestIdx, instruments.length]);
+  }, [currentTestIdx, instruments]);
 
   const finishCurrentSubtest = useCallback(() => {
     if (!usesSubtestIntro(currentTest) || !currentSubtest) return false;
@@ -1028,7 +1029,7 @@ const TestPage = () => {
       const nextTest = instruments[nextTestIdx];
 
       await persistSession({ testIdx: currentTestIdx, qIdx: currentQIdx, remainingSecOverride: 0 });
-      sessionStorage.setItem("psytest_started_at", String(Date.now()));
+      startTimerForInstrument(nextTest);
       setCurrentTestIdx(nextTestIdx);
       setCurrentQIdx(0);
       setCompletedSubtests(new Set());
@@ -1178,7 +1179,7 @@ const TestPage = () => {
       
       if (allAnswered) {
         const nextTestIdx = currentTestIdx + 1;
-        sessionStorage.setItem("psytest_started_at", String(Date.now()));
+        startTimerForInstrument(instruments[nextTestIdx]);
         setCurrentTestIdx(nextTestIdx);
         setCurrentQIdx(0);
         setCompletedSubtests(new Set());
@@ -1352,9 +1353,7 @@ const TestPage = () => {
   const currentDuration = currentTest?.duration_minutes || 30;
   
   // Calculate remaining seconds for timer recovery
-  const startedAt = Number(sessionStorage.getItem("psytest_started_at")) || Date.now();
-  const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-  const initialSeconds = Math.max(0, currentDuration * 60 - elapsed);
+  const initialSeconds = getRemainingSecondsForInstrument(currentTest);
   
   const currentAnsKey = currentQuestion ? `${currentTest.id}:${currentQuestion.id}` : "";
   const currentAns = answers[currentAnsKey] as string | undefined;
@@ -1418,7 +1417,7 @@ const TestPage = () => {
               {instruments.map((t, i) => {
                 const ansInThis = t.questions.filter(q => answers[`${t.id}:${q.id}`]).length;
                 const isCurrent = i === currentTestIdx;
-                const isAccessible = i <= currentTestIdx;
+                const isAccessible = i === currentTestIdx;
                 return (
                   <button key={t.id}
                     type="button"
@@ -1428,7 +1427,6 @@ const TestPage = () => {
                       setCurrentQIdx(0);
                       setCompletedSubtests(new Set());
                       setCurrentSubtest(null);
-                      sessionStorage.setItem("psytest_started_at", String(Date.now()));
                     }}
                     disabled={!isAccessible}
                     className={`w-full text-left rounded-lg border p-2.5 transition-all ${isCurrent ? "border-primary bg-primary/10" : isAccessible ? "border-border bg-muted/30 hover:bg-muted" : "border-border bg-slate-900/30 text-slate-500 cursor-not-allowed"}`}>

@@ -3,7 +3,7 @@ import PublicLayout from "@/components/layout/PublicLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock } from "lucide-react";
+import { Lock, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [brand, setBrand] = useState({ name: "Recruit PJM GROUP", logo: "/pjmgroup-logo.svg" });
@@ -33,26 +33,80 @@ const Login = () => {
       });
     };
     loadBrand();
-  }, []);
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+      if (sessionStorage.getItem("psytest_admin") === "true") {
+        navigate("/admin/dashboard", { replace: true });
+        return;
+      }
+      navigate("/candidate/profile", { replace: true });
+    });
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({ title: "⚠️ Error", description: "Email dan password wajib diisi.", variant: "destructive" });
+    const loginId = identifier.trim();
+    if (!loginId || !password) {
+      toast({ title: "Error", description: "Email/username dan password wajib diisi.", variant: "destructive" });
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setLoading(false);
-    if (error) {
-      toast({ title: "❌ Login Gagal", description: error.message, variant: "destructive" });
-      return;
+
+    try {
+      const { data: adminData, error: adminError } = await supabase.functions.invoke("admin-login", {
+        body: { identifier: loginId, password },
+      });
+
+      const adminPayload = adminData as any;
+      if (!adminError && adminPayload?.session?.access_token && adminPayload?.user) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: adminPayload.session.access_token,
+          refresh_token: adminPayload.session.refresh_token,
+        });
+        if (sessionError) throw sessionError;
+
+        const adminSession = {
+          id: adminPayload.user.id,
+          username: adminPayload.user.username,
+          full_name: adminPayload.user.full_name,
+          role_id: adminPayload.user.role_id,
+          role_name: adminPayload.user.role_name,
+          permissions: adminPayload.user.permissions || [],
+          roles: adminPayload.user.roles || [],
+        };
+        sessionStorage.removeItem("psytest_auth");
+        sessionStorage.removeItem("psytest_candidate");
+        sessionStorage.setItem("psytest_admin", "true");
+        sessionStorage.setItem("psytest_admin_user", JSON.stringify(adminSession));
+
+        toast({ title: "Login Berhasil", description: "Selamat datang di panel admin." });
+        navigate("/admin/dashboard", { replace: true });
+        return;
+      }
+
+      if (!loginId.includes("@")) {
+        throw new Error("Username hanya untuk admin. Kandidat silakan masuk dengan email.");
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginId,
+        password,
+      });
+      if (error) throw error;
+
+      sessionStorage.removeItem("psytest_admin");
+      sessionStorage.removeItem("psytest_admin_user");
+      toast({ title: "Login Berhasil", description: "Selamat datang kembali!" });
+      navigate("/candidate/profile", { replace: true });
+    } catch (error: any) {
+      toast({
+        title: "Login Gagal",
+        description: error?.message || "Email/username atau password salah.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-    toast({ title: "✅ Login Berhasil", description: "Selamat datang kembali!" });
-    navigate("/candidate/profile", { replace: true });
   };
 
   return (
@@ -69,16 +123,17 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Email atau Username</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <UserRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="nama@email.com"
+                  id="identifier"
+                  type="text"
+                  placeholder="email kandidat atau username admin"
                   className="pl-10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
                   required
                 />
               </div>
@@ -95,6 +150,7 @@ const Login = () => {
                   className="pl-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   required
                 />
               </div>
@@ -111,6 +167,9 @@ const Login = () => {
               Daftar Sekarang
             </Link>
           </div>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            Akun yang dibuat dari beranda otomatis terdaftar sebagai kandidat. Akun admin dibuat dari dashboard admin.
+          </p>
         </motion.div>
       </div>
     </PublicLayout>

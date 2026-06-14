@@ -2,12 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/LoginPage";
 import TestPage from "./pages/TestPage";
-import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/admin/Dashboard";
 import ActivationCodes from "./pages/admin/ActivationCodes";
 import TestInstruments from "./pages/admin/TestInstruments";
@@ -24,7 +22,6 @@ import Jobs from "./pages/admin/Jobs";
 import Recruitment from "./pages/admin/Recruitment";
 import HRJobs from "./pages/admin/HRJobs";
 import CandidateSettings from "./pages/admin/CandidateSettings";
-import CandidateLogin from "./pages/candidate/CandidateLogin";
 import CandidateRegister from "./pages/candidate/CandidateRegister";
 import CandidateProfile from "./pages/candidate/CandidateProfile";
 import CandidateJobs from "./pages/candidate/CandidateJobs";
@@ -63,7 +60,7 @@ const App = () => (
             <Route path="/test" element={<TestPage />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/test" element={<TestPage />} />
-            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/admin" element={<Navigate to="/login" replace />} />
             <Route path="/admin/dashboard" element={<Dashboard />} />
             <Route path="/admin/activation-codes" element={<ActivationCodes />} />
             <Route path="/admin/test-instruments" element={<TestInstruments />} />
@@ -82,7 +79,7 @@ const App = () => (
             <Route path="/admin/jobs" element={<Jobs />} />
             <Route path="/admin/hr-jobs" element={<HRJobs />} />
             <Route path="/admin/recruitment" element={<Recruitment />} />
-            <Route path="/candidate/login" element={<CandidateLogin />} />
+            <Route path="/candidate/login" element={<Navigate to="/login" replace />} />
             <Route path="/candidate/register" element={<CandidateRegister />} />
             <Route path="/candidate/profile" element={<CandidateProfile />} />
             <Route path="/candidate/jobs" element={<CandidateJobs />} />

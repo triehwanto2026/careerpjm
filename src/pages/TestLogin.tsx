@@ -246,7 +246,7 @@ export default function TestLogin() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Jika Anda memiliki akun kandidat biasa, gunakan halaman <Link to="/candidate/login" className="text-primary hover:underline">login kandidat</Link>.
+            Jika Anda memiliki akun kandidat biasa, gunakan halaman <Link to="/login" className="text-primary hover:underline">login</Link>.
           </p>
         </div>
       </div>

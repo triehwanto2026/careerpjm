@@ -43,14 +43,14 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) navigate("/candidate/login");
+      if (!data.session) navigate("/login");
       else {
         setEmail(data.session.user.email || "");
         loadProfilePhoto(data.session.user.id, data.session.user.email || "");
       }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!session) navigate("/candidate/login");
+      if (!session) navigate("/login");
       else {
         setEmail(session.user.email || "");
         loadProfilePhoto(session.user.id, session.user.email || "");
@@ -132,7 +132,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
-    navigate("/candidate/login");
+    navigate("/login");
   };
 
   // Sidebar widths

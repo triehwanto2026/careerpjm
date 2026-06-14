@@ -408,7 +408,6 @@ const HomePage = () => {
           </div>
           <div className="mt-6 flex flex-wrap gap-4">
             <a href="/login" className="text-sm text-primary hover:underline">Login</a>
-            <a href="/admin" className="text-sm text-primary hover:underline">Admin</a>
           </div>
         </div>
       </footer>
@@ -466,7 +465,7 @@ const HomePage = () => {
               <button 
                 onClick={() => {
                   setSelectedJob(null);
-                  navigate("/candidate/register");
+                  navigate("/register");
                 }}
                 className="w-full py-3 bg-primary text-primary-foreground rounded-xl hover:brightness-110 transition-all font-semibold"
               >

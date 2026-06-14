@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Search, MapPin, Building2, Clock, ArrowRight, Users, Briefcase,
   Shield, ChevronRight, TrendingUp, Target, Award, Globe2, CheckCircle2,
-  Sparkles, Layers3,
+  Sparkles, Layers3, ClipboardCheck,
 } from "lucide-react";
 import {
   Carousel,
@@ -151,6 +151,20 @@ const Index = () => {
             <p className="mb-8 max-w-2xl text-base leading-8 text-slate-300 md:text-xl">
               {heroSubtitle}
             </p>
+            <div className="mb-5 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="rounded-lg bg-sky-500 px-6 text-white shadow-lg shadow-sky-500/25 hover:bg-sky-600">
+                <Link to="/jobs">
+                  Lihat Lowongan
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="rounded-lg border-white/30 bg-white px-6 text-slate-950 shadow-lg hover:bg-sky-50">
+                <Link to="/test-login">
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Login Tes Psikotes
+                </Link>
+              </Button>
+            </div>
             <div className="flex max-w-3xl flex-col gap-3 rounded-xl border border-white/20 bg-white/12 p-2 shadow-2xl shadow-sky-950/40 backdrop-blur md:flex-row">
               <div className="flex flex-1 items-center gap-3 rounded-lg bg-white px-4 py-3.5 text-slate-900">
                 <Search className="h-5 w-5 shrink-0 text-slate-500" />

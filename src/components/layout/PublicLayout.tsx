@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
-import { Building2, Menu, X, LogIn, Mail, Phone, MapPin } from "lucide-react";
+import { Building2, Menu, X, LogIn, Mail, Phone, MapPin, ClipboardCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -89,6 +89,15 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <Button
+              asChild
+              variant="outline"
+              className="hidden rounded-xl border-sky-300 bg-white px-4 text-sky-600 hover:bg-sky-50 hover:text-sky-700 md:inline-flex dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20"
+            >
+              <Link to="/test-login" className="inline-flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4" /> Tes Psikotes
+              </Link>
+            </Button>
             <Button 
               asChild 
               className="hidden rounded-xl bg-sky-500 px-5 text-white hover:bg-sky-600 md:inline-flex"
@@ -131,6 +140,15 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
                 >
                   Tentang Kami
                 </a>
+                <Button 
+                  asChild
+                  variant="outline"
+                  className="w-full border-sky-300 text-sky-600 hover:bg-sky-50 dark:border-sky-500/40 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                >
+                  <Link to="/test-login" onClick={() => setMobileMenuOpen(false)} className="inline-flex w-full items-center justify-center gap-2">
+                    <ClipboardCheck className="h-4 w-4" /> Tes Psikotes
+                  </Link>
+                </Button>
                 <Button 
                   asChild 
                   className="w-full bg-sky-500 text-white hover:bg-sky-600"

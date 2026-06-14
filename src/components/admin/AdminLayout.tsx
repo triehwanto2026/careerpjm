@@ -104,7 +104,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       if (!session) {
         sessionStorage.removeItem("psytest_admin");
         sessionStorage.removeItem("psytest_admin_user");
-        navigate("/admin", { replace: true });
+        navigate("/login", { replace: true });
         return;
       }
 
@@ -149,7 +149,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       } catch {
         sessionStorage.removeItem("psytest_admin");
         sessionStorage.removeItem("psytest_admin_user");
-        navigate("/admin", { replace: true });
+        navigate("/login", { replace: true });
       }
     };
     validate();
@@ -158,7 +158,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       if (!session) {
         sessionStorage.removeItem("psytest_admin");
         sessionStorage.removeItem("psytest_admin_user");
-        navigate("/admin", { replace: true });
+        navigate("/login", { replace: true });
       }
     });
 
@@ -234,7 +234,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         await supabase.auth.signOut();
         sessionStorage.removeItem("psytest_admin");
         sessionStorage.removeItem("psytest_admin_user");
-        navigate("/admin", { replace: true });
+        navigate("/login", { replace: true });
       }
     });
   };

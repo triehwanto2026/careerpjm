@@ -41,7 +41,7 @@ const Profile = () => {
   useEffect(() => {
     const sessionData = sessionStorage.getItem("psytest_admin_user");
     if (!sessionData) {
-      navigate("/admin", { replace: true });
+      navigate("/login", { replace: true });
       return;
     }
 
@@ -56,7 +56,7 @@ const Profile = () => {
         confirm_password: "",
       });
     } catch {
-      navigate("/admin", { replace: true });
+      navigate("/login", { replace: true });
     }
     setLoading(false);
   }, [navigate]);
