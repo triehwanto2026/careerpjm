@@ -30,7 +30,9 @@ interface JobVacancy {
   employment_type: string;
   description: string;
   requirements: string;
+  status?: string;
   closes_at: string;
+  created_at?: string;
   application_count?: number;
 }
 
@@ -142,6 +144,7 @@ export default function RecruitmentProcess() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [educationFilter, setEducationFilter] = useState("all");
   const [testFilter, setTestFilter] = useState("all");
+  const [jobListFilter, setJobListFilter] = useState("active");
   const [salaryMinFilter, setSalaryMinFilter] = useState("");
   const [salaryMaxFilter, setSalaryMaxFilter] = useState("");
   const [appliedFromFilter, setAppliedFromFilter] = useState("");
@@ -182,8 +185,6 @@ export default function RecruitmentProcess() {
       const { data: jobsData, error: jobsError } = await supabase
         .from("job_vacancies")
         .select("*")
-        .eq("status", "active")
-        .or(`closes_at.is.null,closes_at.gte.${new Date().toISOString()}`)
         .order("created_at", { ascending: false });
 
       if (jobsError) throw jobsError;
@@ -601,6 +602,33 @@ export default function RecruitmentProcess() {
     nextParams.delete("candidate");
     nextParams.delete("action");
     setSearchParams(nextParams, { replace: true });
+  };
+
+  const isJobDeadlinePassed = (job: JobVacancy) => {
+    if (!job.closes_at) return false;
+    const endOfDeadline = new Date(job.closes_at);
+    endOfDeadline.setHours(23, 59, 59, 999);
+    return endOfDeadline < new Date();
+  };
+
+  const isJobRecruitmentOpen = (job: JobVacancy) => {
+    return job.status === "active" && !isJobDeadlinePassed(job);
+  };
+
+  const getJobStatusLabel = (job: JobVacancy) => {
+    if (job.status === "active" && isJobDeadlinePassed(job)) return "Lewat Deadline";
+    if (job.status === "active") return "Aktif";
+    if (job.status === "closed") return "Ditutup";
+    if (job.status === "draft") return "Draft";
+    return job.status || "-";
+  };
+
+  const getJobStatusClass = (job: JobVacancy) => {
+    if (job.status === "active" && isJobDeadlinePassed(job)) return "bg-amber-100 text-amber-700";
+    if (job.status === "active") return "bg-green-100 text-green-700";
+    if (job.status === "closed") return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+    if (job.status === "draft") return "bg-blue-100 text-blue-700";
+    return "bg-muted text-muted-foreground";
   };
 
   useEffect(() => {
@@ -1090,6 +1118,17 @@ export default function RecruitmentProcess() {
     return matchesSearch && matchesStatus && matchesEducation && matchesTest && matchesMinSalary && matchesMaxSalary && matchesFromDate && matchesToDate;
   });
 
+  const filteredJobs = activeJobs.filter((job) => {
+    if (jobListFilter === "all") return true;
+    if (jobListFilter === "active") return isJobRecruitmentOpen(job);
+    if (jobListFilter === "deadline_passed") return job.status === "active" && isJobDeadlinePassed(job);
+    if (jobListFilter === "inactive") return job.status !== "active" || isJobDeadlinePassed(job);
+    return job.status === jobListFilter;
+  });
+
+  const activeOpenJobs = activeJobs.filter(isJobRecruitmentOpen);
+  const inactiveOrExpiredJobs = activeJobs.filter((job) => !isJobRecruitmentOpen(job));
+
   const resetApplicationFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
@@ -1114,21 +1153,21 @@ export default function RecruitmentProcess() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">Proses Rekrutmen</h1>
-                  <p className="text-sm text-muted-foreground">Kelola proses lamaran untuk setiap lowongan aktif</p>
+                  <p className="text-sm text-muted-foreground">Kelola proses lamaran aktif dan pantau history lowongan yang sudah ditutup atau lewat deadline</p>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
                 <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <div className="text-lg font-bold text-foreground">{activeJobs.length}</div>
-                  <div className="text-[11px] text-muted-foreground">Lowongan aktif</div>
+                  <div className="text-lg font-bold text-foreground">{activeOpenJobs.length}</div>
+                  <div className="text-[11px] text-muted-foreground">Lowongan terbuka</div>
                 </div>
                 <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <div className="text-lg font-bold text-foreground">{activeJobs.reduce((sum, job) => sum + (job.application_count || 0), 0)}</div>
                   <div className="text-[11px] text-muted-foreground">Total pelamar</div>
                 </div>
                 <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <div className="text-lg font-bold text-foreground">-</div>
-                  <div className="text-[11px] text-muted-foreground">Final</div>
+                  <div className="text-lg font-bold text-foreground">{inactiveOrExpiredJobs.length}</div>
+                  <div className="text-[11px] text-muted-foreground">History</div>
                 </div>
               </div>
             </div>
@@ -1138,13 +1177,45 @@ export default function RecruitmentProcess() {
         {!selectedJob ? (
           /* Job Categories */
           <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Daftar Lowongan Rekrutmen</h2>
+                  <p className="text-sm text-muted-foreground">Gunakan filter untuk melihat lowongan terbuka, ditutup, draft, atau yang sudah melewati deadline.</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    value={jobListFilter}
+                    onChange={(e) => setJobListFilter(e.target.value)}
+                    className="h-10 min-w-[220px] rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="active">Lowongan terbuka</option>
+                    <option value="all">Semua lowongan</option>
+                    <option value="inactive">Tidak aktif / history</option>
+                    <option value="deadline_passed">Lewat deadline</option>
+                    <option value="closed">Ditutup admin</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                  <span className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+                    {filteredJobs.length} dari {activeJobs.length} lowongan
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Lowongan Aktif</h2>
-                <p className="text-sm text-muted-foreground">Hanya lowongan berstatus aktif dan belum melewati deadline yang ditampilkan.</p>
+                <h2 className="text-lg font-semibold text-foreground">
+                  {jobListFilter === "active" ? "Lowongan Terbuka" : "Hasil Filter Lowongan"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {jobListFilter === "active"
+                    ? "Lowongan berstatus aktif dan belum melewati deadline."
+                    : "History lowongan tetap dapat dibuka untuk pengecekan proses dan pelamar."}
+                </p>
               </div>
               <span className="text-sm text-muted-foreground">
-                {activeJobs.length} lowongan aktif
+                {filteredJobs.length} lowongan ditampilkan
               </span>
             </div>
 
@@ -1152,24 +1223,24 @@ export default function RecruitmentProcess() {
               <div className="rounded-xl border border-dashed border-border bg-card py-10 text-center text-muted-foreground">
                 Memuat data lowongan...
               </div>
-            ) : activeJobs.length === 0 ? (
+            ) : filteredJobs.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border bg-card py-10 text-center text-muted-foreground">
-                Tidak ada lowongan aktif
+                Tidak ada lowongan sesuai filter
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeJobs.map((job) => (
+                {filteredJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="group bg-card border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition cursor-pointer"
+                    className={`group bg-card border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition cursor-pointer ${isJobRecruitmentOpen(job) ? "border-border" : "border-border/70 opacity-95"}`}
                     onClick={() => selectJob(job)}
                   >
                     <div className="flex items-start justify-between gap-3 mb-4">
                       <div className="h-11 w-11 bg-primary/10 rounded-lg flex items-center justify-center">
                         <Briefcase className="h-5 w-5 text-primary" />
                       </div>
-                      <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                        Aktif
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getJobStatusClass(job)}`}>
+                        {getJobStatusLabel(job)}
                       </span>
                     </div>
 
@@ -1196,7 +1267,7 @@ export default function RecruitmentProcess() {
                         {job.application_count || 0} pelamar
                       </span>
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                        Kelola <ChevronRight className="h-4 w-4" />
+                        {isJobRecruitmentOpen(job) ? "Kelola" : "Lihat history"} <ChevronRight className="h-4 w-4" />
                       </span>
                     </div>
                   </div>
@@ -1226,7 +1297,9 @@ export default function RecruitmentProcess() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-xl font-bold text-foreground">{selectedJob.title}</h2>
-                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Aktif</span>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getJobStatusClass(selectedJob)}`}>
+                        {getJobStatusLabel(selectedJob)}
+                      </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" />{selectedJob.department}</span>

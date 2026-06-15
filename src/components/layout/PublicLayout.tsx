@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Building2, Menu, X, LogIn, Mail, Phone, MapPin, ClipboardCheck } from "lucide-react";
@@ -6,8 +6,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const PublicLayout = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});
+  const [activeSection, setActiveSection] = useState("beranda");
 
   useEffect(() => {
     const loadPublicSettings = async () => {
@@ -59,6 +61,60 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
   const contactPhone = publicSettings.landing_contact_phone || "(031) 5962700";
   const contactAddress = publicSettings.landing_contact_address || "Jl. Raya Kertajaya Indah No.47, Manyar Sabrangan, Kec. Mulyorejo, Surabaya, Jawa Timur 60116";
 
+  useEffect(() => {
+    if (location.pathname === "/jobs") {
+      setActiveSection("lowongan");
+      return;
+    }
+    if (location.pathname === "/about") {
+      setActiveSection("tentang");
+      return;
+    }
+    if (location.pathname !== "/") {
+      setActiveSection("");
+      return;
+    }
+
+    const syncHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      setActiveSection(hash || "beranda");
+    };
+
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+
+    const sections = ["beranda", "lowongan", "tentang"]
+      .map((id) => document.getElementById(id))
+      .filter(Boolean) as HTMLElement[];
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActiveSection(visible.target.id);
+      },
+      { rootMargin: "-30% 0px -55% 0px", threshold: [0.1, 0.25, 0.5] }
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => {
+      window.removeEventListener("hashchange", syncHash);
+      observer.disconnect();
+    };
+  }, [location.pathname, location.hash]);
+
+  const navClass = (section: string) =>
+    activeSection === section
+      ? "rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-600 dark:bg-sky-400 dark:text-slate-950 dark:shadow-sky-400/20"
+      : "rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-500 transition-all hover:bg-sky-50 hover:text-sky-600 hover:shadow-sm dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground";
+
+  const mobileNavClass = (section: string) =>
+    activeSection === section
+      ? "block rounded-lg bg-sky-500 px-3 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/25"
+      : "block rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
@@ -76,13 +132,13 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
           {/* Desktop Navigation */}
           <nav className="hidden items-center gap-2 rounded-full md:flex">
-            <a href="/#beranda" className="rounded-xl bg-sky-100 px-5 py-2.5 text-sm font-semibold text-sky-600 transition-colors hover:bg-sky-200 dark:bg-sky-500/15 dark:text-sky-300">
+            <a href="/#beranda" className={navClass("beranda")}>
               Beranda
             </a>
-            <a href="/#lowongan" className="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-sky-600 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground">
+            <a href="/#lowongan" className={navClass("lowongan")}>
               Lowongan
             </a>
-            <a href="/#tentang" className="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-sky-600 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground">
+            <a href="/#tentang" className={navClass("tentang")}>
               Tentang Kami
             </a>
           </nav>
@@ -122,21 +178,21 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
                 <a
                   href="/#beranda"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className={mobileNavClass("beranda")}
                 >
                   Beranda
                 </a>
                 <a
                   href="/#lowongan"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className={mobileNavClass("lowongan")}
                 >
                   Lowongan
                 </a>
                 <a
                   href="/#tentang"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className={mobileNavClass("tentang")}
                 >
                   Tentang Kami
                 </a>
@@ -200,9 +256,6 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
                 </li>
               </ul>
             </div>
-          </div>
-          <div className="mt-8 border-t border-white/10 pt-6 text-center text-xs text-slate-400">
-            <p>© 2026 {companyName}. All rights reserved.</p>
           </div>
         </div>
       </footer>
