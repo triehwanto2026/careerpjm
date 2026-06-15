@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon, Wand2 } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,137 @@ const SWAL_THEME = () => ({
   confirmButtonColor: "hsl(174, 72%, 46%)",
   cancelButtonColor: "hsl(var(--muted))",
 });
+
+type AutoImageTemplate = "auto" | "series" | "matrix" | "rotation" | "analogy";
+
+const encodeSvg = (svg: string) => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+
+const hashText = (text: string) => {
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  return hash;
+};
+
+const shapeSvg = (shape: string, x: number, y: number, size: number, color: string, rotate = 0, fill = "none") => {
+  const cx = x + size / 2;
+  const cy = y + size / 2;
+  const stroke = `stroke="${color}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"`;
+  const transform = `transform="rotate(${rotate} ${cx} ${cy})"`;
+  if (shape === "circle") return `<circle cx="${cx}" cy="${cy}" r="${size * 0.34}" fill="${fill}" ${stroke}/>`;
+  if (shape === "triangle") return `<path d="M ${cx} ${y + 10} L ${x + size - 10} ${y + size - 10} L ${x + 10} ${y + size - 10} Z" fill="${fill}" ${stroke} ${transform}/>`;
+  if (shape === "diamond") return `<path d="M ${cx} ${y + 8} L ${x + size - 8} ${cy} L ${cx} ${y + size - 8} L ${x + 8} ${cy} Z" fill="${fill}" ${stroke} ${transform}/>`;
+  if (shape === "plus") return `<path d="M ${cx} ${y + 10} V ${y + size - 10} M ${x + 10} ${cy} H ${x + size - 10}" fill="none" ${stroke} ${transform}/>`;
+  if (shape === "arrow") return `<path d="M ${x + 14} ${cy} H ${x + size - 18} M ${x + size - 34} ${y + 16} L ${x + size - 14} ${cy} L ${x + size - 34} ${y + size - 16}" fill="none" ${stroke} ${transform}/>`;
+  return `<rect x="${x + 12}" y="${y + 12}" width="${size - 24}" height="${size - 24}" rx="8" fill="${fill}" ${stroke} ${transform}/>`;
+};
+
+const svgFrame = (width: number, height: number, title: string, body: string) => encodeSvg(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    <rect x="10" y="10" width="${width - 20}" height="${height - 20}" rx="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+    <text x="28" y="38" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#0f172a">${title}</text>
+    ${body}
+  </svg>
+`);
+
+const getTemplateForQuestion = (q: QuestionRow, requested: AutoImageTemplate): Exclude<AutoImageTemplate, "auto"> => {
+  if (requested !== "auto") return requested;
+  const text = `${q.question_text} ${q.category || ""}`.toLowerCase();
+  if (/matrix|matriks|kotak|grid/.test(text)) return "matrix";
+  if (/rotasi|rotate|putar|arah/.test(text)) return "rotation";
+  if (/analogi|analogy|hubungan/.test(text)) return "analogy";
+  return "series";
+};
+
+const buildAutoAptitudeImages = (q: QuestionRow, requested: AutoImageTemplate) => {
+  const template = getTemplateForQuestion(q, requested);
+  const seed = hashText(`${q.question_number}-${q.question_text}-${template}`);
+  const shapes = ["circle", "square", "triangle", "diamond", "plus", "arrow"];
+  const colors = ["#0f766e", "#2563eb", "#7c3aed", "#dc2626", "#ca8a04"];
+  const s1 = shapes[seed % shapes.length];
+  const s2 = shapes[(seed + 2) % shapes.length];
+  const s3 = shapes[(seed + 4) % shapes.length];
+  const color = colors[seed % colors.length];
+  const accent = colors[(seed + 2) % colors.length];
+  const rotations = [0, 45, 90, 135, 180];
+  const rot = rotations[seed % rotations.length];
+
+  if (template === "matrix") {
+    const cells = Array.from({ length: 9 }).map((_, idx) => {
+      const row = Math.floor(idx / 3);
+      const col = idx % 3;
+      const x = 52 + col * 116;
+      const y = 62 + row * 92;
+      if (idx === 8) {
+        return `<rect x="${x}" y="${y}" width="80" height="64" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-dasharray="8 6" stroke-width="3"/><text x="${x + 40}" y="${y + 43}" text-anchor="middle" font-family="Arial" font-size="34" font-weight="700" fill="#64748b">?</text>`;
+      }
+      return `<rect x="${x}" y="${y}" width="80" height="64" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>${shapeSvg(shapes[(seed + idx + row) % shapes.length], x + 8, y, 64, idx % 2 ? accent : color, (rot + idx * 45) % 360)}`;
+    }).join("");
+    return {
+      questionImage: svgFrame(420, 360, `Soal #${q.question_number} - Matrix`, cells),
+      optionsImage: buildOptionsSvg(q.question_number, shapes, colors, seed, "Pilih gambar yang melengkapi kotak kosong"),
+    };
+  }
+
+  if (template === "rotation") {
+    const body = [0, 1, 2, 3].map((idx) => {
+      const x = 52 + idx * 88;
+      return `<rect x="${x}" y="92" width="66" height="66" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>${shapeSvg("arrow", x + 1, 92, 64, color, idx * 90)}`;
+    }).join("") + `<rect x="52" y="205" width="330" height="76" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/><text x="217" y="252" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700" fill="#334155">Arah berikutnya?</text>`;
+    return {
+      questionImage: svgFrame(430, 330, `Soal #${q.question_number} - Rotasi`, body),
+      optionsImage: buildOptionsSvg(q.question_number, ["arrow", "arrow", "arrow", "arrow", "arrow"], colors, seed, "Pilih arah rotasi yang benar"),
+    };
+  }
+
+  if (template === "analogy") {
+    const body = `
+      <rect x="42" y="80" width="96" height="96" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+      ${shapeSvg(s1, 58, 92, 68, color, 0)}
+      <text x="160" y="138" font-family="Arial" font-size="30" font-weight="700" fill="#64748b">:</text>
+      <rect x="182" y="80" width="96" height="96" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+      ${shapeSvg(s1, 198, 92, 68, accent, 90)}
+      <text x="302" y="138" font-family="Arial" font-size="30" font-weight="700" fill="#64748b">=</text>
+      <rect x="42" y="215" width="96" height="96" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+      ${shapeSvg(s2, 58, 227, 68, color, 0)}
+      <text x="160" y="273" font-family="Arial" font-size="30" font-weight="700" fill="#64748b">:</text>
+      <rect x="182" y="215" width="96" height="96" rx="16" fill="#ffffff" stroke="#94a3b8" stroke-dasharray="8 6" stroke-width="3"/>
+      <text x="230" y="277" text-anchor="middle" font-family="Arial" font-size="34" font-weight="700" fill="#64748b">?</text>
+    `;
+    return {
+      questionImage: svgFrame(360, 360, `Soal #${q.question_number} - Analogi`, body),
+      optionsImage: buildOptionsSvg(q.question_number, shapes, colors, seed + 5, "Pilih gambar analogi yang sesuai"),
+    };
+  }
+
+  const body = [0, 1, 2, 3, 4].map((idx) => {
+    const x = 42 + idx * 78;
+    if (idx === 4) {
+      return `<rect x="${x}" y="110" width="58" height="58" rx="12" fill="#ffffff" stroke="#94a3b8" stroke-dasharray="8 6" stroke-width="3"/><text x="${x + 29}" y="149" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700" fill="#64748b">?</text>`;
+    }
+    return `<rect x="${x}" y="110" width="58" height="58" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>${shapeSvg(idx % 2 ? s2 : s1, x + 2, 110, 54, idx % 2 ? accent : color, idx * 45)}`;
+  }).join("") + `<text x="212" y="220" text-anchor="middle" font-family="Arial" font-size="16" fill="#475569">Lanjutkan pola gambar berikut.</text>`;
+  return {
+    questionImage: svgFrame(430, 280, `Soal #${q.question_number} - Deret Pola`, body),
+    optionsImage: buildOptionsSvg(q.question_number, [s1, s2, s3, "square", "diamond"], colors, seed, "Pilih jawaban A-E"),
+  };
+};
+
+function buildOptionsSvg(questionNumber: number, shapes: string[], colors: string[], seed: number, title: string) {
+  const body = shapes.slice(0, 5).map((shape, idx) => {
+    const x = 34 + idx * 94;
+    const label = String.fromCharCode(65 + idx);
+    return `
+      <g>
+        <rect x="${x}" y="78" width="72" height="82" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+        ${shapeSvg(shape, x + 8, 84, 56, colors[(seed + idx) % colors.length], (seed + idx * 45) % 360)}
+        <circle cx="${x + 36}" cy="184" r="17" fill="#0f172a"/>
+        <text x="${x + 36}" y="190" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="#ffffff">${label}</text>
+      </g>
+    `;
+  }).join("");
+  return svgFrame(520, 230, `Pilihan #${questionNumber} - ${title}`, body);
+}
 
 interface Instrument {
   id: string;
@@ -265,6 +396,83 @@ const QuestionBuilder = () => {
     }
   };
 
+  const askImageTemplate = async (title: string) => {
+    const { value } = await Swal.fire({
+      title,
+      html: `
+        <div style="text-align:left;font-size:13px">
+          <label style="display:block;margin-bottom:6px;font-weight:600;color:hsl(var(--muted-foreground))">Jenis gambar aptitude</label>
+          <select id="auto-template" class="swal2-select" style="margin:0;width:100%">
+            <option value="auto">Otomatis dari teks/kategori soal</option>
+            <option value="series">Deret pola gambar</option>
+            <option value="matrix">Matrix / kotak kosong</option>
+            <option value="rotation">Rotasi / arah</option>
+            <option value="analogy">Analogi gambar</option>
+          </select>
+          <p style="margin-top:12px;color:hsl(var(--muted-foreground));font-size:12px;line-height:1.6">
+            Gambar dibuat otomatis sebagai SVG. Jika kurang tepat, gambar bisa diganti manual lewat menu edit soal.
+          </p>
+        </div>
+      `,
+      ...SWAL_THEME(),
+      confirmButtonText: "Buat Gambar",
+      showCancelButton: true,
+      cancelButtonText: "Batal",
+      width: 520,
+      preConfirm: () => (document.getElementById("auto-template") as HTMLSelectElement).value as AutoImageTemplate,
+    });
+    return value as AutoImageTemplate | undefined;
+  };
+
+  const handleGenerateQuestionImages = async (q: QuestionRow) => {
+    const template = await askImageTemplate(`Buat Gambar Otomatis #${q.question_number}`);
+    if (!template) return;
+    const generated = buildAutoAptitudeImages(q, template);
+    const { error } = await supabase
+      .from("test_questions")
+      .update({
+        question_image: generated.questionImage,
+        options_image: generated.optionsImage,
+      })
+      .eq("id", q.id);
+    if (error) {
+      Swal.fire("Error", "Gagal menyimpan gambar otomatis", "error");
+      return;
+    }
+    await load();
+    Swal.fire({ icon: "success", title: "Gambar otomatis dibuat", timer: 1400, showConfirmButton: false, ...SWAL_THEME() });
+  };
+
+  const handleGenerateMissingImages = async () => {
+    const targets = questions.filter((q) => !q.question_image && !q.options_image);
+    if (targets.length === 0) {
+      Swal.fire({ icon: "info", title: "Semua soal sudah punya gambar", ...SWAL_THEME() });
+      return;
+    }
+    const template = await askImageTemplate(`Lengkapi ${targets.length} Soal`);
+    if (!template) return;
+
+    for (const q of targets) {
+      const generated = buildAutoAptitudeImages(q, template);
+      const { error } = await supabase
+        .from("test_questions")
+        .update({
+          question_image: generated.questionImage,
+          options_image: generated.optionsImage,
+        })
+        .eq("id", q.id);
+      if (error) {
+        console.error("Auto image generation error:", error);
+        Swal.fire("Error", `Gagal menyimpan gambar soal #${q.question_number}`, "error");
+        await load();
+        return;
+      }
+    }
+
+    await load();
+    Swal.fire({ icon: "success", title: "Gambar otomatis selesai", text: `${targets.length} soal sudah dilengkapi gambar.`, ...SWAL_THEME() });
+  };
+
   const handleAddOption = async (q: QuestionRow) => {
     const opts = optionsByQ[q.id] || [];
     const nextOrder = opts.length;
@@ -360,6 +568,9 @@ const QuestionBuilder = () => {
             <button onClick={handleAddQuestion} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
               <Plus className="h-4 w-4" /> Tambah Soal
             </button>
+            <button onClick={handleGenerateMissingImages} className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/15 transition-colors">
+              <Wand2 className="h-4 w-4" /> Lengkapi Gambar Otomatis
+            </button>
           </div>
         </div>
 
@@ -415,6 +626,9 @@ const QuestionBuilder = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <button onClick={() => handleGenerateQuestionImages(q)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Buat Gambar Otomatis">
+                        <Wand2 className="h-4 w-4" />
+                      </button>
                       <button onClick={() => handleEditQuestion(q)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Edit">
                         <Pencil className="h-4 w-4" />
                       </button>
