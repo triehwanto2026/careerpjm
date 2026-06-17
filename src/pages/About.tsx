@@ -290,8 +290,7 @@ const About = () => {
           </div>
 
           {/* Tablet / mobile vertical timeline */}
-          <div className="lg:hidden relative pl-10 overflow-hidden">
-            <div className="absolute left-4 top-1 bottom-1 w-0.5 bg-gradient-to-b from-primary via-primary/40 to-transparent" />
+          <div className="lg:hidden">
             <div className="space-y-6">
               {milestonesToShow.map((m: any, i: number) => (
                 <motion.div
@@ -300,13 +299,13 @@ const About = () => {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.06 }}
-                  className="relative"
+                  className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 pl-10"
                 >
-                  <div className="absolute -left-[26px] top-2 h-5 w-5 rounded-full bg-primary ring-4 ring-background shadow-md shadow-primary/30" />
-                  <div className="rounded-2xl border border-border bg-card p-5">
+                  <div className="absolute left-3 top-5 h-5 w-5 rounded-full bg-primary ring-4 ring-background shadow-md shadow-primary/30" />
+                  <div className="space-y-2">
                     <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">{m.year}</span>
-                    <h3 className="mt-2 text-base font-semibold">{m.title || m.year}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{m.description}</p>
+                    <h3 className="text-base font-semibold">{m.title || m.year}</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{m.description}</p>
                   </div>
                 </motion.div>
               ))}
@@ -325,27 +324,34 @@ const About = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {valuesToShow.map((value: any, i: number) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.05 }}
-              className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card p-6 transition hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5"
-            >
-              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                {renderValueIcon(value.icon)}
-              </div>
-              <h3 className="relative mt-5 text-lg font-semibold">{value.name || `Nilai ${i + 1}`}</h3>
-              <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">{value.description}</p>
-              <span className="relative mt-5 inline-flex items-center text-xs font-semibold uppercase tracking-wider text-primary/80">
-                0{i + 1}
-              </span>
-            </motion.div>
-          ))}
+        <div className="relative w-full">
+          <Carousel opts={{ align: "start", loop: valuesToShow.length > 3 }} className="w-full">
+            <CarouselContent className="-ml-4">
+              {valuesToShow.map((value: any, i: number) => (
+                <CarouselItem key={i} className="pl-4 basis-full sm:basis-1/2 lg:basis-1/3">
+                  <motion.div
+                    initial={{ opacity: 0, y: 18 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card p-6 transition hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5"
+                  >
+                    <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition" />
+                    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                      {renderValueIcon(value.icon)}
+                    </div>
+                    <h3 className="relative mt-5 text-lg font-semibold">{value.name || `Nilai ${i + 1}`}</h3>
+                    <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">{value.description}</p>
+                    <span className="relative mt-5 inline-flex items-center text-xs font-semibold uppercase tracking-wider text-primary/80">
+                      0{i + 1}
+                    </span>
+                  </motion.div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="left-2 top-1/2 -translate-y-1/2" />
+            <CarouselNext className="right-2 top-1/2 -translate-y-1/2" />
+          </Carousel>
         </div>
       </section>
 
