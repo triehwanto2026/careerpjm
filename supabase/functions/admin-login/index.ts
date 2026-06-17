@@ -9,6 +9,16 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function getEnv(key: string, fallbacks: string[] = []) {
+  const value = Deno.env.get(key);
+  if (value) return value;
+  for (const fallback of fallbacks) {
+    const fallbackValue = Deno.env.get(fallback);
+    if (fallbackValue) return fallbackValue;
+  }
+  return undefined;
+}
+
 async function sha256Hex(text: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -25,9 +35,14 @@ Deno.serve(async (req) => {
   const password = body.password || "";
   if (!identifier || !password) return json({ error: "Username/email dan password wajib diisi" }, 400);
 
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+  const url = getEnv("SUPABASE_URL", ["VITE_SUPABASE_URL"]);
+  const serviceKey = getEnv("SUPABASE_SERVICE_ROLE_KEY", ["VITE_SUPABASE_SERVICE_ROLE_KEY"]);
+  const anonKey = getEnv("SUPABASE_ANON_KEY", ["SUPABASE_PUBLISHABLE_KEY", "VITE_SUPABASE_PUBLISHABLE_KEY"]);
+
+  if (!url || !serviceKey || !anonKey) {
+    return json({ error: "Supabase function environment is not configured." }, 500);
+  }
+
   const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
   // Lookup admin_users row by username or email
