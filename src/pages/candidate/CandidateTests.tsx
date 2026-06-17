@@ -52,8 +52,13 @@ export default function CandidateTests() {
 
   const load = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user.email) return;
-    const { data: c } = await (supabase as any).from("my_activation_codes").select("*").eq("candidate_email", session.user.email).order("created_at", { ascending: false });
+    const candidateEmail = session?.user.email?.trim();
+    if (!candidateEmail) return;
+    const { data: c } = await (supabase as any)
+      .from("my_activation_codes")
+      .select("*")
+      .ilike("candidate_email", candidateEmail)
+      .order("created_at", { ascending: false });
     setCodes(sortCodes((c as any) || []));
     
     // Get candidate profile to get candidate_id
