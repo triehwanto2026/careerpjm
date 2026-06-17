@@ -336,7 +336,7 @@ const Index = () => {
                   <Carousel opts={{ align: "start", loop: missionItems.length > 2 }} className="w-full">
                     <CarouselContent className="md:-ml-4 -ml-0">
                         {(missionItems.length ? missionItems : [aboutMission]).map((mission, idx) => (
-                          <CarouselItem key={idx} className="pl-4 w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] md:basis-1/2">
+                        <CarouselItem key={idx} className="pl-0 sm:pl-4 w-full max-w-full md:basis-1/2">
                           <div className="h-full min-h-[190px] rounded-[24px] border border-white/10 bg-[#0f2034] p-6 overflow-hidden">
                             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-300/15 text-sm font-black text-teal-200">
                               {String(idx + 1).padStart(2, "0")}
@@ -371,7 +371,7 @@ const Index = () => {
                 <Carousel opts={{ align: "start", loop: valuesToShow.length > 3 }} className="w-full overflow-hidden">
                   <CarouselContent className="md:-ml-4 -ml-0 max-w-full">
                     {valuesToShow.map((value: any, idx: number) => (
-                      <CarouselItem key={idx} className="pl-4 w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:basis-1/2 lg:basis-1/3">
+                      <CarouselItem key={idx} className="pl-0 sm:pl-4 w-full max-w-full sm:basis-1/2 lg:basis-1/3">
                         <div className="h-full min-h-[178px] rounded-[24px] border border-white/10 bg-gradient-to-br from-amber-300/16 to-white/[0.05] p-6 overflow-hidden">
                           <Layers3 className="mb-5 h-7 w-7 text-amber-200" />
                           <p className="text-lg font-bold">{value.name || `Nilai ${idx + 1}`}</p>
