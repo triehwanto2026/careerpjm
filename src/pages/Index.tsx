@@ -249,7 +249,7 @@ const Index = () => {
       </section>
 
       {/* About */}
-      <section id="tentang" className="scroll-mt-24 overflow-hidden bg-[#07111f] text-white">
+      <section id="tentang" className="scroll-mt-24 overflow-hidden overflow-x-hidden bg-[#07111f] text-white">
         <div className="relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(14,165,233,0.28),transparent_30%),radial-gradient(circle_at_82%_8%,rgba(20,184,166,0.24),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%)]" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/50 to-transparent" />
@@ -337,7 +337,7 @@ const Index = () => {
                     <CarouselContent className="-ml-4">
                       {(missionItems.length ? missionItems : [aboutMission]).map((mission, idx) => (
                         <CarouselItem key={idx} className="pl-4 md:basis-1/2">
-                          <div className="h-full min-h-[190px] rounded-[24px] border border-white/10 bg-[#0f2034] p-6">
+                          <div className="h-full min-h-[190px] rounded-[24px] border border-white/10 bg-[#0f2034] p-6 overflow-hidden">
                             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-300/15 text-sm font-black text-teal-200">
                               {String(idx + 1).padStart(2, "0")}
                             </span>
@@ -372,7 +372,7 @@ const Index = () => {
                   <CarouselContent className="-ml-4">
                     {valuesToShow.map((value: any, idx: number) => (
                       <CarouselItem key={idx} className="pl-4 sm:basis-1/2 lg:basis-1/3">
-                        <div className="h-full min-h-[178px] rounded-[24px] border border-white/10 bg-gradient-to-br from-amber-300/16 to-white/[0.05] p-6">
+                        <div className="h-full min-h-[178px] rounded-[24px] border border-white/10 bg-gradient-to-br from-amber-300/16 to-white/[0.05] p-6 overflow-hidden">
                           <Layers3 className="mb-5 h-7 w-7 text-amber-200" />
                           <p className="text-lg font-bold">{value.name || `Nilai ${idx + 1}`}</p>
                           <p className="mt-3 text-sm leading-7 text-slate-300">{value.description}</p>

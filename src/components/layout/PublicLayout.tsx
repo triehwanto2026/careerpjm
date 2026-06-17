@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Building2, Menu, X, LogIn, Mail, Phone, MapPin, ClipboardCheck } from "lucide-react";
@@ -110,13 +110,29 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
       ? "rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-600 dark:bg-sky-400 dark:text-slate-950 dark:shadow-sky-400/20"
       : "rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-500 transition-all hover:bg-sky-50 hover:text-sky-600 hover:shadow-sm dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground";
 
+  const navigate = useNavigate();
+
+  const scrollToSection = (section: string) => {
+    if (location.pathname !== "/") {
+      navigate(`/#${section}`);
+      return;
+    }
+
+    const element = document.getElementById(section);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.history.replaceState(null, "", `/#${section}`);
+      setActiveSection(section);
+    }
+  };
+
   const mobileNavClass = (section: string) =>
     activeSection === section
       ? "block rounded-lg bg-sky-500 px-3 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/25"
       : "block rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 text-slate-950 shadow-sm backdrop-blur-xl dark:border-border dark:bg-card/90 dark:text-foreground">
         <div className="container flex h-[74px] items-center justify-between px-4 md:px-6">
@@ -132,15 +148,15 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
           {/* Desktop Navigation */}
           <nav className="hidden items-center gap-2 rounded-full md:flex">
-            <a href="/#beranda" className={navClass("beranda")}>
+            <button type="button" onClick={() => scrollToSection("beranda")} className={navClass("beranda")}>
               Beranda
-            </a>
-            <a href="/#lowongan" className={navClass("lowongan")}>
+            </button>
+            <button type="button" onClick={() => scrollToSection("lowongan")} className={navClass("lowongan")}>
               Lowongan
-            </a>
-            <a href="/#tentang" className={navClass("tentang")}>
+            </button>
+            <button type="button" onClick={() => scrollToSection("tentang")} className={navClass("tentang")}>
               Tentang Kami
-            </a>
+            </button>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -175,27 +191,36 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
           {mobileMenuOpen && (
             <div className="md:hidden border-t border-slate-200 bg-white dark:border-border dark:bg-card">
               <nav className="container px-4 py-4 space-y-3">
-                <a
-                  href="/#beranda"
-                  onClick={() => setMobileMenuOpen(false)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    scrollToSection("beranda");
+                  }}
                   className={mobileNavClass("beranda")}
                 >
                   Beranda
-                </a>
-                <a
-                  href="/#lowongan"
-                  onClick={() => setMobileMenuOpen(false)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    scrollToSection("lowongan");
+                  }}
                   className={mobileNavClass("lowongan")}
                 >
                   Lowongan
-                </a>
-                <a
-                  href="/#tentang"
-                  onClick={() => setMobileMenuOpen(false)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    scrollToSection("tentang");
+                  }}
                   className={mobileNavClass("tentang")}
                 >
                   Tentang Kami
-                </a>
+                </button>
                 <Button 
                   asChild
                   variant="outline"
