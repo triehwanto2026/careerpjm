@@ -228,24 +228,17 @@ const About = () => {
                   {missionItems[0] || aboutMission}
                 </p>
               ) : (
-                <div className="mt-4 -mx-1">
-                  <Carousel opts={{ align: "start", loop: missionItems.length > 2 }} className="w-full">
-                    <CarouselContent className="-ml-3">
-                      {missionItems.map((m, idx) => (
-                        <CarouselItem key={idx} className="pl-3 basis-full sm:basis-1/2">
-                          <div className="h-full flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 backdrop-blur p-4">
-                            <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-sm font-bold shadow-sm">
-                              {String(idx + 1).padStart(2, "0")}
-                            </span>
-                            <span className="text-sm leading-relaxed text-foreground/90">{m}</span>
-                          </div>
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious className="hidden sm:flex -left-2" />
-                    <CarouselNext className="hidden sm:flex -right-2" />
-                  </Carousel>
-                  <p className="mt-2 text-[11px] text-muted-foreground">Geser untuk melihat seluruh misi →</p>
+                <div className="mt-4 space-y-4">
+                  {missionItems.map((m, idx) => (
+                    <div key={idx} className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-sm font-bold shadow-sm">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        <span className="text-sm leading-relaxed text-foreground/90">{m}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -297,7 +290,7 @@ const About = () => {
           </div>
 
           {/* Tablet / mobile vertical timeline */}
-          <div className="lg:hidden relative pl-10">
+          <div className="lg:hidden relative pl-10 overflow-hidden">
             <div className="absolute left-4 top-1 bottom-1 w-0.5 bg-gradient-to-b from-primary via-primary/40 to-transparent" />
             <div className="space-y-6">
               {milestonesToShow.map((m: any, i: number) => (
@@ -332,33 +325,28 @@ const About = () => {
           </div>
         </div>
 
-        <Carousel opts={{ align: "start", loop: valuesToShow.length > 3 }} className="w-full">
-          <CarouselContent className="-ml-4">
-            {valuesToShow.map((value: any, i: number) => (
-              <CarouselItem key={i} className="pl-4 basis-full sm:basis-1/2 lg:basis-1/3">
-                <motion.div
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card p-6 transition hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5"
-                >
-                  <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition" />
-                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                    {renderValueIcon(value.icon)}
-                  </div>
-                  <h3 className="relative mt-5 text-lg font-semibold">{value.name || `Nilai ${i + 1}`}</h3>
-                  <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">{value.description}</p>
-                  <span className="relative mt-5 inline-flex items-center text-xs font-semibold uppercase tracking-wider text-primary/80">
-                    0{i + 1}
-                  </span>
-                </motion.div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="hidden md:flex -left-4" />
-          <CarouselNext className="hidden md:flex -right-4" />
-        </Carousel>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {valuesToShow.map((value: any, i: number) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.05 }}
+              className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card p-6 transition hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5"
+            >
+              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition" />
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                {renderValueIcon(value.icon)}
+              </div>
+              <h3 className="relative mt-5 text-lg font-semibold">{value.name || `Nilai ${i + 1}`}</h3>
+              <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">{value.description}</p>
+              <span className="relative mt-5 inline-flex items-center text-xs font-semibold uppercase tracking-wider text-primary/80">
+                0{i + 1}
+              </span>
+            </motion.div>
+          ))}
+        </div>
       </section>
 
       {/* CTA */}

@@ -156,8 +156,11 @@ const CarouselItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
       <div
         ref={ref}
         role="group"
-          className={cn("flex flex-nowrap min-w-0 max-w-full", orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col", className)}
-        className={cn("min-w-0 max-w-full overflow-hidden shrink-0 grow-0 basis-full", orientation === "horizontal" ? "pl-4" : "pt-4", className)}
+        className={cn(
+          "flex flex-nowrap min-w-0 max-w-full overflow-hidden shrink-0 grow-0 basis-full",
+          orientation === "horizontal" ? "pl-4" : "pt-4 flex-col",
+          className,
+        )}
         {...props}
       />
     );
