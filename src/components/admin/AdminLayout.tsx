@@ -362,6 +362,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
             <LogOut className="h-4 w-4" />{!sidebarCollapsed && "Keluar"}
           </button>
         </div>
+        </div>
       </aside>
 
       <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">

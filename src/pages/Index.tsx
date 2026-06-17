@@ -368,8 +368,8 @@ const Index = () => {
                   </div>
                   <Award className="h-7 w-7 text-amber-200" />
                 </div>
-                <Carousel opts={{ align: "start", loop: valuesToShow.length > 3 }} className="w-full">
-                  <CarouselContent className="-ml-4">
+                <Carousel opts={{ align: "start", loop: valuesToShow.length > 3 }} className="w-full overflow-hidden">
+                  <CarouselContent className="-ml-4 max-w-full">
                     {valuesToShow.map((value: any, idx: number) => (
                       <CarouselItem key={idx} className="pl-4 sm:basis-1/2 lg:basis-1/3">
                         <div className="h-full min-h-[178px] rounded-[24px] border border-white/10 bg-gradient-to-br from-amber-300/16 to-white/[0.05] p-6 overflow-hidden">
@@ -398,7 +398,7 @@ const Index = () => {
                     <h3 className="mt-1 text-2xl font-bold">Perjalanan</h3>
                   </div>
                 </div>
-                <div className="space-y-5">
+                <div className="space-y-5 overflow-hidden">
                   {milestonesToShow.map((item: any, idx: number) => (
                     <div key={idx} className="relative pl-8">
                       <span className="absolute left-0 top-1 flex h-4 w-4 rounded-full bg-sky-300 ring-4 ring-sky-300/15" />
