@@ -132,7 +132,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
       : "block rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full flex flex-col bg-background overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 text-slate-950 shadow-sm backdrop-blur-xl dark:border-border dark:bg-card/90 dark:text-foreground">
         <div className="container flex h-[74px] items-center justify-between px-4 md:px-6">

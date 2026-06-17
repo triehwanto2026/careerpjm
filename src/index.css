@@ -79,6 +79,7 @@
     font-size: clamp(13px, 1.2vw, 16px);
     scroll-behavior: smooth;
     overflow-x: hidden;
+    min-width: 100%;
   }
 
   * {
@@ -87,12 +88,25 @@
 
   body {
     overflow-x: hidden;
+    max-width: 100%;
+    min-width: 100%;
     padding-bottom: env(safe-area-inset-bottom);
     padding-top: env(safe-area-inset-top);
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  img,
+  svg,
+  video,
+  canvas,
+  iframe,
+  embed,
+  object {
+    max-width: 100%;
+    height: auto;
   }
 
   ::selection {
