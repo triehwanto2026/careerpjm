@@ -249,6 +249,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       <aside className={`fixed inset-y-0 left-0 z-50 flex h-full flex-shrink-0 flex-col bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100 shadow-lg transition-all duration-300 md:static md:translate-x-0 ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       } ${sidebarCollapsed ? "md:w-20" : "w-64 md:w-64"}`}>
+        <div className="flex min-h-0 flex-1 flex-col">
         <div className={`flex items-center justify-between border-b border-slate-700 px-5 py-4 ${sidebarCollapsed ? "px-3" : ""}`}>
           <div className="flex items-center gap-2">
             {adminLogoUrl ? (
@@ -267,7 +268,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
+        <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
           {navEntries.map((entry) => {
             if ("path" in entry) {
               // Single nav item
@@ -344,7 +345,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           })}
         </nav>
 
-          <div className="border-t border-slate-700 p-3 space-y-2">
+          <div className="sticky bottom-0 z-10 border-t border-slate-700 bg-slate-950/90 p-3 space-y-2 backdrop-blur-sm">
           {adminSession && !sidebarCollapsed && (
             <div className="rounded-lg bg-white/10 px-3 py-2">
               <p className="text-xs font-medium text-white truncate">
