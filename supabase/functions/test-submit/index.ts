@@ -46,6 +46,47 @@ const IST_SUBTEST_MAX: Record<string, number> = {
   ME: 20,
 };
 
+const APTITUDE_AREAS: Record<string, { label: string; max: number }> = {
+  Verbal: { label: "Verbal", max: 11 },
+  Numerical: { label: "Numerik", max: 10 },
+  Logic: { label: "Logika", max: 6 },
+  Classification: { label: "Klasifikasi", max: 12 },
+  Pattern: { label: "Pola", max: 3 },
+  Abstract: { label: "Figural/Abstrak", max: 18 },
+};
+
+const getAptitudeLevel = (score: number) => {
+  if (score >= 80) return { label: "Sangat Baik", recommendation: "Sangat Disarankan" };
+  if (score >= 65) return { label: "Baik", recommendation: "Disarankan" };
+  if (score >= 50) return { label: "Cukup", recommendation: "Cukup Disarankan" };
+  if (score >= 35) return { label: "Rendah", recommendation: "Perlu Pertimbangan" };
+  return { label: "Sangat Rendah", recommendation: "Tidak Disarankan" };
+};
+
+const buildAptitudeInterpretation = (cats: Record<string, number>, score: number, answered: number, total: number) => {
+  const rows = Object.entries(APTITUDE_AREAS).map(([key, area]) => {
+    const raw = Number(cats[key] || 0);
+    const pct = Math.round((raw / area.max) * 100);
+    const level = pct >= 80 ? "Sangat Baik" : pct >= 65 ? "Baik" : pct >= 50 ? "Cukup" : pct >= 35 ? "Rendah" : "Sangat Rendah";
+    return { key, ...area, raw, pct, level };
+  });
+  const level = getAptitudeLevel(score);
+  const strongest = [...rows].sort((a, b) => b.pct - a.pct).slice(0, 2);
+  const weakest = [...rows].sort((a, b) => a.pct - b.pct).slice(0, 2);
+  const correct = Number(cats.correct_answers ?? Math.round((score / 100) * Math.max(total, 1)));
+  const wrong = Math.max(0, answered - correct);
+
+  return `Hasil Aptitude Test menunjukkan skor akhir ${score}% (${correct} benar dari ${total} soal; ${wrong} salah dari ${answered} soal dijawab). Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
+
+Kekuatan relatif kandidat tampak pada ${strongest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}.
+
+Area yang perlu diperhatikan adalah ${weakest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}. Area ini sebaiknya divalidasi melalui wawancara berbasis kasus, riwayat pendidikan/kerja, dan contoh pekerjaan yang relevan.
+
+Profil aspek: ${rows.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.level})`).join("; ")}.
+
+Catatan skoring: tes menggunakan correct-only scoring. Setiap jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
+};
+
 const CFIT_IQ_TABLE: Record<number, { iq: number; classification: string }> = {
   49: { iq: 183, classification: "Genius" },
   48: { iq: 179, classification: "Genius" },
@@ -282,6 +323,11 @@ Deno.serve(async (req) => {
         || questions.some((q: any) => q.scoring_rule === "papikostik_dimension");
       const isKraepelin = upperName.includes("KRAEPELIN") || scoringMethod === "speed_accuracy"
         || questions.some((q: any) => q.question_type === "numeric" || q.scoring_rule === "speed_accuracy");
+      const isAptitude = upperName.includes("APTITUDE") || (
+        scoringMethod === "correct_only"
+        && questions.length === 60
+        && questions.some((q: any) => Object.keys(APTITUDE_AREAS).includes(String(q.category || "")))
+      );
       const answers = ip.answers || {};
       const cats: Record<string, number> = {};
       let correctCount = 0;
@@ -414,6 +460,12 @@ Deno.serve(async (req) => {
         };
         Object.assign(cats, kraepelinMetrics);
       }
+      if (isAptitude) {
+        cats.correct_answers = correctCount;
+        cats.wrong_answers = Math.max(0, answeredCount - correctCount);
+        cats.blank_answers = Math.max(0, questions.length - answeredCount);
+        cats.accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+      }
       const score = isKraepelin && kraepelinMetrics
         ? Math.round((kraepelinMetrics.accuracy + kraepelinMetrics.work_capacity) / 2)
         : isIst && maxPossibleScore > 0
@@ -443,6 +495,8 @@ Deno.serve(async (req) => {
             ? { ...normalizedCats, "IST Raw Score": Math.round(totalScore), "IST Max Score": Math.round(maxPossibleScore) }
             : isCfit && cfitIqInfo
               ? { ...normalizedCats, "CFIT Raw Score": correctCount, "CFIT Max Score": questions.length, "CFIT IQ": cfitIqInfo.iq }
+            : isAptitude
+              ? { ...normalizedCats, "Aptitude Raw Score": correctCount, "Aptitude Max Score": questions.length }
             : normalizedCats,
           status,
           interpretation: isIst
@@ -467,6 +521,8 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
               ? buildMbtiInterpretation(normalizedCats, answeredCount, questions.length, inst.name)
             : isPapi
               ? buildPapiInterpretation(normalizedCats, answeredCount, questions.length)
+            : isAptitude
+              ? buildAptitudeInterpretation(normalizedCats, score, answeredCount, questions.length)
             : `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasar profil dimensi."}`,
           candidate_profile: payload.candidate
             ? {

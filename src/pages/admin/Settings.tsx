@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Home, Mail, Shield, Layout, Upload, X, Database, Download, Plus } from "lucide-react";
+import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Home, Mail, Shield, Layout, Upload, X, Database, Download, Plus, Archive, HardDrive, Trash2, AlertTriangle, FileDown } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,11 +14,133 @@ interface Setting {
   is_public: boolean;
 }
 
+type BackupFormat = "json" | "postgresql" | "mysql" | "full";
+type StorageBackupMode = "manifest" | "full";
+type MaintenanceActionId =
+  | "expired_codes"
+  | "old_test_sessions"
+  | "old_notifications"
+  | "old_activity_logs"
+  | "old_storage_files"
+  | "backup_bucket_files";
+
+interface StorageObjectBackup {
+  bucket: string;
+  path: string;
+  id?: string;
+  name?: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+  last_accessed_at?: string;
+  size?: number;
+  mime_type?: string;
+  base64?: string;
+  download_error?: string;
+}
+
 const SWAL_THEME = {
   background: "hsl(var(--card))" as string,
   color: "hsl(var(--foreground))" as string,
   confirmButtonColor: "hsl(168, 76%, 42%)" as string,
 };
+
+const TABLES_TO_BACKUP = [
+  "admin_roles",
+  "admin_users",
+  "app_settings",
+  "activation_codes",
+  "candidates",
+  "candidate_profiles",
+  "candidate_documents",
+  "candidate_family_members",
+  "candidate_education_history",
+  "candidate_informal_education",
+  "candidate_work_experience",
+  "candidate_skills",
+  "candidate_languages",
+  "candidate_auth",
+  "candidate_otps",
+  "job_vacancies",
+  "job_applications",
+  "test_instruments",
+  "test_questions",
+  "test_question_options",
+  "test_answer_keys",
+  "test_interpretations",
+  "test_sessions",
+  "test_results",
+  "notifications",
+  "notification_templates",
+  "activity_logs",
+];
+
+const STORAGE_BUCKETS = [
+  "settings-images",
+  "candidate-photos",
+  "candidate-documents",
+  "test-images",
+  "database-backups",
+  "app-backups",
+];
+
+const sqlIdentifier = (name: string, dialect: "postgresql" | "mysql") =>
+  dialect === "mysql" ? `\`${name.replace(/`/g, "``")}\`` : `"${name.replace(/"/g, '""')}"`;
+
+const sqlValue = (value: unknown, dialect: "postgresql" | "mysql") => {
+  if (value === null || value === undefined) return "NULL";
+  if (typeof value === "boolean") return dialect === "mysql" ? (value ? "1" : "0") : value ? "true" : "false";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "NULL";
+  if (typeof value === "object") return `'${JSON.stringify(value).replace(/\\/g, "\\\\").replace(/'/g, "''")}'`;
+  return `'${String(value).replace(/\\/g, "\\\\").replace(/'/g, "''")}'`;
+};
+
+const generateInsertSql = (tables: Record<string, any[]>, dialect: "postgresql" | "mysql") => {
+  const generatedAt = new Date().toISOString();
+  let sql = `-- CareerPJM backup\n-- Generated: ${generatedAt}\n-- Dialect: ${dialect}\n\n`;
+  if (dialect === "mysql") {
+    sql += "SET FOREIGN_KEY_CHECKS=0;\nSTART TRANSACTION;\n\n";
+  } else {
+    sql += "BEGIN;\n\n";
+  }
+
+  Object.entries(tables).forEach(([table, rows]) => {
+    sql += `-- Table: ${table}\n`;
+    if (!rows.length) {
+      sql += `-- No rows\n\n`;
+      return;
+    }
+
+    rows.forEach((row) => {
+      const columns = Object.keys(row);
+      const columnSql = columns.map((column) => sqlIdentifier(column, dialect)).join(", ");
+      const valuesSql = columns.map((column) => sqlValue(row[column], dialect)).join(", ");
+      sql += `INSERT INTO ${sqlIdentifier(table, dialect)} (${columnSql}) VALUES (${valuesSql});\n`;
+    });
+    sql += "\n";
+  });
+
+  sql += dialect === "mysql" ? "COMMIT;\nSET FOREIGN_KEY_CHECKS=1;\n" : "COMMIT;\n";
+  return sql;
+};
+
+const downloadTextFile = (filename: string, content: string, type: string) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const blobToBase64 = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 
 const Settings = () => {
   const [settings, setSettings] = useState<Setting[]>([]);
@@ -27,7 +149,11 @@ const Settings = () => {
   const [activeCategory, setActiveCategory] = useState<string>("branding");
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [hasChanges, setHasChanges] = useState(false);
-  const [backupFormat, setBackupFormat] = useState("json");
+  const [backupFormat, setBackupFormat] = useState<BackupFormat>("full");
+  const [storageBackupMode, setStorageBackupMode] = useState<StorageBackupMode>("manifest");
+  const [includeStorage, setIncludeStorage] = useState(true);
+  const [maintenanceDays, setMaintenanceDays] = useState(30);
+  const [maintenanceLoading, setMaintenanceLoading] = useState<MaintenanceActionId | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
 
   const categories = [
@@ -35,7 +161,7 @@ const Settings = () => {
     { id: "landing", name: "Landing Page", icon: Home, description: "Konten halaman depan, kontak, dan background" },
     { id: "login", name: "Halaman Login", icon: Layout, description: "Tampilan halaman login" },
     { id: "system", name: "Sistem", icon: Shield, description: "Konfigurasi sistem" },
-    { id: "backup", name: "Backup Database", icon: Database, description: "Backup dan restore database" },
+    { id: "backup", name: "Backup & Maintenance", icon: Database, description: "Migrasi data, bucket, dan perawatan storage" },
     { id: "email", name: "Email", icon: Mail, description: "Pengaturan email" },
   ];
 
@@ -240,69 +366,126 @@ const Settings = () => {
     }
   };
 
-  const handleManualBackup = async () => {
-    setBackupLoading(true);
-    try {
-      const tables = ['admin_users', 'admin_roles', 'app_settings', 'test_instruments', 'test_questions', 'candidates', 'test_sessions', 'test_results', 'activation_codes', 'test_interpretations', 'test_answer_keys'];
-      const backupData: Record<string, any[]> = {};
+  const fetchTableData = async () => {
+    const backupData: Record<string, any[]> = {};
+    const skippedTables: string[] = [];
 
-      for (const table of tables) {
-        const { data, error } = await (supabase.from(table as any).select('*'));
-        if (!error && data) {
-          backupData[table] = data;
+    for (const table of TABLES_TO_BACKUP) {
+      const { data, error } = await supabase.from(table as any).select("*");
+      if (error) {
+        skippedTables.push(`${table}: ${error.message}`);
+      } else {
+        backupData[table] = data || [];
+      }
+    }
+
+    return { backupData, skippedTables };
+  };
+
+  const listStorageObjects = async (bucket: string, prefix = ""): Promise<StorageObjectBackup[]> => {
+    const { data, error } = await supabase.storage.from(bucket).list(prefix, {
+      limit: 1000,
+      sortBy: { column: "name", order: "asc" },
+    });
+
+    if (error) {
+      return [{
+        bucket,
+        path: prefix || "/",
+        download_error: error.message,
+      }];
+    }
+
+    const objects: StorageObjectBackup[] = [];
+
+    for (const item of data || []) {
+      const path = prefix ? `${prefix}/${item.name}` : item.name;
+      if (!item.id && item.metadata === null) {
+        objects.push(...await listStorageObjects(bucket, path));
+        continue;
+      }
+
+      const metadata = (item.metadata || {}) as Record<string, unknown>;
+      const storageObject: StorageObjectBackup = {
+        bucket,
+        path,
+        id: item.id,
+        name: item.name,
+        metadata,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        last_accessed_at: item.last_accessed_at,
+        size: typeof metadata.size === "number" ? metadata.size : undefined,
+        mime_type: typeof metadata.mimetype === "string" ? metadata.mimetype : undefined,
+      };
+
+      if (storageBackupMode === "full") {
+        const { data: fileBlob, error: downloadError } = await supabase.storage.from(bucket).download(path);
+        if (downloadError || !fileBlob) {
+          storageObject.download_error = downloadError?.message || "File tidak dapat diunduh";
+        } else {
+          storageObject.base64 = await blobToBase64(fileBlob);
+          storageObject.mime_type = fileBlob.type || storageObject.mime_type;
+          storageObject.size = fileBlob.size || storageObject.size;
         }
       }
 
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `backup-${timestamp}.${backupFormat}`;
+      objects.push(storageObject);
+    }
 
-      if (backupFormat === 'json') {
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
+    return objects;
+  };
+
+  const fetchStorageBackup = async () => {
+    const objects: StorageObjectBackup[] = [];
+    for (const bucket of STORAGE_BUCKETS) {
+      objects.push(...await listStorageObjects(bucket));
+    }
+    return objects;
+  };
+
+  const handleManualBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const { backupData, skippedTables } = await fetchTableData();
+      const storageObjects = includeStorage || backupFormat === "full" ? await fetchStorageBackup() : [];
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const rowCount = Object.values(backupData).reduce((total, rows) => total + rows.length, 0);
+
+      if (backupFormat === "json") {
+        downloadTextFile(`database-backup-${timestamp}.json`, JSON.stringify(backupData, null, 2), "application/json");
+      } else if (backupFormat === "postgresql") {
+        downloadTextFile(`database-backup-postgresql-${timestamp}.sql`, generateInsertSql(backupData, "postgresql"), "text/plain");
+      } else if (backupFormat === "mysql") {
+        downloadTextFile(`database-migration-mysql-${timestamp}.sql`, generateInsertSql(backupData, "mysql"), "text/plain");
       } else {
-        // SQL format - generate INSERT statements
-        let sql = `-- Database Backup\n`;
-        sql += `-- Generated: ${new Date().toISOString()}\n\n`;
-        
-        for (const table of tables) {
-          if (backupData[table] && backupData[table].length > 0) {
-            sql += `-- Data for ${table}\n`;
-            backupData[table].forEach((row: any) => {
-              const columns = Object.keys(row);
-              const values = columns.map(col => {
-                const val = row[col];
-                if (val === null) return 'NULL';
-                if (typeof val === 'boolean') return val ? 'true' : 'false';
-                if (typeof val === 'number') return val;
-                if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-                return `'${String(val).replace(/'/g, "''")}'`;
-              });
-              sql += `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`;
-            });
-            sql += '\n';
-          }
-        }
-
-        const blob = new Blob([sql], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
+        const fullBackup = {
+          version: 1,
+          generated_at: new Date().toISOString(),
+          source: "CareerPJM Supabase",
+          database: backupData,
+          storage: {
+            mode: storageBackupMode,
+            buckets: STORAGE_BUCKETS,
+            objects: storageObjects,
+          },
+          migration_sql: {
+            postgresql: generateInsertSql(backupData, "postgresql"),
+            mysql: generateInsertSql(backupData, "mysql"),
+          },
+          warnings: skippedTables,
+        };
+        downloadTextFile(`full-backup-with-buckets-${timestamp}.json`, JSON.stringify(fullBackup, null, 2), "application/json");
       }
 
       await Swal.fire({
         icon: "success",
         title: "Backup Berhasil",
-        text: `File ${filename} berhasil diunduh`,
-        timer: 2000,
-        showConfirmButton: false,
+        html: `<div style="text-align:left;font-size:13px;">
+          <div><b>${rowCount}</b> baris database diproses.</div>
+          <div><b>${storageObjects.length}</b> objek bucket tercatat${storageBackupMode === "full" ? " / disalin" : ""}.</div>
+          ${skippedTables.length ? `<br><b>Tabel dilewati:</b><br>${skippedTables.map((e) => `• ${e}`).join("<br>")}` : ""}
+        </div>`,
         ...SWAL_THEME,
       });
     } catch (error: unknown) {
@@ -317,6 +500,144 @@ const Settings = () => {
     }
     setBackupLoading(false);
   };
+
+  const cutoffIso = () => new Date(Date.now() - maintenanceDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const deleteOldStorageFiles = async (bucket: string, olderThanIso: string) => {
+    const objects = await listStorageObjects(bucket);
+    const paths = objects
+      .filter((object) => !object.download_error)
+      .filter((object) => {
+        const dateValue = object.updated_at || object.created_at;
+        return dateValue ? dateValue < olderThanIso : false;
+      })
+      .map((object) => object.path);
+
+    let deleted = 0;
+    for (let i = 0; i < paths.length; i += 100) {
+      const chunk = paths.slice(i, i + 100);
+      const { data, error } = await supabase.storage.from(bucket).remove(chunk);
+      if (!error) deleted += data?.length || chunk.length;
+    }
+    return deleted;
+  };
+
+  const runMaintenanceAction = async (actionId: MaintenanceActionId, label: string, run: () => Promise<number>) => {
+    const confirmation = await Swal.fire({
+      icon: "warning",
+      title: label,
+      text: `Data yang memenuhi kriteria akan dihapus permanen. Gunakan backup terbaru sebelum melanjutkan.`,
+      input: "text",
+      inputPlaceholder: "Ketik HAPUS",
+      showCancelButton: true,
+      confirmButtonText: "Jalankan",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "hsl(0, 72%, 51%)",
+      preConfirm: (value) => {
+        if (value !== "HAPUS") {
+          Swal.showValidationMessage("Ketik HAPUS untuk konfirmasi");
+          return false;
+        }
+        return value;
+      },
+      ...SWAL_THEME,
+    });
+
+    if (!confirmation.isConfirmed) return;
+
+    setMaintenanceLoading(actionId);
+    try {
+      const deleted = await run();
+      await Swal.fire({
+        icon: "success",
+        title: "Maintenance Selesai",
+        text: `${deleted} item berhasil dihapus.`,
+        ...SWAL_THEME,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      await Swal.fire({
+        icon: "error",
+        title: "Maintenance Gagal",
+        text: errMsg,
+        ...SWAL_THEME,
+      });
+    }
+    setMaintenanceLoading(null);
+  };
+
+  const maintenanceActions = [
+    {
+      id: "expired_codes" as const,
+      title: "Hapus kode aktivasi kedaluwarsa",
+      description: "Membersihkan activation code yang sudah melewati tanggal kedaluwarsa.",
+      icon: Trash2,
+      run: async () => {
+        const { data, error } = await supabase.from("activation_codes" as any).delete().lt("expires_at", new Date().toISOString()).select("id");
+        if (error) throw error;
+        return data?.length || 0;
+      },
+    },
+    {
+      id: "old_test_sessions" as const,
+      title: "Hapus sesi tes lama",
+      description: `Menghapus test session lebih lama dari ${maintenanceDays} hari.`,
+      icon: RefreshCw,
+      run: async () => {
+        const { data, error } = await supabase.from("test_sessions" as any).delete().lt("created_at", cutoffIso()).select("id");
+        if (error) throw error;
+        return data?.length || 0;
+      },
+    },
+    {
+      id: "old_notifications" as const,
+      title: "Hapus notifikasi lama",
+      description: `Membersihkan notifikasi lebih lama dari ${maintenanceDays} hari.`,
+      icon: Mail,
+      run: async () => {
+        const { data, error } = await supabase.from("notifications" as any).delete().lt("created_at", cutoffIso()).select("id");
+        if (error) throw error;
+        return data?.length || 0;
+      },
+    },
+    {
+      id: "old_activity_logs" as const,
+      title: "Hapus activity logs lama",
+      description: `Membersihkan log aktivitas lebih lama dari ${maintenanceDays} hari.`,
+      icon: Archive,
+      run: async () => {
+        const { data, error } = await supabase.from("activity_logs" as any).delete().lt("created_at", cutoffIso()).select("id");
+        if (error) throw error;
+        return data?.length || 0;
+      },
+    },
+    {
+      id: "old_storage_files" as const,
+      title: "Hapus file bucket lama",
+      description: `Membersihkan file storage lebih lama dari ${maintenanceDays} hari di bucket aplikasi.`,
+      icon: HardDrive,
+      run: async () => {
+        let deleted = 0;
+        for (const bucket of STORAGE_BUCKETS.filter((bucket) => !["database-backups", "app-backups"].includes(bucket))) {
+          deleted += await deleteOldStorageFiles(bucket, cutoffIso());
+        }
+        return deleted;
+      },
+    },
+    {
+      id: "backup_bucket_files" as const,
+      title: "Hapus file backup di bucket",
+      description: "Menghapus isi bucket database-backups dan app-backups agar storage tidak penuh.",
+      icon: AlertTriangle,
+      run: async () => {
+        let deleted = 0;
+        for (const bucket of ["database-backups", "app-backups"]) {
+          deleted += await deleteOldStorageFiles(bucket, new Date(Date.now() + 1000).toISOString());
+        }
+        return deleted;
+      },
+    },
+  ];
 
   const renderField = (setting: Setting) => {
     const currentValue = formData[setting.key] || "";
@@ -535,28 +856,61 @@ const Settings = () => {
                   {/* Manual Backup Section */}
                   <div className="border border-border rounded-lg p-6 bg-muted/30">
                     <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
-                      <Download className="h-5 w-5 text-primary" />
-                      Backup Manual
+                      <FileDown className="h-5 w-5 text-primary" />
+                      Backup & Migrasi Manual
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Download backup database secara manual dalam format JSON atau SQL.
+                      Download backup database untuk arsip, migrasi PostgreSQL, migrasi MySQL, atau paket lengkap beserta bucket storage.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-foreground">Format:</label>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">Format Backup</label>
                         <select
                           value={backupFormat}
-                          onChange={(e) => setBackupFormat(e.target.value)}
-                          className="px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary"
+                          onChange={(e) => setBackupFormat(e.target.value as BackupFormat)}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary"
                         >
-                          <option value="json">JSON</option>
-                          <option value="sql">SQL</option>
+                          <option value="full">Paket Lengkap + SQL Migrasi</option>
+                          <option value="mysql">SQL Migrasi MySQL</option>
+                          <option value="postgresql">SQL PostgreSQL</option>
+                          <option value="json">JSON Database</option>
                         </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">Mode Bucket</label>
+                        <select
+                          value={storageBackupMode}
+                          onChange={(e) => setStorageBackupMode(e.target.value as StorageBackupMode)}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary"
+                        >
+                          <option value="manifest">Manifest file bucket</option>
+                          <option value="full">Manifest + isi file base64</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-4 rounded-lg border border-border bg-background p-4">
+                      <label className="flex items-center gap-3 text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          checked={includeStorage || backupFormat === "full"}
+                          disabled={backupFormat === "full"}
+                          onChange={(e) => setIncludeStorage(e.target.checked)}
+                          className="h-4 w-4 accent-primary"
+                        />
+                        Sertakan data bucket storage
+                      </label>
+                      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Database:</span> {TABLES_TO_BACKUP.length} tabel utama akan diekspor.
+                        </div>
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Bucket:</span> {STORAGE_BUCKETS.join(", ")}.
+                        </div>
                       </div>
                       <button
                         onClick={handleManualBackup}
                         disabled={backupLoading}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex w-fit items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {backupLoading ? (
                           <>
@@ -566,10 +920,61 @@ const Settings = () => {
                         ) : (
                           <>
                             <Download className="h-4 w-4" />
-                            Download Backup
+                            Buat & Download Backup
                           </>
                         )}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Maintenance Section */}
+                  <div className="border border-border rounded-lg p-6 bg-muted/30">
+                    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <HardDrive className="h-5 w-5 text-primary" />
+                      Maintenance Aplikasi
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Bersihkan data operasional dan file lama agar database serta storage tidak penuh. Jalankan backup sebelum menghapus data.
+                    </p>
+                    <div className="mb-4 max-w-xs space-y-2">
+                      <label className="text-sm font-medium text-foreground">Batas data lama (hari)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={maintenanceDays}
+                        onChange={(e) => setMaintenanceDays(Math.max(1, Number(e.target.value) || 1))}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                      />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {maintenanceActions.map((action) => {
+                        const Icon = action.icon;
+                        const isRunning = maintenanceLoading === action.id;
+                        return (
+                          <div key={action.id} className="rounded-lg border border-border bg-background p-4">
+                            <div className="mb-3 flex items-start gap-3">
+                              <Icon className="mt-0.5 h-5 w-5 text-primary" />
+                              <div>
+                                <h4 className="text-sm font-semibold text-foreground">{action.title}</h4>
+                                <p className="text-xs text-muted-foreground">{action.description}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!!maintenanceLoading}
+                              onClick={() => runMaintenanceAction(action.id, action.title, action.run)}
+                              className="inline-flex items-center gap-2 rounded-lg border border-destructive/30 px-3 py-2 text-sm font-medium text-destructive transition hover:bg-destructive hover:text-destructive-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {isRunning ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                              {isRunning ? "Memproses..." : "Jalankan"}
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 

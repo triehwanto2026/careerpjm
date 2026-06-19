@@ -186,6 +186,12 @@ const getResultConclusion = (r: ResultRow) => {
     return `Akurasi ${accuracy}% / Stabil ${stability}%`;
   }
 
+  if (isAptitudeResult(r)) {
+    const level = getAptitudeLevel(r.score);
+    const correct = Number(cats.correct_answers ?? Math.round((r.score / 100) * Math.max(r.total_questions, 1)));
+    return `${level.label} (${correct}/${r.total_questions})`;
+  }
+
   return r.total_questions ? `${r.answered_questions}/${r.total_questions} soal` : `${r.score}%`;
 };
 
@@ -211,6 +217,53 @@ const getKraepelinRows = (cats: Record<string, number>) => [
   { key: "stability", label: "Stabilitas", value: Number(cats.stability || 0) },
   { key: "work_capacity", label: "Kapasitas Kerja", value: Number(cats.work_capacity || 0) },
 ];
+
+const APTITUDE_AREAS = [
+  { key: "Verbal", label: "Verbal", max: 11, note: "Analogi kata, relasi konsep, perbendaharaan kata, dan pemahaman hubungan bahasa." },
+  { key: "Numerical", label: "Numerik", max: 10, note: "Berhitung praktis, deret angka, proporsi, dan pemecahan masalah kuantitatif." },
+  { key: "Logic", label: "Logika", max: 6, note: "Penalaran deduktif, silogisme, dan konsistensi kesimpulan." },
+  { key: "Classification", label: "Klasifikasi", max: 12, note: "Membedakan kategori, mencari item yang tidak sejenis, dan ketelitian konsep." },
+  { key: "Pattern", label: "Pola", max: 3, note: "Pola simbol, susunan huruf/angka, dan aturan transformasi sederhana." },
+  { key: "Abstract", label: "Figural/Abstrak", max: 18, note: "Penalaran gambar, analogi bentuk, rotasi/transformasi, dan persepsi visual." },
+];
+
+const isAptitudeResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
+  r.test_name.toUpperCase().includes("APTITUDE") || Object.keys(r.categories || {}).some((key) => APTITUDE_AREAS.some((area) => area.key === key));
+
+const getAptitudeLevel = (score: number) => {
+  if (score >= 80) return { label: "Sangat Baik", recommendation: "Sangat Disarankan" };
+  if (score >= 65) return { label: "Baik", recommendation: "Disarankan" };
+  if (score >= 50) return { label: "Cukup", recommendation: "Cukup Disarankan" };
+  if (score >= 35) return { label: "Rendah", recommendation: "Perlu Pertimbangan" };
+  return { label: "Sangat Rendah", recommendation: "Tidak Disarankan" };
+};
+
+const getAptitudeRows = (cats: Record<string, number>) =>
+  APTITUDE_AREAS.map((area) => {
+    const raw = Number(cats[area.key] || 0);
+    const pct = Math.round((raw / area.max) * 100);
+    const level = pct >= 80 ? "Sangat Baik" : pct >= 65 ? "Baik" : pct >= 50 ? "Cukup" : pct >= 35 ? "Rendah" : "Sangat Rendah";
+    return { ...area, raw, pct, level };
+  });
+
+const buildAptitudeInterpretation = (cats: Record<string, number>, score: number, answered: number, total: number) => {
+  const rows = getAptitudeRows(cats);
+  const level = getAptitudeLevel(score);
+  const strongest = [...rows].sort((a, b) => b.pct - a.pct).slice(0, 2);
+  const weakest = [...rows].sort((a, b) => a.pct - b.pct).slice(0, 2);
+  const correct = Number(cats.correct_answers ?? Math.round((score / 100) * Math.max(total, 1)));
+  const wrong = Math.max(0, answered - correct);
+
+  return `Hasil Aptitude Test menunjukkan skor akhir ${score}% (${correct} benar dari ${total} soal; ${wrong} salah dari ${answered} soal dijawab). Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
+
+Kekuatan relatif kandidat tampak pada ${strongest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}.
+
+Area yang perlu diperhatikan adalah ${weakest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}. Area ini sebaiknya divalidasi melalui wawancara berbasis kasus, riwayat pendidikan/kerja, dan contoh pekerjaan yang relevan.
+
+Profil aspek: ${rows.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.level})`).join("; ")}.
+
+Catatan skoring: tes menggunakan correct-only scoring. Setiap jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
+};
 
 const buildKraepelinInterpretation = (cats: Record<string, number>) => {
   const rows = getKraepelinRows(cats);
@@ -576,6 +629,7 @@ const Results = () => {
     let mbtiProfileHTML = "";
     let papiProfileHTML = "";
     let kraepelinProfileHTML = "";
+    let aptitudeProfileHTML = "";
     let specialInterpretationHTML = "";
     if (isCfitName(r.test_name)) {
       specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil CFIT 3A</div><div class="interpretation" style="white-space:pre-line;">${buildCfitInterpretation(r).replace(/</g, '&lt;')}</div></div>`;
@@ -623,6 +677,29 @@ const Results = () => {
           </table>
         </div>`;
       specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil PAPI</div><div class="interpretation" style="white-space:pre-line;">${buildPapiInterpretation(cats).replace(/</g, '&lt;')}</div></div>`;
+    } else if (isAptitudeResult(r)) {
+      const rows = getAptitudeRows(cats);
+      const level = getAptitudeLevel(r.score);
+      aptitudeProfileHTML = `
+        <div class="section">
+          <div class="section-title">Profil Aptitude</div>
+          <div class="score-cards">
+            <div class="score-card"><div class="label">Skor Akhir</div><div class="value">${r.score}<span style="font-size:14pt;color:#64748b;">%</span></div><div class="sub">${level.label}</div></div>
+            <div class="score-card"><div class="label">Rekomendasi</div><div class="value" style="font-size:15pt;margin-top:8px;">${level.recommendation}</div></div>
+            <div class="score-card"><div class="label">Benar</div><div class="value">${Number(cats.correct_answers ?? Math.round((r.score / 100) * Math.max(r.total_questions, 1)))}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
+          </div>
+          <table class="dim-table">
+            <thead><tr><th>Aspek</th><th>Skor</th><th>Level</th><th>Keterangan</th><th>Indikator</th></tr></thead>
+            <tbody>${rows.map(row => `<tr>
+              <td><strong>${row.label}</strong></td>
+              <td>${row.raw}/${row.max} (${row.pct}%)</td>
+              <td>${row.level}</td>
+              <td>${row.note}</td>
+              <td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(row.pct, 100)}%; background:${row.pct >= 65 ? '#059669' : row.pct >= 50 ? '#d97706' : '#dc2626'};"></div></div></td>
+            </tr>`).join("")}</tbody>
+          </table>
+        </div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil Aptitude</div><div class="interpretation" style="white-space:pre-line;">${buildAptitudeInterpretation(cats, r.score, r.answered_questions, r.total_questions).replace(/</g, '&lt;')}</div></div>`;
     }
 
     const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
@@ -828,8 +905,9 @@ const Results = () => {
     ${mbtiProfileHTML}
     ${kraepelinProfileHTML}
     ${papiProfileHTML}
+    ${aptitudeProfileHTML}
 
-    <div class="section ${r.test_name.toUpperCase().includes("DISC") || isIstResult(r) || isMbtiResult(r) || isKraepelinResult(r) || isPapiResult(r) ? "hidden" : ""}">
+    <div class="section ${r.test_name.toUpperCase().includes("DISC") || isIstResult(r) || isMbtiResult(r) || isKraepelinResult(r) || isPapiResult(r) || isAptitudeResult(r) ? "hidden" : ""}">
       <div class="section-title">Profil Dimensi & Skor</div>
       ${r.test_name.toUpperCase().includes("DISC") ? 
         // For DISC, show horizontal bar chart with 0 in center, fixed order D, I, S, C
@@ -1387,6 +1465,29 @@ const Results = () => {
         </ResponsiveContainer>
       );
     }
+    if (isAptitudeResult(r)) {
+      const aptitudeData = getAptitudeRows(cats).map((row) => ({
+        name: row.label,
+        value: row.pct,
+        raw: row.raw,
+        max: row.max,
+        level: row.level,
+      }));
+      return (
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={aptitudeData} margin={{ left: 20, right: 30, top: 20, bottom: 50 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+            <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11, fontWeight: 600 }} angle={-18} textAnchor="end" height={62} />
+            <YAxis domain={[0, 100]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+            <Tooltip
+              contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }}
+              formatter={(v: any, _name: any, item: any) => [`${v}% (${item.payload.raw}/${item.payload.max})`, item.payload.level]}
+            />
+            <Bar dataKey="value" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
     // CFIT 3A - Culture Fair Intelligence Test
     if (isCfitName(r.test_name)) {
       const iqInfo = getCfitIqInfoFromResult(r);
@@ -1535,7 +1636,7 @@ const Results = () => {
                 <p className="text-lg font-bold text-primary mt-1">{r.test_name}</p>
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
-                <p className="text-xs text-muted-foreground">{isCfitName(r.test_name) ? "IQ Score" : isIstResult(r) ? "Skor IST" : isMbtiResult(r) ? "Tipe MBTI" : "Skor"}</p>
+                <p className="text-xs text-muted-foreground">{isCfitName(r.test_name) ? "IQ Score" : isIstResult(r) ? "Skor IST" : isMbtiResult(r) ? "Tipe MBTI" : isAptitudeResult(r) ? "Skor Aptitude" : "Skor"}</p>
                 <p className="text-3xl font-bold text-foreground mt-1">
                   {isCfitName(r.test_name) 
                     ? (() => {
@@ -1617,9 +1718,16 @@ const Results = () => {
                       ? `${getIstSummary(cats, r.score).score}%`
                     : isMbtiResult(r)
                       ? <span className="text-4xl font-extrabold tracking-widest text-primary">{getMbtiSummary(cats).type}</span>
+                    : isAptitudeResult(r)
+                      ? `${r.score}%`
                       : `${r.score}%`
                   }
                 </p>
+                {isAptitudeResult(r) && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {getAptitudeLevel(r.score).label} · {Number(cats.correct_answers ?? Math.round((r.score / 100) * Math.max(r.total_questions, 1)))}/{r.total_questions} benar
+                  </p>
+                )}
                 {isIstResult(r) && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Raw {getIstSummary(cats, r.score).raw}/{getIstSummary(cats, r.score).max}
@@ -1848,6 +1956,32 @@ const Results = () => {
                     </tbody>
                   </table>
                 )
+                : isAptitudeResult(r) ? (
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-border">
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Aspek</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Level</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Keterangan</th>
+                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                    </tr></thead>
+                    <tbody>
+                      {getAptitudeRows(cats).map((row) => (
+                        <tr key={row.key} className="border-b border-border/50">
+                          <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
+                          <td className="py-2 px-3 text-foreground">{row.raw}/{row.max} <span className="text-muted-foreground">({row.pct}%)</span></td>
+                          <td className="py-2 px-3 text-foreground">{row.level}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{row.note}</td>
+                          <td className="py-2 px-3 w-40">
+                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                              <div className={`h-full rounded-full ${row.pct >= 65 ? "bg-emerald-400" : row.pct >= 50 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.pct, 100)}%` }} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
                 : (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) ? (() => {
                   const ppMap: Record<string, string> = {
                     K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
@@ -1940,11 +2074,13 @@ const Results = () => {
                   ? buildKraepelinInterpretation(cats)
                 : isPapiResult(r)
                   ? buildPapiInterpretation(cats)
+                : isAptitudeResult(r)
+                  ? buildAptitudeInterpretation(cats, r.score, r.answered_questions, r.total_questions)
                 : r.interpretation;
               if (!interpText) return null;
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
-                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : ''}</h3>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : isAptitudeResult(r) ? ' — Profil Aptitude' : ''}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
                 </div>
               );
