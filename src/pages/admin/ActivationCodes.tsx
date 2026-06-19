@@ -300,10 +300,10 @@ const ActivationCodes = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openEdit(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Edit"><Pencil className="h-4 w-4" /></button>
-                      <button onClick={() => copyCode(c.code, c.password)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Salin"><Copy className="h-4 w-4" /></button>
-                      <button onClick={() => handleDelete(c.id)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus"><Trash2 className="h-4 w-4" /></button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button onClick={() => openEdit(c)} className="rounded-lg border border-violet-400/40 bg-violet-500/15 p-2.5 text-violet-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-violet-500 hover:text-white hover:shadow-violet-500/20" title="Edit"><Pencil className="h-5 w-5" /></button>
+                      <button onClick={() => copyCode(c.code, c.password)} className="rounded-lg border border-amber-400/40 bg-amber-500/15 p-2.5 text-amber-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-amber-500 hover:text-white hover:shadow-amber-500/20" title="Salin"><Copy className="h-5 w-5" /></button>
+                      <button onClick={() => handleDelete(c.id)} className="rounded-lg border border-rose-400/40 bg-rose-500/15 p-2.5 text-rose-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white hover:shadow-rose-500/20" title="Hapus"><Trash2 className="h-5 w-5" /></button>
                     </div>
                   </td>
                 </tr>

@@ -68,34 +68,40 @@ export const buildPapiInterpretation = (categories: Record<string, unknown>) => 
     return `${row.code} - ${row.label} (${row.value}/9; ${row.level}): ${meaning}. ${caution}`;
   };
 
-  return `Profil PAPI Kostick menunjukkan skala paling menonjol pada ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9; ${row.level})`).join(", ")}.
+  return `RINGKASAN PROFIL
+Skala paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9; ${row.level})`).join(", ")}.
+Makna umum: ${workImplication}.
 
-Ringkasan psikologis:
-Skala tertinggi menggambarkan kebutuhan dan gaya peran kerja yang paling tampak. ${workImplication}.
+NEED VS ROLE
+- Total Need: ${needs}
+- Total Role: ${roles}
+- Kesimpulan: ${orientation}.
+- Catatan: Need menggambarkan dorongan/kebutuhan internal, sedangkan Role menggambarkan perilaku kerja yang lebih tampak dalam peran sehari-hari.
 
-Need vs Role:
-Total Need = ${needs}, total Role = ${roles}; perbandingan ini menunjukkan ${orientation}. Need menggambarkan dorongan/kebutuhan internal, sedangkan Role menggambarkan perilaku kerja yang lebih tampak dalam peran sehari-hari.
+SKALA TINGGI
+${highs.length ? highs.map((row) => `- ${row.code} - ${row.label} (${row.value}/9): ${row.high}`).join("\n") : "- Tidak ada skala yang sangat tinggi; profil relatif moderat dan perlu dilihat dari kombinasi keseluruhan skala."}
 
-Skala tinggi:
-${highs.length ? highs.map((row) => `${row.code} - ${row.label} (${row.value}/9): ${row.high}`).join("\n") : "Tidak ada skala yang sangat tinggi; profil relatif moderat dan perlu dilihat dari kombinasi keseluruhan skala."}
+SKALA RENDAH
+${lows.length ? lows.map((row) => `- ${row.code} - ${row.label} (${row.value}/9): ${row.low}`).join("\n") : "- Tidak ada skala rendah yang menonjol."}
 
-Skala rendah:
-${lows.length ? lows.map((row) => `${row.code} - ${row.label} (${row.value}/9): ${row.low}`).join("\n") : "Tidak ada skala rendah yang menonjol."}
+INTERPRETASI RINCI PER DIMENSI
+${rows.map((row) => `- ${explainRow(row)}`).join("\n")}
 
-Interpretasi rinci per dimensi:
-${rows.map(explainRow).join("\n")}
+ANALISIS NEED
+${needRows.map((row) => `- ${row.code} ${row.value}/9 - ${row.label}: ${row.value >= 7 ? row.high : row.value >= 4 ? "kebutuhan tampak cukup dan situasional" : row.low}`).join("\n")}
 
-Analisis Need:
-${needRows.map((row) => `${row.code} ${row.value}/9 - ${row.label}: ${row.value >= 7 ? row.high : row.value >= 4 ? "kebutuhan tampak cukup dan situasional" : row.low}`).join("\n")}
+ANALISIS ROLE
+${roleRows.map((row) => `- ${row.code} ${row.value}/9 - ${row.label}: ${row.value >= 7 ? row.high : row.value >= 4 ? "peran kerja tampak cukup dan situasional" : row.low}`).join("\n")}
 
-Analisis Role:
-${roleRows.map((row) => `${row.code} ${row.value}/9 - ${row.label}: ${row.value >= 7 ? row.high : row.value >= 4 ? "peran kerja tampak cukup dan situasional" : row.low}`).join("\n")}
+IMPLIKASI KERJA
+- Profil ini membantu membaca motivasi kerja, kebutuhan struktur, dorongan pencapaian, gaya relasi, ketegasan, kepemimpinan, tempo kerja, dan respons terhadap aturan/supervisi.
+- ${moderate} skala berada pada area sedang, sehingga beberapa perilaku kemungkinan lebih situasional dan perlu divalidasi melalui wawancara.
+- Untuk jabatan dengan target tinggi, perhatikan kombinasi A, G, N, dan T.
+- Untuk jabatan koordinatif atau supervisori, perhatikan D, L, P, K, S, dan B.
+- Untuk jabatan yang membutuhkan ketelitian, prosedur, dan kepatuhan, perhatikan C, W, F, serta E.
 
-Implikasi kerja:
-Profil ini membantu membaca motivasi kerja, kebutuhan struktur, dorongan pencapaian, gaya relasi, ketegasan, kepemimpinan, tempo kerja, dan respons terhadap aturan/supervisi. ${moderate} skala berada pada area sedang, sehingga beberapa perilaku kemungkinan lebih situasional dan perlu divalidasi melalui wawancara. Untuk jabatan dengan target tinggi, perhatikan kombinasi A, G, N, dan T. Untuk jabatan koordinatif atau supervisori, perhatikan D, L, P, K, S, dan B. Untuk jabatan yang membutuhkan ketelitian, prosedur, dan kepatuhan, perhatikan C, W, F, serta E.
-
-Rekomendasi penggunaan:
-Gunakan profil PAPI untuk mencocokkan kandidat dengan tuntutan jabatan: target tinggi, kebutuhan koordinasi, struktur kerja, relasi interpersonal, perubahan, dan kebutuhan supervisi. Skala tinggi dapat menjadi kekuatan bila sesuai konteks, namun dapat menjadi risiko bila tuntutan jabatan berlawanan.
-
-Catatan psikolog: PAPI adalah inventory preferensi/gaya kerja, bukan tes benar-salah. Interpretasi perlu dipadukan dengan wawancara, tuntutan jabatan, observasi perilaku, dan data asesmen lain sebelum menjadi dasar keputusan seleksi.`;
+REKOMENDASI PENGGUNAAN
+- Cocokkan profil PAPI dengan tuntutan jabatan: target, koordinasi, struktur kerja, relasi interpersonal, perubahan, dan kebutuhan supervisi.
+- Skala tinggi dapat menjadi kekuatan bila sesuai konteks, namun dapat menjadi risiko bila tuntutan jabatan berlawanan.
+- PAPI adalah inventory preferensi/gaya kerja, bukan tes benar-salah. Interpretasi perlu dipadukan dengan wawancara, observasi perilaku, tuntutan jabatan, dan data asesmen lain sebelum menjadi dasar keputusan seleksi.`;
 };

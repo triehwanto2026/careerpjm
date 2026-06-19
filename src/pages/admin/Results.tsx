@@ -390,6 +390,40 @@ const escapeCsv = (value: unknown) => {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
+const escapeHtml = (value: unknown) =>
+  String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const formatPapiInterpretationHtml = (text: string) => {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  let html = "";
+  let listOpen = false;
+  const closeList = () => {
+    if (listOpen) {
+      html += "</ul>";
+      listOpen = false;
+    }
+  };
+
+  lines.forEach((line) => {
+    const isHeading = /^[A-Z0-9\s]+$/.test(line) && line.length <= 40;
+    if (isHeading) {
+      closeList();
+      html += `<h4 class="papi-interpretation-heading">${escapeHtml(line)}</h4>`;
+    } else if (line.startsWith("- ")) {
+      if (!listOpen) {
+        html += `<ul class="papi-interpretation-list">`;
+        listOpen = true;
+      }
+      html += `<li>${escapeHtml(line.slice(2))}</li>`;
+    } else {
+      closeList();
+      html += `<p class="papi-interpretation-paragraph">${escapeHtml(line)}</p>`;
+    }
+  });
+  closeList();
+  return html;
+};
+
 const getKraepelinRows = (cats: Record<string, number>) => [
   { key: "speed", label: "Kecepatan", value: Number(cats.speed || 0) },
   { key: "accuracy", label: "Ketelitian", value: Number(cats.accuracy || 0) },
@@ -993,27 +1027,32 @@ const Results = () => {
     } else if (isPapiResult(r)) {
       const rows = getPapiRows(cats);
       papiProfileHTML = `
-        <div class="section">
+        <div class="section papi-section">
           <div class="section-title">Profil Skala PAPI Kostick</div>
-          <p class="mini-title">Grafik PAPI Kostick</p>
-          ${renderPapiWheelSvg(rows)}
-          <p class="mini-title" style="margin-top:12px;">Skor per Dimensi</p>
-          <table class="dim-table papi-score-table">
-            <thead><tr><th>Skala</th><th>Dimensi</th><th>Kelompok</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
-            <tbody>${rows.map(row => {
-              const pct = (row.value / 9) * 100;
-              return `<tr>
-                <td><strong>${row.code}</strong></td>
-                <td>${row.label}</td>
-                <td>${row.group}</td>
-                <td>${row.value}/9</td>
-                <td>${row.level}</td>
-                <td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(pct, 100)}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
-              </tr>`;
-            }).join("")}</tbody>
-          </table>
+          <div class="papi-print-grid">
+            <div>
+              <p class="mini-title">Grafik PAPI Kostick</p>
+              ${renderPapiWheelSvg(rows)}
+            </div>
+            <div>
+              <p class="mini-title">Skor per Dimensi</p>
+              <table class="dim-table papi-score-table">
+                <thead><tr><th>Skala</th><th>Dimensi</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
+                <tbody>${rows.map(row => {
+                  const pct = (row.value / 9) * 100;
+                  return `<tr>
+                    <td><strong>${row.code}</strong></td>
+                    <td>${row.label}</td>
+                    <td>${row.value}/9</td>
+                    <td>${row.level}</td>
+                    <td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(pct, 100)}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
+                  </tr>`;
+                }).join("")}</tbody>
+              </table>
+            </div>
+          </div>
         </div>`;
-      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil PAPI</div><div class="interpretation" style="white-space:pre-line;">${buildPapiInterpretation(cats).replace(/</g, '&lt;')}</div></div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil PAPI</div><div class="interpretation">${formatPapiInterpretationHtml(buildPapiInterpretation(cats))}</div></div>`;
     } else if (isAptitudeResult(r)) {
       const rows = getAptitudeRows(cats);
       const info = getAptitudeScoreInfo(scoreResult);
@@ -1074,17 +1113,24 @@ const Results = () => {
       .bar-container { background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; }
       .bar-fill { height: 100%; border-radius: 4px; background: #0f766e; }
       .mini-title { font-size: 9pt; font-weight: 700; color: #0f172a; margin: 0 0 6px; }
-      .papi-wheel-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #ffffff; max-width: 560px; margin: 0 auto 8px; }
-      .papi-wheel-card svg { display: block; max-height: 455px; }
-      .papi-wheel-summary { margin-top: 4px; border-top: 1px dashed #cbd5e1; padding-top: 6px; font-size: 8.5pt; color: #475569; }
-      table.papi-score-table { font-size: 8.4pt; }
-      table.papi-score-table th { padding: 5px 6px; font-size: 7.5pt; }
-      table.papi-score-table td { padding: 4px 6px; }
+      .papi-section { page-break-inside: auto; margin-bottom: 12px; }
+      .papi-print-grid { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 10px; align-items: start; }
+      .papi-wheel-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; background: #ffffff; max-width: 330px; margin: 0 auto; }
+      .papi-wheel-card svg { display: block; max-height: 300px; }
+      .papi-wheel-summary { margin-top: 3px; border-top: 1px dashed #cbd5e1; padding-top: 4px; font-size: 7.4pt; color: #475569; }
+      table.papi-score-table { font-size: 7.5pt; }
+      table.papi-score-table th { padding: 4px 5px; font-size: 6.9pt; }
+      table.papi-score-table td { padding: 3px 5px; line-height: 1.25; }
       table.papi-score-table td:nth-child(1),
-      table.papi-score-table td:nth-child(4),
-      table.papi-score-table td:nth-child(5) { text-align: center; white-space: nowrap; }
+      table.papi-score-table td:nth-child(3),
+      table.papi-score-table td:nth-child(4) { text-align: center; white-space: nowrap; }
 
       .interpretation { background: #fefce8; border-left: 4px solid #eab308; padding: 12px 14px; border-radius: 0 6px 6px 0; font-size: 10pt; line-height: 1.7; color: #422006; }
+      .papi-interpretation-heading { margin: 8px 0 3px; color: #0f766e; font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.35px; }
+      .papi-interpretation-heading:first-child { margin-top: 0; }
+      .papi-interpretation-paragraph { margin: 0 0 6px; }
+      .papi-interpretation-list { margin: 0 0 6px 16px; padding: 0; }
+      .papi-interpretation-list li { margin: 1px 0; }
 
       table.answer-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
       table.answer-table th { background: #0f172a; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -1802,7 +1848,7 @@ const Results = () => {
       const rows = getPapiRows(cats);
       return (
         <div
-          className="mx-auto max-w-[720px] [&_.papi-wheel-card]:border [&_.papi-wheel-card]:border-border [&_.papi-wheel-card]:rounded-xl [&_.papi-wheel-card]:bg-background [&_.papi-wheel-card]:p-3 [&_.papi-wheel-summary]:mt-2 [&_.papi-wheel-summary]:border-t [&_.papi-wheel-summary]:border-border [&_.papi-wheel-summary]:pt-2 [&_.papi-wheel-summary]:text-xs [&_.papi-wheel-summary]:text-muted-foreground"
+          className="mx-auto max-w-[560px] [&_.papi-wheel-card]:border [&_.papi-wheel-card]:border-border [&_.papi-wheel-card]:rounded-xl [&_.papi-wheel-card]:bg-background [&_.papi-wheel-card]:p-2 [&_.papi-wheel-card_svg]:max-h-[460px] [&_.papi-wheel-summary]:mt-2 [&_.papi-wheel-summary]:border-t [&_.papi-wheel-summary]:border-border [&_.papi-wheel-summary]:pt-2 [&_.papi-wheel-summary]:text-xs [&_.papi-wheel-summary]:text-muted-foreground"
           dangerouslySetInnerHTML={{ __html: renderPapiWheelSvg(rows) }}
         />
       );
@@ -2278,22 +2324,22 @@ const Results = () => {
                   </table>
                 )
                 : isPapiResult(r) ? (
-                  <table className="w-full text-sm">
+                  <table className="w-full text-xs">
                     <thead><tr className="border-b border-border">
-                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skala</th>
-                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
-                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Level</th>
-                      <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                      <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-muted-foreground">Skala</th>
+                      <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-muted-foreground">Skor</th>
+                      <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-muted-foreground">Level</th>
+                      <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-muted-foreground">Indikator</th>
                     </tr></thead>
                     <tbody>
                       {getPapiRows(cats).map((row) => {
                         const pct = (row.value / 9) * 100;
                         return (
                           <tr key={row.code} className="border-b border-border/50">
-                            <td className="py-2 px-3 text-foreground font-medium">{row.code} - {row.label}</td>
-                            <td className="py-2 px-3 text-foreground">{row.value}/9</td>
-                            <td className="py-2 px-3 text-muted-foreground">{row.level}</td>
-                            <td className="py-2 px-3 w-40">
+                            <td className="py-1.5 px-2 text-foreground"><span className="font-bold">{row.code}</span><span className="text-muted-foreground"> - {row.label}</span></td>
+                            <td className="py-1.5 px-2 text-foreground whitespace-nowrap">{row.value}/9</td>
+                            <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">{row.level}</td>
+                            <td className="py-1.5 px-2 w-32">
                               <div className="h-2 rounded-full bg-muted overflow-hidden">
                                 <div className={`h-full rounded-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                               </div>
@@ -2429,7 +2475,14 @@ const Results = () => {
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
                   <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : isAptitudeResult(r) ? ' — Profil Aptitude' : ''}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
+                  {isPapiResult(r) ? (
+                    <div
+                      className="space-y-2 text-sm leading-relaxed text-muted-foreground [&_.papi-interpretation-heading]:mt-4 [&_.papi-interpretation-heading:first-child]:mt-0 [&_.papi-interpretation-heading]:text-xs [&_.papi-interpretation-heading]:font-bold [&_.papi-interpretation-heading]:uppercase [&_.papi-interpretation-heading]:tracking-wide [&_.papi-interpretation-heading]:text-primary [&_.papi-interpretation-list]:ml-5 [&_.papi-interpretation-list]:list-disc [&_.papi-interpretation-list_li]:my-1 [&_.papi-interpretation-paragraph]:my-1"
+                      dangerouslySetInnerHTML={{ __html: formatPapiInterpretationHtml(interpText) }}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
+                  )}
                 </div>
               );
             })()}
@@ -2616,15 +2669,15 @@ const Results = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => handleSelectResult(r)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Lihat Detail">
-                        <Eye className="h-4 w-4" />
+                    <div className="flex items-center justify-center gap-2">
+                      <button onClick={() => handleSelectResult(r)} className="rounded-lg border border-sky-400/40 bg-sky-500/15 p-2.5 text-sky-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-sky-500 hover:text-white hover:shadow-sky-500/20" title="Lihat Detail">
+                        <Eye className="h-5 w-5" />
                       </button>
-                      <button onClick={() => { setSelectedResult(r); handlePrint(); }} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Cetak Laporan">
-                        <Printer className="h-4 w-4" />
+                      <button onClick={() => { setSelectedResult(r); handlePrint(); }} className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 p-2.5 text-emerald-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-500 hover:text-white hover:shadow-emerald-500/20" title="Cetak Laporan">
+                        <Printer className="h-5 w-5" />
                       </button>
-                      <button onClick={() => handleDeleteResult(r)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus Hasil Tes">
-                        <Trash2 className="h-4 w-4" />
+                      <button onClick={() => handleDeleteResult(r)} className="rounded-lg border border-rose-400/40 bg-rose-500/15 p-2.5 text-rose-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white hover:shadow-rose-500/20" title="Hapus Hasil Tes">
+                        <Trash2 className="h-5 w-5" />
                       </button>
                     </div>
                   </td>
