@@ -11,6 +11,7 @@ const SWAL_THEME = () => ({
 });
 
 interface InstrumentOption { id: string; name: string; }
+interface JobVacancy { id: string; title: string; status?: string; }
 interface CandidateOption {
   id: string; name: string; email: string; phone: string; position: string; photo_url: string | null;
 }
@@ -28,17 +29,19 @@ interface FormState {
   password?: string;
   candidate_id: string; // empty string = manual
   name: string; email: string; position: string;
+  vacancy_id?: string;
   expires_at: string;
   assigned_tests: string[];
   is_used?: boolean;
 }
 
-const emptyForm: FormState = { candidate_id: "", name: "", email: "", position: "", expires_at: "", assigned_tests: [] };
+const emptyForm: FormState = { candidate_id: "", name: "", email: "", position: "", vacancy_id: "", expires_at: "", assigned_tests: [] };
 
 const ActivationCodes = () => {
   const [codes, setCodes] = useState<CodeRow[]>([]);
   const [instruments, setInstruments] = useState<InstrumentOption[]>([]);
   const [candidatesList, setCandidatesList] = useState<CandidateOption[]>([]);
+  const [jobsList, setJobsList] = useState<JobVacancy[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -64,6 +67,15 @@ const ActivationCodes = () => {
     setCandidatesList((cand as CandidateOption[]) || []);
     setLoading(false);
   };
+
+  // load jobs separately so we can include active and inactive
+  useEffect(() => {
+    const loadJobs = async () => {
+      const { data, error } = await supabase.from("job_vacancies").select("id,title,status").order("created_at", { ascending: false });
+      if (!error && data) setJobsList(data as JobVacancy[]);
+    };
+    loadJobs();
+  }, []);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -100,12 +112,15 @@ const ActivationCodes = () => {
   const openAdd = () => { setForm(emptyForm); setShowForm(true); };
   const openEdit = (c: CodeRow) => {
     const matchedCand = candidatesList.find(x => x.email === c.candidate_email);
+    // try to match position to a job vacancy
+    const matchedJob = jobsList.find(j => j.title === c.position);
     setForm({
       id: c.id, 
       code: c.code,
       password: c.password,
       candidate_id: matchedCand?.id || "",
       name: c.candidate_name, email: c.candidate_email, position: c.position,
+      vacancy_id: matchedJob?.id || "__other__",
       expires_at: c.expires_at?.split("T")[0] || "",
       assigned_tests: c.assigned_tests || [],
       is_used: c.is_used,
@@ -117,7 +132,17 @@ const ActivationCodes = () => {
     if (!id) { setForm(f => ({ ...f, candidate_id: "" })); return; }
     const c = candidatesList.find(x => x.id === id);
     if (!c) return;
-    setForm(f => ({ ...f, candidate_id: id, name: c.name, email: c.email, position: c.position || f.position }));
+    setForm(f => ({ ...f, candidate_id: id, name: c.name, email: c.email, position: c.position || f.position, vacancy_id: "__other__" }));
+  };
+
+  const onPickVacancy = (val: string) => {
+    if (val === "__other__") {
+      setForm(f => ({ ...f, vacancy_id: "__other__", position: "" }));
+      return;
+    }
+    const j = jobsList.find(x => x.id === val);
+    if (!j) return setForm(f => ({ ...f, vacancy_id: "", position: f.position }));
+    setForm(f => ({ ...f, vacancy_id: j.id, position: j.title }));
   };
 
   const toggleTest = (id: string) => {
@@ -413,7 +438,21 @@ const ActivationCodes = () => {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Nama Kandidat *"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} placeholder="Nama lengkap" /></Field>
                 <Field label="Email *"><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={input} placeholder="email@example.com" /></Field>
-                <div className="sm:col-span-2"><Field label="Posisi Dilamar *"><input required value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} className={input} placeholder="Software Engineer" /></Field></div>
+                <div className="sm:col-span-2">
+                  <Field label="Posisi Dilamar *">
+                    <div>
+                      <select value={form.vacancy_id || "__other__"} onChange={(e) => onPickVacancy(e.target.value)} className={input}>
+                        <option value="__other__">Lainnya</option>
+                        {jobsList.map(j => (
+                          <option key={j.id} value={j.id}>{j.title}{j.status ? ` · ${j.status}` : ""}</option>
+                        ))}
+                      </select>
+                      {form.vacancy_id === "__other__" && (
+                        <input required value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} className={`${input} mt-2`} placeholder="Posisi (ketik manual)" />
+                      )}
+                    </div>
+                  </Field>
+                </div>
                 <Field label="Berlaku Hingga"><input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} className={input} /></Field>
               </div>
 
