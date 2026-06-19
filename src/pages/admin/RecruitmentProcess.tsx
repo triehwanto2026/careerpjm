@@ -1908,13 +1908,13 @@ export default function RecruitmentProcess() {
                                 <div className="flex flex-wrap gap-2">
                                   <button
                                     onClick={() => handleSelectResult(result)}
-                                    className="px-3 py-1 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
+                                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-200 bg-sky-500/10 px-3 py-1 text-sm font-semibold text-sky-700 hover:bg-sky-500/20 transition"
                                   >
                                     Lihat
                                   </button>
                                   <button
                                     onClick={() => handlePrintResult(result)}
-                                    className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition"
+                                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-700 hover:bg-emerald-500/20 transition"
                                   >
                                     Cetak
                                   </button>

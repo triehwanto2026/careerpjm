@@ -4,7 +4,7 @@ import { Search, Eye, Download, Printer, FileText, Trash2 } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { buildCfitInterpretation, getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfitProfileRows, getCfitRawScore, isCfitName } from "@/lib/cfitScoring";
 import { buildDiscInterpretation as buildSharedDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation as buildSharedIstInterpretation, getIstRows as getSharedIstRows, getIstSummary as getSharedIstSummary } from "@/lib/istScoring";
 import { buildMbtiInterpretation as buildSharedMbtiInterpretation, getMbtiRows as getSharedMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
@@ -188,7 +188,7 @@ const getResultConclusion = (r: ResultRow) => {
 
   if (isAptitudeResult(r)) {
     const level = getAptitudeLevel(r.score);
-    const correct = Number(cats.correct_answers ?? Math.round((r.score / 100) * Math.max(r.total_questions, 1)));
+    const correct = getAptitudeRawValue(cats, r);
     return `${level.label} (${correct}/${r.total_questions})`;
   }
 
@@ -227,8 +227,36 @@ const APTITUDE_AREAS = [
   { key: "Abstract", label: "Figural/Abstrak", max: 18, note: "Penalaran gambar, analogi bentuk, rotasi/transformasi, dan persepsi visual." },
 ];
 
+const APTITUDE_CATEGORY_ALIASES: Record<string, string[]> = {
+  Verbal: ["verbal ability", "verbal aptitude", "verbal_ability", "verbal aptitude", "kemampuan verbal"],
+  Numerical: ["numerical ability", "numerical aptitude", "numerical_ability", "numerik", "kemampuan numerik"],
+  Logic: ["logical reasoning", "logika", "logical_reasoning", "reasoning logic", "kemampuan logika"],
+  Classification: ["classifications", "classification", "klasifikasi", "classification ability"],
+  Pattern: ["pattern recognition", "pattern", "pola", "pattern_recognition"],
+  Abstract: ["abstract reasoning", "figural", "abstract", "figural/abstrak", "kemampuan abstrak"],
+};
+
+const normalizeAptitudeCategoryKey = (value: string | null | undefined) =>
+  String(value || "").trim().toLowerCase().replace(/[_\s\/\-]+/g, " ");
+
+const resolveAptitudeCategoryKey = (value: string | null | undefined) => {
+  const normalized = normalizeAptitudeCategoryKey(value);
+  if (!normalized) return null;
+  const exact = APTITUDE_AREAS.find((area) => normalizeAptitudeCategoryKey(area.key) === normalized);
+  if (exact) return exact.key;
+  const alias = Object.entries(APTITUDE_CATEGORY_ALIASES).find(([, aliases]) =>
+    aliases.some((alias) => normalizeAptitudeCategoryKey(alias) === normalized),
+  );
+  if (alias) return alias[0];
+  const fuzzy = APTITUDE_AREAS.find(
+    (area) => normalized.includes(normalizeAptitudeCategoryKey(area.key)) || normalized.includes(normalizeAptitudeCategoryKey(area.label)),
+  );
+  return fuzzy?.key ?? null;
+};
+
 const isAptitudeResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
-  r.test_name.toUpperCase().includes("APTITUDE") || Object.keys(r.categories || {}).some((key) => APTITUDE_AREAS.some((area) => area.key === key));
+  r.test_name.toUpperCase().includes("APTITUDE") ||
+  Object.keys(r.categories || {}).some((key) => resolveAptitudeCategoryKey(key) !== null);
 
 const getAptitudeLevel = (score: number) => {
   if (score >= 80) return { label: "Sangat Baik", recommendation: "Sangat Disarankan" };
@@ -238,20 +266,46 @@ const getAptitudeLevel = (score: number) => {
   return { label: "Sangat Rendah", recommendation: "Tidak Disarankan" };
 };
 
+const getAptitudeAreaValue = (cats: Record<string, number>, area: (typeof APTITUDE_AREAS)[number]) => {
+  const exact = Number(cats[area.key] ?? 0);
+  if (exact !== 0) return exact;
+  const entry = Object.entries(cats).find(([key]) => resolveAptitudeCategoryKey(key) === area.key);
+  return Number(entry?.[1] ?? 0);
+};
+
 const getAptitudeRows = (cats: Record<string, number>) =>
   APTITUDE_AREAS.map((area) => {
-    const raw = Number(cats[area.key] || 0);
+    const raw = getAptitudeAreaValue(cats, area);
     const pct = Math.round((raw / area.max) * 100);
     const level = pct >= 80 ? "Sangat Baik" : pct >= 65 ? "Baik" : pct >= 50 ? "Cukup" : pct >= 35 ? "Rendah" : "Sangat Rendah";
     return { ...area, raw, pct, level };
   });
+
+const getAptitudeRawValue = (categories: Record<string, number>, result: ResultRow) => {
+  const explicitRaw = categories.correct_answers ?? categories["Aptitude Raw Score"] ?? categories.correct ?? categories.raw_score ?? categories["Correct Answers"] ?? null;
+  if (explicitRaw !== null && explicitRaw !== undefined && !Number.isNaN(Number(explicitRaw))) {
+    return Math.max(0, Math.round(Number(explicitRaw)));
+  }
+  const categorySum = APTITUDE_AREAS.reduce((sum, area) => sum + getAptitudeAreaValue(categories, area), 0);
+  if (categorySum > 0) return categorySum;
+  return Math.round((result.score / 100) * Math.max(1, result.total_questions || 0));
+};
+
+const getAptitudeScoreInfo = (result: ResultRow) => {
+  const categories = result.categories || {};
+  const raw = getAptitudeRawValue(categories, result);
+  const total = Math.max(1, result.total_questions || 0);
+  const cappedRaw = Math.min(raw, total);
+  const scaledRaw = Math.min(49, Math.round((cappedRaw / total) * 49));
+  return { raw: cappedRaw, total, percentage: Math.round((cappedRaw / total) * 100), ...getCfitIqInfo(scaledRaw) };
+};
 
 const buildAptitudeInterpretation = (cats: Record<string, number>, score: number, answered: number, total: number) => {
   const rows = getAptitudeRows(cats);
   const level = getAptitudeLevel(score);
   const strongest = [...rows].sort((a, b) => b.pct - a.pct).slice(0, 2);
   const weakest = [...rows].sort((a, b) => a.pct - b.pct).slice(0, 2);
-  const correct = Number(cats.correct_answers ?? Math.round((score / 100) * Math.max(total, 1)));
+  const correct = getAptitudeRawValue(cats, { categories: cats, score, total_questions: total } as ResultRow);
   const wrong = Math.max(0, answered - correct);
 
   return `Hasil Aptitude Test menunjukkan skor akhir ${score}% (${correct} benar dari ${total} soal; ${wrong} salah dari ${answered} soal dijawab). Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
@@ -680,13 +734,14 @@ const Results = () => {
     } else if (isAptitudeResult(r)) {
       const rows = getAptitudeRows(cats);
       const level = getAptitudeLevel(r.score);
+      const rawCorrect = getAptitudeRawValue(cats, r);
       aptitudeProfileHTML = `
         <div class="section">
           <div class="section-title">Profil Aptitude</div>
           <div class="score-cards">
             <div class="score-card"><div class="label">Skor Akhir</div><div class="value">${r.score}<span style="font-size:14pt;color:#64748b;">%</span></div><div class="sub">${level.label}</div></div>
             <div class="score-card"><div class="label">Rekomendasi</div><div class="value" style="font-size:15pt;margin-top:8px;">${level.recommendation}</div></div>
-            <div class="score-card"><div class="label">Benar</div><div class="value">${Number(cats.correct_answers ?? Math.round((r.score / 100) * Math.max(r.total_questions, 1)))}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
+            <div class="score-card"><div class="label">Benar</div><div class="value">${rawCorrect}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
           </div>
           <table class="dim-table">
             <thead><tr><th>Aspek</th><th>Skor</th><th>Level</th><th>Keterangan</th><th>Indikator</th></tr></thead>
@@ -1466,7 +1521,8 @@ const Results = () => {
       );
     }
     if (isAptitudeResult(r)) {
-      const aptitudeData = getAptitudeRows(cats).map((row) => ({
+      const aptitudeInfo = getAptitudeScoreInfo(r);
+      const aptitudeRowsData = getAptitudeRows(cats).map((row) => ({
         name: row.label,
         value: row.pct,
         raw: row.raw,
@@ -1475,7 +1531,7 @@ const Results = () => {
       }));
       return (
         <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={aptitudeData} margin={{ left: 20, right: 30, top: 20, bottom: 50 }}>
+          <BarChart data={aptitudeRowsData} margin={{ left: 20, right: 30, top: 20, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
             <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11, fontWeight: 600 }} angle={-18} textAnchor="end" height={62} />
             <YAxis domain={[0, 100]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
@@ -1719,15 +1775,19 @@ const Results = () => {
                     : isMbtiResult(r)
                       ? <span className="text-4xl font-extrabold tracking-widest text-primary">{getMbtiSummary(cats).type}</span>
                     : isAptitudeResult(r)
-                      ? `${r.score}%`
+                      ? String(getAptitudeScoreInfo(r).iq)
                       : `${r.score}%`
                   }
                 </p>
-                {isAptitudeResult(r) && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {getAptitudeLevel(r.score).label} · {Number(cats.correct_answers ?? Math.round((r.score / 100) * Math.max(r.total_questions, 1)))}/{r.total_questions} benar
-                  </p>
-                )}
+                {isAptitudeResult(r) && (() => {
+                  const info = getAptitudeScoreInfo(r);
+                  return (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {info.classification} · {info.raw}/{info.total} benar
+                    </p>
+                  );
+                })()}
+
                 {isIstResult(r) && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Raw {getIstSummary(cats, r.score).raw}/{getIstSummary(cats, r.score).max}

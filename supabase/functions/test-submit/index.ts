@@ -73,7 +73,7 @@ const buildAptitudeInterpretation = (cats: Record<string, number>, score: number
   const level = getAptitudeLevel(score);
   const strongest = [...rows].sort((a, b) => b.pct - a.pct).slice(0, 2);
   const weakest = [...rows].sort((a, b) => a.pct - b.pct).slice(0, 2);
-  const correct = Number(cats.correct_answers ?? Math.round((score / 100) * Math.max(total, 1)));
+  const correct = Number(cats.correct_answers ?? cats["Aptitude Raw Score"] ?? Math.round((score / 100) * Math.max(total, 1)));
   const wrong = Math.max(0, answered - correct);
 
   return `Hasil Aptitude Test menunjukkan skor akhir ${score}% (${correct} benar dari ${total} soal; ${wrong} salah dari ${answered} soal dijawab). Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
@@ -478,7 +478,46 @@ Deno.serve(async (req) => {
       const status = score >= 70 ? "passed" : score >= 50 ? "review" : "failed";
 
       const normalizedCats: Record<string, number> = {};
-      Object.entries(cats).forEach(([k, v]) => (normalizedCats[k] = Math.round(v)));
+            // Normalize category keys for aptitude tests so stored keys match frontend expectations
+            const normalizeKey = (value: string | null | undefined) => String(value || "").trim().toLowerCase().replace(/[_\s\/\-]+/g, " ");
+            const APTITUDE_CATEGORY_ALIASES: Record<string, string[]> = {
+              Verbal: ["verbal ability", "verbal aptitude", "verbal_ability", "kemampuan verbal", "verbal"],
+              Numerical: ["numerical ability", "numerical aptitude", "numerical_ability", "numerik", "kemampuan numerik", "numerical"],
+              Logic: ["logical reasoning", "logic", "logical_reasoning", "reasoning logic", "kemampuan logika", "logic"],
+              Classification: ["classifications", "classification", "klasifikasi", "classification ability", "classification"],
+              Pattern: ["pattern recognition", "pattern", "pola", "pattern_recognition", "pattern"],
+              Abstract: ["abstract reasoning", "figural", "abstract", "figural/abstrak", "kemampuan abstrak", "abstract"],
+            };
+
+            const resolveAptitudeCategoryKey = (value: string | null | undefined) => {
+              const normalized = normalizeKey(value);
+              if (!normalized) return null;
+              const exact = Object.keys(APTITUDE_AREAS).find((k) => normalizeKey(k) === normalized);
+              if (exact) return exact;
+              const alias = Object.entries(APTITUDE_CATEGORY_ALIASES).find(([, aliases]) =>
+                aliases.some((a) => normalizeKey(a) === normalized),
+              );
+              if (alias) return alias[0];
+              const fuzzy = Object.keys(APTITUDE_AREAS).find((k) => normalized.includes(normalizeKey(k)));
+              return fuzzy ?? null;
+            };
+
+            if (isAptitude) {
+              const mapped: Record<string, number> = {};
+              Object.entries(cats).forEach(([k, v]) => {
+                const resolved = resolveAptitudeCategoryKey(k);
+                if (resolved) mapped[resolved] = (mapped[resolved] || 0) + Math.round(v);
+                else mapped[k] = (mapped[k] || 0) + Math.round(v);
+              });
+              // Ensure all aptitude area keys exist and are numeric
+              Object.keys(APTITUDE_AREAS).forEach((ak) => (normalizedCats[ak] = mapped[ak] || 0));
+              // copy over standard metadata fields if present
+              ["correct_answers", "wrong_answers", "blank_answers", "accuracy"].forEach((k) => {
+                if (cats[k] !== undefined) normalizedCats[k] = Math.round(cats[k]);
+              });
+            } else {
+              Object.entries(cats).forEach(([k, v]) => (normalizedCats[k] = Math.round(v)));
+            }
       const cfitIqInfo = isCfit ? getCfitIqInfo(correctCount) : null;
 
       const { data: resultData, error: insErr } = await admin

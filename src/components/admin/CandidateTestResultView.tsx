@@ -1,6 +1,6 @@
 import React from "react";
 import { PrintResult, PrintAnswer } from "@/utils/printUtils";
-import { buildCfitInterpretation, getCfitIqInfoFromResult, getCfitProfileRows, isCfitName } from "@/lib/cfitScoring";
+import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfitProfileRows, getCfitRawScore, isCfitName } from "@/lib/cfitScoring";
 import { buildDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
@@ -24,6 +24,79 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+
+const APTITUDE_AREAS = [
+  { key: "Verbal", label: "Verbal", max: 11, note: "Analogi kata, relasi konsep, perbendaharaan kata, dan pemahaman hubungan bahasa." },
+  { key: "Numerical", label: "Numerik", max: 10, note: "Berhitung praktis, deret angka, proporsi, dan pemecahan masalah kuantitatif." },
+  { key: "Logic", label: "Logika", max: 6, note: "Penalaran deduktif, silogisme, dan konsistensi kesimpulan." },
+  { key: "Classification", label: "Klasifikasi", max: 12, note: "Membedakan kategori, mencari item yang tidak sejenis, dan ketelitian konsep." },
+  { key: "Pattern", label: "Pola", max: 3, note: "Pola simbol, susunan huruf/angka, dan aturan transformasi sederhana." },
+  { key: "Abstract", label: "Figural/Abstrak", max: 18, note: "Penalaran gambar, analogi bentuk, rotasi/transformasi, dan persepsi visual." },
+] as const;
+
+type AptitudeAreaKey = typeof APTITUDE_AREAS[number]["key"];
+
+const APTITUDE_CATEGORY_ALIASES: Record<string, string[]> = {
+  Verbal: ["verbal ability", "verbal aptitude", "verbal_ability", "verbal aptitude", "kemampuan verbal"],
+  Numerical: ["numerical ability", "numerical aptitude", "numerical_ability", "numerik", "kemampuan numerik"],
+  Logic: ["logical reasoning", "logic", "logical_reasoning", "reasoning logic", "kemampuan logika"],
+  Classification: ["classifications", "classification", "klasifikasi", "classification ability"],
+  Pattern: ["pattern recognition", "pattern", "pola", "pattern_recognition"],
+  Abstract: ["abstract reasoning", "figural", "abstract", "figural/abstrak", "kemampuan abstrak"],
+};
+
+const normalizeAptitudeCategoryKey = (value: string | null | undefined) =>
+  String(value || "").trim().toLowerCase().replace(/[_\s\/\-]+/g, " ");
+
+const resolveAptitudeCategoryKey = (value: string | null | undefined) => {
+  const normalized = normalizeAptitudeCategoryKey(value);
+  if (!normalized) return null;
+  const exact = APTITUDE_AREAS.find((area) => normalizeAptitudeCategoryKey(area.key) === normalized);
+  if (exact) return exact.key;
+  const alias = Object.entries(APTITUDE_CATEGORY_ALIASES).find(([, aliases]) =>
+    aliases.some((alias) => normalizeAptitudeCategoryKey(alias) === normalized),
+  );
+  if (alias) return alias[0];
+  const fuzzy = APTITUDE_AREAS.find(
+    (area) => normalized.includes(normalizeAptitudeCategoryKey(area.key)) || normalized.includes(normalizeAptitudeCategoryKey(area.label)),
+  );
+  return fuzzy?.key ?? null;
+};
+
+const getAptitudeAreaValue = (cats: Record<string, number>, area: (typeof APTITUDE_AREAS)[number]) => {
+  const exact = Number(cats[area.key] ?? 0);
+  if (exact !== 0) return exact;
+  const entry = Object.entries(cats).find(([key]) => resolveAptitudeCategoryKey(key) === area.key);
+  return Number(entry?.[1] ?? 0);
+};
+
+const getAptitudeRows = (cats: Record<string, number>) =>
+  APTITUDE_AREAS.map((area) => {
+    const raw = getAptitudeAreaValue(cats, area);
+    const pct = Math.round((raw / area.max) * 100);
+    const level = pct >= 80 ? "Sangat Baik" : pct >= 65 ? "Baik" : pct >= 50 ? "Cukup" : pct >= 35 ? "Rendah" : "Sangat Rendah";
+    return { ...area, raw, pct, level };
+  });
+
+const getAptitudeLevel = (score: number) => {
+  if (score >= 80) return { label: "Sangat Baik", recommendation: "Sangat Disarankan" };
+  if (score >= 65) return { label: "Baik", recommendation: "Disarankan" };
+  if (score >= 50) return { label: "Cukup", recommendation: "Cukup Disarankan" };
+  if (score >= 35) return { label: "Rendah", recommendation: "Perlu Pertimbangan" };
+  return { label: "Sangat Rendah", recommendation: "Tidak Disarankan" };
+};
+
+const isAptitudeName = (name?: string | null) => String(name || "").toUpperCase().includes("APTITUDE");
+
+const getAptitudeIqLabel = (iq: number) => {
+  if (iq >= 145) return "Sangat berbakat";
+  if (iq >= 130) return "Superior";
+  if (iq >= 115) return "Tinggi";
+  if (iq >= 100) return "Di atas rata-rata";
+  if (iq >= 85) return "Rata-rata";
+  if (iq >= 70) return "Di bawah rata-rata";
+  return "Sangat rendah";
+};
 
 interface CandidateTestResultViewProps {
   result: PrintResult;
@@ -60,6 +133,36 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
   const isCFIT = isCfitName(result.test_name);
   const isIST = isIstName(result.test_name) || Object.keys(cats).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
   const isMBTI = isMbtiName(result.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
+  const hasAptitudeAreas = APTITUDE_AREAS.some((area) => area.key in cats);
+  const isAptitude = (isAptitudeName(result.test_name) || hasAptitudeAreas) && !isCFIT && !isIST && !isMBTI && !isPapikostik && !isPersonalityPlus && !isDISC && !isKraepelin;
+
+  const getAptitudeRawValue = () => {
+    const explicitRaw = cats.correct_answers ?? cats["Aptitude Raw Score"] ?? cats.raw_score ?? cats.correct ?? cats["Correct Answers"] ?? null;
+    if (explicitRaw !== null && explicitRaw !== undefined && !Number.isNaN(Number(explicitRaw))) {
+      return Math.max(0, Math.round(Number(explicitRaw)));
+    }
+    const areaSum = APTITUDE_AREAS.reduce((sum, area) => sum + Number(cats[area.key] || 0), 0);
+    if (areaSum > 0) return areaSum;
+    return getCfitRawScore(result);
+  };
+
+  const getAptitudeInfo = () => {
+    const total = Math.max(1, Number(result.total_questions) || 0);
+    const raw = Math.min(total, getAptitudeRawValue());
+    const scaledRaw = Math.min(49, Math.round((raw / total) * 49));
+    const cfitInfo = getCfitIqInfo(scaledRaw);
+    const percentage = Math.round((raw / total) * 100);
+    return {
+      ...cfitInfo,
+      raw,
+      total,
+      percentage,
+      classification: getAptitudeIqLabel(cfitInfo.iq),
+    };
+  };
+
+  const aptitudeInfo = isAptitude ? getAptitudeInfo() : null;
+  const aptitudeRows = isAptitude ? getAptitudeRows(cats) : [];
   const mbtiRows = isMBTI ? getMbtiRows(cats) : [];
   const mbtiType = isMBTI ? getMbtiType(cats) : "";
   const kraepelinRows = [
@@ -228,6 +331,24 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
             <Radar name={result.test_name} dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.25} strokeWidth={2} />
           </RadarChart>
+        </ResponsiveContainer>
+      );
+    }
+
+    if (isAptitude && aptitudeInfo) {
+      const aptitudeBreakdownData = aptitudeRows.map((row) => ({ name: row.label, value: row.pct, raw: row.raw, max: row.max, level: row.level }));
+      return (
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={aptitudeBreakdownData} margin={{ left: 20, right: 30, top: 20, bottom: 60 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+            <XAxis dataKey="name" angle={-18} textAnchor="end" height={62} tick={{ fill: "hsl(210,20%,75%)", fontSize: 11, fontWeight: 600 }} />
+            <YAxis domain={[0, 100]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+            <Tooltip
+              contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }}
+              formatter={(value: any, _name: any, props: any) => [`${value}% (${props.payload.raw}/${props.payload.max})`, props.payload.level]}
+            />
+            <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       );
     }
@@ -489,102 +610,103 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
       );
     }
 
+    if (isAptitude && aptitudeInfo) {
+      return (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Kategori</th>
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Nilai</th>
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-border/50">
+              <td className="py-2 px-3 text-foreground font-medium">Skor Aptitude</td>
+              <td className="py-2 px-3 text-foreground">{aptitudeInfo.percentage}%</td>
+              <td className="py-2 px-3 text-muted-foreground">{aptitudeInfo.classification}</td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="py-2 px-3 text-foreground font-medium">Jawaban Benar</td>
+              <td className="py-2 px-3 text-foreground">{aptitudeInfo.raw}/{aptitudeInfo.total}</td>
+              <td className="py-2 px-3 text-muted-foreground">Konversi ke IQ berdasarkan norma</td>
+            </tr>
+            <tr>
+              <td className="py-2 px-3 text-foreground font-medium">IQ Estimasi</td>
+              <td className="py-2 px-3 text-foreground">{aptitudeInfo.iq}</td>
+              <td className="py-2 px-3 text-muted-foreground">{aptitudeInfo.classification}</td>
+            </tr>
+          </tbody>
+        </table>
+      );
+    }
+
     if (isMBTI) {
       return (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Pasangan</th>
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dimensi</th>
               <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
-              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dominan</th>
-              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Kekuatan</th>
+              <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
             </tr>
           </thead>
           <tbody>
-            {mbtiRows.map((row) => (
-              <tr key={row.pair} className="border-b border-border/50">
-                <td className="py-2 px-3 text-foreground font-medium">{row.pair}</td>
-                <td className="py-2 px-3 text-foreground">{row.a}={row.av} / {row.b}={row.bv}</td>
-                <td className="py-2 px-3 text-foreground">{row.dominant} - {row.label}</td>
+            {isKraepelin && kraepelinRows.map(row => (
+              <tr key={row.key} className="border-b border-border/50">
+                <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
+                <td className="py-2 px-3 text-foreground">{row.value}%</td>
                 <td className="py-2 px-3 w-40">
-                  <div className="flex items-center gap-2">
-                    <span className="w-10 text-xs text-muted-foreground">{row.strength}%</span>
-                    <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${row.strength}%` }} />
-                    </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className={`h-full ${row.value >= 70 ? "bg-emerald-400" : row.value >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.value, 100)}%` }} />
                   </div>
                 </td>
+              </tr>
+            ))}
+            {isPapikostik && getPapiRows(cats).map(row => {
+              const pct = (row.value / 9) * 100;
+              return (
+                <tr key={row.code} className="border-b border-border/50">
+                  <td className="py-2 px-3 text-foreground font-medium">{row.code} - {row.label}</td>
+                  <td className="py-2 px-3 text-foreground">{row.value}/9</td>
+                  <td className="py-2 px-3 w-40">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {catEntries.map(([dim, val]) => {
+              if (isKraepelin) return null;
+              if (isPapikostik) return null;
+              if (isCFIT) return null;
+              if (isMBTI) return null;
+              const maxVal = isPapikostik ? 9 : 100;
+              const pct = maxVal > 0 ? (Number(val) / maxVal) * 100 : 0;
+              return (
+                <tr key={dim} className="border-b border-border/50">
+                  <td className="py-2 px-3 text-foreground font-medium">{dim}</td>
+                  <td className="py-2 px-3 text-foreground">{val}{isPapikostik ? "/9" : "%"}</td>
+                  <td className="py-2 px-3 w-40">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {isCFIT && getCfitProfileRows(result).map(row => (
+              <tr key={row.label} className="border-b border-border/50">
+                <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
+                <td className="py-2 px-3 text-foreground">{row.value}</td>
+                <td className="py-2 px-3 text-muted-foreground">{row.note}</td>
               </tr>
             ))}
           </tbody>
         </table>
       );
     }
-
-    return (
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Dimensi</th>
-            <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
-            <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
-          </tr>
-        </thead>
-        <tbody>
-          {isKraepelin && kraepelinRows.map(row => (
-            <tr key={row.key} className="border-b border-border/50">
-              <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
-              <td className="py-2 px-3 text-foreground">{row.value}%</td>
-              <td className="py-2 px-3 w-40">
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className={`h-full ${row.value >= 70 ? "bg-emerald-400" : row.value >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.value, 100)}%` }} />
-                </div>
-              </td>
-            </tr>
-          ))}
-          {isPapikostik && getPapiRows(cats).map(row => {
-            const pct = (row.value / 9) * 100;
-            return (
-              <tr key={row.code} className="border-b border-border/50">
-                <td className="py-2 px-3 text-foreground font-medium">{row.code} - {row.label}</td>
-                <td className="py-2 px-3 text-foreground">{row.value}/9</td>
-                <td className="py-2 px-3 w-40">
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-          {catEntries.map(([dim, val]) => {
-            if (isKraepelin) return null;
-            if (isPapikostik) return null;
-            if (isCFIT) return null;
-            if (isMBTI) return null;
-            const maxVal = isPapikostik ? 9 : 100;
-            const pct = maxVal > 0 ? (Number(val) / maxVal) * 100 : 0;
-            return (
-              <tr key={dim} className="border-b border-border/50">
-                <td className="py-2 px-3 text-foreground font-medium">{dim}</td>
-                <td className="py-2 px-3 text-foreground">{val}{isPapikostik ? "/9" : "%"}</td>
-                <td className="py-2 px-3 w-40">
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-          {isCFIT && getCfitProfileRows(result).map(row => (
-            <tr key={row.label} className="border-b border-border/50">
-              <td className="py-2 px-3 text-foreground font-medium">{row.label}</td>
-              <td className="py-2 px-3 text-foreground">{row.value}</td>
-              <td className="py-2 px-3 text-muted-foreground">{row.note}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
   };
 
   const interpretationText = isPersonalityPlus
@@ -642,8 +764,13 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           <p className="text-lg font-bold text-primary mt-1">{result.test_name}</p>
         </div>
         <div className="glass rounded-xl p-5 glow-border text-center">
-          <p className="text-xs text-muted-foreground">{isCFIT ? "IQ Score" : isMBTI ? "Tipe MBTI" : "Skor Akhir"}</p>
-          <p className={`text-3xl font-bold text-foreground mt-1 ${isMBTI ? "tracking-widest" : ""}`}>{isCFIT ? getCfitIqInfoFromResult(result).iq : isMBTI ? mbtiType : `${result.score}%`}</p>
+          <p className="text-xs text-muted-foreground">{isAptitude ? "IQ Score" : isCFIT ? "IQ Score" : isMBTI ? "Tipe MBTI" : "Skor Akhir"}</p>
+          <p className={`text-3xl font-bold text-foreground mt-1 ${isMBTI ? "tracking-widest" : ""}`}>{isAptitude ? aptitudeInfo?.iq : isCFIT ? getCfitIqInfoFromResult(result).iq : isMBTI ? mbtiType : `${result.score}%`}</p>
+          {isAptitude && aptitudeInfo && (
+            <p className="text-[11px] text-muted-foreground mt-2">
+              {aptitudeInfo.classification} · {aptitudeInfo.raw}/{aptitudeInfo.total} benar ({aptitudeInfo.percentage}%)
+            </p>
+          )}
         </div>
         <div className="glass rounded-xl p-5 glow-border text-center">
           <p className="text-xs text-muted-foreground">Soal Dijawab</p>
