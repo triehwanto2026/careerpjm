@@ -461,9 +461,12 @@ const TestPage = () => {
   const isIST = (t?: DbInstrument) => !!t && t.name.toUpperCase().includes("IST");
   const isCFIT = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("CFIT") || t.name.toUpperCase().includes("CULTURE FAIR"));
   const isKraepelinTest = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("KRAEPELIN") || t.scoring_method === "speed_accuracy");
+  const isMbtiTest = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("MBTI") || String(t.scoring_method || "").toLowerCase() === "typological");
+  const isPapiTest = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("PAPI") || String(t.scoring_method || "").toLowerCase().includes("papi"));
   const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t) || isKraepelinTest(t);
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
+  const hideQuestionImages = isMbtiTest(currentTest) || isPapiTest(currentTest);
 
   // Show memory items before ME questions. The word list disappears automatically.
   const showMemoryItems = useCallback(async () => {
@@ -1524,7 +1527,7 @@ const TestPage = () => {
                 {showEnglish && currentQuestion.question_text_en && (
                   <p className="text-sm italic text-muted-foreground">{currentQuestion.question_text_en}</p>
                 )}
-                {currentQuestion.question_image && (
+                {currentQuestion.question_image && !hideQuestionImages && (
                   <div className="space-y-2 border border-dashed border-border p-2 rounded">
                     <p className="text-xs text-muted-foreground">Gambar 1 - Soal:</p>
                     <img 
@@ -1547,7 +1550,7 @@ const TestPage = () => {
                     <p className="text-[10px] text-muted-foreground break-all">{currentQuestion.question_image}</p>
                   </div>
                 )}
-                {currentQuestion.options_image && (
+                {currentQuestion.options_image && !hideQuestionImages && (
                   <div className="space-y-2 border border-dashed border-border p-2 rounded">
                     <p className="text-xs text-muted-foreground">Gambar 2 - Pilihan Jawaban:</p>
                     <img 
@@ -1566,14 +1569,14 @@ const TestPage = () => {
                     <p className="text-[10px] text-muted-foreground break-all">{currentQuestion.options_image}</p>
                   </div>
                 )}
-                {aptitudeFallbackImage && !currentQuestion.question_image && !currentQuestion.options_image && !currentQuestion.image_url && (
+                {aptitudeFallbackImage && !currentQuestion.question_image && !currentQuestion.options_image && !currentQuestion.image_url && !hideQuestionImages && (
                   <div className="space-y-2 border border-dashed border-border p-2 rounded">
                     <p className="text-xs text-muted-foreground">Gambar Soal:</p>
                     <img src={aptitudeFallbackImage} alt="Gambar soal Aptitude" className="max-h-72 w-auto rounded-lg border border-border bg-white" />
                   </div>
                 )}
                 {/* Fallback untuk gambar lama (image_url) */}
-                {!currentQuestion.question_image && !currentQuestion.options_image && currentQuestion.image_url && (
+                {!currentQuestion.question_image && !currentQuestion.options_image && currentQuestion.image_url && !hideQuestionImages && (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">Gambar Soal:</p>
                     <img src={currentQuestion.image_url} alt="Soal" className="max-h-72 w-auto rounded-lg border border-border bg-white" />
@@ -1647,7 +1650,7 @@ const TestPage = () => {
                             className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
                             <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{isSelected ? "✓" : opt.option_label}</span>
                             <div className="flex-1">
-                              {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
+                              {opt.image_url && !hideQuestionImages && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
                               <span className="text-sm font-medium text-foreground">{opt.option_label}. {opt.option_text}</span>
                             </div>
                           </button>
@@ -1663,7 +1666,7 @@ const TestPage = () => {
                         className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
                         <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{opt.option_label}</span>
                         <div className="flex-1">
-                          {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
+                          {opt.image_url && !hideQuestionImages && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
                           <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
                           {showEnglish && opt.option_text_en && <span className="block text-xs text-muted-foreground italic mt-0.5">{opt.option_text_en}</span>}
                           {definition && <span className="block text-xs text-muted-foreground mt-1">{definition}</span>}
