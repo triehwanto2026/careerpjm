@@ -1839,22 +1839,27 @@ Terima kasih.`;
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => handleView(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Detail">
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleEdit(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-blue-500/10 hover:text-blue-500 transition-colors" title="Edit">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleResetPassword(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-500 transition-colors" title="Reset Password">
-                        <Key className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => openPsychTestModal(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-500 transition-colors" title="Tes Psikologi">
+                      <button onClick={() => openPsychTestModal(c)} className="inline-flex items-center justify-center rounded-md p-1.5 bg-violet-500/10 text-violet-500 hover:bg-violet-500/20 transition-colors" title="Tes Psikologi">
                         <Brain className="h-4 w-4" />
                       </button>
-                      <button onClick={() => handleActivateLogin(c)} disabled={authActionLoading} className="rounded-md p-1.5 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors disabled:opacity-50" title="Aktivasi Login Tanpa Email">
+
+                      <button onClick={() => handleView(c)} className="inline-flex items-center justify-center rounded-md p-1.5 bg-primary/10 text-primary hover:bg-primary/20 transition-colors" title="Detail">
+                        <Eye className="h-4 w-4" />
+                      </button>
+
+                      <button onClick={() => handleEdit(c)} className="inline-flex items-center justify-center rounded-md p-1.5 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors" title="Edit">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+
+                      <button onClick={() => handleResetPassword(c)} className="inline-flex items-center justify-center rounded-md p-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-colors" title="Reset Password">
+                        <Key className="h-4 w-4" />
+                      </button>
+
+                      <button onClick={() => handleActivateLogin(c)} disabled={authActionLoading} className="inline-flex items-center justify-center rounded-md p-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors disabled:opacity-50" title="Aktivasi Login Tanpa Email">
                         <CheckCircle className="h-4 w-4" />
                       </button>
-                      <button onClick={() => handleDelete(c)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Hapus">
+
+                      <button onClick={() => handleDelete(c)} className="inline-flex items-center justify-center rounded-md p-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors" title="Hapus">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
