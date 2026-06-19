@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Shield, Check, X, Save, RefreshCw, Search, Filter 
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { ADMIN_PAGES, ADMIN_PAGE_PATHS, isSuperAdmin } from "@/config/adminPages";
 
 interface AdminRole {
   id: string;
@@ -12,22 +13,7 @@ interface AdminRole {
   created_at: string;
 }
 
-const AVAILABLE_PAGES = [
-  { path: "/admin/dashboard", label: "Dashboard" },
-  { path: "/admin/activation-codes", label: "Kode Aktivasi" },
-  { path: "/admin/test-instruments", label: "Alat Tes" },
-  { path: "/admin/hr-jobs", label: "Lowongan" },
-  { path: "/admin/applicants", label: "Pelamar" },
-  { path: "/admin/recruitment-process", label: "Proses" },
-  { path: "/admin/candidates", label: "Kandidat" },
-  { path: "/admin/results", label: "Hasil Tes" },
-  { path: "/admin/answer-keys", label: "Kunci Jawaban" },
-  { path: "/admin/interpretations", label: "Interpretasi" },
-  { path: "/admin/settings", label: "Pengaturan" },
-  { path: "/admin/users", label: "Manajemen User" },
-  { path: "/admin/roles", label: "Manajemen Role" },
-  { path: "/admin/candidate-settings", label: "Manajemen Kandidat" },
-];
+const AVAILABLE_PAGES = ADMIN_PAGES;
 
 const SWAL_THEME = {
   background: "hsl(var(--card))",
@@ -78,7 +64,7 @@ const RoleManagement = () => {
           id: r.id,
           name: r.name,
           description: r.description || "",
-          permissions: perms,
+          permissions: isSuperAdmin(r.name) ? Array.from(new Set([...perms, ...ADMIN_PAGE_PATHS])) : perms,
           created_at: r.created_at,
         };
       });
@@ -229,7 +215,7 @@ const RoleManagement = () => {
     setFormData({
       name: role.name,
       description: role.description,
-      permissions: role.permissions || [],
+      permissions: isSuperAdmin(role.name) ? ADMIN_PAGE_PATHS : (role.permissions || []),
     });
     setShowForm(true);
   };

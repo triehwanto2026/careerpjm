@@ -89,6 +89,7 @@ const App = () => (
             <Route path="/admin/candidate-login" element={<SimpleCandidateLogin />} />
             <Route path="/admin/applicants" element={<Applicants />} />
             <Route path="/admin/recruitment-process" element={<RecruitmentProcess />} />
+            <Route path="/admin/recruitment-reports" element={<RecruitmentProcess mode="report" />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </HashRouter>

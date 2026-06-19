@@ -2,11 +2,12 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, KeyRound, ClipboardList, Users, BarChart3, LogOut, Menu, X, Settings as SettingsIcon,
-  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow, UserPlus, MailCheck, ChevronsLeft, ChevronsRight,
+  UserCog, Shield, ChevronDown, ChevronRight, Bell, User, Briefcase, Workflow, UserPlus, MailCheck, ChevronsLeft, ChevronsRight, FileText,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
+import { ADMIN_PAGES, getAdminPermissionPath, isSuperAdmin } from "@/config/adminPages";
 
 interface NavItem {
   path: string;
@@ -22,37 +23,14 @@ interface NavGroup {
 
 type NavEntry = NavItem | NavGroup;
 
+const GROUP_ICONS = { "Alat Tes": ClipboardList, "Manajemen Kandidat": Users, Pengaturan: SettingsIcon };
 const ALL_NAV_ENTRIES: NavEntry[] = [
-  { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  {
-    label: "Alat Tes",
-    icon: ClipboardList,
-    children: [
-      { path: "/admin/test-instruments", label: "Alat Tes", icon: ClipboardList },
-      { path: "/admin/activation-codes", label: "Kode Aktivasi", icon: KeyRound },
-      { path: "/admin/results", label: "Hasil Tes", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Manajemen Kandidat",
-    icon: Users,
-    children: [
-      { path: "/admin/candidates", label: "Daftar Kandidat", icon: Users },
-      { path: "/admin/hr-jobs", label: "Lowongan", icon: Briefcase },
-      { path: "/admin/applicants", label: "Pelamar", icon: Users },
-      { path: "/admin/recruitment-process", label: "Recruitment", icon: Workflow },
-    ],
-  },
-  {
-    label: "Pengaturan",
-    icon: SettingsIcon,
-    children: [
-      { path: "/admin/settings", label: "Pengaturan Aplikasi", icon: SettingsIcon },
-      { path: "/admin/users", label: "Manajemen User", icon: UserCog },
-      { path: "/admin/roles", label: "Manajemen Role", icon: Shield },
-      { path: "/admin/candidate-settings", label: "Manajemen Kandidat", icon: Users },
-    ],
-  },
+  ...ADMIN_PAGES.filter((page) => !page.group),
+  ...Object.entries(GROUP_ICONS).map(([label, icon]) => ({
+    label,
+    icon,
+    children: ADMIN_PAGES.filter((page) => page.group === label),
+  })),
 ];
 
 interface AdminSession {
@@ -121,20 +99,10 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
         const currentPath = location.pathname;
         const perms = safeParsed.permissions;
-        const hasPermission =
-          perms.includes(currentPath) ||
-          currentPath === "/admin" ||
-          currentPath === "/admin/test-instruments" ||
-          currentPath === "/admin/activation-codes" ||
-          currentPath === "/admin/jobs" ||
-          currentPath === "/admin/hr-jobs" ||
-          currentPath === "/admin/recruitment" ||
-          currentPath.startsWith("/admin/candidates");
+        const permissionPath = getAdminPermissionPath(currentPath);
+        const hasPermission = isSuperAdmin(safeParsed.role_name) || currentPath === "/admin" || currentPath === "/admin/profile" || perms.includes(permissionPath);
 
-        const isSubRoute = currentPath.startsWith("/admin/test-instruments/");
-        const hasParentPermission = isSubRoute && perms.includes("/admin/test-instruments");
-
-        if (!hasPermission && !hasParentPermission) {
+        if (!hasPermission) {
           Swal.fire({
             icon: "warning",
             title: "Akses Ditolak",
@@ -170,18 +138,16 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const navEntries = useMemo(() => {
     if (!adminSession) return ALL_NAV_ENTRIES;
     const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
-
-    // Paths that should always be visible regardless of permissions
-    const alwaysVisiblePaths = ["/admin/hr-jobs", "/admin/applicants", "/admin/recruitment-process", "/admin/results", "/admin/activation-codes", "/admin/candidate-settings", "/admin/candidates"];
+    const hasFullAccess = isSuperAdmin(adminSession.role_name);
 
     const filtered: NavEntry[] = [];
     for (const entry of ALL_NAV_ENTRIES) {
       if (!entry) continue;
       if ("path" in entry) {
-        if (perms.includes(entry.path) || alwaysVisiblePaths.includes(entry.path)) filtered.push(entry);
+        if (hasFullAccess || perms.includes(entry.path)) filtered.push(entry);
       } else if (entry.children && Array.isArray(entry.children)) {
         const visibleChildren = entry.children.filter(
-          (c) => c && c.path && (perms.includes(c.path) || alwaysVisiblePaths.includes(c.path))
+          (c) => c && c.path && (hasFullAccess || perms.includes(c.path))
         );
         if (visibleChildren.length > 0) {
           filtered.push({ label: entry.label, icon: entry.icon, children: visibleChildren });
@@ -214,6 +180,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                          location.pathname.startsWith("/admin/hr-jobs") ||
                          location.pathname.startsWith("/admin/applicants") ||
                          location.pathname === "/admin/recruitment-process" ||
+                         location.pathname === "/admin/recruitment-reports" ||
                          location.pathname === "/admin/results",
     Pengaturan: location.pathname.startsWith("/admin/settings") ||
                 location.pathname === "/admin/users" ||

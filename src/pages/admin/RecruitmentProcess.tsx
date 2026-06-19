@@ -8,6 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import DocumentPreview from "@/components/DocumentPreview";
 import Swal from "sweetalert2";
 import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
+import { buildDiscInterpretation, getDiscRows } from "@/lib/discScoring";
+import { buildCfitInterpretation, isCfitName } from "@/lib/cfitScoring";
+import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
+import { buildMbtiInterpretation, isMbtiName } from "@/lib/mbtiScoring";
+import { buildPapiInterpretation, isPapiName } from "@/lib/papiScoring";
+import { buildPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 
 const HIDDEN_RECRUITMENT_APPLICATION_STATUSES = ["expired", "withdrawn"];
 
@@ -18,6 +24,32 @@ interface Doc {
   file_name: string;
   file_url: string;
 }
+
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <label className="block">
+    <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
+    {children}
+  </label>
+);
+
+const FormSection = ({ title, fields, draft, update }: {
+  title: string;
+  fields: Array<[keyof ScreeningReportDraft, string]>;
+  draft: ScreeningReportDraft;
+  update: (key: keyof ScreeningReportDraft, value: string) => void;
+}) => (
+  <section className="rounded-xl border border-border bg-card p-4">
+    <h3 className="mb-4 border-b border-border pb-3 text-sm font-semibold text-foreground">{title}</h3>
+    <div className="grid gap-4 md:grid-cols-2">
+      {fields.map(([key, label]) => (
+        <label key={key} className={key === "additionalNotes" || key === "recruiterNotes" ? "md:col-span-2" : ""}>
+          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
+          <textarea value={draft[key]} onChange={(event) => update(key, event.target.value)} rows={key === "additionalNotes" ? 3 : 5} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+        </label>
+      ))}
+    </div>
+  </section>
+);
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import ProfessionalApplicationForm from "@/components/admin/ProfessionalApplicationForm";
@@ -134,7 +166,64 @@ interface TestAnswer {
   category: string | null;
 }
 
-export default function RecruitmentProcess() {
+interface ScreeningReportDraft {
+  interviewDate: string;
+  interviewer: string;
+  source: string;
+  availability: string;
+  healthCondition: string;
+  motivationReason: string;
+  companyExpectation: string;
+  commitmentNotes: string;
+  familyNotes: string;
+  competencyNotes: string;
+  backgroundNotes: string;
+  strengths: string;
+  weaknesses: string;
+  recommendation: string;
+  recruiterNotes: string;
+  additionalNotes: string;
+  documentCompletenessNotes: string;
+  motivationMainSource: string;
+  experienceFitNotes: string;
+  competencyFitNotes: string;
+  overallFitNotes: string;
+  finalRecommendationNotes: string;
+  developmentNotes: string;
+  signatureRecruiter: string;
+  signatureHrManager: string;
+}
+
+const defaultScreeningReportDraft: ScreeningReportDraft = {
+  interviewDate: new Date().toISOString().split("T")[0],
+  interviewer: "",
+  source: "Internal database / career portal",
+  availability: "",
+  healthCondition: "Baik",
+  motivationReason: "Kandidat menunjukkan minat terhadap posisi yang dilamar dan memiliki dorongan untuk berkembang sesuai kebutuhan perusahaan.",
+  companyExpectation: "Kandidat berharap mendapatkan lingkungan kerja yang stabil, profesional, suportif, dan memberi kesempatan untuk berkembang.",
+  commitmentNotes: "Kandidat menyatakan kesiapan mengikuti proses seleksi lanjutan dan menyesuaikan diri dengan kebutuhan pekerjaan.",
+  familyNotes: "Lingkungan keluarga dinilai mendukung kandidat untuk bekerja dan berkembang.",
+  competencyNotes: "Pengalaman dan kompetensi kandidat perlu divalidasi lebih lanjut melalui interview berbasis perilaku dan studi kasus.",
+  backgroundNotes: "Tidak terdapat catatan risiko signifikan berdasarkan data awal yang tersedia.",
+  strengths: "Dokumen dan profil kandidat tersedia; motivasi kerja cukup baik; pengalaman/pendidikan relevan perlu dikonfirmasi dalam interview.",
+  weaknesses: "Area pengembangan perlu divalidasi dari pengalaman kerja, stabilitas, kemampuan komunikasi, dan kesiapan terhadap tuntutan jabatan.",
+  recommendation: "direkomendasikan",
+  recruiterNotes: "Kandidat dapat dipertimbangkan untuk proses seleksi berikutnya dengan validasi kompetensi teknis dan kesesuaian budaya kerja.",
+  additionalNotes: "",
+  documentCompletenessNotes: "Dokumen kandidat perlu diverifikasi terhadap dokumen asli dan kebutuhan administrasi posisi.",
+  motivationMainSource: "Pengembangan karir; Lingkungan kerja; Tantangan dan pengalaman baru",
+  experienceFitNotes: "Pengalaman kandidat perlu dibandingkan dengan tanggung jawab utama posisi yang dilamar.",
+  competencyFitNotes: "Kompetensi teknis dan perilaku kerja perlu divalidasi melalui interview berbasis perilaku dan/atau studi kasus.",
+  overallFitNotes: "Kesesuaian keseluruhan dinilai dari integrasi profil, dokumen, pengalaman, hasil tes, dan catatan recruiter.",
+  finalRecommendationNotes: "Keputusan akhir perlu mempertimbangkan kebutuhan posisi, kesiapan kandidat, dan risiko pengembangan yang muncul dari hasil screening.",
+  developmentNotes: "Rencana pengembangan kandidat dapat disesuaikan dengan area pengembangan yang muncul dari interview dan hasil tes psikologi.",
+  signatureRecruiter: "",
+  signatureHrManager: "",
+};
+
+export default function RecruitmentProcess({ mode = "process" }: { mode?: "process" | "report" }) {
+  const isReportPage = mode === "report";
   const [activeJobs, setActiveJobs] = useState<JobVacancy[]>([]);
   const [selectedJob, setSelectedJob] = useState<JobVacancy | null>(null);
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -171,6 +260,14 @@ export default function RecruitmentProcess() {
   const [activationMode, setActivationMode] = useState<"create_new" | "allow_retake">("create_new");
   const [activationEditCodeId, setActivationEditCodeId] = useState<string | null>(null);
   const [contactDraft, setContactDraft] = useState("");
+  const [reportApplicationId, setReportApplicationId] = useState("");
+  const [reportDraft, setReportDraft] = useState<ScreeningReportDraft>(defaultScreeningReportDraft);
+  const [showScreeningForm, setShowScreeningForm] = useState(false);
+  const [savedScreeningIds, setSavedScreeningIds] = useState<Set<string>>(new Set());
+  const [reportApplications, setReportApplications] = useState<JobApplication[]>([]);
+  const [reportJobFilter, setReportJobFilter] = useState("all");
+  const [reportCurrentPage, setReportCurrentPage] = useState(1);
+  const [reportItemsPerPage, setReportItemsPerPage] = useState(10);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -587,6 +684,103 @@ export default function RecruitmentProcess() {
     }
   };
 
+  const loadReportApplications = async () => {
+    setLoadingApplications(true);
+    try {
+      const { data: applicationsData, error: applicationsError } = await supabase
+        .from("job_applications")
+        .select("*")
+        .neq("status", HIDDEN_RECRUITMENT_APPLICATION_STATUSES[0])
+        .neq("status", HIDDEN_RECRUITMENT_APPLICATION_STATUSES[1])
+        .order("applied_at", { ascending: false });
+
+      if (applicationsError) throw applicationsError;
+
+      const userIds = Array.from(new Set((applicationsData || []).map((application: any) => application.user_id).filter(Boolean)));
+      const { data: documentsData } = userIds.length > 0
+        ? await supabase.from("candidate_documents").select("*").in("user_id", userIds)
+        : { data: [] };
+      const docsByUser = (documentsData as any[] || []).reduce((acc: Record<string, any[]>, doc: any) => {
+        if (!acc[doc.user_id]) acc[doc.user_id] = [];
+        acc[doc.user_id].push(doc);
+        return acc;
+      }, {});
+
+      const applicationsWithProfiles = await Promise.all((applicationsData || []).map(async (application: any) => {
+        const { data: profileData } = await supabase
+          .from("candidate_profiles")
+          .select("*")
+          .eq("user_id", application.user_id)
+          .maybeSingle();
+
+        const candidateDocs = docsByUser[application.user_id] || [];
+        const profile = normalizeCandidateProfile(profileData || {
+          id: "", user_id: application.user_id, full_name: "Unknown", email: "Unknown", phone: "", birth_date: "", birth_place: "", gender: "", address: "", city: "", bio: "", education_level: "", education_institution: "", major: "", graduation_year: "", experience_years: "", current_position: "", current_company: "", skills: [], strengths: "", created_at: "", updated_at: "", applications: [], has_applied: false, photo_url: "", cv_url: "", certificates: [], portfolio_url: "", marital_status: "", religion: "", nationality: "", height: "", weight: "", blood_type: "", family_members: [], education_history: [], work_experience: [], expected_salary: "", salary_negotiable: false, available_from: "", additional_info: "", social_media: {}, references: []
+        });
+
+        if (!profile.photo_url) {
+          const photoDoc = candidateDocs.find((doc: any) => doc.document_type === "photo");
+          if (photoDoc) profile.photo_url = photoDoc.file_url;
+        }
+
+        return { ...application, candidate_profile: { ...profile, documents: candidateDocs } };
+      }));
+
+      const appUserIds = new Set(applicationsWithProfiles.map((application: any) => application.user_id).filter(Boolean));
+      const appEmails = new Set(applicationsWithProfiles.map((application: any) => String(application.candidate_profile.email || "").toLowerCase()).filter(Boolean));
+      const [{ data: profileRows }, { data: candidateRows }] = await Promise.all([
+        supabase.from("candidate_profiles").select("*").order("created_at", { ascending: false }),
+        supabase.from("candidates").select("*").order("created_at", { ascending: false }),
+      ]);
+      const candidatesByEmail = new Map((candidateRows || []).map((candidate: any) => [String(candidate.email || "").toLowerCase(), candidate]));
+      const extraUserIds = (profileRows || []).map((profile: any) => profile.user_id).filter((id: string) => id && !docsByUser[id]);
+      if (extraUserIds.length > 0) {
+        const { data: extraDocs } = await supabase.from("candidate_documents").select("*").in("user_id", extraUserIds);
+        (extraDocs || []).forEach((doc: any) => {
+          if (!docsByUser[doc.user_id]) docsByUser[doc.user_id] = [];
+          docsByUser[doc.user_id].push(doc);
+        });
+      }
+
+      const profileOnlyApplications = (profileRows || [])
+        .filter((profile: any) => !appUserIds.has(profile.user_id) && !appEmails.has(String(profile.email || "").toLowerCase()))
+        .map((profile: any) => {
+          const fallbackCandidate = candidatesByEmail.get(String(profile.email || "").toLowerCase()) || {};
+          const normalized = normalizeCandidateProfile({ ...fallbackCandidate, ...profile });
+          const candidateDocs = docsByUser[normalized.user_id] || [];
+          if (!normalized.photo_url) {
+            const photoDoc = candidateDocs.find((doc: any) => doc.document_type === "photo");
+            if (photoDoc) normalized.photo_url = photoDoc.file_url;
+          }
+          return {
+            id: `profile-${normalized.id || normalized.user_id || normalized.email}`,
+            vacancy_id: "",
+            user_id: normalized.user_id || normalized.id || "",
+            status: fallbackCandidate.status || "candidate_pool",
+            applied_at: normalized.created_at || fallbackCandidate.created_at || new Date().toISOString(),
+            candidate_profile: { ...normalized, documents: candidateDocs },
+            activation_codes: [],
+          } as JobApplication;
+        });
+
+      const allReportRows = [...applicationsWithProfiles, ...profileOnlyApplications];
+      const emails = Array.from(new Set(allReportRows.map((app: any) => app.candidate_profile.email).filter(Boolean)));
+      const { data: codesData } = emails.length > 0
+        ? await supabase.from("activation_codes").select("*").in("candidate_email", emails).order("created_at", { ascending: false })
+        : { data: [] };
+
+      setReportApplications(allReportRows.map((application: any) => ({
+        ...application,
+        activation_codes: (codesData || []).filter((code: any) => code.candidate_email === application.candidate_profile.email),
+      })));
+    } catch (error) {
+      console.error("Error loading report applications:", error);
+      setReportApplications([]);
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
   const selectJob = (job: JobVacancy) => {
     setSelectedJob(job);
     const nextParams = new URLSearchParams(searchParams);
@@ -643,6 +837,11 @@ export default function RecruitmentProcess() {
     const targetJob = activeJobs.find((job) => job.id === jobId);
     if (targetJob) setSelectedJob(targetJob);
   }, [activeJobs, searchParams, selectedJob?.id]);
+
+  useEffect(() => {
+    if (!isReportPage) return;
+    loadReportApplications();
+  }, [isReportPage]);
 
   useEffect(() => {
     const candidateId = searchParams.get("candidate");
@@ -927,6 +1126,8 @@ export default function RecruitmentProcess() {
     switch (status) {
       case 'submitted':
         return 'bg-blue-100 text-blue-700';
+      case 'candidate_pool':
+        return 'bg-slate-100 text-slate-700';
       case 'applied':
         return 'bg-blue-100 text-blue-700';
       case 'screening':
@@ -952,6 +1153,8 @@ export default function RecruitmentProcess() {
     switch (status) {
       case 'submitted':
         return '1. Lamaran Diterima';
+      case 'candidate_pool':
+        return 'Database Kandidat';
       case 'applied':
         return '1. Lamaran Diterima';
       case 'screening':
@@ -1140,6 +1343,707 @@ export default function RecruitmentProcess() {
     setAppliedToFilter("");
   };
 
+  useEffect(() => {
+    if (!selectedJob || applications.length === 0) {
+      setReportApplicationId("");
+      return;
+    }
+    setReportApplicationId((current) => current || applications[0]?.id || "");
+  }, [applications, selectedJob]);
+
+  useEffect(() => {
+    if (!isReportPage) return;
+    const loadSavedScreeningIds = async () => {
+      const localIds = reportApplications.filter((application) => localStorage.getItem(`screening-report:${application.id}`)).map((application) => application.id);
+      try {
+        const { data, error } = await (supabase as any).from("screening_reports").select("application_id");
+        if (error) throw error;
+        setSavedScreeningIds(new Set([...localIds, ...(data || []).map((row: any) => row.application_id)]));
+      } catch {
+        setSavedScreeningIds(new Set(localIds));
+      }
+    };
+    loadSavedScreeningIds();
+  }, [reportApplications, isReportPage]);
+
+  const updateReportDraft = (key: keyof ScreeningReportDraft, value: string) => {
+    setReportDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const escapeReportHtml = (value: unknown) =>
+    String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  const joinReportLines = (value: string) =>
+    String(value || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  const renderReportBullets = (value: string, fallback = "-") => {
+    const lines = joinReportLines(value);
+    if (lines.length === 0) return `<li>${escapeReportHtml(fallback)}</li>`;
+    return lines.map((line) => `<li>${escapeReportHtml(line.replace(/^[-•]\s*/, ""))}</li>`).join("");
+  };
+
+  const renderReportStars = (score = 4) => {
+    const value = Math.max(0, Math.min(5, Math.round(score)));
+    return Array.from({ length: 5 }, (_, index) => `<span class="${index < value ? "star-on" : "star-off"}">★</span>`).join("");
+  };
+
+  const getProfileValue = (profile: any, keys: string[], fallback = "-") => {
+    const found = keys.map((key) => profile?.[key]).find((value) => value !== undefined && value !== null && String(value).trim() !== "");
+    return found === undefined || found === null || String(found).trim() === "" ? fallback : String(found);
+  };
+
+  const getAgeText = (birthDate?: string) => {
+    if (!birthDate) return "-";
+    const date = new Date(birthDate);
+    if (Number.isNaN(date.getTime())) return "-";
+    const today = new Date();
+    let age = today.getFullYear() - date.getFullYear();
+    const monthDiff = today.getMonth() - date.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) age -= 1;
+    return `${age} Tahun`;
+  };
+
+  const getReportDocumentRows = (profile: any) => {
+    const docs = Array.isArray(profile?.documents) ? profile.documents : [];
+    const docTypes = [
+      ["ktp", "KTP"],
+      ["kk", "Kartu Keluarga (KK)"],
+      ["ijazah", "Ijazah Terakhir"],
+      ["transkrip", "Transkrip Nilai"],
+      ["cv", "CV / Resume"],
+      ["photo", "Pas Foto Terbaru"],
+      ["skck", "SKCK"],
+      ["buku_nikah", "Buku Nikah"],
+      ["tes_kesehatan", "Surat Tes Kesehatan"],
+      ["sertifikat", "Sertifikat Pendukung"],
+    ];
+    return docTypes.map(([type, label], index) => {
+      const doc = docs.find((item: any) => String(item.document_type || "").toLowerCase().includes(type));
+      return { no: index + 1, label, exists: Boolean(doc), note: doc?.file_name || (doc ? "Ada" : "-") };
+    });
+  };
+
+  const loadReportTestResults = async (application: JobApplication) => {
+    const candidateIds = [application.user_id, application.candidate_profile.id].filter(Boolean);
+    let results: CandidateResult[] = [];
+    const { data, error } = candidateIds.length > 0
+      ? await supabase.from("test_results").select("*").in("candidate_id", candidateIds).order("completed_at", { ascending: false })
+      : { data: [], error: null };
+    if (error) throw error;
+    results = (data as CandidateResult[]) || [];
+
+    if (results.length === 0 && application.candidate_profile.full_name) {
+      const { data: byName, error: nameError } = await supabase
+        .from("test_results")
+        .select("*")
+        .ilike("candidate_name", `%${application.candidate_profile.full_name}%`)
+        .order("completed_at", { ascending: false });
+      if (nameError) throw nameError;
+      results = (byName as CandidateResult[]) || [];
+    }
+
+    return results.map((result) => ({
+      ...result,
+      candidate_profile: result.candidate_profile || application.candidate_profile,
+    }));
+  };
+
+  const getOverallMatch = (results: CandidateResult[], docsCompletePct: number, recommendation: string) => {
+    const testAverage = results.length
+      ? Math.round(results.reduce((sum, result) => sum + Number(result.score || 0), 0) / results.length)
+      : 70;
+    const recBoost = recommendation === "sangat_direkomendasikan" ? 8 : recommendation === "direkomendasikan" ? 4 : recommendation === "dipertimbangkan" ? 0 : -12;
+    return Math.max(0, Math.min(100, Math.round((testAverage * 0.45) + (docsCompletePct * 0.2) + 28 + recBoost)));
+  };
+
+  const buildTestInterpretationSummary = (result: CandidateResult) => {
+    try {
+      const name = result.test_name || "";
+      const cats = (result.categories || {}) as Record<string, number>;
+      if (name.toUpperCase().includes("DISC")) return buildDiscInterpretation(cats, result.total_questions || 24);
+      if (isCfitName(name)) return buildCfitInterpretation(result as any);
+      if (isIstName(name)) return buildIstInterpretation(cats, result.score);
+      if (isMbtiName(name)) return buildMbtiInterpretation(cats);
+      if (isPapiName(name)) return buildPapiInterpretation(cats);
+      if (name.toUpperCase().includes("PERSONALITY PLUS")) return buildPersonalityPlusInterpretation(cats, result.total_questions || 40);
+      if (result.interpretation) return result.interpretation;
+    } catch (error) {
+      console.error("Gagal membuat interpretasi tes:", error, result);
+      if (result.interpretation) return result.interpretation;
+    }
+    return "Belum ada interpretasi psikolog tersimpan untuk hasil tes ini.";
+  };
+
+  const formatReportInterpretationHtml = (text: string) => {
+    const lines = String(text || "").split("\n").map((line) => line.trim()).filter(Boolean);
+    let html = "";
+    let listOpen = false;
+    for (const line of lines) {
+      const isBullet = /^[-•]/.test(line);
+      const clean = escapeReportHtml(line.replace(/^[-•]\s*/, ""));
+      if (isBullet) {
+        if (!listOpen) { html += '<ul class="interp-list">'; listOpen = true; }
+        html += `<li>${clean}</li>`;
+      } else {
+        if (listOpen) { html += "</ul>"; listOpen = false; }
+        if (line.endsWith(":") || /^[A-Z0-9\s&/()—-]{5,}$/.test(line)) html += `<h4>${escapeReportHtml(line.replace(/:$/, ""))}</h4>`;
+        else html += `<p>${clean}</p>`;
+      }
+    }
+    if (listOpen) html += "</ul>";
+    return html || "<p>Belum ada interpretasi psikolog tersimpan.</p>";
+  };
+
+  const renderDiscReportBlock = (result: CandidateResult) => {
+    if (!String(result.test_name || "").toUpperCase().includes("DISC")) return "";
+    const rows = getDiscRows((result.categories || {}) as Record<string, number>, result.total_questions || 24);
+    const dominant = [...rows].sort((a, b) => b.net - a.net).slice(0, 2).map((row) => row.dim).join(" & ");
+    return `
+      <div class="disc-summary">
+        <div class="disc-dominant"><span>Profil dominan</span><strong>${escapeReportHtml(dominant || "-")}</strong></div>
+        <table><thead><tr><th>Dimensi</th><th>Makna</th><th>Most</th><th>Least</th><th>Net</th></tr></thead><tbody>
+          ${rows.map((row) => `<tr><td><b>${row.dim}</b></td><td>${escapeReportHtml(row.label)}</td><td class="center">${row.m}</td><td class="center">${row.l}</td><td class="center"><b>${row.net}</b></td></tr>`).join("")}
+        </tbody></table>
+      </div>`;
+  };
+
+  const buildScreeningReportHtml = (application: JobApplication, results: CandidateResult[]) => {
+    const profile = application.candidate_profile;
+    const docs = getReportDocumentRows(profile);
+    const docsComplete = docs.filter((doc) => doc.exists).length;
+    const docsPct = Math.round((docsComplete / Math.max(1, docs.length)) * 100);
+    const workHistory = safeParseJSON(profile.work_experience, []);
+    const family = safeParseJSON(profile.family_members, []);
+    const latestWork = Array.isArray(workHistory) && workHistory.length ? workHistory[workHistory.length - 1] : null;
+    const recommendationLabel: Record<string, string> = {
+      sangat_direkomendasikan: "Sangat Direkomendasikan",
+      direkomendasikan: "Direkomendasikan",
+      dipertimbangkan: "Dipertimbangkan",
+      tidak_direkomendasikan: "Tidak Direkomendasikan",
+    };
+    const overall = getOverallMatch(results, docsPct, reportDraft.recommendation);
+    const reportJob = activeJobs.find((job) => job.id === application.vacancy_id);
+    const position = reportJob?.title || selectedJob?.title || profile.current_position || "-";
+    const companyAddress = "Jl. Raya Kertajaya Indah No.47, Manyar Sabrangan, Kec. Mulyorejo, Surabaya, Jawa Timur 60116";
+    const checked = (active: boolean) => active ? "☑" : "☐";
+    const resultRows = results.length ? results.map((result) => {
+      const categories = result.categories || {};
+      const topDims = Object.entries(categories)
+        .filter(([, value]) => typeof value === "number")
+        .sort((a, b) => Number(b[1]) - Number(a[1]))
+        .slice(0, 4)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join("; ");
+      return `
+        <tr>
+          <td>${escapeReportHtml(result.test_name)}</td>
+          <td>${escapeReportHtml(result.status || "completed")}</td>
+          <td>${escapeReportHtml(buildTestInterpretationSummary(result) || topDims || "-")}</td>
+        </tr>`;
+    }).join("") : `<tr><td colspan="3" class="center muted">Belum ada hasil tes tersimpan</td></tr>`;
+
+    const resultCards = results.length ? results.map((result) => {
+      const interpretation = buildTestInterpretationSummary(result);
+      const categories = Object.entries(result.categories || {})
+        .filter(([, value]) => typeof value === "number")
+        .sort((a, b) => Number(b[1]) - Number(a[1]))
+        .slice(0, 5)
+        .map(([key, value]) => `<li><b>${escapeReportHtml(key)}</b>: ${escapeReportHtml(value)}</li>`)
+        .join("");
+      return `
+        <div class="test-card">
+          <div class="test-title">${escapeReportHtml(result.test_name)}</div>
+          ${renderDiscReportBlock(result)}
+          <div class="interpretation-box">${formatReportInterpretationHtml(interpretation)}</div>
+          ${categories ? `<ul class="compact-list">${categories}</ul>` : ""}
+        </div>`;
+    }).join("") : `<div class="empty-state">Belum ada hasil tes psikologi untuk kandidat ini.</div>`;
+
+    const testScoreAverage = results.length ? Math.round(results.reduce((sum, result) => sum + Number(result.score || 0), 0) / results.length) : 0;
+    const recommendationScore = reportDraft.recommendation === "sangat_direkomendasikan" ? 95 : reportDraft.recommendation === "direkomendasikan" ? 85 : reportDraft.recommendation === "dipertimbangkan" ? 70 : 45;
+    const pageTitle = "RECRUITMENT ASSESSMENT REPORT";
+
+    return `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>${pageTitle} - ${escapeReportHtml(profile.full_name)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 8mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #071b46; background: #eef2f7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { width: 100%; min-height: auto; margin: 0 auto; padding: 14px 16px 12px; background: #fff; border: 1px solid #b8c4d7; overflow: visible; }
+    .header { display: grid; grid-template-columns: 155px 1fr 175px; gap: 12px; align-items: start; margin-bottom: 8px; }
+    .logo { font-size: 26px; font-weight: 900; letter-spacing: -1px; color: #10357b; line-height: 1; padding-top: 10px; }
+    .logo span { color: #0ea5e9; }
+    .title { text-align: center; }
+    .title h1 { margin: 4px 0 3px; font-size: 21px; letter-spacing: .2px; color: #062d75; }
+    .title h2 { margin: 0; font-size: 13px; color: #062d75; }
+    .ribbon { display: inline-block; margin-top: 8px; padding: 6px 12px; border-radius: 4px; background: #062d75; color: white; font-size: 11px; font-weight: 700; letter-spacing: .2px; }
+    .company { font-size: 9.5px; line-height: 1.45; color: #111827; }
+    .company strong { display: block; color: #062d75; font-size: 14px; margin-bottom: 3px; }
+    .page-tag { display: none; }
+    .section-title { display: inline-block; margin: 7px 0 -1px; padding: 5px 16px 5px 12px; min-width: 160px; background: linear-gradient(90deg,#062d75,#0b3b8f); color: #fff; border-radius: 5px 14px 0 0; font-size: 12px; font-weight: 800; break-after: avoid; page-break-after: avoid; }
+    .box { border: 1px solid #193f85; border-radius: 5px; padding: 9px; background: #fff; width:100%; break-inside: auto; page-break-inside: auto; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .info-grid { display: grid; grid-template-columns: 115px 1fr 1fr; gap: 10px; }
+    .photo { width: 108px; height: 128px; object-fit: cover; border-radius: 5px; border: 1px solid #d1d5db; background: #f1f5f9; }
+    .placeholder-photo { width: 108px; height: 128px; border-radius: 5px; background: #e2e8f0; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:800; color:#0f3a88; }
+    .kv { display: grid; grid-template-columns: 96px 7px 1fr; gap: 4px; margin-bottom: 6px; font-size: 9.3px; line-height: 1.35; }
+    .kv b { color:#111827; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.6px; }
+    th { background: #f3f6fb; color:#062d75; font-weight:800; }
+    th,td { border: 1px solid #d7deeb; padding: 4px 5px; vertical-align: top; }
+    .center { text-align:center; }
+    .muted { color:#64748b; }
+    .green { color:#07883b; font-weight:800; }
+    .red { color:#d00; font-weight:800; }
+    .small { font-size: 9.8px; line-height: 1.5; }
+    ul { margin: 5px 0 0 15px; padding: 0; }
+    li { margin: 0 0 4px; }
+    .compact-list { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; margin-top:6px; font-size:9px; color:#334155; }
+    .mini-grid { display:grid; grid-template-columns: 1fr; gap: 7px; margin-top: 8px; }
+    .score-pill { display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid #e5e7eb; padding:4px 0; }
+    .stars { white-space:nowrap; font-size:13px; letter-spacing:1px; }
+    .star-on { color:#0b3b8f; } .star-off { color:#cbd5e1; }
+    .decision { display:inline-flex; align-items:center; justify-content:center; min-width:88px; padding:7px 10px; border-radius:6px; background:#059669; color:white; font-weight:900; }
+    .page-2-layout { display:grid; grid-template-columns: 1fr; gap: 8px; }
+    .test-card { border:1px solid #d7deeb; border-radius:6px; padding:10px; min-height:auto; break-inside:auto; page-break-inside:auto; background:#fbfdff; }
+    .test-title { font-size:10.5px; font-weight:900; color:#062d75; min-height:auto; }
+    .test-score { margin-top:4px; font-size:12px; font-weight:800; color:#062d75; }
+    .test-score span { font-size:10px; color:#64748b; }
+    .bar { display:none; }
+    .bar i { display:block; height:100%; background:linear-gradient(90deg,#0ea5e9,#062d75); }
+    .test-card p { margin:4px 0 0; font-size:9.2px; line-height:1.45; color:#334155; }
+    .interpretation-box { margin-top:7px; border-left:3px solid #0f3a88; background:#f8fafc; padding:8px 10px; color:#1f2937; font-size:9.3px; line-height:1.5; }
+    .interpretation-box h4 { margin:6px 0 3px; color:#062d75; font-size:9.5px; letter-spacing:.2px; text-transform:uppercase; }
+    .interpretation-box h4:first-child { margin-top:0; }
+    .interpretation-box p { margin:0 0 5px; }
+    .interp-list { margin:3px 0 5px 15px; padding:0; }
+    .disc-summary { margin-top:7px; }
+    .disc-dominant { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; border:1px solid #d7deeb; border-radius:6px; padding:6px 8px; background:#fff; }
+    .disc-dominant span { color:#64748b; font-size:9px; text-transform:uppercase; letter-spacing:.3px; }
+    .disc-dominant strong { color:#dc2626; font-size:14px; }
+    .match { display:flex; align-items:center; justify-content:center; flex-direction:column; min-height:95px; border:1px solid #d7deeb; border-radius:8px; background:linear-gradient(180deg,#f8fafc,#fff); }
+    .match strong { font-size:30px; color:#059669; }
+    .match span { color:#059669; font-weight:900; text-transform:uppercase; }
+    .summary-table td:first-child { width: 42%; font-weight:700; color:#111827; }
+    .footer { margin-top: 7px; text-align:center; font-size:10px; color:#062d75; font-style:italic; }
+    .signature { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
+    .sign-box { border:1px solid #d7deeb; border-radius:6px; min-height:68px; padding:8px; text-align:center; font-size:11px; }
+    .empty-state { grid-column:1/-1; border:1px dashed #cbd5e1; padding:18px; text-align:center; color:#64748b; border-radius:8px; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .section-title + .box { break-before: avoid; page-break-before: avoid; }
+    .page-2-layout > div { break-inside: auto; page-break-inside: auto; }
+    @media print { body { background:#fff; } .page { margin:0; border:none; } .no-print { display:none !important; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="logo">PJM<span>GROUP</span></div>
+      <div class="title">
+        <h1>${pageTitle}</h1>
+        <h2>SCREENING AWAL & INTERVIEW AWAL</h2>
+        <div class="ribbon">INTEGRASI MOTIVASI, ADMINISTRASI, KOMPETENSI & BACKGROUND CHECKING</div>
+      </div>
+      <div class="company"><strong>PJM GROUP</strong>${companyAddress}<br/>www.pjmgroup.co.id</div>
+    </div>
+
+    <div class="section-title">A. INFORMASI KANDIDAT</div>
+    <div class="box info-grid">
+      ${profile.photo_url ? `<img class="photo" src="${escapeReportHtml(profile.photo_url)}" />` : `<div class="placeholder-photo">${escapeReportHtml(String(profile.full_name || "K").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase())}</div>`}
+      <div>
+        <div class="kv"><b>Nama Lengkap</b><span>:</span><span>${escapeReportHtml(profile.full_name)}</span></div>
+        <div class="kv"><b>Posisi Dilamar</b><span>:</span><span>${escapeReportHtml(position)}</span></div>
+        <div class="kv"><b>Tanggal Interview</b><span>:</span><span>${escapeReportHtml(formatDate(reportDraft.interviewDate))}</span></div>
+        <div class="kv"><b>Interviewer</b><span>:</span><span>${escapeReportHtml(reportDraft.interviewer || "-")}</span></div>
+        <div class="kv"><b>Sumber Kandidat</b><span>:</span><span>${escapeReportHtml(reportDraft.source)}</span></div>
+        <div class="kv"><b>Usia / Tgl Lahir</b><span>:</span><span>${escapeReportHtml(getAgeText(profile.birth_date))} / ${escapeReportHtml(formatDate(profile.birth_date))}</span></div>
+        <div class="kv"><b>Jenis Kelamin</b><span>:</span><span>${checked(String(profile.gender).toLowerCase().includes("pria") || String(profile.gender).toLowerCase().includes("laki"))} Pria &nbsp;&nbsp; ${checked(String(profile.gender).toLowerCase().includes("wanita") || String(profile.gender).toLowerCase().includes("perempuan"))} Wanita</span></div>
+        <div class="kv"><b>Status Pernikahan</b><span>:</span><span>${escapeReportHtml(profile.marital_status || "-")}</span></div>
+      </div>
+      <div>
+        <div class="kv"><b>Domisili</b><span>:</span><span>${escapeReportHtml(getProfileValue(profile, ["city", "address"]))}</span></div>
+        <div class="kv"><b>Ketersediaan</b><span>:</span><span>${escapeReportHtml(reportDraft.availability || profile.available_from || profile.notice_period || "-")}</span></div>
+        <div class="kv"><b>Ekspektasi Gaji</b><span>:</span><span>${escapeReportHtml(formatExpectedSalary(profile))}</span></div>
+        <div class="kv"><b>Tinggi Badan</b><span>:</span><span>${escapeReportHtml(profile.height || "-")}${profile.height ? " cm" : ""}</span></div>
+        <div class="kv"><b>Berat Badan</b><span>:</span><span>${escapeReportHtml(profile.weight || "-")}${profile.weight ? " kg" : ""}</span></div>
+        <div class="kv"><b>Kondisi Kesehatan</b><span>:</span><span>${escapeReportHtml(reportDraft.healthCondition)}</span></div>
+        <div class="kv"><b>E-mail</b><span>:</span><span>${escapeReportHtml(profile.email)}</span></div>
+        <div class="kv"><b>No. Handphone</b><span>:</span><span>${escapeReportHtml(profile.phone || "-")}</span></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div class="section-title">B. ADMINISTRASI & KELENGKAPAN DOKUMEN</div>
+        <div class="box">
+          <table><thead><tr><th>No.</th><th>Dokumen</th><th>Ada</th><th>Tidak Ada</th><th>Keterangan</th></tr></thead><tbody>
+            ${docs.map((doc) => `<tr><td class="center">${doc.no}</td><td>${escapeReportHtml(doc.label)}</td><td class="center">${doc.exists ? "☑" : "☐"}</td><td class="center">${doc.exists ? "☐" : "☑"}</td><td>${escapeReportHtml(doc.note)}</td></tr>`).join("")}
+          </tbody></table>
+          <table style="margin-top:8px"><tr><th>Ringkasan Kelengkapan</th><th class="${docsPct >= 80 ? "green" : "red"}">${docsPct}% (${docsPct >= 80 ? "Lengkap" : "Perlu dilengkapi"})</th></tr></table>
+          <p class="small"><b>Catatan:</b> ${escapeReportHtml(reportDraft.documentCompletenessNotes)}</p>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">C. MOTIVASI KANDIDAT</div>
+        <div class="box grid-2">
+          <div class="small">
+            <b>Sumber Motivasi Utama</b>
+            <p>${escapeReportHtml(reportDraft.motivationMainSource)}</p>
+            <hr/>
+            <b>Harapan terhadap Perusahaan</b>
+            <p>${escapeReportHtml(reportDraft.companyExpectation)}</p>
+          </div>
+          <div class="small">
+            <b>Alasan Melamar Posisi Ini</b>
+            <p>${escapeReportHtml(reportDraft.motivationReason)}</p>
+            <hr/>
+            <b>Kesiapan & Komitmen</b>
+            <p>${escapeReportHtml(reportDraft.commitmentNotes)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div>
+        <div class="section-title">D. LATAR BELAKANG</div>
+        <div class="box small">
+          <div class="kv"><b>Pendidikan</b><span>:</span><span>${escapeReportHtml(getLatestEducation(profile))}</span></div>
+          <div class="kv"><b>Pekerjaan Terakhir</b><span>:</span><span>${escapeReportHtml(latestWork?.position || latestWork?.title || profile.current_position || "-")}</span></div>
+          <div class="kv"><b>Perusahaan</b><span>:</span><span>${escapeReportHtml(latestWork?.company || latestWork?.company_name || profile.current_company || "-")}</span></div>
+          <div class="kv"><b>Keluarga</b><span>:</span><span>${escapeReportHtml(Array.isArray(family) && family.length ? `${family.length} data keluarga` : "-")}</span></div>
+          <p><b>Catatan:</b> ${escapeReportHtml(reportDraft.familyNotes)}</p>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">E. ASPEK KOMPETENSI</div>
+        <div class="box">
+          <table><thead><tr><th>Aspek</th><th>Penilaian</th><th>Catatan</th></tr></thead><tbody>
+            <tr><td>Kesesuaian Pengalaman</td><td class="stars">${renderReportStars(4)}</td><td>${escapeReportHtml(reportDraft.competencyNotes)}</td></tr>
+            <tr><td>Komunikasi</td><td class="stars">${renderReportStars(4)}</td><td>Perlu divalidasi saat interview.</td></tr>
+            <tr><td>Stabilitas Kerja</td><td class="stars">${renderReportStars(4)}</td><td>${escapeReportHtml(profile.experience_years || "-")}</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">F. BACKGROUND CHECKING</div>
+        <div class="box small">
+          <div class="score-pill"><span>Verifikasi Data Pribadi</span><b class="green">Sesuai</b></div>
+          <div class="score-pill"><span>Verifikasi Pendidikan</span><b class="green">Sesuai</b></div>
+          <div class="score-pill"><span>Verifikasi Pengalaman</span><b class="green">Baik</b></div>
+          <div class="score-pill"><span>Catatan Hukum</span><b class="green">Bersih</b></div>
+          <p><b>Catatan:</b> ${escapeReportHtml(reportDraft.backgroundNotes)}</p>
+          <div class="center"><span class="decision">${overall >= 75 ? "LAYAK" : "REVIEW"}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div class="section-title">G. RINGKASAN OBSERVASI RECRUITER</div>
+        <div class="box grid-2 small">
+          <div><b class="green">Kelebihan Kandidat</b><ul>${renderReportBullets(reportDraft.strengths)}</ul></div>
+          <div><b class="red">Area Pengembangan</b><ul>${renderReportBullets(reportDraft.weaknesses)}</ul></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">H. REKOMENDASI</div>
+        <div class="box grid-2 small">
+          <div>
+            <b>Rekomendasi</b>
+            <ul style="list-style:none;margin-left:0">
+              <li>${checked(reportDraft.recommendation === "sangat_direkomendasikan")} Sangat Direkomendasikan</li>
+              <li>${checked(reportDraft.recommendation === "direkomendasikan")} Direkomendasikan</li>
+              <li>${checked(reportDraft.recommendation === "dipertimbangkan")} Dipertimbangkan</li>
+              <li>${checked(reportDraft.recommendation === "tidak_direkomendasikan")} Tidak Direkomendasikan</li>
+            </ul>
+          </div>
+          <div><b>Catatan Recruiter</b><p>${escapeReportHtml(reportDraft.recruiterNotes)}</p><br/><b>( ${escapeReportHtml(reportDraft.interviewer || "Recruiter")} )</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">I. CATATAN TAMBAHAN</div>
+    <div class="box small">${escapeReportHtml(reportDraft.additionalNotes || "________________________________________________________________________________________________")}</div>
+
+    <div class="page-2-layout">
+      <div>
+        <div class="section-title">J. RINGKASAN HASIL TES</div>
+        <div class="box">
+          <table><thead><tr><th>Tes</th><th>Status</th><th>Interpretasi Psikolog</th></tr></thead><tbody>${resultRows}</tbody></table>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">K. PROFIL & INTERPRETASI TES</div>
+        <div class="box mini-grid">${resultCards}</div>
+      </div>
+      <div>
+        <div class="section-title">L. KECOCOKAN OVERALL</div>
+        <div class="box">
+          <div class="match"><strong>${overall}%</strong><span>${escapeReportHtml(recommendationLabel[reportDraft.recommendation] || "Review")}</span></div>
+          <p class="small">Kandidat memiliki tingkat kesesuaian berdasarkan integrasi profil, administrasi, catatan recruiter, dan hasil tes psikologi yang tersedia.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">M. ANALISA KESESUAIAN KANDIDAT</div>
+    <div class="box grid-3">
+      <div>
+        <b>1. Kecocokan Pengalaman</b>
+        <table class="summary-table"><tr><td>Relevansi</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Penguasaan Tugas</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Adaptabilitas</td><td class="stars">${renderReportStars(4)}</td></tr></table>
+        <p class="small">${escapeReportHtml(reportDraft.experienceFitNotes)}</p>
+      </div>
+      <div>
+        <b>2. Kecocokan Kompetensi</b>
+        <table class="summary-table"><tr><td>Komunikasi</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Ketelitian</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Problem Solving</td><td class="stars">${renderReportStars(results.length ? 4 : 3)}</td></tr></table>
+        <p class="small">${escapeReportHtml(reportDraft.competencyFitNotes)}</p>
+      </div>
+      <div>
+        <b>3. Catatan Integrasi</b>
+        <p class="small">${escapeReportHtml(reportDraft.overallFitNotes)}</p>
+      </div>
+    </div>
+
+    <div class="section-title">N. REKOMENDASI AKHIR</div>
+    <div class="box">
+      <table><thead><tr><th>Aspek Penilaian</th><th>Skor</th><th>Bobot</th><th>Skor Akhir</th></tr></thead><tbody>
+        <tr><td>Motivasi</td><td>90%</td><td>15%</td><td>13.5%</td></tr>
+        <tr><td>Administrasi & Kelengkapan</td><td>${docsPct}%</td><td>15%</td><td>${Math.round(docsPct * 0.15)}%</td></tr>
+        <tr><td>Pengalaman & Kompetensi</td><td>85%</td><td>25%</td><td>21%</td></tr>
+        <tr><td>Hasil Tes</td><td>${testScoreAverage || "-"}%</td><td>25%</td><td>${testScoreAverage ? Math.round(testScoreAverage * 0.25) : "-"}%</td></tr>
+        <tr><td>Background Checking</td><td>90%</td><td>20%</td><td>18%</td></tr>
+        <tr><th colspan="3">TOTAL MATCH SCORE</th><th style="font-size:20px">${overall}%</th></tr>
+      </tbody></table>
+      <div class="signature">
+        <div class="sign-box">Disiapkan Oleh,<br/>Recruiter<br/><br/><br/>( ${escapeReportHtml(reportDraft.signatureRecruiter || reportDraft.interviewer || "Recruiter")} ) &nbsp;&nbsp; Tanggal: ${escapeReportHtml(formatDate(reportDraft.interviewDate))}</div>
+        <div class="sign-box">Diketahui Oleh,<br/>HR Manager<br/><br/><br/>( ${escapeReportHtml(reportDraft.signatureHrManager || "____________________")} ) &nbsp;&nbsp; Tanggal: ______________</div>
+      </div>
+      <div class="box small" style="margin-top:8px"><b>Alasan rekomendasi:</b> ${escapeReportHtml(reportDraft.finalRecommendationNotes)}<br/><b>Catatan pengembangan:</b> ${escapeReportHtml(reportDraft.developmentNotes)}</div>
+    </div>
+    <div class="footer">Catatan: Laporan ini bersifat rahasia dan hanya digunakan untuk keperluan proses rekrutmen di lingkungan PJM Group.</div>
+  </div>
+  <script>window.onload = () => setTimeout(() => window.print(), 300);</script>
+</body>
+</html>`;
+  };
+
+  const printScreeningReport = async () => {
+    const reportSource = isReportPage ? reportApplications : applications;
+    const application = reportSource.find((app) => app.id === reportApplicationId);
+    if (!application) {
+      Swal.fire("Pilih kandidat", "Pilih kandidat yang akan dibuat laporan screening/interview.", "warning");
+      return;
+    }
+
+    try {
+      const results = await loadReportTestResults(application);
+      const html = buildScreeningReportHtml(application, results);
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        Swal.fire("Popup diblokir", "Izinkan popup browser untuk mencetak laporan.", "warning");
+        return;
+      }
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+    } catch (error) {
+      console.error("Error printing screening report:", error);
+      Swal.fire("Error", "Gagal membuat laporan screening/interview.", "error");
+    }
+  };
+
+  const openScreeningForm = async (application: JobApplication) => {
+    const storageKey = `screening-report:${application.id}`;
+    let nextDraft = { ...defaultScreeningReportDraft };
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) nextDraft = { ...nextDraft, ...JSON.parse(saved) };
+    } catch {
+      // ignore malformed local draft
+    }
+    try {
+      const { data, error } = await (supabase as any)
+        .from("screening_reports")
+        .select("draft")
+        .eq("application_id", application.id)
+        .maybeSingle();
+      if (!error && data?.draft) nextDraft = { ...nextDraft, ...data.draft };
+      if (error) console.warn("Screening report DB load skipped:", error.message);
+    } catch {
+      // Table may not exist before migration is applied; keep local fallback below.
+    }
+    setReportDraft(nextDraft);
+    setReportApplicationId(application.id);
+    setShowScreeningForm(true);
+  };
+
+  const saveScreeningDraft = async () => {
+    if (!reportApplicationId) return;
+    const application = reportApplications.find((item) => item.id === reportApplicationId) || applications.find((item) => item.id === reportApplicationId);
+    if (!application) return;
+    localStorage.setItem(`screening-report:${reportApplicationId}`, JSON.stringify(reportDraft));
+    try {
+      const { error } = await (supabase as any).from("screening_reports").upsert({
+        application_id: reportApplicationId,
+        vacancy_id: application.vacancy_id || null,
+        candidate_user_id: application.user_id || application.candidate_profile?.user_id || null,
+        candidate_email: application.candidate_profile?.email || null,
+        candidate_name: application.candidate_profile?.full_name || null,
+        draft: reportDraft,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "application_id" });
+      if (error) throw error;
+      setSavedScreeningIds((current) => new Set(current).add(reportApplicationId));
+      Swal.fire({ icon: "success", title: "Draft screening tersimpan", timer: 1300, showConfirmButton: false });
+    } catch (error: any) {
+      console.error("Gagal menyimpan screening report ke database:", error);
+      Swal.fire({ icon: "error", title: "Gagal menyimpan ke database", text: error?.message || "Pastikan migration screening_reports sudah dijalankan." });
+    }
+  };
+
+  if (isReportPage) {
+    const reportRows = reportApplications.filter((application) => {
+      const keyword = searchTerm.trim().toLowerCase();
+      const matchesSearch = !keyword || [application.candidate_profile.full_name, application.candidate_profile.email, application.candidate_profile.phone]
+        .some((item) => String(item || "").toLowerCase().includes(keyword));
+      const matchesJob = reportJobFilter === "all" || application.vacancy_id === reportJobFilter;
+      const matchesStatus = statusFilter === "all" || application.status === statusFilter;
+      return matchesSearch && matchesJob && matchesStatus;
+    });
+    const activeReportApplication = reportApplications.find((application) => application.id === reportApplicationId) || null;
+    const getReportJob = (application: JobApplication) => activeJobs.find((job) => job.id === application.vacancy_id);
+    const totalReportPages = Math.max(1, Math.ceil(reportRows.length / reportItemsPerPage));
+    const safeReportPage = Math.min(reportCurrentPage, totalReportPages);
+    const paginatedReportRows = reportRows.slice((safeReportPage - 1) * reportItemsPerPage, safeReportPage * reportItemsPerPage);
+
+    return (
+      <AdminLayout>
+        <style>{`.form-input{height:2.5rem;width:100%;border:1px solid hsl(var(--border));border-radius:.5rem;background:hsl(var(--background));padding:0 .75rem;font-size:.875rem;color:hsl(var(--foreground));outline:none}.form-input:focus{border-color:hsl(var(--primary));box-shadow:0 0 0 1px hsl(var(--primary))}`}</style>
+        <div className="space-y-5">
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary"><FileText className="h-4 w-4" /> Recruitment Assessment</div>
+              <h1 className="text-2xl font-bold text-foreground">Screening Report</h1>
+              <p className="mt-1 text-sm text-muted-foreground">Kelola screening kandidat dan hasilkan laporan assessment dua halaman.</p>
+            </div>
+            {!showScreeningForm && (
+              <div className="grid grid-cols-2 gap-2 text-center sm:min-w-[280px]">
+                <div className="rounded-lg bg-muted/50 px-4 py-3"><p className="text-xl font-bold text-foreground">{reportApplications.length}</p><p className="text-xs text-muted-foreground">Kandidat</p></div>
+                <div className="rounded-lg bg-emerald-500/10 px-4 py-3"><p className="text-xl font-bold text-emerald-600">{savedScreeningIds.size}</p><p className="text-xs text-muted-foreground">Draft tersimpan</p></div>
+              </div>
+            )}
+          </div>
+
+          {!showScreeningForm ? (
+            <>
+              <div className="grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(260px,1fr)_minmax(220px,320px)_minmax(200px,260px)]">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Cari kandidat</label>
+                  <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setReportCurrentPage(1); }} placeholder="Nama, email, atau telepon" className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm" /></div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Filter lowongan</label>
+                  <select value={reportJobFilter} onChange={(event) => { setReportJobFilter(event.target.value); setReportCurrentPage(1); }} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+                    <option value="all">Semua lowongan</option>{activeJobs.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Filter tahap</label>
+                  <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setReportCurrentPage(1); }} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+                    <option value="all">Semua tahap</option>
+                    <option value="candidate_pool">Database kandidat</option>
+                    <option value="applied">Lamaran diterima</option>
+                    <option value="screening">Screening CV</option>
+                    <option value="psychology_test">Tes psikologi</option>
+                    <option value="hr_interview">Wawancara HR</option>
+                    <option value="user_interview">Wawancara User</option>
+                    <option value="offer">Penawaran</option>
+                    <option value="hired">Diterima</option>
+                    <option value="rejected">Ditolak</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3"><div><h2 className="font-semibold text-foreground">Daftar Kandidat Screening</h2><p className="text-xs text-muted-foreground">Pilih kandidat untuk mengisi form assessment.</p></div><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{reportRows.length} kandidat</span></div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] text-sm">
+                    <thead className="bg-muted/50"><tr><th className="px-4 py-3 text-left font-medium text-muted-foreground">Kandidat</th><th className="px-4 py-3 text-left font-medium text-muted-foreground">Posisi</th><th className="px-4 py-3 text-left font-medium text-muted-foreground">Tanggal Lamar</th><th className="px-4 py-3 text-left font-medium text-muted-foreground">Tahap</th><th className="px-4 py-3 text-left font-medium text-muted-foreground">Kesiapan Data</th><th className="px-4 py-3 text-right font-medium text-muted-foreground">Aksi</th></tr></thead>
+                    <tbody className="divide-y divide-border">
+                      {loadingApplications ? <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">Memuat kandidat...</td></tr> : paginatedReportRows.map((application) => {
+                        const profile = application.candidate_profile;
+                        const hasTests = Boolean(application.activation_codes?.some((code) => code.test_completed_at));
+                        const hasDraft = savedScreeningIds.has(application.id) || Boolean(localStorage.getItem(`screening-report:${application.id}`));
+                        return <tr key={application.id} className="hover:bg-muted/30">
+                          <td className="px-4 py-3"><div className="flex items-center gap-3">{profile.photo_url ? <img src={profile.photo_url} alt="" className="h-10 w-10 rounded-full object-cover" /> : <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">{profile.full_name?.slice(0, 1)}</div>}<div><p className="font-medium text-foreground">{profile.full_name}</p><p className="text-xs text-muted-foreground">{profile.email}</p></div></div></td>
+                          <td className="px-4 py-3"><p className="font-medium text-foreground">{getReportJob(application)?.title || profile.current_position || "-"}</p><p className="text-xs text-muted-foreground">{getReportJob(application)?.department || "-"}</p></td>
+                          <td className="px-4 py-3 text-muted-foreground">{formatCompactDate(application.applied_at)}</td>
+                          <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusColor(application.status)}`}>{getStatusLabel(application.status)}</span></td>
+                          <td className="px-4 py-3"><div className="flex flex-wrap gap-1.5"><span className={`rounded px-2 py-1 text-[11px] ${profile.documents?.length ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>Dokumen {profile.documents?.length || 0}</span><span className={`rounded px-2 py-1 text-[11px] ${hasTests ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>{hasTests ? "Tes selesai" : "Tes belum selesai"}</span>{hasDraft && <span className="rounded bg-blue-500/10 px-2 py-1 text-[11px] text-blue-600">Draft</span>}</div></td>
+                          <td className="px-4 py-3 text-right"><button onClick={() => openScreeningForm(application)} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90">{hasDraft ? "Edit Screening" : "Buat Screening"}</button></td>
+                        </tr>;
+                      })}
+                      {!loadingApplications && reportRows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">Belum ada kandidat pada filter ini.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+                {reportRows.length > 0 && (
+                  <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>Menampilkan {(safeReportPage - 1) * reportItemsPerPage + 1}-{Math.min(safeReportPage * reportItemsPerPage, reportRows.length)} dari {reportRows.length}</span>
+                      <select value={reportItemsPerPage} onChange={(event) => { setReportItemsPerPage(Number(event.target.value)); setReportCurrentPage(1); }} className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground">
+                        <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setReportCurrentPage((page) => Math.max(1, page - 1))} disabled={safeReportPage === 1} className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40">Sebelumnya</button>
+                      <span className="text-sm text-muted-foreground">{safeReportPage} / {totalReportPages}</span>
+                      <button onClick={() => setReportCurrentPage((page) => Math.min(totalReportPages, page + 1))} disabled={safeReportPage === totalReportPages} className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40">Berikutnya</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : activeReportApplication && (
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3"><button onClick={() => setShowScreeningForm(false)} className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">← Kembali</button><div><h2 className="font-bold text-foreground">Form Screening — {activeReportApplication.candidate_profile.full_name}</h2><p className="text-xs text-muted-foreground">{getReportJob(activeReportApplication)?.title || activeReportApplication.candidate_profile.current_position || "-"} • data profil, dokumen, dan hasil tes akan ditarik otomatis ke report.</p></div></div>
+                <div className="flex gap-2"><button onClick={saveScreeningDraft} className="rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary">Simpan Draft</button><button onClick={printScreeningReport} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"><Printer className="h-4 w-4" /> Preview & Cetak</button></div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+                <div className="space-y-4 rounded-xl border border-border bg-card p-4 xl:sticky xl:top-0 xl:self-start">
+                  <h3 className="text-sm font-semibold text-foreground">Informasi Report</h3>
+                  <Field label="Tanggal Interview"><input type="date" value={reportDraft.interviewDate} onChange={(e) => updateReportDraft("interviewDate", e.target.value)} className="form-input" /></Field>
+                  <Field label="Interviewer / Recruiter"><input value={reportDraft.interviewer} onChange={(e) => updateReportDraft("interviewer", e.target.value)} placeholder="Nama recruiter" className="form-input" /></Field>
+                  <Field label="Sumber Kandidat"><input value={reportDraft.source} onChange={(e) => updateReportDraft("source", e.target.value)} className="form-input" /></Field>
+                  <Field label="Ketersediaan Bergabung"><input value={reportDraft.availability} onChange={(e) => updateReportDraft("availability", e.target.value)} placeholder="Contoh: 1 bulan" className="form-input" /></Field>
+                  <Field label="Kondisi Kesehatan"><input value={reportDraft.healthCondition} onChange={(e) => updateReportDraft("healthCondition", e.target.value)} className="form-input" /></Field>
+                  <Field label="Rekomendasi Akhir"><select value={reportDraft.recommendation} onChange={(e) => updateReportDraft("recommendation", e.target.value)} className="form-input"><option value="sangat_direkomendasikan">Sangat Direkomendasikan</option><option value="direkomendasikan">Direkomendasikan</option><option value="dipertimbangkan">Dipertimbangkan</option><option value="tidak_direkomendasikan">Tidak Direkomendasikan</option></select></Field>
+                </div>
+                <div className="space-y-4">
+                  <FormSection title="Administrasi & Motivasi" fields={[["documentCompletenessNotes", "Catatan Kelengkapan Dokumen"], ["motivationMainSource", "Sumber Motivasi Utama"]]} draft={reportDraft} update={updateReportDraft} />
+                  <FormSection title="Motivasi & Komitmen" fields={[["motivationReason", "Alasan Melamar Posisi Ini"], ["companyExpectation", "Harapan terhadap Perusahaan"], ["commitmentNotes", "Kesiapan & Komitmen"]]} draft={reportDraft} update={updateReportDraft} />
+                  <FormSection title="Observasi & Verifikasi" fields={[["familyNotes", "Latar Belakang Keluarga / Lingkungan"], ["competencyNotes", "Catatan Kompetensi dari Pengalaman"], ["backgroundNotes", "Background Checking"]]} draft={reportDraft} update={updateReportDraft} />
+                  <FormSection title="Analisa Kesesuaian Kandidat" fields={[["experienceFitNotes", "Kecocokan Pengalaman dengan Posisi"], ["competencyFitNotes", "Kecocokan Kompetensi"], ["overallFitNotes", "Kecocokan Overall"]]} draft={reportDraft} update={updateReportDraft} />
+                  <FormSection title="Kesimpulan & Rekomendasi Akhir" fields={[["strengths", "Kelebihan Kandidat (satu poin per baris)"], ["weaknesses", "Area Pengembangan (satu poin per baris)"], ["recruiterNotes", "Catatan Recruiter"], ["finalRecommendationNotes", "Alasan Rekomendasi Akhir"], ["developmentNotes", "Catatan Pengembangan Kandidat"], ["additionalNotes", "Catatan Tambahan"]]} draft={reportDraft} update={updateReportDraft} />
+                  <FormSection title="Tanda Tangan" fields={[["signatureRecruiter", "Nama Recruiter"], ["signatureHrManager", "Nama HR Manager"]]} draft={reportDraft} update={updateReportDraft} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -1152,8 +2056,12 @@ export default function RecruitmentProcess() {
                   <Workflow className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">Proses Rekrutmen</h1>
-                  <p className="text-sm text-muted-foreground">Kelola proses lamaran aktif dan pantau history lowongan yang sudah ditutup atau lewat deadline</p>
+                  <h1 className="text-2xl font-bold text-foreground">{isReportPage ? "Screening & Interview Report" : "Proses Rekrutmen"}</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {isReportPage
+                      ? "Pilih lowongan dan kandidat untuk membuat print out profil kandidat, screening, interview, dan hasil tes."
+                      : "Kelola proses lamaran aktif dan pantau history lowongan yang sudah ditutup atau lewat deadline"}
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
@@ -1180,8 +2088,12 @@ export default function RecruitmentProcess() {
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-foreground">Daftar Lowongan Rekrutmen</h2>
-                  <p className="text-sm text-muted-foreground">Gunakan filter untuk melihat lowongan terbuka, ditutup, draft, atau yang sudah melewati deadline.</p>
+                  <h2 className="text-lg font-semibold text-foreground">{isReportPage ? "Pilih Lowongan untuk Laporan" : "Daftar Lowongan Rekrutmen"}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {isReportPage
+                      ? "Halaman ini khusus untuk membuat resume/laporan screening dan interview kandidat."
+                      : "Gunakan filter untuk melihat lowongan terbuka, ditutup, draft, atau yang sudah melewati deadline."}
+                  </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <select
@@ -1206,10 +2118,12 @@ export default function RecruitmentProcess() {
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  {jobListFilter === "active" ? "Lowongan Terbuka" : "Hasil Filter Lowongan"}
+                  {isReportPage ? "Root Laporan Screening" : jobListFilter === "active" ? "Lowongan Terbuka" : "Hasil Filter Lowongan"}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {jobListFilter === "active"
+                  {isReportPage
+                    ? "Buka salah satu lowongan untuk memilih kandidat dan mencetak report."
+                    : jobListFilter === "active"
                     ? "Lowongan berstatus aktif dan belum melewati deadline."
                     : "History lowongan tetap dapat dibuka untuk pengecekan proses dan pelamar."}
                 </p>
@@ -1326,6 +2240,8 @@ export default function RecruitmentProcess() {
               </div>
             </div>
 
+            {!isReportPage && (
+            <>
             {/* Search and Filter */}
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -1599,6 +2515,144 @@ export default function RecruitmentProcess() {
                 </table>
               </div>
             </div>
+            </>
+            )}
+
+            {isReportPage && (
+            <>
+            {/* Screening & Interview Report Builder */}
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Resume Screening & Interview
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Buat print out profil kandidat lengkap dengan administrasi, catatan recruiter, background check, dan hasil tes psikologi.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={printScreeningReport}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
+                >
+                  <Printer className="h-4 w-4" />
+                  Cetak Report
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-[360px_1fr]">
+                <div className="space-y-3 rounded-xl border border-border bg-background p-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Pilih Kandidat</label>
+                    <select
+                      value={reportApplicationId}
+                      onChange={(e) => setReportApplicationId(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Pilih kandidat</option>
+                      {applications.map((application) => (
+                        <option key={application.id} value={application.id}>
+                          {application.candidate_profile.full_name} - {getStatusLabel(application.status)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Tanggal Interview</label>
+                      <input
+                        type="date"
+                        value={reportDraft.interviewDate}
+                        onChange={(e) => updateReportDraft("interviewDate", e.target.value)}
+                        className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Interviewer / Recruiter</label>
+                      <input
+                        type="text"
+                        value={reportDraft.interviewer}
+                        onChange={(e) => updateReportDraft("interviewer", e.target.value)}
+                        placeholder="Nama recruiter"
+                        className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Sumber Kandidat</label>
+                    <input
+                      type="text"
+                      value={reportDraft.source}
+                      onChange={(e) => updateReportDraft("source", e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Ketersediaan Bergabung</label>
+                      <input
+                        type="text"
+                        value={reportDraft.availability}
+                        onChange={(e) => updateReportDraft("availability", e.target.value)}
+                        placeholder="Contoh: 1 bulan / segera"
+                        className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Kondisi Kesehatan</label>
+                      <input
+                        type="text"
+                        value={reportDraft.healthCondition}
+                        onChange={(e) => updateReportDraft("healthCondition", e.target.value)}
+                        className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Rekomendasi Akhir</label>
+                    <select
+                      value={reportDraft.recommendation}
+                      onChange={(e) => updateReportDraft("recommendation", e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="sangat_direkomendasikan">Sangat Direkomendasikan</option>
+                      <option value="direkomendasikan">Direkomendasikan</option>
+                      <option value="dipertimbangkan">Dipertimbangkan</option>
+                      <option value="tidak_direkomendasikan">Tidak Direkomendasikan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {[
+                    ["motivationReason", "Alasan Melamar Posisi Ini", 4],
+                    ["companyExpectation", "Harapan terhadap Perusahaan", 3],
+                    ["commitmentNotes", "Kesiapan & Komitmen", 3],
+                    ["familyNotes", "Latar Belakang Keluarga / Lingkungan", 3],
+                    ["competencyNotes", "Catatan Kompetensi", 3],
+                    ["backgroundNotes", "Background Checking", 3],
+                    ["strengths", "Kelebihan Kandidat (1 baris per poin)", 4],
+                    ["weaknesses", "Area Pengembangan (1 baris per poin)", 4],
+                    ["recruiterNotes", "Catatan Recruiter", 4],
+                    ["additionalNotes", "Catatan Tambahan", 4],
+                  ].map(([key, label, rows]) => (
+                    <div key={key as string} className={(key === "recruiterNotes" || key === "additionalNotes") ? "md:col-span-2" : ""}>
+                      <label className="mb-2 block text-sm font-medium text-foreground">{label as string}</label>
+                      <textarea
+                        value={reportDraft[key as keyof ScreeningReportDraft]}
+                        onChange={(e) => updateReportDraft(key as keyof ScreeningReportDraft, e.target.value)}
+                        rows={rows as number}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            </>
+            )}
           </div>
         )}
 
