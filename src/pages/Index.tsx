@@ -333,7 +333,7 @@ const Index = () => {
                     </div>
                     <CheckCircle2 className="h-7 w-7 text-teal-200" />
                   </div>
-                  <Carousel opts={{ align: "start", loop: missionItems.length > 2 }} className="w-full">
+                  <Carousel opts={{ align: "start", loop: missionItems.length > 1 }} className="w-full overflow-visible px-10 md:px-0">
                     <CarouselContent className="md:-ml-4 -ml-0">
                         {(missionItems.length ? missionItems : [aboutMission]).map((mission, idx) => (
                         <CarouselItem key={idx} className="pl-0 sm:pl-4 w-full max-w-full md:basis-1/2">
@@ -341,25 +341,25 @@ const Index = () => {
                             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-300/15 text-sm font-black text-teal-200">
                               {String(idx + 1).padStart(2, "0")}
                             </span>
-                            <p className="mt-5 text-sm leading-7 text-slate-200">{mission}</p>
+                            <p className="mt-5 break-words text-sm leading-7 text-slate-200">{mission}</p>
                           </div>
                         </CarouselItem>
                       ))}
                     </CarouselContent>
-                    <CarouselPrevious className="-left-4 hidden border-white/20 bg-white/10 text-white hover:bg-white/20 md:flex" />
-                    <CarouselNext className="-right-4 hidden border-white/20 bg-white/10 text-white hover:bg-white/20 md:flex" />
+                    <CarouselPrevious className="left-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-left-4" />
+                    <CarouselNext className="right-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-right-4" />
                   </Carousel>
                   <p className="mt-4 text-xs text-slate-400">Geser kanan/kiri untuk melihat seluruh misi.</p>
                 </motion.div>
               </div>
             </div>
 
-            <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_0.82fr]">
+            <div className="mt-10 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)]">
               <motion.div
                 initial={{ opacity: 0, y: 22 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="rounded-[32px] border border-white/10 bg-white/[0.06] p-6 backdrop-blur"
+                className="min-w-0 rounded-[28px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur sm:p-6 md:rounded-[32px]"
               >
                 <div className="mb-5 flex items-end justify-between gap-4">
                   <div>
@@ -368,20 +368,20 @@ const Index = () => {
                   </div>
                   <Award className="h-7 w-7 text-amber-200" />
                 </div>
-                <Carousel opts={{ align: "start", loop: valuesToShow.length > 3 }} className="w-full overflow-hidden">
+                <Carousel opts={{ align: "start", loop: valuesToShow.length > 1 }} className="w-full overflow-visible px-10 md:px-0">
                   <CarouselContent className="md:-ml-4 -ml-0 max-w-full">
                     {valuesToShow.map((value: any, idx: number) => (
                       <CarouselItem key={idx} className="pl-0 sm:pl-4 w-full max-w-full sm:basis-1/2 lg:basis-1/3">
-                        <div className="h-full min-h-[178px] rounded-[24px] border border-white/10 bg-gradient-to-br from-amber-300/16 to-white/[0.05] p-6 overflow-hidden">
+                        <div className="h-full min-h-[178px] overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br from-amber-300/16 to-white/[0.05] p-5 sm:p-6">
                           <Layers3 className="mb-5 h-7 w-7 text-amber-200" />
                           <p className="text-lg font-bold">{value.name || `Nilai ${idx + 1}`}</p>
-                          <p className="mt-3 text-sm leading-7 text-slate-300">{value.description}</p>
+                          <p className="mt-3 break-words text-sm leading-7 text-slate-300">{value.description}</p>
                         </div>
                       </CarouselItem>
                     ))}
                   </CarouselContent>
-                  <CarouselPrevious className="-left-4 hidden border-white/20 bg-white/10 text-white hover:bg-white/20 md:flex" />
-                  <CarouselNext className="-right-4 hidden border-white/20 bg-white/10 text-white hover:bg-white/20 md:flex" />
+                  <CarouselPrevious className="left-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-left-4" />
+                  <CarouselNext className="right-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-right-4" />
                 </Carousel>
               </motion.div>
 
@@ -389,7 +389,7 @@ const Index = () => {
                 initial={{ opacity: 0, y: 22 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="rounded-[32px] border border-white/10 bg-white/[0.06] p-6 backdrop-blur"
+                className="min-w-0 rounded-[28px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur sm:p-6 md:rounded-[32px]"
               >
                 <div className="mb-6 flex items-center gap-3">
                   <Clock className="h-6 w-6 text-sky-200" />
@@ -400,12 +400,12 @@ const Index = () => {
                 </div>
                 <div className="space-y-5">
                   {milestonesToShow.map((item: any, idx: number) => (
-                    <div key={idx} className="relative pl-8">
+                    <div key={idx} className="relative min-w-0 pl-8">
                       <span className="absolute left-0 top-1 flex h-4 w-4 rounded-full bg-sky-300 ring-4 ring-sky-300/15" />
                       {idx < milestonesToShow.length - 1 && <span className="absolute left-[7px] top-6 h-full w-px bg-white/15" />}
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-200">{item.year}</p>
-                      <p className="mt-1 text-base font-bold">{item.title || item.year}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-300">{item.description}</p>
+                      <p className="mt-1 break-words text-base font-bold">{item.title || item.year}</p>
+                      <p className="mt-1 break-words text-sm leading-6 text-slate-300">{item.description}</p>
                     </div>
                   ))}
                 </div>

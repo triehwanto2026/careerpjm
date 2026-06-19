@@ -405,10 +405,10 @@ const formatPapiInterpretationHtml = (text: string) => {
   };
 
   lines.forEach((line) => {
-    const isHeading = /^[A-Z0-9\s]+$/.test(line) && line.length <= 40;
+    const isHeading = (/^[A-Z0-9\s]+$/.test(line) && line.length <= 44) || (/^[A-Za-zÀ-ÿ0-9\s/]+:$/.test(line) && line.length <= 56);
     if (isHeading) {
       closeList();
-      html += `<h4 class="papi-interpretation-heading">${escapeHtml(line)}</h4>`;
+      html += `<h4 class="papi-interpretation-heading">${escapeHtml(line.replace(/:$/, ""))}</h4>`;
     } else if (line.startsWith("- ")) {
       if (!listOpen) {
         html += `<ul class="papi-interpretation-list">`;
@@ -554,15 +554,34 @@ const buildAptitudeInterpretation = (cats: Record<string, number>, score: number
   const correct = getAptitudeRawValue(cats, { categories: cats, score, total_questions: total } as ResultRow);
   const wrong = Math.max(0, answered - correct);
 
-  return `Hasil Aptitude Test menunjukkan estimasi IQ ${info.iq} (${correct} benar dari ${total} soal; ${info.percentage}%; ${wrong} salah dari ${answered} soal dijawab). Klasifikasi IQ: ${info.classification}. Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
+  return `RINGKASAN IQ
+- Estimasi IQ: ${info.iq}
+- Klasifikasi IQ: ${info.classification}
+- Raw score: ${correct}/${total} benar (${info.percentage}%); ${wrong} salah dari ${answered} soal dijawab.
+- Rekomendasi seleksi: ${level.recommendation}
 
-Kekuatan relatif kandidat tampak pada ${strongest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}.
+ACUAN KATEGORI
+- <85: Kecerdasan di bawah rata-rata
+- 85-100: Kecerdasan rata-rata
+- 100-115: Kecerdasan di atas rata-rata
+- 115-130: Kecerdasan tinggi
+- 130-145: Kecerdasan superior
+- 145+: Sangat berbakat
 
-Area yang perlu diperhatikan adalah ${weakest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}. Area ini sebaiknya divalidasi melalui wawancara berbasis kasus, riwayat pendidikan/kerja, dan contoh pekerjaan yang relevan.
+KEKUATAN RELATIF
+- ${strongest.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.pct}%; ${row.level})`).join("\n- ")}
 
-Profil aspek: ${rows.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.level})`).join("; ")}.
+AREA PERHATIAN
+- ${weakest.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.pct}%; ${row.level})`).join("\n- ")}
+- Area ini sebaiknya divalidasi melalui wawancara berbasis kasus, riwayat pendidikan/kerja, dan contoh pekerjaan yang relevan.
 
-Catatan skoring: tes menggunakan correct-only scoring. Setiap jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0. Raw score dikonversi menjadi estimasi IQ untuk laporan hasil. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
+PROFIL ASPEK
+${rows.map((row) => `- ${row.label}: ${row.raw}/${row.max} (${row.level})`).join("\n")}
+
+CATATAN SKORING
+- Tes menggunakan correct-only scoring: jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0.
+- Raw score dikonversi menjadi estimasi IQ untuk laporan hasil.
+- Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
 };
 
 const buildAptitudeCategoriesFromAnswers = (answerRows: AnswerRow[], totalQuestions = 60) => {
@@ -895,9 +914,7 @@ const Results = () => {
       discInterpretation = `
         <div class="section">
           <div class="section-title">Interpretasi Psikolog - Analisa DISC</div>
-          <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 14px; border-radius: 0 8px 8px 0; font-size: 10pt; line-height: 1.7; color: #422006;">
-            <div style="white-space:pre-line;">${buildSharedDiscInterpretation(cats, r.total_questions || 24).replace(/</g, '&lt;')}</div>
-          </div>
+          <div class="interpretation">${formatPapiInterpretationHtml(buildSharedDiscInterpretation(cats, r.total_questions || 24))}</div>
         </div>`;
       
       const discDataWithRank = discRows;
@@ -993,7 +1010,7 @@ const Results = () => {
     let aptitudeProfileHTML = "";
     let specialInterpretationHTML = "";
     if (isCfitName(r.test_name)) {
-      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil CFIT 3A</div><div class="interpretation" style="white-space:pre-line;">${buildCfitInterpretation(r).replace(/</g, '&lt;')}</div></div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil CFIT 3A</div><div class="interpretation">${formatPapiInterpretationHtml(buildCfitInterpretation(r))}</div></div>`;
     } else if (isMbtiResult(r)) {
       const summary = getMbtiSummary(cats);
       mbtiProfileHTML = `
@@ -1009,7 +1026,7 @@ const Results = () => {
             <tbody>${summary.rows.map(row => `<tr><td><strong>${row.pair}</strong></td><td>${row.a}=${row.av} / ${row.b}=${row.bv}</td><td>${row.dominant}</td><td>${row.pct}%</td></tr>`).join("")}</tbody>
           </table>
         </div>`;
-      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil MBTI</div><div class="interpretation" style="white-space:pre-line;">${buildMbtiInterpretation(cats).replace(/</g, '&lt;')}</div></div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil MBTI</div><div class="interpretation">${formatPapiInterpretationHtml(buildMbtiInterpretation(cats))}</div></div>`;
     } else if (isKraepelinResult(r)) {
       const rows = getKraepelinRows(cats);
       kraepelinProfileHTML = `
@@ -1076,7 +1093,7 @@ const Results = () => {
             </tr>`).join("")}</tbody>
           </table>
         </div>`;
-      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil Aptitude</div><div class="interpretation" style="white-space:pre-line;">${buildAptitudeInterpretation(cats, r.score, r.answered_questions, r.total_questions).replace(/</g, '&lt;')}</div></div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil Aptitude</div><div class="interpretation">${formatPapiInterpretationHtml(buildAptitudeInterpretation(cats, r.score, r.answered_questions, r.total_questions))}</div></div>`;
     }
 
     const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
@@ -1258,6 +1275,7 @@ const Results = () => {
     ${!isCfitName(r.test_name) && !isPapiResult(r) ? (() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isIST = isIstResult(r);
+      const isAptitude = isAptitudeResult(r);
       let dominantScore = '';
       if (isPP) {
         const ppMap: Record<string, string> = {
@@ -1280,13 +1298,14 @@ const Results = () => {
       }
       const istSummary = isIST ? getIstSummary(cats, r.score) : null;
       const mbtiSummary = isMbtiResult(r) ? getMbtiSummary(cats) : null;
+      const aptitudeInfo = isAptitude ? getAptitudeScoreInfo(scoreResult) : null;
       return `
     <div class="section">
       <div class="section-title">Ringkasan Hasil - ${r.test_name}</div>
       <div class="score-cards">
         <div class="score-card"><div class="label">Alat Tes</div><div class="value" style="font-size:13pt;margin-top:8px;">${r.test_name}</div></div>
-        <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : isIST ? 'Skor IST' : mbtiSummary ? 'Tipe MBTI' : 'Skor Akhir'}</div>
-        <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : mbtiSummary ? 'letter-spacing:3px;' : ''}">${isPP ? dominantScore : isIST ? `${istSummary?.score}<span style="font-size:14pt;color:#64748b;">%</span><div style="font-size:9pt;color:#64748b;margin-top:4px;">Raw ${istSummary?.raw}/${istSummary?.max}</div>` : mbtiSummary ? mbtiSummary.type : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
+        <div class="score-card"><div class="label">${isPP ? 'Hasil Dominan' : isIST ? 'Skor IST' : mbtiSummary ? 'Tipe MBTI' : isAptitude ? 'Skor Akhir IQ' : 'Skor Akhir'}</div>
+        <div class="value" style="${isPP ? 'font-size:18pt;font-weight:800;color:#f472b6;' : mbtiSummary ? 'letter-spacing:3px;' : isAptitude ? 'font-size:24pt;color:#0f766e;' : ''}">${isPP ? dominantScore : isIST ? `${istSummary?.score}<span style="font-size:14pt;color:#64748b;">%</span><div style="font-size:9pt;color:#64748b;margin-top:4px;">Raw ${istSummary?.raw}/${istSummary?.max}</div>` : mbtiSummary ? mbtiSummary.type : isAptitude ? `${aptitudeInfo?.iq}<div style="font-size:9pt;color:#64748b;margin-top:4px;">${aptitudeInfo?.classification}</div>` : `${r.score}<span style="font-size:14pt;color:#64748b;">%</span>`}</div></div>
         <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
       </div>
     </div>
@@ -1468,7 +1487,7 @@ const Results = () => {
 	      if (specialInterpretationHTML) return specialInterpretationHTML;
       // Full format interpretation for PP
       if (isPP) {
-        return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div><div class="interpretation" style="white-space:pre-line;">${buildSharedPersonalityPlusInterpretation(cats, r.total_questions || 40).replace(/</g, '&lt;')}</div></div>`;
+        return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div><div class="interpretation">${formatPapiInterpretationHtml(buildSharedPersonalityPlusInterpretation(cats, r.total_questions || 40))}</div></div>`;
         const ppMap: Record<string, string> = {
           K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
           S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
@@ -1740,7 +1759,10 @@ const Results = () => {
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-3">Interpretasi Profil DISC</p>
-            <p className="whitespace-pre-line text-xs text-muted-foreground leading-relaxed">{buildSharedDiscInterpretation(cats, r.total_questions || 24)}</p>
+            <div
+              className="space-y-2 text-xs leading-relaxed text-muted-foreground [&_.papi-interpretation-heading]:mt-3 [&_.papi-interpretation-heading:first-child]:mt-0 [&_.papi-interpretation-heading]:text-[11px] [&_.papi-interpretation-heading]:font-bold [&_.papi-interpretation-heading]:uppercase [&_.papi-interpretation-heading]:tracking-wide [&_.papi-interpretation-heading]:text-primary [&_.papi-interpretation-list]:ml-5 [&_.papi-interpretation-list]:list-disc [&_.papi-interpretation-list_li]:my-1 [&_.papi-interpretation-paragraph]:my-1"
+              dangerouslySetInnerHTML={{ __html: formatPapiInterpretationHtml(buildSharedDiscInterpretation(cats, r.total_questions || 24)) }}
+            />
           </div>
         </div>
       );
@@ -2456,6 +2478,7 @@ const Results = () => {
             {(() => {
               const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
               const isIST = isIstResult(r);
+              const isDISC = r.test_name.toUpperCase().includes("DISC");
               const interpText = isPP
                 ? buildPersonalityPlusInterpretation(cats, r.total_questions || 40)
                 : isIST
@@ -2469,13 +2492,14 @@ const Results = () => {
                 : isPapiResult(r)
                   ? buildPapiInterpretation(cats)
                 : isAptitudeResult(r)
-                  ? buildAptitudeInterpretation(cats, getAptitudeScoreInfo(scoreResult).iq, r.answered_questions, r.total_questions)
+                  ? buildAptitudeInterpretation(cats, scoreResult.score, r.answered_questions, r.total_questions)
                 : r.interpretation;
               if (!interpText) return null;
+              const useStructuredInterpretation = isPP || isDISC || isMbtiResult(r) || isCfitName(r.test_name) || isPapiResult(r) || isAptitudeResult(r);
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
                   <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : isAptitudeResult(r) ? ' — Profil Aptitude' : ''}</h3>
-                  {isPapiResult(r) ? (
+                  {useStructuredInterpretation ? (
                     <div
                       className="space-y-2 text-sm leading-relaxed text-muted-foreground [&_.papi-interpretation-heading]:mt-4 [&_.papi-interpretation-heading:first-child]:mt-0 [&_.papi-interpretation-heading]:text-xs [&_.papi-interpretation-heading]:font-bold [&_.papi-interpretation-heading]:uppercase [&_.papi-interpretation-heading]:tracking-wide [&_.papi-interpretation-heading]:text-primary [&_.papi-interpretation-list]:ml-5 [&_.papi-interpretation-list]:list-disc [&_.papi-interpretation-list_li]:my-1 [&_.papi-interpretation-paragraph]:my-1"
                       dangerouslySetInnerHTML={{ __html: formatPapiInterpretationHtml(interpText) }}

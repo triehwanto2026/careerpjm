@@ -241,7 +241,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-background">
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
@@ -366,7 +366,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       </aside>
 
       <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-30 flex flex-shrink-0 items-center gap-3 border-b border-border bg-card/80 backdrop-blur-xl px-4 py-3 md:px-6">
+        <header className="z-30 flex flex-shrink-0 items-center gap-3 border-b border-border bg-card/80 px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur-xl md:px-6 md:pt-3">
           <button onClick={() => setSidebarOpen(true)} className="text-muted-foreground md:hidden">
             <Menu className="h-5 w-5" />
           </button>
@@ -420,7 +420,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">{children}</main>
 
         <footer className="flex-shrink-0 border-t border-border bg-card/50 px-4 py-3 md:px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">

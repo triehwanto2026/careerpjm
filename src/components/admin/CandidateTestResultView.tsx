@@ -88,6 +88,40 @@ const getAptitudeLevel = (score: number) => {
 
 const isAptitudeName = (name?: string | null) => String(name || "").toUpperCase().includes("APTITUDE");
 
+const escapeHtml = (value: unknown) =>
+  String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const formatInterpretationHtml = (text: string) => {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  let html = "";
+  let listOpen = false;
+  const closeList = () => {
+    if (listOpen) {
+      html += "</ul>";
+      listOpen = false;
+    }
+  };
+
+  lines.forEach((line) => {
+    const isHeading = (/^[A-Z0-9\s]+$/.test(line) && line.length <= 44) || (/^[A-Za-zÀ-ÿ0-9\s/]+:$/.test(line) && line.length <= 56);
+    if (isHeading) {
+      closeList();
+      html += `<h4 class="result-interpretation-heading">${escapeHtml(line.replace(/:$/, ""))}</h4>`;
+    } else if (line.startsWith("- ")) {
+      if (!listOpen) {
+        html += `<ul class="result-interpretation-list">`;
+        listOpen = true;
+      }
+      html += `<li>${escapeHtml(line.slice(2))}</li>`;
+    } else {
+      closeList();
+      html += `<p class="result-interpretation-paragraph">${escapeHtml(line)}</p>`;
+    }
+  });
+  closeList();
+  return html;
+};
+
 const getAptitudeIqLabel = (iq: number) => {
   if (iq >= 145) return "Sangat berbakat";
   if (iq >= 130) return "Superior";
@@ -316,7 +350,10 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
           </div>
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-primary mb-3">Interpretasi Profil DISC</p>
-            <p className="whitespace-pre-line text-xs text-muted-foreground leading-relaxed">{buildDiscInterpretation(cats, result.total_questions || 24)}</p>
+            <div
+              className="space-y-2 text-xs leading-relaxed text-muted-foreground [&_.result-interpretation-heading]:mt-3 [&_.result-interpretation-heading:first-child]:mt-0 [&_.result-interpretation-heading]:text-[11px] [&_.result-interpretation-heading]:font-bold [&_.result-interpretation-heading]:uppercase [&_.result-interpretation-heading]:tracking-wide [&_.result-interpretation-heading]:text-primary [&_.result-interpretation-list]:ml-5 [&_.result-interpretation-list]:list-disc [&_.result-interpretation-list_li]:my-1 [&_.result-interpretation-paragraph]:my-1"
+              dangerouslySetInnerHTML={{ __html: formatInterpretationHtml(buildDiscInterpretation(cats, result.total_questions || 24)) }}
+            />
           </div>
         </div>
       );
@@ -792,7 +829,14 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
       {interpretationText && (
         <div className="glass rounded-xl p-5 glow-border">
           <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPersonalityPlus ? ' — Profil 4 Temperamen' : isDISC ? ' — Profil DISC' : isIST ? ' — Profil IST' : isCFIT ? ' — Profil CFIT 3A' : isMBTI ? ' — Profil MBTI' : isPapikostik ? ' — Profil PAPI' : ''}</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpretationText}</p>
+          {isDISC || isMBTI || isPersonalityPlus || isCFIT || isPapikostik ? (
+            <div
+              className="space-y-2 text-sm leading-relaxed text-muted-foreground [&_.result-interpretation-heading]:mt-4 [&_.result-interpretation-heading:first-child]:mt-0 [&_.result-interpretation-heading]:text-xs [&_.result-interpretation-heading]:font-bold [&_.result-interpretation-heading]:uppercase [&_.result-interpretation-heading]:tracking-wide [&_.result-interpretation-heading]:text-primary [&_.result-interpretation-list]:ml-5 [&_.result-interpretation-list]:list-disc [&_.result-interpretation-list_li]:my-1 [&_.result-interpretation-paragraph]:my-1"
+              dangerouslySetInnerHTML={{ __html: formatInterpretationHtml(interpretationText) }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpretationText}</p>
+          )}
         </div>
       )}
 

@@ -28,10 +28,12 @@ const nav = [
 export default function CandidateLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const [email, setEmail] = useState<string>("");
   // collapsed = narrow (icon-only) on desktop; on mobile collapsed means hidden
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth < 1024
+  );
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [publicSettings, setPublicSettings] = useState<Record<string, string>>({});

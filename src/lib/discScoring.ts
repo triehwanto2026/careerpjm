@@ -80,31 +80,41 @@ export const buildDiscInterpretation = (categories: Record<string, unknown>, tot
   const secondaryProfile = DISC_PROFILE[secondary.dim];
   const distribution = rows.map((row) => `${row.dim}: M=${row.m}, L=${row.l}, Net=${row.net} (${row.level}, rank #${row.rank})`).join("; ");
 
-  return `Profil Dominan: ${primary.dim}${secondary ? ` & ${secondary.dim}` : ""}
+  return `PROFIL DOMINAN
+- Kombinasi utama: ${primary.dim}${secondary ? ` & ${secondary.dim}` : ""}
+- Dimensi primer: ${primary.label} (${primary.dim})
+- Dimensi sekunder: ${secondary.label} (${secondary.dim})
 
-${primary.label} (${primary.dim}) yang tinggi menunjukkan kandidat cenderung ${profile.strength}. Profil ini cocok untuk peran yang membutuhkan pola kerja sesuai karakter ${primary.dim}, dengan tetap mempertimbangkan tuntutan jabatan dan konteks tim.
+RINGKASAN PSIKOLOGIS
+- ${primary.label} (${primary.dim}) yang tinggi menunjukkan kandidat cenderung ${profile.strength}.
+- Profil ini cocok untuk peran yang membutuhkan pola kerja sesuai karakter ${primary.dim}, dengan tetap mempertimbangkan tuntutan jabatan dan konteks tim.
 
-Kekuatan utama:
-Dimensi ${primary.dim} menjadi pola paling menonjol berdasarkan skor Mirror/Net. Kandidat berpotensi menunjukkan kekuatan utama berupa ${profile.strength}.
+KEKUATAN UTAMA
+- Dimensi ${primary.dim} menjadi pola paling menonjol berdasarkan skor Mirror/Net.
+- Kandidat berpotensi menunjukkan kekuatan utama berupa ${profile.strength}.
 
-Kombinasi profil:
-Dimensi sekunder ${secondary.dim} (${secondary.label}) memberi warna tambahan: kandidat juga menunjukkan kecenderungan ${secondaryProfile.strength}. Kombinasi ini perlu dibaca bersama, karena perilaku kerja kandidat tidak hanya dipengaruhi satu dimensi dominan.
+KOMBINASI PROFIL
+- Dimensi sekunder ${secondary.dim} (${secondary.label}) memberi warna tambahan: kandidat juga menunjukkan kecenderungan ${secondaryProfile.strength}.
+- Kombinasi ini perlu dibaca bersama, karena perilaku kerja kandidat tidak hanya dipengaruhi satu dimensi dominan.
 
-Area perhatian:
-${profile.watch}. Pada situasi tekanan, pola ini perlu dikelola agar tetap produktif dan tidak menghambat kolaborasi.
+AREA PERHATIAN
+- ${profile.watch}.
+- Pada situasi tekanan, pola ini perlu dikelola agar tetap produktif dan tidak menghambat kolaborasi.
 
-Gaya kerja:
-Kandidat biasanya paling efektif bila ${profile.work}.
+GAYA KERJA
+- Kandidat biasanya paling efektif bila ${profile.work}.
 
-Gaya komunikasi:
-Pendekatan komunikasi yang disarankan: ${profile.communication}.
+GAYA KOMUNIKASI
+- Pendekatan komunikasi yang disarankan: ${profile.communication}.
 
-Pekerjaan yang Sesuai:
-${profile.roles}. Tetap sesuaikan dengan pengalaman, kompetensi teknis, budaya tim, dan tuntutan jabatan.
+KECOCOKAN PERAN
+- ${profile.roles}.
+- Tetap sesuaikan dengan pengalaman, kompetensi teknis, budaya tim, dan tuntutan jabatan.
 
-Distribusi skor DISC:
-${distribution}.
+DISTRIBUSI SKOR DISC
+- ${distribution}.
 
-Catatan psikolog:
-DISC menggambarkan kecenderungan perilaku kerja dan gaya komunikasi, bukan ukuran kecerdasan atau kompetensi mutlak. Gunakan hasil ini bersama wawancara berbasis kompetensi, riwayat kerja, observasi, dan hasil tes lain.`;
+CATATAN PSIKOLOG
+- DISC menggambarkan kecenderungan perilaku kerja dan gaya komunikasi, bukan ukuran kecerdasan atau kompetensi mutlak.
+- Gunakan hasil ini bersama wawancara berbasis kompetensi, riwayat kerja, observasi, dan hasil tes lain.`;
 };

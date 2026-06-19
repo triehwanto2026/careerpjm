@@ -236,29 +236,34 @@ export const buildMbtiInterpretation = (categories: Record<string, number>) => {
     .map((row) => row.pair)
     .join(", ");
 
-  return `Tipe MBTI kandidat adalah ${type}${typeProfile ? ` - ${typeProfile.name}` : ""}. Profil ini menunjukkan kandidat ${profile}.
+  return `PROFIL UTAMA
+- Tipe MBTI: ${type}${typeProfile ? ` - ${typeProfile.name}` : ""}
+- Gambaran preferensi: kandidat ${profile}.
 
-Ringkasan tipe:
-${typeProfile?.summary || "Profil tipe menunjukkan kombinasi preferensi kepribadian kandidat pada empat pasangan dimensi MBTI."}
+RINGKASAN TIPE
+- ${typeProfile?.summary || "Profil tipe menunjukkan kombinasi preferensi kepribadian kandidat pada empat pasangan dimensi MBTI."}
 
-Kekuatan utama:
-${typeProfile?.strengths || "Kekuatan utama perlu dibaca dari dimensi dominan dan konteks pekerjaan."}
+KEKUATAN UTAMA
+- ${typeProfile?.strengths || "Kekuatan utama perlu dibaca dari dimensi dominan dan konteks pekerjaan."}
 
-Area perhatian:
-${typeProfile?.watchouts || "Area perhatian perlu divalidasi melalui wawancara dan observasi perilaku kerja."}
+AREA PERHATIAN
+- ${typeProfile?.watchouts || "Area perhatian perlu divalidasi melalui wawancara dan observasi perilaku kerja."}
 
-Gaya kerja:
-${typeProfile?.workStyle || "Gaya kerja dipengaruhi oleh preferensi energi, cara mengolah informasi, pengambilan keputusan, dan struktur kerja."}
+GAYA KERJA
+- ${typeProfile?.workStyle || "Gaya kerja dipengaruhi oleh preferensi energi, cara mengolah informasi, pengambilan keputusan, dan struktur kerja."}
 
-Gaya komunikasi:
-${typeProfile?.communication || "Komunikasi paling efektif mengikuti preferensi dominan kandidat dan kebutuhan situasi kerja."}
+GAYA KOMUNIKASI
+- ${typeProfile?.communication || "Komunikasi paling efektif mengikuti preferensi dominan kandidat dan kebutuhan situasi kerja."}
 
-Rekomendasi kecocokan peran:
-${typeProfile?.suitableRoles || "Gunakan hasil ini untuk mendukung pemetaan peran, bukan sebagai satu-satunya dasar keputusan."}
+KECOCOKAN PERAN
+- ${typeProfile?.suitableRoles || "Gunakan hasil ini untuk mendukung pemetaan peran, bukan sebagai satu-satunya dasar keputusan."}
 
-Distribusi pasangan dimensi:
-${distribution}.${balanceNotes ? ` Pasangan ${balanceNotes} relatif seimbang, sehingga perilaku kandidat pada dimensi tersebut dapat lebih situasional dan perlu divalidasi melalui wawancara.` : ""}
+DISTRIBUSI PASANGAN DIMENSI
+- ${distribution}.
+${balanceNotes ? `- Pasangan ${balanceNotes} relatif seimbang, sehingga perilaku kandidat pada dimensi tersebut dapat lebih situasional dan perlu divalidasi melalui wawancara.` : ""}
 
-Catatan psikolog:
-Hasil MBTI dibaca sebagai preferensi gaya kerja, komunikasi, pengambilan keputusan, dan kebutuhan lingkungan kerja, bukan ukuran kemampuan mutlak, bukan diagnosis klinis, dan bukan penentu tunggal kelayakan kandidat. Interpretasi akhir tetap perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, serta tuntutan jabatan.`;
+CATATAN PSIKOLOG
+- Hasil MBTI dibaca sebagai preferensi gaya kerja, komunikasi, pengambilan keputusan, dan kebutuhan lingkungan kerja.
+- MBTI bukan ukuran kemampuan mutlak, bukan diagnosis klinis, dan bukan penentu tunggal kelayakan kandidat.
+- Interpretasi akhir tetap perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, serta tuntutan jabatan.`;
 };
