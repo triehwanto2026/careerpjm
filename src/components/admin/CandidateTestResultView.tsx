@@ -751,6 +751,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs border-t border-border pt-4">
           <div><span className="text-muted-foreground">Email:</span> <span className="text-foreground">{profile.email || "-"}</span></div>
           <div><span className="text-muted-foreground">Telepon:</span> <span className="text-foreground">{profile.phone || "-"}</span></div>
+          <div><span className="text-muted-foreground">Pendidikan:</span> <span className="text-foreground">{profile.education || profile.education_level || profile.education_institution || "-"}</span></div>
           <div><span className="text-muted-foreground">Tanggal Tes:</span> <span className="text-foreground">{formatDate(result.completed_at)}</span></div>
           <div><span className="text-muted-foreground">{isCFIT ? "IQ:" : isMBTI ? "Tipe:" : "Skor:"}</span> <span className="text-foreground">{isCFIT ? getCfitIqInfoFromResult(result).iq : isMBTI ? mbtiType : `${result.score}%`}</span></div>
           <div><span className="text-muted-foreground">Soal Dijawab:</span> <span className="text-foreground">{result.answered_questions} / {result.total_questions}</span></div>

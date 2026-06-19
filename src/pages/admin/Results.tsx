@@ -840,7 +840,7 @@ const Results = () => {
             <div class="profile-row"><span class="label">Email</span><span class="value">${profile?.email || "-"}</span></div>
             <div class="profile-row"><span class="label">No. Telepon</span><span class="value">${profile?.phone || "-"}</span></div>
             <div class="profile-row"><span class="label">Tanggal Lahir</span><span class="value">${profile?.birthDate || "-"}</span></div>
-            <div class="profile-row"><span class="label">Pendidikan</span><span class="value">${profile?.education || "-"}</span></div>
+            <div class="profile-row"><span class="label">Pendidikan</span><span class="value">${profile?.education || profile?.education_level || profile?.education_institution || "-"}</span></div>
             <div class="profile-row"><span class="label">Jenis Kelamin</span><span class="value">${profile?.gender || "-"}</span></div>
             <div class="profile-row"><span class="label">Tanggal Tes</span><span class="value">${new Date(r.completed_at).toLocaleDateString("id-ID", { dateStyle: "long" } as any)}</span></div>
           </div>
