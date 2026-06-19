@@ -7,6 +7,7 @@ import WebcamPreview, { WebcamHandle } from "@/components/WebcamPreview";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadDataUrlAsPhoto } from "@/lib/photoUpload";
+import { getAptitudeFallbackImage } from "@/lib/aptitudeImageFallback";
 
 interface DbOption {
   id: string; question_id: string; option_label: string; option_text: string; option_text_en: string | null;
@@ -1296,15 +1297,27 @@ const TestPage = () => {
     // Server-side scoring: edge function reads answer keys with the service role
     // and writes test_results + test_answers. Keys never reach the client.
     try {
-      await supabase.functions.invoke("test-submit", {
+      const { data, error } = await supabase.functions.invoke("test-submit", {
         body: {
           candidate: candidate || {},
           snap_url: snapUrl,
           instruments: instrumentsPayload,
         },
       });
+      if (error) throw error;
+      if (!data?.ok || !Array.isArray(data.results) || data.results.length !== instrumentsPayload.length) {
+        throw new Error(data?.error || "Hasil tes belum tersimpan lengkap di database.");
+      }
     } catch (err) {
       console.error("test-submit failed", err);
+      setSubmitted(false);
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal Menyimpan Hasil Tes",
+        html: "Jawaban Anda belum berhasil disimpan ke database. Jangan tutup halaman ini. Silakan coba kirim ulang atau hubungi admin.",
+        ...SWAL_THEME,
+      });
+      return;
     }
 
     Swal.fire({
@@ -1358,6 +1371,7 @@ const TestPage = () => {
   const currentAnsKey = currentQuestion ? `${currentTest.id}:${currentQuestion.id}` : "";
   const currentAns = answers[currentAnsKey] as string | undefined;
   const currentMultiPickLimit = getRequiredPickCount(currentQuestion);
+  const aptitudeFallbackImage = getAptitudeFallbackImage(currentQuestion, currentTest?.name);
 
   // For subtest/column based tests: cannot go back across segment boundary
   const prevQ = currentTest?.questions[currentQIdx - 1];
@@ -1520,6 +1534,10 @@ const TestPage = () => {
                       onError={(e) => { 
                         console.error('Failed to load question_image:', currentQuestion.question_image); 
                         const target = e.target as HTMLImageElement;
+                        if (aptitudeFallbackImage && target.src !== aptitudeFallbackImage) {
+                          target.src = aptitudeFallbackImage;
+                          return;
+                        }
                         target.style.display = 'none';
                         const errMsg = target.parentElement?.querySelector('.img-error');
                         if (errMsg) errMsg.classList.remove('hidden');
@@ -1546,6 +1564,12 @@ const TestPage = () => {
                     />
                     <p className="img-error hidden text-xs text-destructive">⚠ Gagal memuat gambar 2</p>
                     <p className="text-[10px] text-muted-foreground break-all">{currentQuestion.options_image}</p>
+                  </div>
+                )}
+                {aptitudeFallbackImage && !currentQuestion.question_image && !currentQuestion.options_image && !currentQuestion.image_url && (
+                  <div className="space-y-2 border border-dashed border-border p-2 rounded">
+                    <p className="text-xs text-muted-foreground">Gambar Soal:</p>
+                    <img src={aptitudeFallbackImage} alt="Gambar soal Aptitude" className="max-h-72 w-auto rounded-lg border border-border bg-white" />
                   </div>
                 )}
                 {/* Fallback untuk gambar lama (image_url) */}

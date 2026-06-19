@@ -538,7 +538,9 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
         })
         .select("id")
         .single();
-      if (insErr || !resultData) continue;
+      if (insErr || !resultData) {
+        return json({ error: insErr?.message || `Failed to insert result for ${inst.name}` }, 500);
+      }
 
       const answerRows: any[] = [];
       for (const q of questions) {
@@ -616,9 +618,17 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
         });
       }
       if (answerRows.length > 0) {
-        await admin.from("test_answers").insert(answerRows);
+        const { error: answerErr } = await admin.from("test_answers").insert(answerRows);
+        if (answerErr) {
+          await admin.from("test_results").delete().eq("id", resultData.id);
+          return json({ error: answerErr.message || `Failed to insert answers for ${inst.name}` }, 500);
+        }
       }
       results.push({ instrument_id: ip.id, score, status });
+    }
+
+    if (payload.instruments.length > 0 && results.length !== payload.instruments.length) {
+      return json({ error: "Not all assigned test results were saved." }, 500);
     }
 
     return json({ ok: true, results });

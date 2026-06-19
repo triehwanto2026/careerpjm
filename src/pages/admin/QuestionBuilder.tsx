@@ -4,6 +4,7 @@ import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon, Wand2 
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { getAptitudeFallbackImage } from "@/lib/aptitudeImageFallback";
 
 /** Upload File ke bucket test-images, kembalikan public URL atau null. */
 const uploadTestImage = async (file: File, hint = "img"): Promise<string | null> => {
@@ -585,6 +586,7 @@ const QuestionBuilder = () => {
           <div className="space-y-4">
             {questions.map((q) => {
               const opts = optionsByQ[q.id] || [];
+              const aptitudeFallbackImage = getAptitudeFallbackImage(q, instrument.name);
               return (
                 <div key={q.id} className="glass rounded-xl p-5 glow-border space-y-4">
                   <div className="flex items-start gap-3">
@@ -594,7 +596,7 @@ const QuestionBuilder = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground leading-relaxed">{q.question_text}</p>
                       {q.question_text_en && <p className="text-xs text-muted-foreground italic mt-1">{q.question_text_en}</p>}
-                      {(q.question_image || q.options_image) && (
+                      {(q.question_image || q.options_image || aptitudeFallbackImage) && (
                         <div className="mt-3 space-y-3">
                           {q.question_image && (
                             <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
@@ -603,7 +605,26 @@ const QuestionBuilder = () => {
                                 <span className="text-xs font-medium text-primary">Gambar 1 - Soal/Pola:</span>
                                 <a href={q.question_image} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:underline ml-auto">Buka di tab baru</a>
                               </div>
-                              <img src={q.question_image} alt="Soal" className="max-h-48 w-auto rounded border border-border bg-white" />
+                              <img
+                                src={q.question_image}
+                                alt="Soal"
+                                className="max-h-48 w-auto rounded border border-border bg-white"
+                                onError={(event) => {
+                                  if (!aptitudeFallbackImage) return;
+                                  const target = event.currentTarget;
+                                  if (target.src !== aptitudeFallbackImage) target.src = aptitudeFallbackImage;
+                                }}
+                              />
+                            </div>
+                          )}
+                          {!q.question_image && !q.options_image && aptitudeFallbackImage && (
+                            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <ImageIcon className="h-4 w-4 text-primary" />
+                                <span className="text-xs font-medium text-primary">Gambar Soal Aptitude:</span>
+                                <span className="ml-auto rounded bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">Fallback</span>
+                              </div>
+                              <img src={aptitudeFallbackImage} alt="Gambar soal Aptitude" className="max-h-48 w-auto rounded border border-border bg-white" />
                             </div>
                           )}
                           {q.options_image && (

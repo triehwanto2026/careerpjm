@@ -70,6 +70,7 @@ const TABLES_TO_BACKUP = [
   "test_interpretations",
   "test_sessions",
   "test_results",
+  "test_answers",
   "notifications",
   "notification_templates",
   "activity_logs",
