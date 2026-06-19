@@ -32,6 +32,35 @@ interface AnswerRow {
   is_correct: boolean | null; category: string | null;
 }
 
+const safeParseArray = (value: unknown): any[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const compactJoin = (parts: Array<unknown>) =>
+  parts.map((part) => String(part || "").trim()).filter(Boolean).join(" - ");
+
+const getLatestEducationText = (profile: any, fallback = "") => {
+  const history = safeParseArray(profile?.education_history);
+  const latest = history.length > 0 ? history[history.length - 1] : null;
+  if (latest) {
+    const text = compactJoin([
+      latest.level || latest.education_level || latest.degree,
+      latest.major || latest.field_of_study || latest.education_major,
+      latest.school || latest.institution || latest.education_institution,
+      latest.end_year || latest.graduation_year || latest.year,
+    ]);
+    if (text) return text;
+  }
+  return compactJoin([profile?.education_level, profile?.education_major, profile?.education_institution]) || fallback;
+};
+
 const normalizeOptionCode = (value?: string | null) => String(value || "").trim().replace(/\.$/, "").toUpperCase();
 
 const isOptionCodeOnly = (value?: string | null) => /^[A-Z]$/.test(normalizeOptionCode(value));
@@ -136,6 +165,156 @@ const isPapiResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
     && Object.keys(r.categories || {}).filter((key) => PAPI_LABELS[key]).length >= 8
   );
 
+const PAPI_WHEEL_ORDER = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"];
+const PAPI_WHEEL_TEXT: Record<string, string> = {
+  N: "Tuntas Tugas",
+  G: "Kerja Keras",
+  A: "Prestasi",
+  L: "Memimpin",
+  P: "Kontrol",
+  I: "Keputusan",
+  T: "Tempo",
+  V: "Vitalitas",
+  S: "Sosial",
+  B: "Kelompok",
+  O: "Kedekatan",
+  X: "Perhatian",
+  C: "Teratur",
+  D: "Terinci",
+  R: "Teoritis",
+  Z: "Perubahan",
+  E: "Emosi",
+  K: "Agresivitas",
+  F: "Dukung Atasan",
+  W: "Aturan",
+};
+const PAPI_WHEEL_GROUPS = [
+  { label: "ARAH KERJA", start: 0, count: 3, color: "#ef1d1d" },
+  { label: "KEPEMIMPINAN", start: 3, count: 3, color: "#d81bd4" },
+  { label: "AKTIFITAS", start: 6, count: 2, color: "#0b31d9" },
+  { label: "PERGAULAN", start: 8, count: 4, color: "#10afd2" },
+  { label: "GAYA KERJA", start: 12, count: 3, color: "#13d88a" },
+  { label: "SIFAT", start: 15, count: 3, color: "#e8d500" },
+  { label: "KETAATAN", start: 18, count: 2, color: "#ee8b00" },
+];
+
+const renderPapiWheelSvg = (rows: ReturnType<typeof getPapiRows>) => {
+  const rowByCode = new Map(rows.map((row) => [row.code, row]));
+  const orderedRows = PAPI_WHEEL_ORDER.map((code) => rowByCode.get(code)).filter(Boolean) as ReturnType<typeof getPapiRows>;
+  const size = 680;
+  const center = size / 2;
+  const plotRadius = 185;
+  const codeInner = 210;
+  const codeOuter = 252;
+  const descOuter = 304;
+  const groupInner = 304;
+  const groupOuter = 334;
+  const step = 360 / orderedRows.length;
+  const startOffset = -90 - step / 2;
+  const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const pointFor = (index: number, value: number) => {
+    const angle = (-90 + step * index) * (Math.PI / 180);
+    const distance = (value / 9) * plotRadius;
+    return {
+      x: center + Math.cos(angle) * distance,
+      y: center + Math.sin(angle) * distance,
+    };
+  };
+  const polar = (angleDeg: number, radius: number) => {
+    const angle = angleDeg * (Math.PI / 180);
+    return {
+      x: center + Math.cos(angle) * radius,
+      y: center + Math.sin(angle) * radius,
+    };
+  };
+  const arcPath = (startDeg: number, endDeg: number, inner: number, outer: number) => {
+    const large = endDeg - startDeg > 180 ? 1 : 0;
+    const p1 = polar(startDeg, outer);
+    const p2 = polar(endDeg, outer);
+    const p3 = polar(endDeg, inner);
+    const p4 = polar(startDeg, inner);
+    return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${outer} ${outer} 0 ${large} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)} L ${p3.x.toFixed(2)} ${p3.y.toFixed(2)} A ${inner} ${inner} 0 ${large} 0 ${p4.x.toFixed(2)} ${p4.y.toFixed(2)} Z`;
+  };
+  const readableRotate = (angle: number) => {
+    const normalized = ((angle % 360) + 360) % 360;
+    const rotation = angle + 90;
+    return normalized > 90 && normalized < 270 ? rotation + 180 : rotation;
+  };
+  const wrapLabel = (text: string, maxChars = 9, maxLines = 2) => {
+    const words = text.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    words.forEach((word) => {
+      const current = lines[lines.length - 1] || "";
+      if (!current) {
+        lines.push(word);
+      } else if (`${current} ${word}`.length <= maxChars) {
+        lines[lines.length - 1] = `${current} ${word}`;
+      } else if (lines.length < maxLines) {
+        lines.push(word);
+      }
+    });
+    if (lines.length > maxLines) lines.length = maxLines;
+    return lines;
+  };
+  const polygon = orderedRows.map((row, index) => pointFor(index, row.value)).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const maxRows = [...orderedRows].sort((a, b) => b.value - a.value || a.code.localeCompare(b.code)).slice(0, 3);
+
+  return `
+    <div class="papi-wheel-card">
+      <svg viewBox="0 0 ${size} ${size}" width="100%" role="img" aria-label="Grafik PAPI Kostick">
+        ${PAPI_WHEEL_GROUPS.map((group) => {
+          const start = startOffset + group.start * step;
+          const end = startOffset + (group.start + group.count) * step;
+          const labelAngle = (start + end) / 2;
+          const labelPoint = polar(labelAngle, (groupInner + groupOuter) / 2);
+          const rotate = readableRotate(labelAngle);
+          return `
+            <path d="${arcPath(start, end, groupInner, groupOuter)}" fill="${group.color}" stroke="#ffffff" stroke-width="2" />
+            <text x="${labelPoint.x.toFixed(1)}" y="${labelPoint.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="17" font-weight="800" fill="#ffffff" transform="rotate(${rotate.toFixed(1)} ${labelPoint.x.toFixed(1)} ${labelPoint.y.toFixed(1)})">${esc(group.label)}</text>
+          `;
+        }).join("")}
+        ${orderedRows.map((row, index) => {
+          const start = startOffset + index * step;
+          const end = start + step;
+          const mid = (start + end) / 2;
+          const codePoint = polar(mid, (codeInner + codeOuter) / 2);
+          const descPoint = polar(mid, (codeOuter + descOuter) / 2);
+          const rotate = readableRotate(mid);
+          const descLines = wrapLabel(PAPI_WHEEL_TEXT[row.code] || row.label);
+          return `
+            <path d="${arcPath(start, end, codeInner, codeOuter)}" fill="#36d91d" stroke="#ffffff" stroke-width="2" />
+            <path d="${arcPath(start, end, codeOuter, descOuter)}" fill="#fbf3a1" stroke="#ffffff" stroke-width="1" />
+            <text x="${codePoint.x.toFixed(1)}" y="${codePoint.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="26" font-weight="900" fill="#111827" transform="rotate(${rotate.toFixed(1)} ${codePoint.x.toFixed(1)} ${codePoint.y.toFixed(1)})">${row.code}</text>
+            <text x="${descPoint.x.toFixed(1)}" y="${descPoint.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="8.5" font-weight="600" fill="#111827" transform="rotate(${rotate.toFixed(1)} ${descPoint.x.toFixed(1)} ${descPoint.y.toFixed(1)})">
+              ${descLines.map((line, lineIndex) => `<tspan x="${descPoint.x.toFixed(1)}" dy="${lineIndex === 0 ? -(descLines.length - 1) * 4.5 : 9}">${esc(line)}</tspan>`).join("")}
+            </text>
+          `;
+        }).join("")}
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((ring) => {
+          const r = (ring / 9) * plotRadius;
+          return `<circle cx="${center}" cy="${center}" r="${r.toFixed(1)}" fill="none" stroke="${ring % 3 === 0 ? "#d1d5db" : "#e5e7eb"}" stroke-width="${ring % 3 === 0 ? 1.25 : 0.8}" />`;
+        }).join("")}
+        ${orderedRows.map((row, index) => {
+          const end = pointFor(index, 9);
+          const num = pointFor(index, 9.38);
+          return `
+            <line x1="${center}" y1="${center}" x2="${end.x.toFixed(1)}" y2="${end.y.toFixed(1)}" stroke="#d1d5db" stroke-width="1" />
+            <text x="${num.x.toFixed(1)}" y="${num.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#475569">9</text>
+          `;
+        }).join("")}
+        <polygon points="${polygon}" fill="#60a5fa" fill-opacity="0.30" stroke="#2563eb" stroke-width="3" />
+        ${orderedRows.map((row, index) => {
+          const p = pointFor(index, row.value);
+          return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="#2563eb" />`;
+        }).join("")}
+        <circle cx="${center}" cy="${center}" r="3" fill="#111827" />
+      </svg>
+      <div class="papi-wheel-summary">
+        <strong>Skala tertinggi:</strong> ${maxRows.map((row) => `${row.code} ${row.value}/9`).join(", ")}
+      </div>
+    </div>`;
+};
+
 const isKraepelinResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
   r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in (r.categories || {}));
 
@@ -187,9 +366,9 @@ const getResultConclusion = (r: ResultRow) => {
   }
 
   if (isAptitudeResult(r)) {
-    const level = getAptitudeLevel(r.score);
-    const correct = getAptitudeRawValue(cats, r);
-    return `${level.label} (${correct}/${r.total_questions})`;
+    const info = getAptitudeScoreInfo(r);
+    const level = getAptitudeLevel(info.iq);
+    return `IQ ${info.iq} (${level.label})`;
   }
 
   return r.total_questions ? `${r.answered_questions}/${r.total_questions} soal` : `${r.score}%`;
@@ -236,6 +415,21 @@ const APTITUDE_CATEGORY_ALIASES: Record<string, string[]> = {
   Abstract: ["abstract reasoning", "figural", "abstract", "figural/abstrak", "kemampuan abstrak"],
 };
 
+const APTITUDE_CATEGORY_BY_QUESTION_NUMBER: Record<number, string> = {
+  1: "Classification", 2: "Verbal", 3: "Abstract", 4: "Classification", 5: "Abstract",
+  6: "Numerical", 7: "Verbal", 8: "Classification", 9: "Verbal", 10: "Abstract",
+  11: "Verbal", 12: "Logic", 13: "Abstract", 14: "Verbal", 15: "Numerical",
+  16: "Classification", 17: "Abstract", 18: "Logic", 19: "Classification", 20: "Pattern",
+  21: "Verbal", 22: "Abstract", 23: "Verbal", 24: "Logic", 25: "Abstract",
+  26: "Pattern", 27: "Abstract", 28: "Numerical", 29: "Classification", 30: "Abstract",
+  31: "Classification", 32: "Numerical", 33: "Classification", 34: "Numerical", 35: "Abstract",
+  36: "Logic", 37: "Classification", 38: "Verbal", 39: "Abstract", 40: "Numerical",
+  41: "Abstract", 42: "Verbal", 43: "Abstract", 44: "Logic", 45: "Classification",
+  46: "Abstract", 47: "Verbal", 48: "Numerical", 49: "Abstract", 50: "Verbal",
+  51: "Abstract", 52: "Numerical", 53: "Verbal", 54: "Numerical", 55: "Classification",
+  56: "Logic", 57: "Abstract", 58: "Classification", 59: "Abstract", 60: "Numerical",
+};
+
 const normalizeAptitudeCategoryKey = (value: string | null | undefined) =>
   String(value || "").trim().toLowerCase().replace(/[_\s\/\-]+/g, " ");
 
@@ -258,12 +452,22 @@ const isAptitudeResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
   r.test_name.toUpperCase().includes("APTITUDE") ||
   Object.keys(r.categories || {}).some((key) => resolveAptitudeCategoryKey(key) !== null);
 
+const classifyAptitudeIq = (iq: number) => {
+  if (iq < 85) return "Kecerdasan di bawah rata-rata";
+  if (iq < 100) return "Kecerdasan rata-rata";
+  if (iq < 115) return "Kecerdasan di atas rata-rata";
+  if (iq < 130) return "Kecerdasan tinggi";
+  if (iq < 145) return "Kecerdasan superior";
+  return "Sangat berbakat";
+};
+
 const getAptitudeLevel = (score: number) => {
-  if (score >= 80) return { label: "Sangat Baik", recommendation: "Sangat Disarankan" };
-  if (score >= 65) return { label: "Baik", recommendation: "Disarankan" };
-  if (score >= 50) return { label: "Cukup", recommendation: "Cukup Disarankan" };
-  if (score >= 35) return { label: "Rendah", recommendation: "Perlu Pertimbangan" };
-  return { label: "Sangat Rendah", recommendation: "Tidak Disarankan" };
+  if (score >= 145) return { label: "Sangat berbakat", recommendation: "Sangat Disarankan" };
+  if (score >= 130) return { label: "Kecerdasan superior", recommendation: "Sangat Disarankan" };
+  if (score >= 115) return { label: "Kecerdasan tinggi", recommendation: "Disarankan" };
+  if (score >= 100) return { label: "Kecerdasan di atas rata-rata", recommendation: "Disarankan" };
+  if (score >= 85) return { label: "Kecerdasan rata-rata", recommendation: "Cukup Disarankan" };
+  return { label: "Kecerdasan di bawah rata-rata", recommendation: "Perlu Pertimbangan" };
 };
 
 const getAptitudeAreaValue = (cats: Record<string, number>, area: (typeof APTITUDE_AREAS)[number]) => {
@@ -297,18 +501,26 @@ const getAptitudeScoreInfo = (result: ResultRow) => {
   const total = Math.max(1, result.total_questions || 0);
   const cappedRaw = Math.min(raw, total);
   const scaledRaw = Math.min(49, Math.round((cappedRaw / total) * 49));
-  return { raw: cappedRaw, total, percentage: Math.round((cappedRaw / total) * 100), ...getCfitIqInfo(scaledRaw) };
+  const derived = getCfitIqInfo(scaledRaw);
+  return {
+    raw: cappedRaw,
+    total,
+    percentage: Math.round((cappedRaw / total) * 100),
+    iq: Number(categories["Aptitude IQ"] || 0) || derived.iq,
+    classification: classifyAptitudeIq(Number(categories["Aptitude IQ"] || 0) || derived.iq),
+  };
 };
 
 const buildAptitudeInterpretation = (cats: Record<string, number>, score: number, answered: number, total: number) => {
   const rows = getAptitudeRows(cats);
-  const level = getAptitudeLevel(score);
+  const info = getAptitudeScoreInfo({ categories: cats, score, total_questions: total } as ResultRow);
+  const level = getAptitudeLevel(info.iq);
   const strongest = [...rows].sort((a, b) => b.pct - a.pct).slice(0, 2);
   const weakest = [...rows].sort((a, b) => a.pct - b.pct).slice(0, 2);
   const correct = getAptitudeRawValue(cats, { categories: cats, score, total_questions: total } as ResultRow);
   const wrong = Math.max(0, answered - correct);
 
-  return `Hasil Aptitude Test menunjukkan skor akhir ${score}% (${correct} benar dari ${total} soal; ${wrong} salah dari ${answered} soal dijawab). Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
+  return `Hasil Aptitude Test menunjukkan estimasi IQ ${info.iq} (${correct} benar dari ${total} soal; ${info.percentage}%; ${wrong} salah dari ${answered} soal dijawab). Klasifikasi IQ: ${info.classification}. Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
 
 Kekuatan relatif kandidat tampak pada ${strongest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}.
 
@@ -316,7 +528,42 @@ Area yang perlu diperhatikan adalah ${weakest.map((row) => `${row.label} ${row.r
 
 Profil aspek: ${rows.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.level})`).join("; ")}.
 
-Catatan skoring: tes menggunakan correct-only scoring. Setiap jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
+Catatan skoring: tes menggunakan correct-only scoring. Setiap jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0. Raw score dikonversi menjadi estimasi IQ untuk laporan hasil. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
+};
+
+const buildAptitudeCategoriesFromAnswers = (answerRows: AnswerRow[], totalQuestions = 60) => {
+  const cats: Record<string, number> = {};
+  let correct = 0;
+  let wrong = 0;
+  answerRows.forEach((answer) => {
+    if (answer.is_correct === true) {
+      correct += 1;
+      const key = resolveAptitudeCategoryKey(answer.category) || APTITUDE_CATEGORY_BY_QUESTION_NUMBER[answer.question_number] || "Abstract";
+      cats[key] = (cats[key] || 0) + 1;
+    } else if (answer.is_correct === false) {
+      wrong += 1;
+    }
+  });
+  cats.correct_answers = correct;
+  cats.wrong_answers = wrong;
+  cats.blank_answers = Math.max(0, totalQuestions - answerRows.length);
+  cats.accuracy = answerRows.length ? Math.round((correct / answerRows.length) * 100) : 0;
+  cats["Aptitude Raw Score"] = correct;
+  cats["Aptitude Max Score"] = totalQuestions;
+  cats["Aptitude Percentage"] = Math.round((correct / Math.max(totalQuestions, 1)) * 100);
+  const iq = getCfitIqInfo(Math.min(49, Math.round((correct / Math.max(totalQuestions, 1)) * 49)));
+  cats["Aptitude IQ"] = iq.iq;
+  return cats;
+};
+
+const getEffectiveAptitudeCategories = (result: ResultRow, answerRows: AnswerRow[]) => {
+  const stored = result.categories || {};
+  const storedRaw = getAptitudeRawValue(stored, result);
+  const storedAreaSum = APTITUDE_AREAS.reduce((sum, area) => sum + getAptitudeAreaValue(stored, area), 0);
+  if (storedRaw > 0 && storedAreaSum > 0) return stored;
+  const rebuilt = buildAptitudeCategoriesFromAnswers(answerRows, result.total_questions || 60);
+  if (getAptitudeRawValue(rebuilt, result) === 0) return stored;
+  return { ...stored, ...rebuilt };
 };
 
 const buildKraepelinInterpretation = (cats: Record<string, number>) => {
@@ -400,7 +647,32 @@ const Results = () => {
 
   const load = async () => {
     const { data } = await supabase.from("test_results").select("*").order("completed_at", { ascending: false });
-    setResults((data as ResultRow[]) || []);
+    const rows = ((data as ResultRow[]) || []);
+    const emails = Array.from(new Set(rows.map((row) => row.candidate_profile?.email).filter(Boolean)));
+    let profileByEmail = new Map<string, any>();
+    if (emails.length > 0) {
+      const { data: profiles } = await supabase
+        .from("candidate_profiles")
+        .select("email, education_level, education_major, education_institution, education_history, photo_url")
+        .in("email", emails);
+      profileByEmail = new Map(((profiles as any[]) || []).map((profile) => [String(profile.email || "").toLowerCase(), profile]));
+    }
+
+    setResults(rows.map((row) => {
+      const profile = row.candidate_profile || {};
+      const email = String(profile.email || "").toLowerCase();
+      const latestProfile = profileByEmail.get(email);
+      const education = getLatestEducationText(latestProfile, profile.education || "");
+      if (!education && !latestProfile?.photo_url) return row;
+      return {
+        ...row,
+        candidate_profile: {
+          ...profile,
+          education: profile.education || education,
+          photo_url: profile.photo_url || latestProfile?.photo_url || "",
+        },
+      };
+    }));
     setLoading(false);
   };
 
@@ -567,7 +839,8 @@ const Results = () => {
     if (!selectedResult) return;
     const r = selectedResult;
     const profile = r.candidate_profile as Record<string, string> | null;
-    const cats = r.categories as Record<string, number>;
+    const cats = isAptitudeResult(r) ? getEffectiveAptitudeCategories(r, answers) : r.categories as Record<string, number>;
+    const scoreResult = isAptitudeResult(r) ? { ...r, categories: cats } : r;
     const catEntries = Object.entries(cats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
     const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
@@ -722,26 +995,36 @@ const Results = () => {
       papiProfileHTML = `
         <div class="section">
           <div class="section-title">Profil Skala PAPI Kostick</div>
-          <table class="dim-table">
-            <thead><tr><th>Skala</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
+          <p class="mini-title">Grafik PAPI Kostick</p>
+          ${renderPapiWheelSvg(rows)}
+          <p class="mini-title" style="margin-top:12px;">Skor per Dimensi</p>
+          <table class="dim-table papi-score-table">
+            <thead><tr><th>Skala</th><th>Dimensi</th><th>Kelompok</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
             <tbody>${rows.map(row => {
               const pct = (row.value / 9) * 100;
-              return `<tr><td><strong>${row.code} - ${row.label}</strong></td><td>${row.value}/9</td><td>${row.level}</td><td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(pct, 100)}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td></tr>`;
+              return `<tr>
+                <td><strong>${row.code}</strong></td>
+                <td>${row.label}</td>
+                <td>${row.group}</td>
+                <td>${row.value}/9</td>
+                <td>${row.level}</td>
+                <td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(pct, 100)}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
+              </tr>`;
             }).join("")}</tbody>
           </table>
         </div>`;
       specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil PAPI</div><div class="interpretation" style="white-space:pre-line;">${buildPapiInterpretation(cats).replace(/</g, '&lt;')}</div></div>`;
     } else if (isAptitudeResult(r)) {
       const rows = getAptitudeRows(cats);
-      const level = getAptitudeLevel(r.score);
-      const rawCorrect = getAptitudeRawValue(cats, r);
+      const info = getAptitudeScoreInfo(scoreResult);
+      const level = getAptitudeLevel(info.iq);
       aptitudeProfileHTML = `
         <div class="section">
           <div class="section-title">Profil Aptitude</div>
           <div class="score-cards">
-            <div class="score-card"><div class="label">Skor Akhir</div><div class="value">${r.score}<span style="font-size:14pt;color:#64748b;">%</span></div><div class="sub">${level.label}</div></div>
+            <div class="score-card"><div class="label">Estimasi IQ</div><div class="value">${info.iq}</div><div class="sub">${info.classification}</div></div>
             <div class="score-card"><div class="label">Rekomendasi</div><div class="value" style="font-size:15pt;margin-top:8px;">${level.recommendation}</div></div>
-            <div class="score-card"><div class="label">Benar</div><div class="value">${rawCorrect}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
+            <div class="score-card"><div class="label">Benar</div><div class="value">${info.raw}<span style="font-size:14pt;color:#64748b;">/${info.total}</span></div><div class="sub">${info.percentage}%</div></div>
           </div>
           <table class="dim-table">
             <thead><tr><th>Aspek</th><th>Skor</th><th>Level</th><th>Keterangan</th><th>Indikator</th></tr></thead>
@@ -790,6 +1073,16 @@ const Results = () => {
       table.dim-table tr:nth-child(even) td { background: #fafafa; }
       .bar-container { background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; }
       .bar-fill { height: 100%; border-radius: 4px; background: #0f766e; }
+      .mini-title { font-size: 9pt; font-weight: 700; color: #0f172a; margin: 0 0 6px; }
+      .papi-wheel-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #ffffff; max-width: 560px; margin: 0 auto 8px; }
+      .papi-wheel-card svg { display: block; max-height: 455px; }
+      .papi-wheel-summary { margin-top: 4px; border-top: 1px dashed #cbd5e1; padding-top: 6px; font-size: 8.5pt; color: #475569; }
+      table.papi-score-table { font-size: 8.4pt; }
+      table.papi-score-table th { padding: 5px 6px; font-size: 7.5pt; }
+      table.papi-score-table td { padding: 4px 6px; }
+      table.papi-score-table td:nth-child(1),
+      table.papi-score-table td:nth-child(4),
+      table.papi-score-table td:nth-child(5) { text-align: center; white-space: nowrap; }
 
       .interpretation { background: #fefce8; border-left: 4px solid #eab308; padding: 12px 14px; border-radius: 0 6px 6px 0; font-size: 10pt; line-height: 1.7; color: #422006; }
 
@@ -916,7 +1209,7 @@ const Results = () => {
       }
       return cfitIqHtml;
     })()}
-    ${!isCfitName(r.test_name) ? (() => {
+    ${!isCfitName(r.test_name) && !isPapiResult(r) ? (() => {
       const isPP = r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus");
       const isIST = isIstResult(r);
       let dominantScore = '';
@@ -1283,8 +1576,10 @@ const Results = () => {
   };
 
   const renderChart = (r: ResultRow) => {
-    const cats = r.categories as Record<string, number>;
-    const data = Object.entries(cats).map(([name, value]) => ({ name, value }));
+    const cats = isAptitudeResult(r) ? getEffectiveAptitudeCategories(r, answers) : r.categories as Record<string, number>;
+    const data = Object.entries(cats)
+      .filter(([, value]) => typeof value === "number")
+      .map(([name, value]) => ({ name, value }));
 
     // DISC: render Mask/Core/Mirror as bar charts + final Line chart trend + Radar (Spider)
     if (r.test_name.toUpperCase().includes("DISC")) {
@@ -1504,25 +1799,17 @@ const Results = () => {
       );
     }
     if (isPapiResult(r)) {
-      const papiData = getPapiRows(cats).map((row) => ({ name: row.code, label: row.label, value: row.value, group: row.group }));
+      const rows = getPapiRows(cats);
       return (
-        <ResponsiveContainer width="100%" height={380}>
-          <RadarChart data={papiData}>
-            <PolarGrid stroke="hsl(220,14%,25%)" />
-            <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11, fontWeight: 700 }} />
-            <PolarRadiusAxis angle={30} domain={[0, 9]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
-            <Tooltip
-              contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }}
-              formatter={(v: any, _name: any, props: any) => [`${v}/9`, `${props.payload.name} - ${props.payload.label}`]}
-            />
-            <Radar name="Profil PAPI" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.24} strokeWidth={2} />
-          </RadarChart>
-        </ResponsiveContainer>
+        <div
+          className="mx-auto max-w-[720px] [&_.papi-wheel-card]:border [&_.papi-wheel-card]:border-border [&_.papi-wheel-card]:rounded-xl [&_.papi-wheel-card]:bg-background [&_.papi-wheel-card]:p-3 [&_.papi-wheel-summary]:mt-2 [&_.papi-wheel-summary]:border-t [&_.papi-wheel-summary]:border-border [&_.papi-wheel-summary]:pt-2 [&_.papi-wheel-summary]:text-xs [&_.papi-wheel-summary]:text-muted-foreground"
+          dangerouslySetInnerHTML={{ __html: renderPapiWheelSvg(rows) }}
+        />
       );
     }
     if (isAptitudeResult(r)) {
-      const aptitudeInfo = getAptitudeScoreInfo(r);
-      const aptitudeRowsData = getAptitudeRows(cats).map((row) => ({
+      const effectiveCats = getEffectiveAptitudeCategories(r, answers);
+      const aptitudeRowsData = getAptitudeRows(effectiveCats).map((row) => ({
         name: row.label,
         value: row.pct,
         raw: row.raw,
@@ -1631,7 +1918,8 @@ const Results = () => {
 
   if (selectedResult) {
     const r = selectedResult;
-    const cats = r.categories as Record<string, number>;
+    const cats = isAptitudeResult(r) ? getEffectiveAptitudeCategories(r, answers) : r.categories as Record<string, number>;
+    const scoreResult = isAptitudeResult(r) ? { ...r, categories: cats } : r;
     const catEntries = Object.entries(cats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
     const profile = r.candidate_profile as Record<string, string> | null;
@@ -1692,7 +1980,7 @@ const Results = () => {
                 <p className="text-lg font-bold text-primary mt-1">{r.test_name}</p>
               </div>
               <div className="glass rounded-xl p-5 glow-border text-center">
-                <p className="text-xs text-muted-foreground">{isCfitName(r.test_name) ? "IQ Score" : isIstResult(r) ? "Skor IST" : isMbtiResult(r) ? "Tipe MBTI" : isAptitudeResult(r) ? "Skor Aptitude" : "Skor"}</p>
+                <p className="text-xs text-muted-foreground">{isCfitName(r.test_name) ? "IQ Score" : isIstResult(r) ? "Skor IST" : isMbtiResult(r) ? "Tipe MBTI" : isAptitudeResult(r) ? "IQ Aptitude" : "Skor"}</p>
                 <p className="text-3xl font-bold text-foreground mt-1">
                   {isCfitName(r.test_name) 
                     ? (() => {
@@ -1775,15 +2063,15 @@ const Results = () => {
                     : isMbtiResult(r)
                       ? <span className="text-4xl font-extrabold tracking-widest text-primary">{getMbtiSummary(cats).type}</span>
                     : isAptitudeResult(r)
-                      ? String(getAptitudeScoreInfo(r).iq)
+                      ? String(getAptitudeScoreInfo(scoreResult).iq)
                       : `${r.score}%`
                   }
                 </p>
                 {isAptitudeResult(r) && (() => {
-                  const info = getAptitudeScoreInfo(r);
+                  const info = getAptitudeScoreInfo(scoreResult);
                   return (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {info.classification} · {info.raw}/{info.total} benar
+                      {info.classification} · {info.raw}/{info.total} benar · {info.percentage}%
                     </p>
                   );
                 })()}
@@ -2135,7 +2423,7 @@ const Results = () => {
                 : isPapiResult(r)
                   ? buildPapiInterpretation(cats)
                 : isAptitudeResult(r)
-                  ? buildAptitudeInterpretation(cats, r.score, r.answered_questions, r.total_questions)
+                  ? buildAptitudeInterpretation(cats, getAptitudeScoreInfo(scoreResult).iq, r.answered_questions, r.total_questions)
                 : r.interpretation;
               if (!interpText) return null;
               return (

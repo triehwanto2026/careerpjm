@@ -127,17 +127,19 @@ async function uploadSvg(q) {
 
 function aptitudeInterpretations(instrumentId) {
   const overall = [
-    ["overall_score", "Sangat Rendah", 0, 34, "Skor aptitude sangat rendah. Kandidat membutuhkan instruksi konkret, pendampingan intensif, dan waktu belajar lebih panjang untuk tugas yang menuntut penalaran umum."],
-    ["overall_score", "Rendah", 35, 49, "Skor aptitude rendah. Kandidat dapat menangani tugas rutin, namun perlu perhatian untuk posisi yang menuntut analisis cepat, pemecahan masalah, dan pemrosesan informasi kompleks."],
-    ["overall_score", "Cukup", 50, 64, "Skor aptitude cukup. Kandidat menunjukkan kemampuan penalaran umum yang memadai untuk tugas standar, dengan arahan jelas pada masalah baru atau kompleks."],
-    ["overall_score", "Baik", 65, 79, "Skor aptitude baik. Kandidat mampu memahami instruksi, melihat pola, dan menyelesaikan masalah umum dengan cukup cepat dan akurat."],
-    ["overall_score", "Sangat Baik", 80, 100, "Skor aptitude sangat baik. Kandidat menunjukkan kemampuan penalaran umum, ketelitian, dan pemecahan masalah yang kuat untuk tuntutan kerja kompleks."],
-    ["selection_recommendation", "Tidak Disarankan", 0, 34, "Tidak disarankan untuk posisi yang membutuhkan analisis tinggi kecuali kompetensi teknis/pengalaman sangat relevan dan tersedia pendampingan."],
-    ["selection_recommendation", "Perlu Pertimbangan", 35, 49, "Perlu pertimbangan lanjut melalui wawancara, referensi, dan bukti kompetensi kerja. Lebih cocok untuk peran rutin dengan prosedur jelas."],
-    ["selection_recommendation", "Cukup Disarankan", 50, 64, "Cukup disarankan untuk peran operasional atau administratif standar, terutama bila hasil wawancara dan pengalaman kerja mendukung."],
-    ["selection_recommendation", "Disarankan", 65, 79, "Disarankan untuk peran yang membutuhkan pembelajaran cepat, analisis praktis, dan pengambilan keputusan rutin hingga menengah."],
-    ["selection_recommendation", "Sangat Disarankan", 80, 100, "Sangat disarankan untuk peran yang menuntut kemampuan analitis, adaptasi cepat, dan pemecahan masalah kompleks."],
-    ["scoring_note", "Standar Skoring", 0, 100, "Skoring menggunakan correct-only: setiap jawaban benar bernilai 1, salah/kosong bernilai 0. Skor akhir = jumlah benar / 60 x 100. Waktu pengerjaan 60 menit."],
+    ["overall_score", "Kecerdasan di bawah rata-rata", 0, 84, "Estimasi IQ aptitude berada di bawah rata-rata. Kandidat cenderung membutuhkan instruksi konkret, pembelajaran bertahap, contoh kerja yang jelas, dan pendampingan lebih intensif pada tugas yang menuntut penalaran baru."],
+    ["overall_score", "Kecerdasan rata-rata", 85, 99, "Estimasi IQ aptitude berada pada rentang rata-rata. Kandidat umumnya mampu memahami instruksi dan menyelesaikan tugas standar, terutama bila tujuan, prosedur, dan prioritas kerja dijelaskan dengan jelas."],
+    ["overall_score", "Kecerdasan di atas rata-rata", 100, 114, "Estimasi IQ aptitude berada di atas rata-rata. Kandidat menunjukkan kapasitas belajar dan penalaran praktis yang baik untuk memahami konsep baru, membandingkan informasi, dan menyelesaikan masalah kerja rutin hingga menengah."],
+    ["overall_score", "Kecerdasan tinggi", 115, 129, "Estimasi IQ aptitude berada pada rentang tinggi. Kandidat cenderung cepat menangkap pola, memahami instruksi kompleks, dan menyusun solusi secara lebih mandiri pada situasi kerja yang berubah."],
+    ["overall_score", "Kecerdasan superior", 130, 144, "Estimasi IQ aptitude berada pada rentang superior. Kandidat menunjukkan kemampuan penalaran umum, pemecahan masalah, dan integrasi informasi yang kuat untuk tuntutan kerja analitis dan kompleks."],
+    ["overall_score", "Sangat berbakat", 145, 200, "Estimasi IQ aptitude berada pada rentang sangat berbakat. Kandidat berpotensi sangat cepat memahami struktur baru, menemukan pola abstrak, dan menyelesaikan masalah kompleks dengan ketelitian tinggi."],
+    ["selection_recommendation", "Perlu Pertimbangan", 0, 84, "Perlu pertimbangan kuat melalui wawancara, simulasi kerja, dan bukti pengalaman. Lebih sesuai untuk peran dengan prosedur jelas, risiko kesalahan rendah, serta dukungan supervisi memadai."],
+    ["selection_recommendation", "Cukup Disarankan", 85, 99, "Cukup disarankan untuk peran operasional atau administratif standar, terutama bila pengalaman kerja, motivasi, dan hasil wawancara mendukung kebutuhan jabatan."],
+    ["selection_recommendation", "Disarankan", 100, 114, "Disarankan untuk peran yang membutuhkan pembelajaran cukup cepat, analisis praktis, dan pemecahan masalah rutin hingga menengah."],
+    ["selection_recommendation", "Disarankan", 115, 129, "Disarankan untuk peran yang membutuhkan penalaran cepat, adaptasi terhadap instruksi kompleks, dan pengambilan keputusan berbasis informasi."],
+    ["selection_recommendation", "Sangat Disarankan", 130, 144, "Sangat disarankan untuk peran yang menuntut kemampuan analitis, adaptasi cepat, pemetaan masalah, dan penyelesaian tugas kompleks."],
+    ["selection_recommendation", "Sangat Disarankan", 145, 200, "Sangat disarankan untuk peran strategis atau analitis kompleks, dengan tetap memvalidasi kesesuaian perilaku kerja, motivasi, komunikasi, dan pengalaman."],
+    ["scoring_note", "Standar Skoring", 0, 200, "Skoring menggunakan correct-only: setiap jawaban benar bernilai 1, salah/kosong bernilai 0. Raw score 0-60 dikonversi menjadi estimasi IQ untuk laporan hasil. Waktu pengerjaan 60 menit."],
   ];
   return overall.map(([interpretation_key, category, min_value, max_value, interpretation_text]) => ({
     instrument_id: instrumentId,

@@ -47,11 +47,26 @@ export const buildPapiInterpretation = (categories: Record<string, unknown>) => 
   const moderate = rows.filter((row) => row.value >= 4 && row.value <= 6).length;
   const needs = rows.filter((row) => row.group === "Need").reduce((sum, row) => sum + row.value, 0);
   const roles = rows.filter((row) => row.group === "Role").reduce((sum, row) => sum + row.value, 0);
+  const needRows = rows.filter((row) => row.group === "Need").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
+  const roleRows = rows.filter((row) => row.group === "Role").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const orientation = needs > roles ? "kebutuhan/motivasi internal lebih menonjol" : roles > needs ? "peran dan gaya kerja yang tampak lebih menonjol" : "kebutuhan internal dan peran kerja relatif seimbang";
   const workImplication = top.map((row) => {
     const tendency = row.value >= 7 ? row.high : row.value >= 4 ? `menunjukkan ${row.description} pada taraf cukup` : row.low;
     return `${row.code} - ${row.label}: ${tendency}`;
   }).join("; ");
+  const explainRow = (row: ReturnType<typeof getPapiRows>[number]) => {
+    const meaning = row.value >= 7
+      ? `indikasi kuat: ${row.high}`
+      : row.value >= 4
+        ? `indikasi moderat: ${row.description} muncul secara situasional`
+        : `indikasi rendah: ${row.low}`;
+    const caution = row.value >= 7
+      ? "Perlu dipastikan tetap adaptif, tidak berlebihan, dan sesuai tuntutan jabatan."
+      : row.value >= 4
+        ? "Perilaku biasanya fleksibel, dipengaruhi konteks, atasan, target, serta dinamika tim."
+        : "Area ini bukan kelemahan mutlak; maknanya perlu dibaca sebagai preferensi yang relatif kurang dominan.";
+    return `${row.code} - ${row.label} (${row.value}/9; ${row.level}): ${meaning}. ${caution}`;
+  };
 
   return `Profil PAPI Kostick menunjukkan skala paling menonjol pada ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9; ${row.level})`).join(", ")}.
 
@@ -67,8 +82,17 @@ ${highs.length ? highs.map((row) => `${row.code} - ${row.label} (${row.value}/9)
 Skala rendah:
 ${lows.length ? lows.map((row) => `${row.code} - ${row.label} (${row.value}/9): ${row.low}`).join("\n") : "Tidak ada skala rendah yang menonjol."}
 
+Interpretasi rinci per dimensi:
+${rows.map(explainRow).join("\n")}
+
+Analisis Need:
+${needRows.map((row) => `${row.code} ${row.value}/9 - ${row.label}: ${row.value >= 7 ? row.high : row.value >= 4 ? "kebutuhan tampak cukup dan situasional" : row.low}`).join("\n")}
+
+Analisis Role:
+${roleRows.map((row) => `${row.code} ${row.value}/9 - ${row.label}: ${row.value >= 7 ? row.high : row.value >= 4 ? "peran kerja tampak cukup dan situasional" : row.low}`).join("\n")}
+
 Implikasi kerja:
-Profil ini membantu membaca motivasi kerja, kebutuhan struktur, dorongan pencapaian, gaya relasi, ketegasan, kepemimpinan, tempo kerja, dan respons terhadap aturan/supervisi. ${moderate} skala berada pada area sedang, sehingga beberapa perilaku kemungkinan lebih situasional dan perlu divalidasi melalui wawancara.
+Profil ini membantu membaca motivasi kerja, kebutuhan struktur, dorongan pencapaian, gaya relasi, ketegasan, kepemimpinan, tempo kerja, dan respons terhadap aturan/supervisi. ${moderate} skala berada pada area sedang, sehingga beberapa perilaku kemungkinan lebih situasional dan perlu divalidasi melalui wawancara. Untuk jabatan dengan target tinggi, perhatikan kombinasi A, G, N, dan T. Untuk jabatan koordinatif atau supervisori, perhatikan D, L, P, K, S, dan B. Untuk jabatan yang membutuhkan ketelitian, prosedur, dan kepatuhan, perhatikan C, W, F, serta E.
 
 Rekomendasi penggunaan:
 Gunakan profil PAPI untuk mencocokkan kandidat dengan tuntutan jabatan: target tinggi, kebutuhan koordinasi, struktur kerja, relasi interpersonal, perubahan, dan kebutuhan supervisi. Skala tinggi dapat menjadi kekuatan bila sesuai konteks, namun dapat menjadi risiko bila tuntutan jabatan berlawanan.

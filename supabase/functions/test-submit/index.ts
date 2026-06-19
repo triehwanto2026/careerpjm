@@ -34,6 +34,35 @@ type SubmissionPayload = {
   instruments: { id: string; answers: Record<string, string> }[];
 };
 
+const safeParseArray = (value: unknown): any[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const compactJoin = (parts: Array<unknown>) =>
+  parts.map((part) => String(part || "").trim()).filter(Boolean).join(" - ");
+
+const getLatestEducationText = (profile: any, fallback = "") => {
+  const history = safeParseArray(profile?.education_history);
+  const latest = history.length > 0 ? history[history.length - 1] : null;
+  if (latest) {
+    const text = compactJoin([
+      latest.level || latest.education_level || latest.degree,
+      latest.major || latest.field_of_study || latest.education_major,
+      latest.school || latest.institution || latest.education_institution,
+      latest.end_year || latest.graduation_year || latest.year,
+    ]);
+    if (text) return text;
+  }
+  return compactJoin([profile?.education_level, profile?.education_major, profile?.education_institution]) || fallback;
+};
+
 const IST_SUBTEST_MAX: Record<string, number> = {
   SE: 20,
   WA: 20,
@@ -55,12 +84,22 @@ const APTITUDE_AREAS: Record<string, { label: string; max: number }> = {
   Abstract: { label: "Figural/Abstrak", max: 18 },
 };
 
+const classifyAptitudeIq = (iq: number) => {
+  if (iq < 85) return "Kecerdasan di bawah rata-rata";
+  if (iq < 100) return "Kecerdasan rata-rata";
+  if (iq < 115) return "Kecerdasan di atas rata-rata";
+  if (iq < 130) return "Kecerdasan tinggi";
+  if (iq < 145) return "Kecerdasan superior";
+  return "Sangat berbakat";
+};
+
 const getAptitudeLevel = (score: number) => {
-  if (score >= 80) return { label: "Sangat Baik", recommendation: "Sangat Disarankan" };
-  if (score >= 65) return { label: "Baik", recommendation: "Disarankan" };
-  if (score >= 50) return { label: "Cukup", recommendation: "Cukup Disarankan" };
-  if (score >= 35) return { label: "Rendah", recommendation: "Perlu Pertimbangan" };
-  return { label: "Sangat Rendah", recommendation: "Tidak Disarankan" };
+  if (score >= 145) return { label: "Sangat berbakat", recommendation: "Sangat Disarankan" };
+  if (score >= 130) return { label: "Kecerdasan superior", recommendation: "Sangat Disarankan" };
+  if (score >= 115) return { label: "Kecerdasan tinggi", recommendation: "Disarankan" };
+  if (score >= 100) return { label: "Kecerdasan di atas rata-rata", recommendation: "Disarankan" };
+  if (score >= 85) return { label: "Kecerdasan rata-rata", recommendation: "Cukup Disarankan" };
+  return { label: "Kecerdasan di bawah rata-rata", recommendation: "Perlu Pertimbangan" };
 };
 
 const buildAptitudeInterpretation = (cats: Record<string, number>, score: number, answered: number, total: number) => {
@@ -76,7 +115,9 @@ const buildAptitudeInterpretation = (cats: Record<string, number>, score: number
   const correct = Number(cats.correct_answers ?? cats["Aptitude Raw Score"] ?? Math.round((score / 100) * Math.max(total, 1)));
   const wrong = Math.max(0, answered - correct);
 
-  return `Hasil Aptitude Test menunjukkan skor akhir ${score}% (${correct} benar dari ${total} soal; ${wrong} salah dari ${answered} soal dijawab). Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
+  const percentage = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+  return `Hasil Aptitude Test menunjukkan estimasi IQ ${score} (${correct} benar dari ${total} soal; ${percentage}%; ${wrong} salah dari ${answered} soal dijawab). Klasifikasi IQ: ${classifyAptitudeIq(score)}. Kategori umum: ${level.label}. Rekomendasi seleksi: ${level.recommendation}.
 
 Kekuatan relatif kandidat tampak pada ${strongest.map((row) => `${row.label} ${row.raw}/${row.max} (${row.pct}%)`).join(" dan ")}.
 
@@ -84,7 +125,7 @@ Area yang perlu diperhatikan adalah ${weakest.map((row) => `${row.label} ${row.r
 
 Profil aspek: ${rows.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.level})`).join("; ")}.
 
-Catatan skoring: tes menggunakan correct-only scoring. Setiap jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
+Catatan skoring: tes menggunakan correct-only scoring. Setiap jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0. Raw score dikonversi menjadi estimasi IQ untuk laporan hasil. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
 };
 
 const CFIT_IQ_TABLE: Record<number, { iq: number; classification: string }> = {
@@ -267,9 +308,10 @@ Deno.serve(async (req) => {
 
     const { data: candidateProfile } = await admin
       .from("candidate_profiles")
-      .select("phone, birth_date, education_level, education_institution, gender, photo_url")
+      .select("phone, birth_date, education_level, education_major, education_institution, education_history, gender, photo_url")
       .eq("email", candidateEmail)
       .maybeSingle();
+    const candidateEducation = getLatestEducationText(candidateProfile, payload.candidate.education || "");
 
     const instIds = payload.instruments.map((i) => i.id);
     if (instIds.length === 0) return json({ ok: true, results: [] });
@@ -466,8 +508,17 @@ Deno.serve(async (req) => {
         cats.blank_answers = Math.max(0, questions.length - answeredCount);
         cats.accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
       }
+      const aptitudePercentage = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+      const aptitudeIqInfo = isAptitude
+        ? (() => {
+            const info = getCfitIqInfo(Math.min(49, Math.round((correctCount / Math.max(questions.length, 1)) * 49)));
+            return { ...info, classification: classifyAptitudeIq(info.iq) };
+          })()
+        : null;
       const score = isKraepelin && kraepelinMetrics
         ? Math.round((kraepelinMetrics.accuracy + kraepelinMetrics.work_capacity) / 2)
+        : isAptitude && aptitudeIqInfo
+          ? aptitudeIqInfo.iq
         : isIst && maxPossibleScore > 0
           ? Math.round((totalScore / maxPossibleScore) * 100)
           : isMbti
@@ -475,7 +526,9 @@ Deno.serve(async (req) => {
           : hasCorrectScoring && questions.length > 0
             ? Math.round((correctCount / questions.length) * 100)
             : Math.round((answeredCount / Math.max(questions.length, 1)) * 100);
-      const status = score >= 70 ? "passed" : score >= 50 ? "review" : "failed";
+      const status = isAptitude
+        ? score >= 115 ? "passed" : score >= 85 ? "review" : "failed"
+        : score >= 70 ? "passed" : score >= 50 ? "review" : "failed";
 
       const normalizedCats: Record<string, number> = {};
             // Normalize category keys for aptitude tests so stored keys match frontend expectations
@@ -535,7 +588,14 @@ Deno.serve(async (req) => {
             : isCfit && cfitIqInfo
               ? { ...normalizedCats, "CFIT Raw Score": correctCount, "CFIT Max Score": questions.length, "CFIT IQ": cfitIqInfo.iq }
             : isAptitude
-              ? { ...normalizedCats, "Aptitude Raw Score": correctCount, "Aptitude Max Score": questions.length }
+              ? {
+                  ...normalizedCats,
+                  "Aptitude Raw Score": correctCount,
+                  "Aptitude Max Score": questions.length,
+                  "Aptitude Percentage": aptitudePercentage,
+                  "Aptitude IQ": aptitudeIqInfo?.iq || score,
+                  "Aptitude IQ Classification": aptitudeIqInfo?.classification || "",
+                }
             : normalizedCats,
           status,
           interpretation: isIst
@@ -568,7 +628,7 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
                 email: candidateEmail,
                 phone: candidateProfile?.phone || payload.candidate.phone || "",
                 birthDate: candidateProfile?.birth_date || payload.candidate.birth_date || "",
-                education: candidateProfile?.education_level || candidateProfile?.education_institution || payload.candidate.education || "",
+                education: candidateEducation,
                 gender: candidateProfile?.gender || payload.candidate.gender || "",
                 photo_url: candidateProfile?.photo_url || payload.candidate.photo_url || null,
               }

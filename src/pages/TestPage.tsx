@@ -52,6 +52,7 @@ const TestPage = () => {
   const testInstructionInProgressRef = useRef(false);
   const cameraViolationHandledRef = useRef(false);
   const cameraPauseStartedRef = useRef<number | null>(Date.now());
+  const autoSnapDataUrlRef = useRef<string | null>(null);
 
   const loadAssignedTests = useCallback(async () => {
     const candRaw = sessionStorage.getItem("psytest_candidate");
@@ -256,6 +257,25 @@ const TestPage = () => {
       setSubtestStartedAt(prev => prev + pauseDuration);
       cameraPauseStartedRef.current = null;
     }
+  }, [cameraStatus, submitted]);
+
+  useEffect(() => {
+    if (submitted || cameraStatus !== "active") return;
+
+    const captureSnapshot = () => {
+      const snap = webcamRef.current?.capture();
+      if (snap) autoSnapDataUrlRef.current = snap;
+    };
+
+    const earlyCaptureTimer = window.setTimeout(captureSnapshot, 10 * 1000);
+    const firstCaptureTimer = window.setTimeout(captureSnapshot, 2 * 60 * 1000);
+    const interval = window.setInterval(captureSnapshot, 3 * 60 * 1000);
+
+    return () => {
+      window.clearTimeout(earlyCaptureTimer);
+      window.clearTimeout(firstCaptureTimer);
+      window.clearInterval(interval);
+    };
   }, [cameraStatus, submitted]);
 
   useEffect(() => {
@@ -1277,9 +1297,9 @@ const TestPage = () => {
     const candidateRaw = sessionStorage.getItem("psytest_candidate");
     const candidate = candidateRaw ? JSON.parse(candidateRaw) : null;
 
-    // Auto-capture webcam snap
+    // Prefer a fresh final snap, but keep an automatic in-test snap as fallback.
     let snapUrl: string | null = null;
-    const dataUrl = webcamRef.current?.capture();
+    const dataUrl = webcamRef.current?.capture() || autoSnapDataUrlRef.current;
     if (!dataUrl) {
       setSubmitted(false);
       await handleCameraViolation("Kamera wajib aktif sampai tes selesai. Snapshot kamera gagal diambil sehingga sesi dicatat sebagai <b>cheating</b>.");
