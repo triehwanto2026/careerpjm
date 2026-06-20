@@ -89,16 +89,19 @@ const statements = {
   s63: ['Saya merasa bahwa tujuan-tujuan Serikat Buruh dan tujuan-tujuan perusahaan adalah saling berbeda, dan saya mencoba untuk tidak membuat pandangan saya secara jelas.', C.COM],
   s64: ['Saya percaya bahwa Serikat-Serikat Buruh dan pimpinan perusahaan adalah bekerja untuk mencapai tujuan-tujuan yang sama.', C.DEM],
   s65: ['Di dalam diskusi, saya memberikan fakta-fakta seperti apa yang mereka pahami, dan membiarkan mereka melukiskan kesimpulan-kesimpulan mereka sendiri.', C.DEM],
+  s66: ['Saya membuat keputusan-keputusan sendiri, tetapi saya akan mempertimbangkan usul-usul yang masuk akal dari bawahan-bawahan saya untuk memperbaiki keputusan tersebut apabila saya bertanya kepada mereka.', C.EXE],
+  s67: ['Bila ada suatu tugas yang mendesak, walaupun semua peralatannya sudah disediakan, saya akan membiarkannya saja dan mengatakan kepada salah seorang bawahan saya untuk mengerjakan tugas tersebut.', C.LF],
+  s68: ['Saya percaya bahwa bawahan-bawahan saya akan merasakan kepuasan kerja mereka tanpa merasakan tekanan apa pun dari saya.', C.HR],
 };
 
 const items = [
   ['s01','s02'], ['s03','s04'], ['s05','s06'], ['s07','s09'], ['s10','s11'], ['s12','s13'], ['s14','s15'], ['s16','s17'],
-  ['s08','s09'], ['s20','s21'], ['s22','s23'], ['s24','s25'], ['s26','s27'], ['s28','s29'], ['s21','s15'], ['s04','s30'],
+  ['s08','s09'], ['s20','s21'], ['s22','s23'], ['s24','s25'], ['s26','s27'], ['s28','s29'], ['s21','s66'], ['s04','s30'],
   ['s31','s12'], ['s32','s28'], ['s33','s34'], ['s35','s36'], ['s37','s38'], ['s34','s39'], ['s23','s41'], ['s06','s64'],
-  ['s59','s10'], ['s42','s26'], ['s50','s37'], ['s53','s56'], ['s56','s54'], ['s36','s51'], ['s25','s44'], ['s09','s45'],
+  ['s59','s10'], ['s42','s26'], ['s67','s37'], ['s53','s56'], ['s56','s54'], ['s36','s68'], ['s25','s44'], ['s09','s45'],
   ['s46','s07'], ['s43','s24'], ['s51','s35'], ['s52','s53'], ['s54','s52'], ['s38','s55'], ['s27','s57'], ['s11','s58'],
-  ['s65','s05'], ['s47','s48'], ['s49','s33'], ['s55','s50'], ['s45','s51'], ['s39','s49'], ['s29','s61'], ['s13','s19'],
-  ['s62','s03'], ['s63','s20'], ['s61','s32'], ['s57','s42'], ['s44','s43'], ['s41','s17'], ['s15','s63'], ['s15','s60'],
+  ['s65','s05'], ['s47','s48'], ['s49','s33'], ['s50','s67'], ['s68','s51'], ['s39','s49'], ['s29','s61'], ['s13','s19'],
+  ['s62','s03'], ['s63','s20'], ['s61','s32'], ['s57','s42'], ['s44','s43'], ['s41','s13'], ['s66','s63'], ['s15','s60'],
   ['s18','s01'], ['s60','s08'], ['s19','s31'], ['s58','s59'], ['s45','s46'], ['s64','s65'], ['s30','s62'], ['s17','s18'],
 ];
 

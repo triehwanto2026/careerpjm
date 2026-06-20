@@ -9,7 +9,7 @@ describe("MSDT scoring", () => {
     const rows = getMsdtRows(categories);
     rows.forEach((row) => {
       expect(row.pct).toBeGreaterThanOrEqual(44);
-      expect(row.pct).toBeLessThanOrEqual(53);
+      expect(row.pct).toBeLessThanOrEqual(56);
     });
   });
 
@@ -24,7 +24,7 @@ describe("MSDT scoring", () => {
       Compromiser: 10,
       "Laissez Faire": 6,
     }, 64, 64);
-    expect(interpretation).toContain("Demokratis / Partisipatif (9/9; 100%; Dominan)");
+    expect(interpretation).toContain("Demokratis / Partisipatif (9/10; 90%; Dominan)");
   });
 
   it("warns when the selected category total is inconsistent", () => {

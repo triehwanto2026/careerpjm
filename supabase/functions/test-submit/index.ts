@@ -274,23 +274,41 @@ const MSDT_STYLES: Record<string, { label: string; description: string; strength
 };
 
 const MSDT_STYLE_ORDER = ["Democratic", "Executive", "Autocratic", "Bureaucratic", "Developer", "Human Relations", "Compromiser", "Laissez Faire"];
-const MSDT_STYLE_MAX: Record<string, number> = { Democratic: 9, Executive: 15, Autocratic: 17, Bureaucratic: 22, Developer: 14, "Human Relations": 16, Compromiser: 21, "Laissez Faire": 14 };
+const MSDT_STYLE_MAX: Record<string, number> = { Democratic: 10, Executive: 14, Autocratic: 17, Bureaucratic: 20, Developer: 14, "Human Relations": 18, Compromiser: 21, "Laissez Faire": 14 };
+
+const getMsdtRows = (categories: Record<string, number>) =>
+  MSDT_STYLE_ORDER.map((style) => {
+    const value = Math.max(0, Math.min(MSDT_STYLE_MAX[style], Math.round(Number(categories[style] || 0))));
+    const pct = Math.round((value / Math.max(1, MSDT_STYLE_MAX[style] || 1)) * 100);
+    const level = pct >= 70 ? "Dominan" : pct >= 50 ? "Menonjol" : pct >= 25 ? "Situasional" : "Rendah";
+    return { style, value, pct, level, ...MSDT_STYLES[style] };
+  });
 
 const buildMsdtInterpretation = (cats: Record<string, number>, answeredCount: number, totalQuestions: number) => {
-  const rows = MSDT_STYLE_ORDER.map((style) => ({
-    style,
-    value: Math.max(0, Math.round(Number(cats[style] || 0))),
-    pct: Math.round((Math.max(0, Math.round(Number(cats[style] || 0))) / Math.max(1, MSDT_STYLE_MAX[style] || 1)) * 100),
-    ...MSDT_STYLES[style],
-  }));
-  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const rows = getMsdtRows(cats);
+  const totalScore = rows.reduce((sum, row) => sum + row.value, 0);
   const ranked = [...rows].sort((a, b) => b.pct - a.pct || b.value - a.value || a.style.localeCompare(b.style));
-  const top = ranked[0];
-  const second = ranked[1];
-  const warning = answeredCount !== totalQuestions || total !== answeredCount
-    ? `Profil belum lengkap/konsisten. Jawaban ${answeredCount}/${totalQuestions}, total skor kategori ${total}. Verifikasi sebelum interpretasi final. `
+  const dominant = ranked[0];
+  const secondary = ranked[1];
+  const warning = answeredCount !== totalQuestions || totalScore !== answeredCount
+    ? `PERINGATAN VALIDITAS\nProfil MSDT belum lengkap/konsisten. Jawaban ${answeredCount}/${totalQuestions}, total skor kategori ${totalScore}. Interpretasi perlu diverifikasi sebelum dipakai.\n\n`
     : "";
-  return `${warning}Kandidat menjawab ${answeredCount} dari ${totalQuestions} soal MSDT. Gaya dominan: ${top.label} (${top.value}/${MSDT_STYLE_MAX[top.style]}; ${top.pct}%), dengan gaya pendukung ${second.label} (${second.value}/${MSDT_STYLE_MAX[second.style]}; ${second.pct}%). Profil ini menunjukkan kecenderungan ${top.description}. Kekuatan utama: ${top.strength}. Area yang perlu dijaga: ${top.risk}. MSDT membaca preferensi gaya manajemen dan perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, serta tuntutan jabatan.`;
+
+  return `${warning}RINGKASAN PROFIL MSDT
+Gaya paling dominan: ${dominant.label} (${dominant.value}/${MSDT_STYLE_MAX[dominant.style]}; ${dominant.pct}%; ${dominant.level}).
+Gaya pendukung: ${secondary.label} (${secondary.value}/${MSDT_STYLE_MAX[secondary.style]}; ${secondary.pct}%; ${secondary.level}).
+
+MAKNA UTAMA
+Kandidat menunjukkan kecenderungan ${dominant.description}. Kekuatan utama gaya ini adalah ${dominant.strength}. Area yang perlu dijaga: ${dominant.risk}.
+
+KOMBINASI GAYA
+Kombinasi ${dominant.label} dengan ${secondary.label} menunjukkan pola kepemimpinan yang perlu dibaca bersama tuntutan jabatan, kematangan tim, tekanan target, serta budaya organisasi.
+
+PROFIL PER GAYA
+${rows.map((row) => `- ${row.label} (${row.value}/${MSDT_STYLE_MAX[row.style]}; ${row.pct}%; ${row.level}): ${row.description}. Kekuatan: ${row.strength}. Risiko: ${row.risk}.`).join("\n")}
+
+CATATAN INTERPRETASI
+MSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, referensi kerja, dan kebutuhan posisi.`;
 };
 
 Deno.serve(async (req) => {

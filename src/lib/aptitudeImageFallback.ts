@@ -97,8 +97,11 @@ const specificFigure = (n: number) => {
 export const getAptitudeFallbackImage = (question?: AptitudeQuestionLike | null, testName?: string | null) => {
   if (!question) return null;
   const n = Number(question.question_number);
-  const text = `${testName || ""} ${question.category || ""} ${question.question_text || ""}`.toUpperCase();
-  if (!APTITUDE_IMAGE_QUESTIONS.has(n) && !text.includes("APTITUDE") && !text.includes("[SOAL GAMBAR]")) return null;
+  const instrumentName = String(testName || "").toUpperCase();
+  const questionText = String(question.question_text || "").toUpperCase();
+  const isAptitudeInstrument = instrumentName.includes("APTITUDE") || instrumentName.includes("TES BAKAT");
+  const explicitlyMarkedImageQuestion = questionText.includes("[SOAL GAMBAR]");
+  if (!isAptitudeInstrument && !explicitlyMarkedImageQuestion) return null;
   if (!APTITUDE_IMAGE_QUESTIONS.has(n)) return null;
 
   const title = question.question_text || "Mana dari gambar ini yang paling sesuai?";

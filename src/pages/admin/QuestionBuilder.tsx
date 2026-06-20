@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon, Wand2 } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -569,9 +569,6 @@ const QuestionBuilder = () => {
             <button onClick={handleAddQuestion} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
               <Plus className="h-4 w-4" /> Tambah Soal
             </button>
-            <button onClick={handleGenerateMissingImages} className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/15 transition-colors">
-              <Wand2 className="h-4 w-4" /> Lengkapi Gambar Otomatis
-            </button>
           </div>
         </div>
 
@@ -647,9 +644,6 @@ const QuestionBuilder = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => handleGenerateQuestionImages(q)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Buat Gambar Otomatis">
-                        <Wand2 className="h-4 w-4" />
-                      </button>
                       <button onClick={() => handleEditQuestion(q)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Edit">
                         <Pencil className="h-4 w-4" />
                       </button>

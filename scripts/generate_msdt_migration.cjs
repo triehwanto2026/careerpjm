@@ -15,7 +15,7 @@ const sql = `-- Add Management Style Diagnostic Test (MSDT) with 64 forced-choic
 DO $$
 DECLARE
   msdt_id UUID;
-  question_id UUID;
+  new_question_id UUID;
   item JSONB;
 BEGIN
   SELECT id INTO msdt_id
@@ -54,9 +54,9 @@ BEGIN
     WHERE id = msdt_id;
   END IF;
 
-  DELETE FROM public.test_question_options
-  WHERE question_id IN (
-    SELECT id FROM public.test_questions WHERE instrument_id = msdt_id
+  DELETE FROM public.test_question_options AS tqo
+  WHERE tqo.question_id IN (
+    SELECT tq.id FROM public.test_questions AS tq WHERE tq.instrument_id = msdt_id
   );
   DELETE FROM public.test_questions WHERE instrument_id = msdt_id;
 
@@ -78,15 +78,15 @@ BEGIN
       'single_choice',
       'msdt_style'
     )
-    RETURNING id INTO question_id;
+    RETURNING id INTO new_question_id;
 
     INSERT INTO public.test_question_options (
       question_id, option_label, option_text, option_text_en,
       score_value, category_target, is_correct, display_order
     )
     VALUES
-      (question_id, 'A', item->>'a', item->>'a', 1, item->>'ac', NULL, 0),
-      (question_id, 'B', item->>'b', item->>'b', 1, item->>'bc', NULL, 1);
+      (new_question_id, 'A', item->>'a', item->>'a', 1, item->>'ac', NULL, 0),
+      (new_question_id, 'B', item->>'b', item->>'b', 1, item->>'bc', NULL, 1);
   END LOOP;
 END $$;
 `;

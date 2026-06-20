@@ -109,7 +109,7 @@ export const MSDT_QUESTIONS: MsdtQuestionSeed[] = [
     "number": 15,
     "a": "Saya membiarkan orang-orang lain menangani tugas-tugas mereka masing-masing, walaupun mereka membuat banyak kesalahan.",
     "aCategory": "Laissez Faire",
-    "b": "Saya membuat keputusan-keputusan sendiri dan kemudian saya mencoba untuk menjual keputusan-keputusan itu kepada bawahan saya.",
+    "b": "Saya membuat keputusan-keputusan sendiri, tetapi saya akan mempertimbangkan usul-usul yang masuk akal dari bawahan-bawahan saya untuk memperbaiki keputusan tersebut apabila saya bertanya kepada mereka.",
     "bCategory": "Executive"
   },
   {
@@ -191,7 +191,7 @@ export const MSDT_QUESTIONS: MsdtQuestionSeed[] = [
   },
   {
     "number": 27,
-    "a": "Sebagian besar dari bawahan-bawahan saya dapat menyelesaikan tugas-tugas mereka, bila perlu, tanpa kehadiran saya.",
+    "a": "Bila ada suatu tugas yang mendesak, walaupun semua peralatannya sudah disediakan, saya akan membiarkannya saja dan mengatakan kepada salah seorang bawahan saya untuk mengerjakan tugas tersebut.",
     "aCategory": "Laissez Faire",
     "b": "Adalah penting bagi saya untuk memperoleh nilai kredit bagi ide-ide saya yang baik.",
     "bCategory": "Executive"
@@ -214,8 +214,8 @@ export const MSDT_QUESTIONS: MsdtQuestionSeed[] = [
     "number": 30,
     "a": "Saya merasa bahwa keluhan-keluhan tidak dapat dicegah dan saya mencoba sebaik mungkin untuk dapat dilenyapkan.",
     "aCategory": "Compromiser",
-    "b": "Saya memberikan informasi kepada Dewan Direksi tidak lebih daripada apa yang mereka tanyakan.",
-    "bCategory": "Bureaucratic"
+    "b": "Saya percaya bahwa bawahan-bawahan saya akan merasakan kepuasan kerja mereka tanpa merasakan tekanan apa pun dari saya.",
+    "bCategory": "Human Relations"
   },
   {
     "number": 31,
@@ -312,13 +312,13 @@ export const MSDT_QUESTIONS: MsdtQuestionSeed[] = [
     "number": 44,
     "a": "Sebagian besar dari bawahan-bawahan saya dapat menyelesaikan tugas-tugas mereka, bila perlu, tanpa kehadiran saya.",
     "aCategory": "Laissez Faire",
-    "b": "Sebagian besar dari bawahan-bawahan saya dapat menyelesaikan tugas-tugas mereka, bila perlu, tanpa kehadiran saya.",
+    "b": "Bila ada suatu tugas yang mendesak, walaupun semua peralatannya sudah disediakan, saya akan membiarkannya saja dan mengatakan kepada salah seorang bawahan saya untuk mengerjakan tugas tersebut.",
     "bCategory": "Laissez Faire"
   },
   {
     "number": 45,
-    "a": "Saya percaya bahwa kenaikan jabatan adalah semata-mata berdasarkan kemampuan yang ada.",
-    "aCategory": "Bureaucratic",
+    "a": "Saya percaya bahwa bawahan-bawahan saya akan merasakan kepuasan kerja mereka tanpa merasakan tekanan apa pun dari saya.",
+    "aCategory": "Human Relations",
     "b": "Saya memberikan informasi kepada Dewan Direksi tidak lebih daripada apa yang mereka tanyakan.",
     "bCategory": "Bureaucratic"
   },
@@ -382,12 +382,12 @@ export const MSDT_QUESTIONS: MsdtQuestionSeed[] = [
     "number": 54,
     "a": "Saya merasa bahwa jam pencatat waktu datang dan pulangnya para pegawai, mengurangi keterlambatan.",
     "aCategory": "Bureaucratic",
-    "b": "Saya mengijinkan bawahan-bawahan saya untuk ikut serta di dalam pengambilan keputusan, tetapi sayapun menyediakan sesuatu keputusan terakhir.",
-    "bCategory": "Executive"
+    "b": "Saya mengijinkan bawahan-bawahan saya untuk ikut serta di dalam pengambilan keputusan yang dibuat berdasarkan atas suara terbanyak.",
+    "bCategory": "Democratic"
   },
   {
     "number": 55,
-    "a": "Saya membuat keputusan-keputusan sendiri dan kemudian saya mencoba untuk menjual keputusan-keputusan itu kepada bawahan saya.",
+    "a": "Saya membuat keputusan-keputusan sendiri, tetapi saya akan mempertimbangkan usul-usul yang masuk akal dari bawahan-bawahan saya untuk memperbaiki keputusan tersebut apabila saya bertanya kepada mereka.",
     "aCategory": "Executive",
     "b": "Saya merasa bahwa tujuan-tujuan Serikat Buruh dan tujuan-tujuan perusahaan adalah saling berbeda, dan saya mencoba untuk tidak membuat pandangan saya secara jelas.",
     "bCategory": "Compromiser"

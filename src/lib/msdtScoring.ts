@@ -12,12 +12,12 @@ export const MSDT_STYLE_ORDER = [
 export type MsdtStyle = typeof MSDT_STYLE_ORDER[number];
 
 export const MSDT_STYLE_MAX: Record<MsdtStyle, number> = {
-  Democratic: 9,
-  Executive: 15,
+  Democratic: 10,
+  Executive: 14,
   Autocratic: 17,
-  Bureaucratic: 22,
+  Bureaucratic: 20,
   Developer: 14,
-  "Human Relations": 16,
+  "Human Relations": 18,
   Compromiser: 21,
   "Laissez Faire": 14,
 };
