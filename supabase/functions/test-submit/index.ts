@@ -230,7 +230,7 @@ const PAPI_LABELS: Record<string, string> = {
   A: "Need to Achieve",
   B: "Need to Belong to Groups",
   C: "Organized Type",
-  D: "Leadership Role",
+  D: "Interest in Working with Details",
   E: "Emotional Resistance",
   F: "Need to Support Authority",
   G: "Hard Intense Worked",
@@ -260,6 +260,37 @@ const buildPapiInterpretation = (cats: Record<string, number>, answeredCount: nu
   const top = rows.slice(0, 4);
   const low = rows.filter((row) => row.value <= 3).slice(0, 4);
   return `Kandidat menjawab ${answeredCount} dari ${totalQuestions} soal PAPI Kostick. Profil paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9)`).join(", ")}. ${low.length ? `Skala rendah: ${low.map((row) => `${row.code} - ${row.label} (${row.value}/9)`).join(", ")}. ` : ""}PAPI membaca kebutuhan dan peran kerja dalam konteks pekerjaan; interpretasi perlu dipadukan dengan wawancara, tuntutan jabatan, dan observasi perilaku.`;
+};
+
+const MSDT_STYLES: Record<string, { label: string; description: string; strength: string; risk: string }> = {
+  Democratic: { label: "Demokratis / Partisipatif", description: "melibatkan bawahan dan membangun keputusan melalui partisipasi", strength: "membangun komitmen dan kolaborasi", risk: "dapat lambat saat keputusan cepat diperlukan" },
+  Executive: { label: "Eksekutif / Integratif", description: "menyeimbangkan target, ketegasan, dan perhatian terhadap orang", strength: "mengarah pada hasil sambil menjaga akuntabilitas", risk: "perlu menjaga agar tidak terlalu mengambil kendali akhir" },
+  Autocratic: { label: "Otoriter / Direktif", description: "menekankan kontrol, instruksi jelas, tenggat, dan hasil", strength: "efektif pada kondisi mendesak atau tim baru", risk: "dapat menurunkan inisiatif bila terlalu dominan" },
+  Bureaucratic: { label: "Birokratis / Berbasis Aturan", description: "menekankan prosedur, aturan, struktur, dan kepatuhan", strength: "menjaga konsistensi dan kontrol risiko", risk: "dapat terasa kaku bila perubahan cepat diperlukan" },
+  Developer: { label: "Pengembang / Coaching", description: "berorientasi pada pembinaan dan pertumbuhan bawahan", strength: "membangun kapasitas tim jangka panjang", risk: "bantuan perlu dijaga agar tidak mengambil alih tanggung jawab" },
+  "Human Relations": { label: "Relasi Manusia / Harmonis", description: "mengutamakan hubungan personal, penerimaan, dan suasana kerja nyaman", strength: "menciptakan iklim kerja hangat", risk: "dapat menghindari keputusan sulit" },
+  Compromiser: { label: "Kompromis / Politis", description: "mencari jalan tengah dan menghindari resistensi", strength: "berguna meredakan konflik", risk: "arah keputusan bisa kurang tegas" },
+  "Laissez Faire": { label: "Laissez Faire / Pasif", description: "cenderung melepas kontrol atau minim intervensi", strength: "memberi otonomi pada tim matang", risk: "berisiko menurunkan kontrol, disiplin, dan kualitas" },
+};
+
+const MSDT_STYLE_ORDER = ["Democratic", "Executive", "Autocratic", "Bureaucratic", "Developer", "Human Relations", "Compromiser", "Laissez Faire"];
+const MSDT_STYLE_MAX: Record<string, number> = { Democratic: 9, Executive: 15, Autocratic: 17, Bureaucratic: 22, Developer: 14, "Human Relations": 16, Compromiser: 21, "Laissez Faire": 14 };
+
+const buildMsdtInterpretation = (cats: Record<string, number>, answeredCount: number, totalQuestions: number) => {
+  const rows = MSDT_STYLE_ORDER.map((style) => ({
+    style,
+    value: Math.max(0, Math.round(Number(cats[style] || 0))),
+    pct: Math.round((Math.max(0, Math.round(Number(cats[style] || 0))) / Math.max(1, MSDT_STYLE_MAX[style] || 1)) * 100),
+    ...MSDT_STYLES[style],
+  }));
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const ranked = [...rows].sort((a, b) => b.pct - a.pct || b.value - a.value || a.style.localeCompare(b.style));
+  const top = ranked[0];
+  const second = ranked[1];
+  const warning = answeredCount !== totalQuestions || total !== answeredCount
+    ? `Profil belum lengkap/konsisten. Jawaban ${answeredCount}/${totalQuestions}, total skor kategori ${total}. Verifikasi sebelum interpretasi final. `
+    : "";
+  return `${warning}Kandidat menjawab ${answeredCount} dari ${totalQuestions} soal MSDT. Gaya dominan: ${top.label} (${top.value}/${MSDT_STYLE_MAX[top.style]}; ${top.pct}%), dengan gaya pendukung ${second.label} (${second.value}/${MSDT_STYLE_MAX[second.style]}; ${second.pct}%). Profil ini menunjukkan kecenderungan ${top.description}. Kekuatan utama: ${top.strength}. Area yang perlu dijaga: ${top.risk}. MSDT membaca preferensi gaya manajemen dan perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, serta tuntutan jabatan.`;
 };
 
 Deno.serve(async (req) => {
@@ -363,6 +394,7 @@ Deno.serve(async (req) => {
       const isMbti = upperName.includes("MBTI") || scoringMethod === "typological";
       const isPapi = upperName.includes("PAPI") || scoringMethod === "papi_scales"
         || questions.some((q: any) => q.scoring_rule === "papikostik_dimension");
+      const isMsdt = upperName.includes("MSDT") || upperName.includes("MANAGEMENT STYLE DIAGNOSTIC") || scoringMethod === "msdt_style";
       const isKraepelin = upperName.includes("KRAEPELIN") || scoringMethod === "speed_accuracy"
         || questions.some((q: any) => q.question_type === "numeric" || q.scoring_rule === "speed_accuracy");
       const isAptitude = upperName.includes("APTITUDE") || (
@@ -571,6 +603,39 @@ Deno.serve(async (req) => {
             } else {
               Object.entries(cats).forEach(([k, v]) => (normalizedCats[k] = Math.round(v)));
             }
+            if (isPapi) {
+              const papiCodes = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"];
+              if (questions.length !== 90 || answeredCount !== 90) {
+                throw new Error(`Profil PAPI tidak lengkap: ${answeredCount} dari ${questions.length} soal. Scoring memerlukan tepat 90 jawaban.`);
+              }
+              const invalidKeys = Object.keys(normalizedCats).filter((key) => !papiCodes.includes(key));
+              if (invalidKeys.length > 0) {
+                throw new Error(`Mapping PAPI invalid pada skala: ${invalidKeys.join(", ")}`);
+              }
+              papiCodes.forEach((code) => {
+                normalizedCats[code] = Math.max(0, Math.min(9, Number(normalizedCats[code] || 0)));
+              });
+              const papiTotal = papiCodes.reduce((sum, code) => sum + normalizedCats[code], 0);
+              if (papiTotal !== 90) {
+                throw new Error(`Total scoring PAPI ${papiTotal}, seharusnya 90. Periksa category_target bank soal.`);
+              }
+            }
+            if (isMsdt) {
+              if (questions.length !== 64 || answeredCount !== 64) {
+                throw new Error(`Profil MSDT tidak lengkap: ${answeredCount} dari ${questions.length} soal. Scoring memerlukan tepat 64 jawaban.`);
+              }
+              const invalidKeys = Object.keys(normalizedCats).filter((key) => !MSDT_STYLE_ORDER.includes(key));
+              if (invalidKeys.length > 0) {
+                throw new Error(`Mapping MSDT invalid pada kategori: ${invalidKeys.join(", ")}`);
+              }
+              MSDT_STYLE_ORDER.forEach((style) => {
+                normalizedCats[style] = Math.max(0, Math.round(Number(normalizedCats[style] || 0)));
+              });
+              const msdtTotal = MSDT_STYLE_ORDER.reduce((sum, style) => sum + normalizedCats[style], 0);
+              if (msdtTotal !== 64) {
+                throw new Error(`Total scoring MSDT ${msdtTotal}, seharusnya 64. Periksa category_target bank soal.`);
+              }
+            }
       const cfitIqInfo = isCfit ? getCfitIqInfo(correctCount) : null;
 
       const { data: resultData, error: insErr } = await admin
@@ -620,6 +685,8 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
               ? buildMbtiInterpretation(normalizedCats, answeredCount, questions.length, inst.name)
             : isPapi
               ? buildPapiInterpretation(normalizedCats, answeredCount, questions.length)
+            : isMsdt
+              ? buildMsdtInterpretation(normalizedCats, answeredCount, questions.length)
             : isAptitude
               ? buildAptitudeInterpretation(normalizedCats, score, answeredCount, questions.length)
             : `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor akhir ${score}%. ${hasCorrectScoring ? `${correctCount} jawaban benar.` : "Diukur berdasar profil dimensi."}`,

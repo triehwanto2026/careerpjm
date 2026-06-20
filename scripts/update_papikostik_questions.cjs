@@ -30,24 +30,6 @@ async function updatePAPIKOSTIKQuestions() {
   const papikostikTest = instruments[0];
   console.log(`Found PAPIKOSTIK: ${papikostikTest.name} (ID: ${papikostikTest.id})`);
   
-  // Delete existing questions and options
-  console.log('Deleting existing questions...');
-  const { data: existingQuestions } = await supabase
-    .from('test_questions')
-    .select('id')
-    .eq('instrument_id', papikostikTest.id);
-  
-  if (existingQuestions && existingQuestions.length > 0) {
-    await supabase
-      .from('test_question_options')
-      .delete()
-      .eq('question_id', existingQuestions.map(q => q.id));
-    await supabase
-      .from('test_questions')
-      .delete()
-      .eq('instrument_id', papikostikTest.id);
-  }
-  
   // Define 90 new questions with PAPIKOSTIK dimension mapping
   const instruction = "Pilihlah pernyataan paling dominant atau paling mencerminkan diri anda atau menggambarkan perasaan anda saat ini.";
   
@@ -773,6 +755,64 @@ async function updatePAPIKOSTIKQuestions() {
       ]
     }
   ];
+
+  // Validate the complete scoring key before changing any database rows.
+  // A valid 90-item PAPI profile has two options per item and each of the
+  // 20 dimensions appears exactly nine times in the option key.
+  const papiCodes = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"];
+  const dimensionCounts = Object.fromEntries(papiCodes.map(code => [code, 0]));
+  const unknownDimensions = [];
+
+  questions.forEach(question => {
+    question.options.forEach(option => {
+      if (Object.prototype.hasOwnProperty.call(dimensionCounts, option.dimension)) {
+        dimensionCounts[option.dimension] += 1;
+      } else {
+        unknownDimensions.push(option.dimension);
+      }
+    });
+  });
+
+  const invalidCounts = papiCodes
+    .filter(code => dimensionCounts[code] !== 9)
+    .map(code => `${code}=${dimensionCounts[code]}`);
+  const optionCount = questions.reduce((total, question) => total + question.options.length, 0);
+  const validationErrors = [
+    questions.length === 90 ? null : `jumlah soal=${questions.length} (seharusnya 90)`,
+    optionCount === 180 ? null : `jumlah opsi=${optionCount} (seharusnya 180)`,
+    unknownDimensions.length === 0 ? null : `kode tidak dikenal=${[...new Set(unknownDimensions)].join(', ')}`,
+    invalidCounts.length === 0 ? null : `distribusi dimensi tidak seimbang: ${invalidCounts.join(', ')}`
+  ].filter(Boolean);
+
+  if (validationErrors.length > 0) {
+    throw new Error(
+      `PAPI seed dibatalkan sebelum database diubah. ${validationErrors.join('; ')}`
+    );
+  }
+
+  // Delete only after the complete replacement key has passed validation.
+  console.log('Deleting existing questions...');
+  const { data: existingQuestions, error: existingQuestionsError } = await supabase
+    .from('test_questions')
+    .select('id')
+    .eq('instrument_id', papikostikTest.id);
+
+  if (existingQuestionsError) throw existingQuestionsError;
+
+  if (existingQuestions && existingQuestions.length > 0) {
+    const questionIds = existingQuestions.map(q => q.id);
+    const { error: optionDeleteError } = await supabase
+      .from('test_question_options')
+      .delete()
+      .in('question_id', questionIds);
+    if (optionDeleteError) throw optionDeleteError;
+
+    const { error: questionDeleteError } = await supabase
+      .from('test_questions')
+      .delete()
+      .eq('instrument_id', papikostikTest.id);
+    if (questionDeleteError) throw questionDeleteError;
+  }
   
   // Insert questions and options
   let insertedCount = 0;

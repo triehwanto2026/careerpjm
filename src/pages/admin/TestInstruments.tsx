@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check, BookOpen, RefreshCw } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { MSDT_QUESTIONS } from "@/lib/msdtQuestions";
 
 const SWAL_THEME = {
   background: "hsl(220, 18%, 10%)",
@@ -21,6 +22,7 @@ const scoringMethods = [
   { value: "correct_only", label: "Correct/Incorrect (IQ, Aptitude) — CFIT, IST" },
   { value: "typological", label: "Typological (Categorical) — MBTI 16 Types" },
   { value: "papi_scales", label: "PAPI 20 Scales (0-9 scoring)" },
+  { value: "msdt_style", label: "MSDT Management Style (Forced-Choice)" },
   { value: "speed_accuracy", label: "Speed-Accuracy Curve — Kraepelin" },
   { value: "percent_temperament", label: "Percentage per Temperament" },
   { value: "likert_sum", label: "Likert Scale Sum" },
@@ -48,6 +50,10 @@ const TEMPLATES = [
     target_audience: "Pelamar kerja, manajemen", norm_reference: "Dr. Max Kostick (1960)",
     question_count: 30, duration_minutes: 25,
     description: "Mengukur 20 aspek kepribadian kerja melalui 90 pasangan pernyataan ipsative." },
+  { name: "MSDT", name_en: "Management Style Diagnostic Test", category: "Behavioral", scoring_method: "msdt_style",
+    target_audience: "Supervisor, leader, manager, kandidat posisi struktural", norm_reference: "Management Style Diagnostic profile",
+    question_count: 64, duration_minutes: 30,
+    description: "Memetakan kecenderungan gaya manajemen melalui 64 pasangan pernyataan forced-choice." },
   { name: "Kraepelin", name_en: "Kraepelin Test", category: "Work Aptitude", scoring_method: "speed_accuracy",
     target_audience: "Pekerja klerikal, operator", norm_reference: "Emil Kraepelin (1895)",
     question_count: 30, duration_minutes: 10,
@@ -146,6 +152,18 @@ const attachTemplateHandler = () => {
   };
 };
 
+const fillTemplateForm = (tpl: typeof TEMPLATES[number]) => {
+  (document.getElementById("swal-name") as HTMLInputElement).value = tpl.name;
+  (document.getElementById("swal-nameEn") as HTMLInputElement).value = tpl.name_en;
+  (document.getElementById("swal-desc") as HTMLTextAreaElement).value = tpl.description;
+  (document.getElementById("swal-cat") as HTMLSelectElement).value = tpl.category;
+  (document.getElementById("swal-scoring") as HTMLSelectElement).value = tpl.scoring_method;
+  (document.getElementById("swal-target") as HTMLInputElement).value = tpl.target_audience;
+  (document.getElementById("swal-norm") as HTMLInputElement).value = tpl.norm_reference;
+  (document.getElementById("swal-count") as HTMLInputElement).value = String(tpl.question_count);
+  (document.getElementById("swal-dur") as HTMLInputElement).value = String(tpl.duration_minutes);
+};
+
 const extractForm = () => {
   const name = (document.getElementById("swal-name") as HTMLInputElement).value.trim();
   const name_en = (document.getElementById("swal-nameEn") as HTMLInputElement).value.trim();
@@ -166,6 +184,7 @@ const TestInstruments = () => {
   const [instruments, setInstruments] = useState<InstrumentRow[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [installingMsdt, setInstallingMsdt] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from("test_instruments").select("*").order("created_at", { ascending: false });
@@ -175,15 +194,27 @@ const TestInstruments = () => {
 
   useEffect(() => { load(); }, []);
 
-  const handleAdd = async () => {
+  const handleAdd = async (preset?: typeof TEMPLATES[number]) => {
     const { value } = await Swal.fire({
       title: "Tambah Alat Tes Psikologi", html: buildFormHtml(), ...SWAL_THEME,
       confirmButtonText: "Simpan", showCancelButton: true, cancelButtonText: "Batal",
       width: 640, preConfirm: extractForm,
-      didOpen: () => attachTemplateHandler(),
+      didOpen: () => {
+        attachTemplateHandler();
+        if (preset) fillTemplateForm(preset);
+      },
     });
     if (value) {
-      const { data } = await supabase.from("test_instruments").insert(value).select("id").single();
+      const { data, error } = await supabase.from("test_instruments").insert(value).select("id").single();
+      if (error) {
+        await Swal.fire({
+          icon: "error",
+          title: "Belum dapat ditambahkan",
+          text: `${error.message}. Tambahkan melalui migration SQL yang sudah disediakan.`,
+          ...SWAL_THEME,
+        });
+        return;
+      }
       await load();
       if (data?.id) {
         const r = await Swal.fire({ icon: "success", title: "Tersimpan!",
@@ -360,7 +391,135 @@ const TestInstruments = () => {
     });
   };
 
+  const installMsdtQuestions = async (instrument: InstrumentRow) => {
+    const confirmation = await Swal.fire({
+      icon: "question",
+      title: "Pasang Bank Soal MSDT?",
+      text: "Bank soal MSDT pada instrument ini akan diganti dengan 64 soal dan 128 opsi scoring.",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Pasang",
+      cancelButtonText: "Batal",
+      ...SWAL_THEME,
+    });
+    if (!confirmation.isConfirmed) return;
+
+    setInstallingMsdt(true);
+    try {
+      const { data: existingQuestions, error: existingError } = await supabase
+        .from("test_questions")
+        .select("id")
+        .eq("instrument_id", instrument.id);
+      if (existingError) throw existingError;
+
+      const existingIds = (existingQuestions || []).map((question) => question.id);
+      if (existingIds.length > 0) {
+        const { error: optionsDeleteError } = await supabase
+          .from("test_question_options")
+          .delete()
+          .in("question_id", existingIds);
+        if (optionsDeleteError) throw optionsDeleteError;
+
+        const { error: questionsDeleteError } = await supabase
+          .from("test_questions")
+          .delete()
+          .eq("instrument_id", instrument.id);
+        if (questionsDeleteError) throw questionsDeleteError;
+      }
+
+      const questionRows = MSDT_QUESTIONS.map((question) => ({
+        instrument_id: instrument.id,
+        question_number: question.number,
+        question_text: `Pilih pernyataan yang paling mendekati gaya manajemen Anda.\n\nA. ${question.a}\nB. ${question.b}`,
+        question_text_en: `Choose the statement that best reflects your management style.\n\nA. ${question.a}\nB. ${question.b}`,
+        category: "MSDT",
+        question_type: "single_choice",
+        scoring_rule: "msdt_style",
+      }));
+
+      const { data: insertedQuestions, error: questionInsertError } = await supabase
+        .from("test_questions")
+        .insert(questionRows)
+        .select("id, question_number");
+      if (questionInsertError) throw questionInsertError;
+      if (!insertedQuestions || insertedQuestions.length !== 64) {
+        throw new Error(`Jumlah soal tersimpan ${insertedQuestions?.length || 0}, seharusnya 64.`);
+      }
+
+      const idByNumber = new Map(insertedQuestions.map((question) => [question.question_number, question.id]));
+      const optionRows = MSDT_QUESTIONS.flatMap((question) => {
+        const questionId = idByNumber.get(question.number);
+        if (!questionId) throw new Error(`ID soal MSDT nomor ${question.number} tidak ditemukan.`);
+        return [
+          {
+            question_id: questionId,
+            option_label: "A",
+            option_text: question.a,
+            option_text_en: question.a,
+            score_value: 1,
+            category_target: question.aCategory,
+            is_correct: null,
+            display_order: 0,
+          },
+          {
+            question_id: questionId,
+            option_label: "B",
+            option_text: question.b,
+            option_text_en: question.b,
+            score_value: 1,
+            category_target: question.bCategory,
+            is_correct: null,
+            display_order: 1,
+          },
+        ];
+      });
+
+      const { error: optionInsertError } = await supabase
+        .from("test_question_options")
+        .insert(optionRows);
+      if (optionInsertError) throw optionInsertError;
+
+      const { error: instrumentUpdateError } = await supabase
+        .from("test_instruments")
+        .update({
+          name: "MSDT",
+          name_en: "Management Style Diagnostic Test",
+          description: "Memetakan kecenderungan gaya manajemen melalui 64 pasangan pernyataan forced-choice.",
+          category: "Behavioral",
+          scoring_method: "msdt_style",
+          question_count: 64,
+          duration_minutes: 30,
+          is_active: true,
+        })
+        .eq("id", instrument.id);
+      if (instrumentUpdateError) throw instrumentUpdateError;
+
+      await load();
+      await Swal.fire({
+        icon: "success",
+        title: "Bank Soal MSDT Terpasang",
+        text: "64 soal, 128 opsi, dan mapping scoring gaya manajemen berhasil disimpan.",
+        ...SWAL_THEME,
+      });
+    } catch (error: any) {
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal Memasang MSDT",
+        text: error?.message || "Terjadi kesalahan saat menyimpan bank soal MSDT.",
+        ...SWAL_THEME,
+      });
+    } finally {
+      setInstallingMsdt(false);
+    }
+  };
+
   if (loading) return <AdminLayout><div className="flex items-center justify-center py-20 text-muted-foreground">Memuat data...</div></AdminLayout>;
+
+  const msdtTemplate = TEMPLATES.find((template) => template.name === "MSDT")!;
+  const hasMsdt = instruments.some((instrument) =>
+    instrument.name.toUpperCase().includes("MSDT")
+    || instrument.name_en.toUpperCase().includes("MANAGEMENT STYLE DIAGNOSTIC")
+    || instrument.scoring_method === "msdt_style"
+  );
 
   return (
     <AdminLayout>
@@ -377,12 +536,41 @@ const TestInstruments = () => {
             <button onClick={() => navigate("/admin/interpretations")} className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
               <BookOpen className="h-4 w-4" /> Manajer Interpretasi
             </button>
-            <button onClick={handleAdd} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
+            <button onClick={() => handleAdd()} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
               <Plus className="h-4 w-4" /> Tambah Alat Tes
             </button>
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {!hasMsdt && (
+            <div className="rounded-xl border border-dashed border-primary/60 bg-primary/5 p-5 space-y-3 relative">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">MSDT</h3>
+                  <p className="text-xs text-muted-foreground">Management Style Diagnostic Test</p>
+                </div>
+                <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[10px] font-semibold text-amber-400">
+                  Belum dipasang
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Memetakan kecenderungan gaya manajemen melalui 64 pasangan pernyataan forced-choice.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="rounded-md bg-primary/10 text-primary px-2 py-0.5 font-medium">Behavioral</span>
+                <span>64 soal</span><span>·</span><span>30 menit</span>
+              </div>
+              <div className="rounded-lg border border-border bg-background/50 p-3 text-xs text-muted-foreground">
+                Data belum ditemukan di database. Tambahkan melalui form ini atau jalankan migration MSDT.
+              </div>
+              <button
+                onClick={() => handleAdd(msdtTemplate)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:brightness-110 transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" /> Tambahkan MSDT ke Database
+              </button>
+            </div>
+          )}
           {instruments.map((t) => (
             <div key={t.id} className="glass rounded-xl p-5 glow-border space-y-3 relative">
               <div className="flex items-start justify-between">
@@ -431,11 +619,26 @@ const TestInstruments = () => {
                   <ListChecks className="h-3.5 w-3.5" /> Soal
                 </button>
               </div>
+              {(t.name.toUpperCase().includes("MSDT") || t.scoring_method === "msdt_style") && (
+                <button
+                  onClick={() => installMsdtQuestions(t)}
+                  disabled={installingMsdt}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:brightness-110 transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${installingMsdt ? "animate-spin" : ""}`} />
+                  {installingMsdt ? "Memasang MSDT..." : "Pasang / Perbarui 64 Soal MSDT"}
+                </button>
+              )}
               <button
-                onClick={() => navigate(`/admin/answer-keys?instrument=${t.id}`)}
+                onClick={() => navigate(
+                  t.name.toUpperCase().includes("MSDT") || t.scoring_method === "msdt_style"
+                    ? `/admin/test-instruments/${t.id}/questions`
+                    : `/admin/answer-keys?instrument=${t.id}`
+                )}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 text-primary px-3 py-2 text-xs font-semibold hover:bg-primary/10 transition-colors"
               >
-                <Check className="h-3.5 w-3.5" /> Set Jawaban Benar
+                <Check className="h-3.5 w-3.5" />
+                {t.name.toUpperCase().includes("MSDT") || t.scoring_method === "msdt_style" ? "Lihat Mapping Scoring" : "Set Jawaban Benar"}
               </button>
               <button
                 onClick={() => navigate(`/admin/interpretations?instrument=${t.id}`)}

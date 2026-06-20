@@ -8,7 +8,8 @@ import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfi
 import { buildDiscInterpretation as buildSharedDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation as buildSharedIstInterpretation, getIstRows as getSharedIstRows, getIstSummary as getSharedIstSummary } from "@/lib/istScoring";
 import { buildMbtiInterpretation as buildSharedMbtiInterpretation, getMbtiRows as getSharedMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES } from "@/lib/papiScoring";
+import { buildMsdtInterpretation, getMsdtRows, isMsdtName, MSDT_STYLE_MAX } from "@/lib/msdtScoring";
+import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES, PAPI_WHEEL_ORDER } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation, getPersonalityPlusRows } from "@/lib/personalityPlusScoring";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -165,7 +166,10 @@ const isPapiResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
     && Object.keys(r.categories || {}).filter((key) => PAPI_LABELS[key]).length >= 8
   );
 
-const PAPI_WHEEL_ORDER = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"];
+const isMsdtResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
+  isMsdtName(r.test_name)
+  || Object.keys(r.categories || {}).some((key) => getMsdtRows(r.categories || {}).some((row) => row.style === key));
+
 const PAPI_WHEEL_TEXT: Record<string, string> = {
   N: "Tuntas Tugas",
   G: "Kerja Keras",
@@ -213,8 +217,9 @@ const renderPapiWheelSvg = (rows: ReturnType<typeof getPapiRows>) => {
   const startOffset = -90 - step / 2;
   const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const pointFor = (index: number, value: number) => {
-    const angle = (-90 + step * index) * (Math.PI / 180);
-    const distance = (value / 9) * plotRadius;
+    const angleDeg = startOffset + index * step + step / 2;
+    const angle = angleDeg * (Math.PI / 180);
+    const distance = (Math.max(0, Math.min(9, value)) / 9) * plotRadius;
     return {
       x: center + Math.cos(angle) * distance,
       y: center + Math.sin(angle) * distance,
@@ -296,16 +301,20 @@ const renderPapiWheelSvg = (rows: ReturnType<typeof getPapiRows>) => {
         }).join("")}
         ${orderedRows.map((row, index) => {
           const end = pointFor(index, 9);
-          const num = pointFor(index, 9.38);
           return `
             <line x1="${center}" y1="${center}" x2="${end.x.toFixed(1)}" y2="${end.y.toFixed(1)}" stroke="#d1d5db" stroke-width="1" />
-            <text x="${num.x.toFixed(1)}" y="${num.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#475569">9</text>
           `;
         }).join("")}
-        <polygon points="${polygon}" fill="#60a5fa" fill-opacity="0.30" stroke="#2563eb" stroke-width="3" />
+        ${[0, 3, 6, 9].map((tick) => {
+          const p = pointFor(0, tick);
+          return `<text x="${(p.x + 12).toFixed(1)}" y="${p.y.toFixed(1)}" text-anchor="start" dominant-baseline="middle" font-size="10" font-weight="700" fill="#64748b">${tick}</text>`;
+        }).join("")}
+        <polygon points="${polygon}" fill="#2563eb" fill-opacity="0.20" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" />
         ${orderedRows.map((row, index) => {
           const p = pointFor(index, row.value);
-          return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="#2563eb" />`;
+          const label = pointFor(index, Math.min(9.75, row.value + 0.55));
+          return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="#1d4ed8" stroke="#ffffff" stroke-width="2" />
+            <text x="${label.x.toFixed(1)}" y="${label.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="10.5" font-weight="900" fill="#1d4ed8" stroke="#ffffff" stroke-width="2.5" paint-order="stroke">${row.value}</text>`;
         }).join("")}
         <circle cx="${center}" cy="${center}" r="3" fill="#111827" />
       </svg>
@@ -896,7 +905,7 @@ const Results = () => {
     const scoreResult = isAptitudeResult(r) ? { ...r, categories: cats } : r;
     const catEntries = Object.entries(cats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
-    const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
+    const maxVal = isPapiResult(r) ? 9 : isMsdtResult(r) ? 64 : 100;
 
     // Generate DISC charts and interpretation if test is DISC
     let discChartsHTML = "";
@@ -1008,6 +1017,7 @@ const Results = () => {
     let papiProfileHTML = "";
     let kraepelinProfileHTML = "";
     let aptitudeProfileHTML = "";
+    let msdtProfileHTML = "";
     let specialInterpretationHTML = "";
     if (isCfitName(r.test_name)) {
       specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil CFIT 3A</div><div class="interpretation">${formatPapiInterpretationHtml(buildCfitInterpretation(r))}</div></div>`;
@@ -1070,6 +1080,23 @@ const Results = () => {
           </div>
         </div>`;
       specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil PAPI</div><div class="interpretation">${formatPapiInterpretationHtml(buildPapiInterpretation(cats))}</div></div>`;
+    } else if (isMsdtResult(r)) {
+      const rows = getMsdtRows(cats);
+      const top = [...rows].sort((a, b) => b.pct - a.pct || b.value - a.value || a.style.localeCompare(b.style))[0];
+      msdtProfileHTML = `
+        <div class="section">
+          <div class="section-title">Profil MSDT - Gaya Manajemen</div>
+          <div class="score-cards">
+            <div class="score-card"><div class="label">Gaya Dominan</div><div class="value" style="font-size:14pt;margin-top:8px;">${top.label}</div></div>
+            <div class="score-card"><div class="label">Skor Dominan</div><div class="value">${top.pct}<span style="font-size:14pt;color:#64748b;">%</span></div></div>
+            <div class="score-card"><div class="label">Soal Dijawab</div><div class="value">${r.answered_questions}<span style="font-size:14pt;color:#64748b;">/${r.total_questions}</span></div></div>
+          </div>
+          <table class="dim-table">
+            <thead><tr><th>Gaya</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
+            <tbody>${rows.map(row => `<tr><td><strong>${row.label}</strong><br/><span style="color:#64748b;font-size:8pt;">${row.description}</span></td><td>${row.value}/${MSDT_STYLE_MAX[row.style]} (${row.pct}%)</td><td>${row.level}</td><td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(row.pct, 100)}%; background:${row.pct >= 70 ? '#059669' : row.pct >= 50 ? '#2563eb' : row.pct >= 25 ? '#d97706' : '#94a3b8'};"></div></div></td></tr>`).join("")}</tbody>
+          </table>
+        </div>`;
+      specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil MSDT</div><div class="interpretation">${formatPapiInterpretationHtml(buildMsdtInterpretation(cats, r.answered_questions, r.total_questions))}</div></div>`;
     } else if (isAptitudeResult(r)) {
       const rows = getAptitudeRows(cats);
       const info = getAptitudeScoreInfo(scoreResult);
@@ -1319,6 +1346,7 @@ const Results = () => {
     ${kraepelinProfileHTML}
     ${papiProfileHTML}
     ${aptitudeProfileHTML}
+    ${msdtProfileHTML}
 
     <div class="section ${r.test_name.toUpperCase().includes("DISC") || isIstResult(r) || isMbtiResult(r) || isKraepelinResult(r) || isPapiResult(r) || isAptitudeResult(r) ? "hidden" : ""}">
       <div class="section-title">Profil Dimensi & Skor</div>
@@ -1873,6 +1901,22 @@ const Results = () => {
           className="mx-auto max-w-[560px] [&_.papi-wheel-card]:border [&_.papi-wheel-card]:border-border [&_.papi-wheel-card]:rounded-xl [&_.papi-wheel-card]:bg-background [&_.papi-wheel-card]:p-2 [&_.papi-wheel-card_svg]:max-h-[460px] [&_.papi-wheel-summary]:mt-2 [&_.papi-wheel-summary]:border-t [&_.papi-wheel-summary]:border-border [&_.papi-wheel-summary]:pt-2 [&_.papi-wheel-summary]:text-xs [&_.papi-wheel-summary]:text-muted-foreground"
           dangerouslySetInnerHTML={{ __html: renderPapiWheelSvg(rows) }}
         />
+      );
+    }
+    if (isMsdtResult(r)) {
+      const rows = getMsdtRows(cats);
+      return (
+        <div className="space-y-4">
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={rows} margin={{ left: 10, right: 20, top: 10, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+              <XAxis dataKey="label" interval={0} angle={-25} textAnchor="end" height={80} tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} />
+              <YAxis domain={[0, 100]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any, _name: any, props: any) => [`${v}% (${props.payload.value}/${MSDT_STYLE_MAX[props.payload.style as keyof typeof MSDT_STYLE_MAX]})`, "Skor"]} />
+              <Bar dataKey="pct" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       );
     }
     if (isAptitudeResult(r)) {
@@ -2454,12 +2498,13 @@ const Results = () => {
                           <td className="py-2 px-3 text-muted-foreground">{row.note}</td>
                         </tr>
                       )) : catEntries.map(([dim, val]) => {
-                        const maxVal = r.test_name === "PAPIKOSTIK" ? 9 : 100;
+                        const maxVal = isPapiResult(r) ? 9 : isMsdtResult(r) ? (MSDT_STYLE_MAX[dim as keyof typeof MSDT_STYLE_MAX] || 64) : 100;
                         const pct = (val / maxVal) * 100;
+                        const suffix = isPapiResult(r) ? "/9" : isMsdtResult(r) ? `/${maxVal}` : "%";
                         return (
                           <tr key={dim} className="border-b border-border/50">
                             <td className="py-2 px-3 text-foreground font-medium">{dim}</td>
-                            <td className="py-2 px-3 text-foreground">{val}{r.test_name === "PAPIKOSTIK" ? "/9" : "%"}</td>
+                            <td className="py-2 px-3 text-foreground">{val}{suffix}</td>
                             <td className="py-2 px-3 w-40">
                               <div className="h-2 rounded-full bg-muted overflow-hidden">
                                 <div className={`h-full rounded-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
@@ -2491,14 +2536,16 @@ const Results = () => {
                   ? buildKraepelinInterpretation(cats)
                 : isPapiResult(r)
                   ? buildPapiInterpretation(cats)
+                : isMsdtResult(r)
+                  ? buildMsdtInterpretation(cats, r.answered_questions, r.total_questions)
                 : isAptitudeResult(r)
                   ? buildAptitudeInterpretation(cats, scoreResult.score, r.answered_questions, r.total_questions)
                 : r.interpretation;
               if (!interpText) return null;
-              const useStructuredInterpretation = isPP || isDISC || isMbtiResult(r) || isCfitName(r.test_name) || isPapiResult(r) || isAptitudeResult(r);
+              const useStructuredInterpretation = isPP || isDISC || isMbtiResult(r) || isCfitName(r.test_name) || isPapiResult(r) || isMsdtResult(r) || isAptitudeResult(r);
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
-                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : isAptitudeResult(r) ? ' — Profil Aptitude' : ''}</h3>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : isMsdtResult(r) ? ' — Profil MSDT' : isAptitudeResult(r) ? ' — Profil Aptitude' : ''}</h3>
                   {useStructuredInterpretation ? (
                     <div
                       className="space-y-2 text-sm leading-relaxed text-muted-foreground [&_.papi-interpretation-heading]:mt-4 [&_.papi-interpretation-heading:first-child]:mt-0 [&_.papi-interpretation-heading]:text-xs [&_.papi-interpretation-heading]:font-bold [&_.papi-interpretation-heading]:uppercase [&_.papi-interpretation-heading]:tracking-wide [&_.papi-interpretation-heading]:text-primary [&_.papi-interpretation-list]:ml-5 [&_.papi-interpretation-list]:list-disc [&_.papi-interpretation-list_li]:my-1 [&_.papi-interpretation-paragraph]:my-1"

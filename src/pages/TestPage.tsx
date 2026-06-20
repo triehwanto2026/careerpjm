@@ -893,6 +893,19 @@ const TestPage = () => {
             <li>Waktu berjalan setelah tombol OK ditekan.</li>
           </ul>
         </div>`;
+    } else if (upper.includes("MSDT") || upper.includes("MANAGEMENT STYLE DIAGNOSTIC")) {
+      title = "Petunjuk MSDT";
+      html = `
+        <div style="text-align:left;line-height:1.6">
+          <div style="padding:12px;border-radius:8px;background:hsla(174,72%,46%,0.1);border:1px solid hsla(174,72%,46%,0.3);margin-bottom:12px">
+            Setiap nomor berisi dua pernyataan A dan B. Pilih satu pernyataan yang paling mendekati kecenderungan Anda saat memimpin/mengelola bawahan.
+          </div>
+          <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
+            <li>Tidak ada jawaban benar atau salah.</li>
+            <li>Jawab sesuai kebiasaan kerja yang paling nyata, bukan yang paling ideal.</li>
+            <li>Pilih salah satu jawaban pada setiap nomor.</li>
+          </ul>
+        </div>`;
     } else if (upper.includes("KRAEPELIN")) {
       title = "Petunjuk Tes Kraepelin";
       html = `
