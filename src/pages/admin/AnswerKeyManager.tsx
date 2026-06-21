@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { MBTI_DIMENSIONS, normalizeMbtiDimension } from "@/lib/mbtiScoring";
+import { MSDT_STYLE_ORDER } from "@/lib/msdtScoring";
 
 interface Inst { id: string; name: string; category: string; scoring_method: string; }
 interface Q { id: string; question_number: number; question_text: string; question_text_en: string | null; category: string | null; subtest_code: string | null; question_type: string; group_number?: number | null; }
@@ -164,6 +165,9 @@ const AnswerKeyManager = () => {
     || currentInstrument?.name.toUpperCase().includes("MYERS")
     || currentInstrument?.scoring_method === "typological"
     || questions.some(q => (opts[q.id] || []).some(o => Boolean(normalizeMbtiDimension(o.category_target))));
+  const isMsdtSelected = currentInstrument?.name.toUpperCase().includes("MSDT")
+    || currentInstrument?.name.toUpperCase().includes("MANAGEMENT STYLE")
+    || currentInstrument?.scoring_method === "msdt_style";
 
   const applyIstAnswerKey = async () => {
     if (!isIstSelected) return;
@@ -400,6 +404,63 @@ const AnswerKeyManager = () => {
     }
   };
 
+  const applyMsdtAnswerKey = async () => {
+    if (!isMsdtSelected) return;
+    const newDirty: Record<string, Partial<O>> = {};
+    setLoading(true);
+
+    try {
+      if (selected && currentInstrument?.scoring_method !== "msdt_style") {
+        await supabase.from("test_instruments").update({ scoring_method: "msdt_style" }).eq("id", selected);
+        setInstruments(prev => prev.map(inst => inst.id === selected ? { ...inst, scoring_method: "msdt_style" } : inst));
+      }
+
+      await Promise.all(questions.map(q => supabase
+        .from("test_questions")
+        .update({ question_type: "single_choice", scoring_rule: "category_based" } as any)
+        .eq("id", q.id)));
+
+      const updatedOpts: Record<string, O[]> = { ...opts };
+      questions.forEach(q => {
+        updatedOpts[q.id] = (updatedOpts[q.id] || []).map(o => {
+          const style = MSDT_STYLE_ORDER.find(s => o.category_target?.toUpperCase().includes(s.toUpperCase()));
+          if (!style) return o;
+          const patchValue = {
+            category_target: style,
+            score_value: 1,
+            is_correct: true,
+          };
+          if (o.category_target !== style || Number(o.score_value) !== 1 || o.is_correct !== true) {
+            newDirty[o.id] = patchValue;
+          }
+          return { ...o, ...patchValue };
+        });
+      });
+
+      setQuestions(prev => prev.map(q => ({ ...q, question_type: "single_choice" })));
+      setOpts(updatedOpts);
+
+      if (Object.keys(newDirty).length > 0) {
+        setDirty(prev => ({ ...prev, ...newDirty }));
+      }
+
+      const styleCounts = MSDT_STYLE_ORDER.map(style => `${style}:${questions.reduce((sum, q) => sum + (updatedOpts[q.id] || []).filter(o => o.category_target === style).length, 0)}`).join(" · ");
+      Swal.fire({
+        icon: Object.keys(newDirty).length > 0 ? "success" : "info",
+        title: Object.keys(newDirty).length > 0 ? "Kunci MSDT diterapkan" : "Kunci MSDT sudah sesuai",
+        text: Object.keys(newDirty).length > 0
+          ? `${Object.keys(newDirty).length} opsi disesuaikan. Klik Simpan untuk menyimpan perubahan skor, target, dan centang. ${styleCounts}`
+          : `Semua opsi MSDT sudah memiliki category_target yang benar dan skor 1. ${styleCounts}`,
+        timer: 2600,
+        showConfirmButton: false,
+      });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Gagal menerapkan kunci MSDT", text: error?.message || "Terjadi kesalahan saat menyelaraskan kunci MSDT." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     supabase.from("test_instruments").select("id, name, category, scoring_method").order("name").then(({ data }) => {
       setInstruments((data as Inst[]) || []);
@@ -486,6 +547,11 @@ const AnswerKeyManager = () => {
               {isMbtiSelected && (
                 <button onClick={applyMbtiAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
                   Terapkan Kunci MBTI
+                </button>
+              )}
+              {isMsdtSelected && (
+                <button onClick={applyMsdtAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
+                  Terapkan Kunci MSDT
                 </button>
               )}
               <button onClick={saveAll} disabled={!Object.keys(dirty).length} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-40">

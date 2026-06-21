@@ -4,6 +4,8 @@ import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { isMsdtName } from "@/lib/msdtScoring";
+import { isPapiName } from "@/lib/papiScoring";
 
 const SWAL_THEME = {
   background: "hsl(220, 18%, 10%)",
@@ -289,12 +291,14 @@ const InterpretationManager = () => {
           <p className="text-xs text-muted-foreground">
             Total interpretasi: <span className="text-foreground font-semibold">{items.length}</span>
           </p>
-          <button
-            onClick={addNewKey}
-            className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20"
-          >
-            <Plus className="h-3.5 w-3.5" /> Tambah Dimensi
-          </button>
+          {!isPapiName(selected?.name) && (
+            <button
+              onClick={addNewKey}
+              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20"
+            >
+              <Plus className="h-3.5 w-3.5" /> Tambah Dimensi
+            </button>
+          )}
           {isIstSelected && (
             <button
               onClick={seedIstInterpretations}
@@ -308,7 +312,25 @@ const InterpretationManager = () => {
 
         {Object.keys(grouped).length === 0 && (
           <div className="glass rounded-xl p-8 text-center text-sm text-muted-foreground">
-            Belum ada interpretasi untuk alat tes ini. Klik "Tambah Dimensi" untuk mulai.
+            {isMsdtName(selected?.name) ? (
+              <div>
+                <p className="font-semibold text-foreground mb-2">MSDT menggunakan interpretasi dinamis berdasarkan scoring</p>
+                <p className="text-xs mb-3">Interpretasi MSDT di-generate secara otomatis dari hasil scoring kategori (Democratic, Executive, Autocratic, dll). Namun Anda tetap dapat menambahkan interpretasi statis untuk keperluan laporan khusus.</p>
+                <button
+                  onClick={addNewKey}
+                  className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Tambah Interpretasi untuk Laporan
+                </button>
+              </div>
+            ) : isPapiName(selected?.name) ? (
+              <div>
+                <p className="font-semibold text-foreground mb-2">PAPI Kostick menggunakan interpretasi dinamis berdasarkan scoring</p>
+                <p className="text-xs">Interpretasi PAPI di-generate secara otomatis dari hasil scoring 20 skala (N, G, A, L, P, I, T, V, S, B, O, X, C, D, R, Z, E, K, F, W). Tidak perlu interpretasi statis.</p>
+              </div>
+            ) : (
+              "Belum ada interpretasi untuk alat tes ini. Klik 'Tambah Dimensi' untuk mulai."
+            )}
           </div>
         )}
 

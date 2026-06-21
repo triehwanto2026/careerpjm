@@ -97,6 +97,11 @@ export const buildMsdtInterpretation = (categories: Record<string, unknown>, ans
     ? `PERINGATAN VALIDITAS\nProfil MSDT belum lengkap/konsisten. Jawaban tersimpan ${answered}/${total}, total skor kategori ${totalScore}. Interpretasi perlu diverifikasi sebelum dipakai.\n\n`
     : "";
 
+  // Handle case where categories might be empty or invalid
+  if (!dominant || !dominant.style) {
+    return `PERINGATAN VALIDITAS\nProfil MSDT tidak dapat ditampilkan karena data kategori tidak lengkap atau tidak valid. Pastikan tes MSDT diselesaikan dengan benar (64 soal) dan scoring mapping sudah diatur dengan benar.\n\nCATATAN INTERPRETASI\nMSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, referensi kerja, dan kebutuhan posisi.`;
+  }
+
   return `${warning}RINGKASAN PROFIL MSDT
 Gaya paling dominan: ${dominant.label} (${dominant.value}/${MSDT_STYLE_MAX[dominant.style]}; ${dominant.pct}%; ${dominant.level}).
 Gaya pendukung: ${secondary.label} (${secondary.value}/${MSDT_STYLE_MAX[secondary.style]}; ${secondary.pct}%; ${secondary.level}).
@@ -109,6 +114,9 @@ Kombinasi ${dominant.label} dengan ${secondary.label} menunjukkan pola kepemimpi
 
 PROFIL PER GAYA
 ${rows.map((row) => `- ${row.label} (${row.value}/${MSDT_STYLE_MAX[row.style]}; ${row.pct}%; ${row.level}): ${row.description}. Kekuatan: ${row.strength}. Risiko: ${row.risk}.`).join("\n")}
+
+REKOMENDASI PERAN
+Gaya ${dominant.label} cocok untuk peran yang membutuhkan ${dominant.description}. Pertimbangkan juga gaya pendukung ${secondary.label} untuk keseimbangan dalam situasi berbeda.
 
 CATATAN INTERPRETASI
 MSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, referensi kerja, dan kebutuhan posisi.`;

@@ -619,26 +619,12 @@ const TestInstruments = () => {
                   <ListChecks className="h-3.5 w-3.5" /> Soal
                 </button>
               </div>
-              {(t.name.toUpperCase().includes("MSDT") || t.scoring_method === "msdt_style") && (
-                <button
-                  onClick={() => installMsdtQuestions(t)}
-                  disabled={installingMsdt}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:brightness-110 transition-all disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${installingMsdt ? "animate-spin" : ""}`} />
-                  {installingMsdt ? "Memasang MSDT..." : "Pasang / Perbarui 64 Soal MSDT"}
-                </button>
-              )}
               <button
-                onClick={() => navigate(
-                  t.name.toUpperCase().includes("MSDT") || t.scoring_method === "msdt_style"
-                    ? `/admin/test-instruments/${t.id}/questions`
-                    : `/admin/answer-keys?instrument=${t.id}`
-                )}
+                onClick={() => navigate(`/admin/answer-keys?instrument=${t.id}`)}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 text-primary px-3 py-2 text-xs font-semibold hover:bg-primary/10 transition-colors"
               >
                 <Check className="h-3.5 w-3.5" />
-                {t.name.toUpperCase().includes("MSDT") || t.scoring_method === "msdt_style" ? "Lihat Mapping Scoring" : "Set Jawaban Benar"}
+                Set Jawaban Benar
               </button>
               <button
                 onClick={() => navigate(`/admin/interpretations?instrument=${t.id}`)}
