@@ -168,6 +168,8 @@ const AnswerKeyManager = () => {
   const isMsdtSelected = currentInstrument?.name.toUpperCase().includes("MSDT")
     || currentInstrument?.name.toUpperCase().includes("MANAGEMENT STYLE")
     || currentInstrument?.scoring_method === "msdt_style";
+  const isPapiSelected = currentInstrument?.name.toUpperCase().includes("PAPI")
+    || currentInstrument?.scoring_method === "papi_scales";
 
   const applyIstAnswerKey = async () => {
     if (!isIstSelected) return;
@@ -461,6 +463,53 @@ const AnswerKeyManager = () => {
     }
   };
 
+  const cleanupPapiOptions = async () => {
+    if (!isPapiSelected) return;
+    setLoading(true);
+
+    try {
+      const optionsToDelete: string[] = [];
+      const updatedOpts: Record<string, O[]> = { ...opts };
+
+      questions.forEach(q => {
+        const qOpts = opts[q.id] || [];
+        // Filter out uppercase A and B options (3rd and 4th options)
+        const filteredOpts = qOpts.filter(o => o.option_label !== "A" && o.option_label !== "B");
+        
+        // Find options to delete (uppercase A and B)
+        qOpts.forEach(o => {
+          if (o.option_label === "A" || o.option_label === "B") {
+            optionsToDelete.push(o.id);
+          }
+        });
+
+        updatedOpts[q.id] = filteredOpts;
+      });
+
+      setOpts(updatedOpts);
+
+      // Delete the options from database
+      if (optionsToDelete.length > 0) {
+        await supabase.from("test_question_options").delete().in("id", optionsToDelete);
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Opsi PAPI dibersihkan",
+        text: `${optionsToDelete.length} opsi (A dan B) dihapus. Sekarang hanya tersisa opsi a dan b.`,
+        timer: 2600,
+        showConfirmButton: false,
+      });
+
+      // Reload to get fresh data
+      await load(selected);
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Gagal membersihkan opsi PAPI", text: error?.message || "Terjadi kesalahan saat membersihkan opsi PAPI." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     supabase.from("test_instruments").select("id, name, category, scoring_method").order("name").then(({ data }) => {
       setInstruments((data as Inst[]) || []);
@@ -552,6 +601,11 @@ const AnswerKeyManager = () => {
               {isMsdtSelected && (
                 <button onClick={applyMsdtAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
                   Terapkan Kunci MSDT
+                </button>
+              )}
+              {isPapiSelected && (
+                <button onClick={cleanupPapiOptions} type="button" className="rounded-lg border border-red-500 bg-transparent px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-500/10">
+                  Hapus Opsi A dan B
                 </button>
               )}
               <button onClick={saveAll} disabled={!Object.keys(dirty).length} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-40">
