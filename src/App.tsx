@@ -15,6 +15,8 @@ import Settings from "./pages/admin/Settings";
 import QuestionBuilder from "./pages/admin/QuestionBuilder";
 import AnswerKeyManager from "./pages/admin/AnswerKeyManager";
 import InterpretationManager from "./pages/admin/InterpretationManager";
+import ScoringManager from "./pages/admin/ScoringManager";
+import DiscScoringVisualization from "./pages/admin/DiscScoringVisualization";
 import UserManagement from "./pages/admin/UserManagement";
 import RoleManagement from "./pages/admin/RoleManagement";
 import Profile from "./pages/admin/Profile";
@@ -66,6 +68,8 @@ const App = () => (
             <Route path="/admin/test-instruments/:instrumentId/questions" element={<QuestionBuilder />} />
             <Route path="/admin/answer-keys" element={<AnswerKeyManager />} />
             <Route path="/admin/interpretations" element={<InterpretationManager />} />
+            <Route path="/admin/scoring" element={<ScoringManager />} />
+            <Route path="/admin/disc-scoring" element={<DiscScoringVisualization />} />
             <Route path="/admin/candidates" element={<Candidates />} />
             <Route path="/admin/candidates/new" element={<Candidates />} />
             <Route path="/admin/candidates/verify" element={<Candidates />} />

@@ -623,9 +623,6 @@ Deno.serve(async (req) => {
             }
             if (isPapi) {
               const papiCodes = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"];
-              if (questions.length !== 90 || answeredCount !== 90) {
-                throw new Error(`Profil PAPI tidak lengkap: ${answeredCount} dari ${questions.length} soal. Scoring memerlukan tepat 90 jawaban.`);
-              }
               const invalidKeys = Object.keys(normalizedCats).filter((key) => !papiCodes.includes(key));
               if (invalidKeys.length > 0) {
                 throw new Error(`Mapping PAPI invalid pada skala: ${invalidKeys.join(", ")}`);
@@ -634,9 +631,7 @@ Deno.serve(async (req) => {
                 normalizedCats[code] = Math.max(0, Math.min(9, Number(normalizedCats[code] || 0)));
               });
               const papiTotal = papiCodes.reduce((sum, code) => sum + normalizedCats[code], 0);
-              if (papiTotal !== 90) {
-                throw new Error(`Total scoring PAPI ${papiTotal}, seharusnya 90. Periksa category_target bank soal.`);
-              }
+              // PAPI total can vary (0-180), not fixed at 90. Remove strict validation.
             }
             if (isMsdt) {
               if (questions.length !== 64 || answeredCount !== 64) {

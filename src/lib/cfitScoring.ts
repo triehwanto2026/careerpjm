@@ -122,16 +122,11 @@ export const getCfitProfileRows = (result: CfitResultLike) => {
     const level = pct >= 80 ? "Sangat Tinggi" : pct >= 65 ? "Tinggi" : pct >= 45 ? "Sedang" : pct >= 30 ? "Rendah" : "Sangat Rendah";
     return { ...segment, raw, pct, level };
   });
-  return [
-    { label: "Raw Score", value: `${info.raw}/${info.max}`, note: "Jumlah soal benar" },
-    { label: "IQ Score", value: String(info.iq), note: "Konversi raw score CFIT 3A" },
-    { label: "Klasifikasi", value: info.classification, note: info.note },
-    ...segments.map((segment) => ({
-      label: segment.label,
-      value: `${segment.raw}/${segment.max}`,
-      note: `${segment.level} - ${segment.note}`,
-    })),
-  ];
+  return segments.map((segment) => ({
+    label: segment.label,
+    value: `${segment.raw}/${segment.max}`,
+    note: `${segment.level} - ${segment.note}`,
+  }));
 };
 
 export const buildCfitInterpretation = (result: CfitResultLike) => {
@@ -161,6 +156,13 @@ CFIT 3A terutama membaca penalaran nonverbal, kemampuan menangkap pola, klasifik
 
 Profil segmen:
 ${segmentText}.
+
+Detail per dimensi:
+${segments.map((segment) => `
+${segment.label} (${segment.raw}/${segment.max}, ${segment.pct}%, ${segment.level}):
+- Kemampuan: ${segment.insight}
+- Kinerja: ${segment.pct}% dari maksimum yang diharapkan
+- Interpretasi: ${segment.pct >= 80 ? "Kemampuan sangat baik di area ini" : segment.pct >= 65 ? "Kemampuan baik di area ini" : segment.pct >= 45 ? "Kemampuan rata-rata di area ini" : segment.pct >= 30 ? "Kemampuan di bawah rata-rata di area ini" : "Kemampuan rendah di area ini"}`).join("\n")}
 
 Kekuatan utama:
 ${highSegments.length ? highSegments.map((segment) => `${segment.label}: ${segment.insight} berada pada taraf ${segment.level.toLowerCase()}.`).join("\n") : "Tidak ada segmen yang sangat menonjol; profil lebih perlu dibaca dari skor total dan konsistensi antar segmen."}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check, BookOpen, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check, BookOpen, RefreshCw, Calculator } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -631,6 +631,18 @@ const TestInstruments = () => {
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border text-foreground px-3 py-2 text-xs font-semibold hover:bg-muted transition-colors"
               >
                 <BookOpen className="h-3.5 w-3.5" /> Atur Interpretasi
+              </button>
+              <button
+                onClick={() => {
+                  if (t.name.toUpperCase().includes("DISC")) {
+                    navigate(`/admin/test-scoring?instrument=${t.id}`);
+                  } else {
+                    navigate(`/admin/scoring?instrument=${t.id}`);
+                  }
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border text-foreground px-3 py-2 text-xs font-semibold hover:bg-muted transition-colors"
+              >
+                <Calculator className="h-3.5 w-3.5" /> Edit Scoring
               </button>
             </div>
           ))}

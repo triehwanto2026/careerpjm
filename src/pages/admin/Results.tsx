@@ -492,8 +492,8 @@ const resolveAptitudeCategoryKey = (value: string | null | undefined) => {
 };
 
 const isAptitudeResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
-  r.test_name.toUpperCase().includes("APTITUDE") ||
-  Object.keys(r.categories || {}).some((key) => resolveAptitudeCategoryKey(key) !== null);
+  (r.test_name.toUpperCase().includes("APTITUDE") && !isCfitName(r.test_name)) ||
+  (!isCfitName(r.test_name) && Object.keys(r.categories || {}).some((key) => resolveAptitudeCategoryKey(key) !== null));
 
 const classifyAptitudeIq = (iq: number) => {
   if (iq < 85) return "Kecerdasan di bawah rata-rata";

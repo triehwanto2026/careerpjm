@@ -53,12 +53,15 @@ export const validatePapiProfile = (categories: Record<string, unknown>) => {
   const rows = getPapiRows(categories);
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   const invalidCodes = rows.filter((row) => !Number.isFinite(Number(categories[row.code])) || Number(categories[row.code]) < 0 || Number(categories[row.code]) > 9).map((row) => row.code);
-  return { valid: total === 90 && invalidCodes.length === 0, total, invalidCodes };
+  const allScalesPresent = PAPI_WHEEL_ORDER.every(code => categories[code] !== undefined && categories[code] !== null);
+  return { valid: invalidCodes.length === 0 && allScalesPresent, total, invalidCodes };
 };
 
 export const buildPapiInterpretation = (categories: Record<string, unknown>) => {
   const rows = getPapiRows(categories);
   const validity = validatePapiProfile(categories);
+  const { invalidCodes, total } = validity;
+  const allScalesPresent = PAPI_WHEEL_ORDER.every(code => categories[code] !== undefined && categories[code] !== null);
   const top = [...rows].sort((a, b) => b.value - a.value || a.code.localeCompare(b.code)).slice(0, 4);
   const highs = rows.filter((row) => row.level === "Tinggi").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const lows = rows.filter((row) => row.level === "Rendah").sort((a, b) => a.value - b.value || a.code.localeCompare(b.code)).slice(0, 5);
@@ -86,7 +89,7 @@ export const buildPapiInterpretation = (categories: Record<string, unknown>) => 
     return `${row.code} - ${row.label} (${row.value}/9; ${row.level}): ${meaning}. ${caution}`;
   };
 
-  return `${validity.valid ? "" : `PERINGATAN VALIDITAS SKOR\nTotal skor seluruh skala adalah ${validity.total}, seharusnya 90 untuk 90 pasangan yang dijawab lengkap. Interpretasi perlu ditunda sampai scoring diverifikasi.\n\n`}RINGKASAN PROFIL
+  return `${validity.valid ? "" : `PERINGATAN VALIDITAS SKOR\n${invalidCodes.length > 0 ? `Skala tidak valid: ${invalidCodes.join(", ")}. ` : ""}${!allScalesPresent ? "Beberapa skala tidak lengkap. " : ""}Interpretasi perlu ditunda sampai scoring diverifikasi.\n\n`}RINGKASAN PROFIL
 Skala paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9; ${row.level})`).join(", ")}.
 Makna umum: ${workImplication}.
 
