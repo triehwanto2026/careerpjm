@@ -3,7 +3,7 @@ import { buildCfitInterpretation, getCfitIqInfoFromResult, getCfitProfileRows, i
 import { buildDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
+import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName, getPapiMainFactors } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 
 export interface PrintResult {
@@ -348,6 +348,60 @@ export const generatePrintHTML = (
       </tbody>
     </table>
   </div>
+  ` : isPapi ? `
+  <div class="section">
+    <div class="section-title">Executive Summary — PAPI</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+      ${getPapiMainFactors(cats as Record<string, unknown>).map(f => `<div style="flex:1 1 30%;background:#f8fafc;border:1px solid #e2e8f0;padding:10px;border-radius:6px;"><div style="font-size:9pt;font-weight:700;color:#0f766e;">${f.name}</div><div style="font-size:18pt;font-weight:800;color:#0f172a;margin-top:6px;">${f.value.toFixed(2)}</div><div style="font-size:9pt;color:#64748b;margin-top:6px;">${f.level}</div></div>`).join("")}
+    </div>
+    <div style="display:flex;gap:18px;">
+      <div style="flex:1;">
+        <div style="font-weight:700;color:#0f766e;margin-bottom:6px;">Resume Psikolog</div>
+        <div style="font-size:10pt;color:#0f172a;margin-bottom:8px;">${buildPapiInterpretation(cats as Record<string, unknown>).split('\n').slice(0,6).join('<br/>').replace(/</g,'&lt;')}</div>
+      </div>
+      <div style="width:280px;">
+        <div style="font-weight:700;color:#0f766e;margin-bottom:6px;">Kekuatan (Top 3 Faktor)</div>
+        <ul style="margin-left:16px;color:#0f172a;">${[...getPapiMainFactors(cats as Record<string, unknown>)].sort((a,b)=>b.value-a.value).slice(0,3).map(f => `<li><strong>${f.name}</strong> — ${f.level} (${f.value.toFixed(2)})</li>`).join("")}</ul>
+        <div style="font-weight:700;color:#0f766e;margin-top:8px;margin-bottom:6px;">Area Pengembangan (3 Teratas)</div>
+        <ul style="margin-left:16px;color:#0f172a;">${[...getPapiMainFactors(cats as Record<string, unknown>)].sort((a,b)=>a.value-b.value).slice(0,3).map(f => `<li><strong>${f.name}</strong> — ${f.level} (${f.value.toFixed(2)})</li>`).join("")}</ul>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:10pt;color:#0f172a;"><strong>Rekomendasi Singkat:</strong> Gunakan hasil ini bersama wawancara dan data asesmen lain.</div>
+  </div>
+  <div class="page-break"></div>
+  <div class="section">
+    <div class="section-title">Detail Hasil — 7 Faktor & 20 Dimensi</div>
+    <table class="dim-table" style="margin-bottom:12px;">
+      <thead>
+        <tr><th>Faktor</th><th>Nilai</th><th>Keterangan</th></tr>
+      </thead>
+      <tbody>
+        ${getPapiMainFactors(cats as Record<string, unknown>).map(f => `<tr><td><strong>${f.name}</strong></td><td>${f.value.toFixed(2)}</td><td>${f.level}</td></tr>`).join("")}
+      </tbody>
+    </table>
+    <table class="dim-table">
+      <thead>
+        <tr>
+          <th style="width:25%">Kode - Dimensi</th>
+          <th style="width:15%">Skor</th>
+          <th style="width:15%">Max</th>
+          <th style="width:15%">Persentase</th>
+          <th>Keterangan</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${getPapiRows(cats as Record<string, unknown>).map(row => `<tr>
+          <td><strong>${row.code} - ${row.label}</strong></td>
+          <td style="text-align:center">${row.value}</td>
+          <td style="text-align:center">${row.max}</td>
+          <td style="text-align:center">${row.pct}%</td>
+          <td>${row.level}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <div style="margin-top:12px;" class="section-title">Interpretasi Lengkap</div>
+    <div class="interpretation">${buildPapiInterpretation(cats as Record<string, unknown>).replace(/</g,'&lt;').replace(/\n/g,'<br/>')}</div>
+  </div>
   ` : `
   <div class="section">
     <div class="section-title">Profil Dimensi & Skor</div>
@@ -360,7 +414,7 @@ export const generatePrintHTML = (
         </tr>
       </thead>
       <tbody>
-        ${(cfitInfo ? cfitProfileRows : isKraepelin ? kraepelinRows : isPapi ? getPapiRows(cats).map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/${row.max}`, note: `${row.level} (${row.pct}%)` })) : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
+        ${(cfitInfo ? cfitProfileRows : isKraepelin ? kraepelinRows : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
           <td><strong>${row.label}</strong></td>
           <td>${row.value}</td>
           <td>${row.note}</td>
