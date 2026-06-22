@@ -116,15 +116,15 @@ const buildDiscRows = (cats: Record<string, number>, totalQuestions = 24) => {
 };
 
 const IST_SUBTESTS = [
-  { code: "SE", name: "Sentence Completion", max: 20, area: "Pengetahuan bahasa dan pemahaman konsep verbal" },
-  { code: "WA", name: "Word Association", max: 20, area: "Kemampuan abstraksi verbal dan asosiasi kata" },
-  { code: "AN", name: "Analogy", max: 20, area: "Penalaran analogis dan hubungan logis" },
-  { code: "GE", name: "Generalization", max: 32, area: "Pembentukan konsep umum dan generalisasi" },
-  { code: "RA", name: "Arithmetic", max: 20, area: "Kemampuan berhitung dan pemecahan masalah numerik" },
-  { code: "ZR", name: "Number Series", max: 20, area: "Penalaran induktif numerik dan pola deret" },
-  { code: "FA", name: "Figure Assembly", max: 20, area: "Kemampuan analisis bentuk dan konstruksi figural" },
-  { code: "WU", name: "Cube Rotation", max: 20, area: "Daya bayang ruang dan rotasi mental" },
-  { code: "ME", name: "Memory", max: 20, area: "Daya ingat dan retensi informasi" },
+  { code: "SE", name: "Satzergänzung", max: 20, area: "Pengetahuan bahasa dan pemahaman konsep verbal" },
+  { code: "WA", name: "Wortauswahl", max: 20, area: "Kemampuan abstraksi verbal dan asosiasi kata" },
+  { code: "AN", name: "Analogien", max: 20, area: "Penalaran analogis dan hubungan logis" },
+  { code: "GE", name: "Gemeinsamkeiten", max: 32, area: "Pembentukan konsep umum dan generalisasi" },
+  { code: "RA", name: "Rechenaufgaben", max: 20, area: "Kemampuan berhitung dan pemecahan masalah numerik" },
+  { code: "ZR", name: "Zahlenreihen", max: 20, area: "Penalaran induktif numerik dan pola deret" },
+  { code: "FA", name: "Figurenauswahl", max: 20, area: "Kemampuan analisis bentuk dan konstruksi figural" },
+  { code: "WU", name: "Würfelaufgaben", max: 20, area: "Daya bayang ruang dan rotasi mental" },
+  { code: "ME", name: "Merkaufgaben", max: 20, area: "Daya ingat dan retensi informasi" },
 ] as const;
 
 const isIstResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
@@ -2654,7 +2654,7 @@ const Results = () => {
                   ? buildAptitudeInterpretation(cats, scoreResult.score, r.answered_questions, r.total_questions)
                 : r.interpretation;
               if (!interpText) return null;
-              const useStructuredInterpretation = isPP || isDISC || isMbtiResult(r) || isCfitName(r.test_name) || isPapiResult(r) || isMsdtResult(r) || isAptitudeResult(r);
+              const useStructuredInterpretation = isPP || isDISC || isMbtiResult(r) || isCfitName(r.test_name) || isPapiResult(r) || isMsdtResult(r) || isAptitudeResult(r) || isIST;
               return (
                 <div className="glass rounded-xl p-5 glow-border mt-4">
                   <h3 className="text-sm font-semibold text-foreground mb-2">Interpretasi Psikolog{isPP ? ' — Profil 4 Temperamen' : isIST ? ' — Profil IST' : isCfitName(r.test_name) ? ' — Profil CFIT 3A' : isMbtiResult(r) ? ' — Profil MBTI' : isKraepelinResult(r) ? ' — Profil Kraepelin' : isPapiResult(r) ? ' — Profil PAPI' : isMsdtResult(r) ? ' — Profil MSDT' : isAptitudeResult(r) ? ' — Profil Aptitude' : ''}</h3>
