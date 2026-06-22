@@ -9,7 +9,7 @@ import { buildDiscInterpretation as buildSharedDiscInterpretation } from "@/lib/
 import { buildIstInterpretation as buildSharedIstInterpretation, getIstRows as getSharedIstRows, getIstSummary as getSharedIstSummary } from "@/lib/istScoring";
 import { buildMbtiInterpretation as buildSharedMbtiInterpretation, getMbtiRows as getSharedMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
 import { buildMsdtInterpretation, getMsdtRows, isMsdtName } from "@/lib/msdtScoring";
-import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES, PAPI_WHEEL_ORDER } from "@/lib/papiScoring";
+import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES, PAPI_WHEEL_ORDER } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation, getPersonalityPlusRows } from "@/lib/personalityPlusScoring";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -219,7 +219,8 @@ const renderPapiWheelSvg = (rows: ReturnType<typeof getPapiRows>) => {
   const pointFor = (index: number, value: number) => {
     const angleDeg = startOffset + index * step + step / 2;
     const angle = angleDeg * (Math.PI / 180);
-    const distance = (Math.max(0, Math.min(9, value)) / 9) * plotRadius;
+    const chartMax = 8;
+    const distance = (Math.max(0, Math.min(chartMax, value)) / chartMax) * plotRadius;
     return {
       x: center + Math.cos(angle) * distance,
       y: center + Math.sin(angle) * distance,
@@ -319,7 +320,7 @@ const renderPapiWheelSvg = (rows: ReturnType<typeof getPapiRows>) => {
         <circle cx="${center}" cy="${center}" r="3" fill="#111827" />
       </svg>
       <div class="papi-wheel-summary">
-        <strong>Skala tertinggi:</strong> ${maxRows.map((row) => `${row.code} ${row.value}/9`).join(", ")}
+        <strong>Skala tertinggi:</strong> ${maxRows.map((row) => `${row.code} ${row.value}/${row.max}`).join(", ")}
       </div>
     </div>`;
 };
@@ -628,6 +629,16 @@ const getEffectiveAptitudeCategories = (result: ResultRow, answerRows: AnswerRow
   return { ...stored, ...rebuilt };
 };
 
+const getEffectivePapiCategories = (result: ResultRow, answerRows: AnswerRow[]) => {
+  if (!isPapiResult(result)) return result.categories as Record<string, number>;
+  if (!answerRows.length) return result.categories as Record<string, number>;
+  const rebuilt = buildPapiCategoriesFromAnswers(answerRows);
+  // if the rebuilt result is empty, fallback to stored categories
+  const total = Object.values(rebuilt).reduce((sum, value) => sum + value, 0);
+  if (total === 0) return result.categories as Record<string, number>;
+  return rebuilt;
+};
+
 const buildKraepelinInterpretation = (cats: Record<string, number>) => {
   const rows = getKraepelinRows(cats);
   const level = (v: number) => v >= 80 ? "sangat tinggi" : v >= 60 ? "tinggi" : v >= 40 ? "cukup" : v >= 20 ? "rendah" : "sangat rendah";
@@ -901,11 +912,15 @@ const Results = () => {
     if (!selectedResult) return;
     const r = selectedResult;
     const profile = r.candidate_profile as Record<string, string> | null;
-    const cats = isAptitudeResult(r) ? getEffectiveAptitudeCategories(r, answers) : r.categories as Record<string, number>;
+    const cats = isPapiResult(r)
+      ? getEffectivePapiCategories(r, answers)
+      : isAptitudeResult(r)
+        ? getEffectiveAptitudeCategories(r, answers)
+        : r.categories as Record<string, number>;
     const scoreResult = isAptitudeResult(r) ? { ...r, categories: cats } : r;
     const catEntries = Object.entries(cats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
-    const maxVal = isPapiResult(r) ? 9 : isMsdtResult(r) ? 64 : 100;
+    const maxVal = isPapiResult(r) ? 8 : isMsdtResult(r) ? 64 : 100;
 
     // Generate DISC charts and interpretation if test is DISC
     let discChartsHTML = "";
@@ -1066,11 +1081,11 @@ const Results = () => {
               <table class="dim-table papi-score-table">
                 <thead><tr><th>Skala</th><th>Dimensi</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
                 <tbody>${rows.map(row => {
-                  const pct = (row.value / 9) * 100;
+                  const pct = row.max > 0 ? (row.value / row.max) * 100 : 0;
                   return `<tr>
                     <td><strong>${row.code}</strong></td>
                     <td>${row.label}</td>
-                    <td>${row.value}/${(row as any).max || 9}</td>
+                    <td>${row.value}/${row.max}</td>
                     <td>${row.level}</td>
                     <td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(pct, 100)}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
                   </tr>`;
@@ -1669,7 +1684,11 @@ const Results = () => {
   };
 
   const renderChart = (r: ResultRow) => {
-    const cats = isAptitudeResult(r) ? getEffectiveAptitudeCategories(r, answers) : r.categories as Record<string, number>;
+    const cats = isPapiResult(r)
+      ? getEffectivePapiCategories(r, answers)
+      : isAptitudeResult(r)
+        ? getEffectiveAptitudeCategories(r, answers)
+        : r.categories as Record<string, number>;
     const data = Object.entries(cats)
       .filter(([, value]) => typeof value === "number")
       .map(([name, value]) => ({ name, value }));
@@ -2030,7 +2049,11 @@ const Results = () => {
 
   if (selectedResult) {
     const r = selectedResult;
-    const cats = isAptitudeResult(r) ? getEffectiveAptitudeCategories(r, answers) : r.categories as Record<string, number>;
+    const cats = isPapiResult(r)
+      ? getEffectivePapiCategories(r, answers)
+      : isAptitudeResult(r)
+        ? getEffectiveAptitudeCategories(r, answers)
+        : r.categories as Record<string, number>;
     const scoreResult = isAptitudeResult(r) ? { ...r, categories: cats } : r;
     const catEntries = Object.entries(cats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];

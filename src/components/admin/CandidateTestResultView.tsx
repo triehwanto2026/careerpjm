@@ -4,7 +4,7 @@ import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfi
 import { buildDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
+import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 import {
   ResponsiveContainer,
@@ -158,12 +158,14 @@ const getAnswerCategoryText = (answer: PrintAnswer, testName: string) => {
 
 const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ result, answers, profilePhoto }) => {
   const profile = result.candidate_profile || {};
-  const cats = (result.categories || {}) as Record<string, number>;
+  const isPapikostik = isPapiName(result.test_name);
+  const cats = isPapikostik && answers.length > 0
+    ? buildPapiCategoriesFromAnswers(answers)
+    : (result.categories || {}) as Record<string, number>;
   const catEntries = Object.entries(cats);
   const isDISC = result.test_name.toUpperCase().includes("DISC");
   const isPersonalityPlus = result.test_name === "Personality Plus" || result.test_name.includes("Personality Plus");
   const isKraepelin = result.test_name === "Kraepelin" || result.test_name.includes("Kraepelin");
-  const isPapikostik = isPapiName(result.test_name);
   const isCFIT = isCfitName(result.test_name);
   const isIST = isIstName(result.test_name) || Object.keys(cats).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
   const isMBTI = isMbtiName(result.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
@@ -434,14 +436,14 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
     }
 
     if (isPapikostik) {
-      const papiData = getPapiRows(cats).map((row) => ({ name: row.code, label: row.label, value: row.value }));
+      const papiData = getPapiRows(cats).map((row) => ({ name: row.code, label: row.label, value: row.value, max: row.max }));
       return (
         <ResponsiveContainer width="100%" height={360}>
           <RadarChart data={papiData}>
             <PolarGrid stroke="hsl(220, 14%, 25%)" />
             <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11, fontWeight: 700 }} />
-            <PolarRadiusAxis angle={30} domain={[0, 9]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
-            <Tooltip formatter={(v: any, _name: any, props: any) => [`${v}/9`, `${props.payload.name} - ${props.payload.label}`]} contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
+            <PolarRadiusAxis angle={30} domain={[0, 8]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+            <Tooltip formatter={(v: any, _name: any, props: any) => [`${v}/${props.payload?.max ?? 8}`, `${props.payload?.name} - ${props.payload?.label}`]} contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} />
             <Radar name="Profil PAPI" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.24} strokeWidth={2} />
           </RadarChart>
         </ResponsiveContainer>
@@ -701,7 +703,7 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
               </tr>
             ))}
             {isPapikostik && getPapiRows(cats).map(row => {
-              const pct = (row.value / row.max) * 100;
+              const pct = row.max > 0 ? (row.value / row.max) * 100 : 0;
               return (
                 <tr key={row.code} className="border-b border-border/50">
                   <td className="py-2 px-3 text-foreground font-medium">{row.code} - {row.label}</td>

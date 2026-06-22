@@ -3,7 +3,7 @@ import { buildCfitInterpretation, getCfitIqInfoFromResult, getCfitProfileRows, i
 import { buildDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
+import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 
 export interface PrintResult {
@@ -153,7 +153,13 @@ export const generatePrintHTML = (
 ): string => {
   const r = result;
   const profile = r.candidate_profile || {};
-  const cats = (r.categories || {}) as Record<string, number>;
+  const isPapi = isPapiName(r.test_name) || (
+    !r.test_name.toUpperCase().includes("DISC")
+    && Object.keys(r.categories || {}).filter((key) => getPapiRows(r.categories || {}).some((row) => row.code === key)).length >= 8
+  );
+  const cats = isPapi && answers.length > 0
+    ? buildPapiCategoriesFromAnswers(answers)
+    : (r.categories || {}) as Record<string, number>;
   const catEntries = Object.entries(cats);
   const cfitInfo = isCfitName(r.test_name) ? getCfitIqInfoFromResult(r) : null;
   const cfitProfileRows = cfitInfo ? getCfitProfileRows(r) : [];

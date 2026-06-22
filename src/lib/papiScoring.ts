@@ -74,6 +74,51 @@ export const getPapiRows = (categories: Record<string, unknown>) => {
   });
 };
 
+const PAPI_LABELS: Record<string, string> = Object.fromEntries(
+  PAPI_SCALES.map((scale) => [scale.code, scale.label]),
+);
+
+const PAPI_LABELS_BY_NAME = Object.fromEntries(
+  PAPI_SCALES.flatMap((scale) => [
+    [scale.label.toLowerCase(), scale.code],
+    [scale.label.toUpperCase(), scale.code],
+  ]),
+);
+
+const getPapiCodeFromCategory = (category?: string | null) => {
+  if (!category) return null;
+  const value = String(category).trim();
+  if (!value) return null;
+  const normalized = value.toUpperCase();
+  if (PAPI_LABELS[normalized]) return normalized;
+  const labelCode = PAPI_LABELS_BY_NAME[value.toLowerCase()];
+  if (labelCode) return labelCode;
+  const token = value.split(/\s*[\-:]\s*/)[0]?.trim().toUpperCase();
+  if (PAPI_LABELS[token]) return token;
+  return null;
+};
+
+export const buildPapiCategoriesFromAnswers = (
+  answerRows: Array<{ question_number?: number | string; category?: string | null }>,
+) => {
+  const categories: Record<string, number> = PAPI_WHEEL_ORDER.reduce((acc, code) => {
+    acc[code] = 0;
+    return acc;
+  }, {} as Record<string, number>);
+  const seenQuestions = new Set<number>();
+
+  answerRows.forEach((row) => {
+    const questionNumber = Number(row.question_number);
+    if (!Number.isFinite(questionNumber) || seenQuestions.has(questionNumber)) return;
+    seenQuestions.add(questionNumber);
+    const code = getPapiCodeFromCategory(row.category);
+    if (!code) return;
+    categories[code] = (categories[code] || 0) + 1;
+  });
+
+  return categories;
+};
+
 export const validatePapiProfile = (categories: Record<string, unknown>) => {
   const rows = getPapiRows(categories);
   const total = rows.reduce((sum, row) => sum + row.value, 0);
