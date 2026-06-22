@@ -957,7 +957,7 @@ const Results = () => {
     const scoreResult = isAptitudeResult(r) ? { ...r, categories: cats } : r;
     const catEntries = Object.entries(cats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
-    const maxVal = isPapiResult(r) ? 8 : isMsdtResult(r) ? 64 : 100;
+    const maxVal = isPapiResult(r) ? 9 : isMsdtResult(r) ? 64 : 100;
 
     // Generate DISC charts and interpretation if test is DISC
     let discChartsHTML = "";
@@ -1548,7 +1548,7 @@ const Results = () => {
               const pct = (val / maxVal) * 100;
               return `<tr>
                 <td><strong>${dim}</strong></td>
-                <td>${val}${r.test_name === "PAPIKOSTIK" ? "/9" : "%"}</td>
+                  <td>${val}${isPapiResult(r) ? "/9" : "%"}</td>
                 <td><div class="bar-container"><div class="bar-fill" style="width:${pct}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
               </tr>`;
             }).join("")}

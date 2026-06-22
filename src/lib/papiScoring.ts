@@ -10,26 +10,26 @@ export type PapiScale = {
 export const PAPI_WHEEL_ORDER = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"] as const;
 
 export const PAPI_MAX_SCORES: Record<string, number> = {
-  N: 8,
-  E: 8,
-  F: 8,
-  W: 8,
-  G: 7,
-  A: 7,
-  L: 7,
-  P: 7,
-  I: 7,
-  T: 7,
-  V: 7,
-  X: 7,
-  S: 7,
-  B: 7,
-  O: 7,
-  R: 7,
-  D: 7,
-  C: 7,
-  Z: 7,
-  K: 7,
+  N: 9,
+  E: 9,
+  F: 9,
+  W: 9,
+  G: 9,
+  A: 9,
+  L: 9,
+  P: 9,
+  I: 9,
+  T: 9,
+  V: 9,
+  X: 9,
+  S: 9,
+  B: 9,
+  O: 9,
+  R: 9,
+  D: 9,
+  C: 9,
+  Z: 9,
+  K: 9,
 };
 
 export const PAPI_SCALES: PapiScale[] = [
@@ -66,7 +66,7 @@ const getPapiLevel = (code: string, value: number) => {
 export const getPapiRows = (categories: Record<string, unknown>) => {
   const scaleByCode = new Map(PAPI_SCALES.map((scale) => [scale.code, scale]));
   return PAPI_WHEEL_ORDER.map((code) => scaleByCode.get(code)!).map((scale) => {
-    const max = PAPI_MAX_SCORES[scale.code] || 7;
+    const max = PAPI_MAX_SCORES[scale.code] || 9;
     const value = Math.max(0, Number(categories[scale.code] || 0));
     const pct = max > 0 ? Math.round((value / max) * 100) : 0;
     const level = getPapiLevel(scale.code, value);
