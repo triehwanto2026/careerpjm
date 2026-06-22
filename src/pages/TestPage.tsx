@@ -506,6 +506,14 @@ const TestPage = () => {
   const isKraepelinTest = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("KRAEPELIN") || t.scoring_method === "speed_accuracy");
   const isMbtiTest = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("MBTI") || String(t.scoring_method || "").toLowerCase() === "typological");
   const isPapiTest = (t?: DbInstrument) => !!t && (t.name.toUpperCase().includes("PAPI") || String(t.scoring_method || "").toLowerCase().includes("papi"));
+  const isIstGeEssayQuestion = (q?: DbQuestion, t?: DbInstrument) => {
+    if (!q) return false;
+    const subtestCode = String(q.subtest_code || "").toUpperCase();
+    if (subtestCode === "GE") return true;
+    const questionNumber = Number(q.question_number);
+    if (Number.isFinite(questionNumber) && questionNumber >= 61 && questionNumber <= 76) return true;
+    return false;
+  };
   const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t) || isKraepelinTest(t);
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
@@ -1173,6 +1181,16 @@ const TestPage = () => {
     // Auto-advance to next question
     handleNext();
   };
+  const handleTextAnswer = (instrumentId: string, questionId: string, value: string) => {
+    if (!isCameraReady) return;
+    const key = `${instrumentId}:${questionId}`;
+    setAnswers(prev => {
+      const next = { ...prev };
+      if (String(value).trim()) next[key] = value;
+      else delete next[key];
+      return next;
+    });
+  };
   const handleNumericAnswer = (instrumentId: string, questionId: string, value: string) => {
     if (!isCameraReady) return;
     const cleaned = value.replace(/\D/g, "").slice(0, 2);
@@ -1780,6 +1798,21 @@ const TestPage = () => {
                         className="h-14 w-full max-w-xs rounded-lg border border-border bg-muted px-4 text-center text-3xl font-bold tracking-widest text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
                         placeholder="0"
                       />
+                    </div>
+                  ) : isIstGeEssayQuestion(currentQuestion, currentTest) ? (
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Jawaban esai
+                      </label>
+                      <textarea
+                        rows={4}
+                        autoFocus
+                        value={currentAns || ""}
+                        onChange={(e) => handleTextAnswer(currentTest.id, currentQuestion.id, e.target.value)}
+                        className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Tulis jawaban Anda di sini"
+                      />
+                      <p className="mt-2 text-xs text-muted-foreground">Jawaban akan dinilai tanpa memperhatikan huruf besar/kecil.</p>
                     </div>
                   ) : currentQuestion.options.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic">Belum ada pilihan jawaban untuk soal ini.</p>

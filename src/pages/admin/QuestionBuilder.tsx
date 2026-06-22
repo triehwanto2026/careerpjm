@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, ChangeEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Pencil, Check, X, Image as ImageIcon, Upload, Download } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -159,6 +159,7 @@ interface Instrument {
   name_en: string;
   category: string;
   scoring_method: string;
+  question_count?: number;
 }
 
 interface QuestionRow {
@@ -166,8 +167,8 @@ interface QuestionRow {
   instrument_id: string;
   question_number: number;
   question_text: string;
-  question_text_en: string;
-  category: string;
+  question_text_en: string | null;
+  category: string | null;
   question_type: string;
   scoring_rule: string;
   image_url: string | null;
@@ -206,6 +207,119 @@ const SCORING_RULES = [
   { value: "correct_only", label: "Skor jika benar saja" },
 ];
 
+const isKraepelinInstrument = (instrument?: Instrument | null) =>
+  !!instrument && (instrument.name.toUpperCase().includes("KRAEPELIN") || instrument.scoring_method === "speed_accuracy");
+
+const getKraepelinCorrectAnswer = (q: QuestionRow) => {
+  if (!q) return "";
+  const answerHint = String(q.question_text_en || "").trim();
+  const marker = answerHint.match(/CORRECT_ANSWER\s*:\s*(\d+)/i);
+  if (marker) return marker[1];
+  if (/^\d$/.test(answerHint)) return answerHint;
+  const sum = String(q.question_text || "").match(/(\d+)\s*\+\s*(\d+)/);
+  if (!sum) return "";
+  return String((Number(sum[1]) + Number(sum[2])) % 10);
+};
+
+const KRAEPELIN_DEFAULT_QUESTION_COUNT = 1350;
+const KRAEPELIN_QUESTIONS_PER_COLUMN = 27;
+
+const getInstrumentQuestionCount = (instrument: Instrument | null, questionCount: number) => {
+  if (!instrument) return questionCount;
+  if (instrument.question_count != null) return instrument.question_count;
+  if (isKraepelinInstrument(instrument)) return KRAEPELIN_DEFAULT_QUESTION_COUNT;
+  return questionCount;
+};
+
+const getKraepelinColumnCount = (instrument: Instrument | null, questionCount: number) => {
+  if (!instrument) return undefined;
+  const count = getInstrumentQuestionCount(instrument, questionCount);
+  return Math.ceil(count / KRAEPELIN_QUESTIONS_PER_COLUMN);
+};
+
+const normalizeCsvHeader = (header: string) =>
+  header.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+
+const csvRowsFromText = (text: string) => {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const delimiter = line.includes("\t") ? "\t" : /,(?=(?:[^"]*"[^"]*")*[^\"]*$)/;
+      const values = line
+        .split(delimiter)
+        .map((value) => value.trim().replace(/^"|"$/g, ""));
+      return values;
+    });
+};
+
+const buildCsvValue = (value: unknown) => {
+  const text = String(value ?? "").replace(/"/g, '""');
+  return `"${text}"`;
+};
+
+const buildImportQuestions = (rows: string[][]) => {
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(normalizeCsvHeader);
+  const idx = {
+    question_number: headers.indexOf("question_number"),
+    question_text: headers.indexOf("question_text"),
+    question_text_en: headers.indexOf("question_text_en"),
+    category: headers.indexOf("category"),
+    question_type: headers.indexOf("question_type"),
+    scoring_rule: headers.indexOf("scoring_rule"),
+    correct_answer: headers.indexOf("correct_answer"),
+    question_image: headers.indexOf("question_image"),
+    options_image: headers.indexOf("options_image"),
+  };
+
+  return rows.slice(1).map((cols, index) => {
+    const question_text = cols[idx.question_text] || "";
+    const question_text_en = cols[idx.question_text_en] || "";
+    const correct_answer = cols[idx.correct_answer] || "";
+    return {
+      question_number: Number(cols[idx.question_number] || "0") || index + 1,
+      question_text,
+      question_text_en: correct_answer ? `CORRECT_ANSWER: ${correct_answer}` : (question_text_en || null),
+      category: cols[idx.category] || null,
+      question_type: cols[idx.question_type] || "numeric",
+      scoring_rule: cols[idx.scoring_rule] || "correct_only",
+      question_image: cols[idx.question_image] || null,
+      options_image: cols[idx.options_image] || null,
+    };
+  }).filter((item) => item.question_text);
+};
+
+const buildExportCsv = (rows: QuestionRow[]) => {
+  const headers = [
+    "question_number",
+    "question_text",
+    "question_text_en",
+    "category",
+    "question_type",
+    "scoring_rule",
+    "correct_answer",
+    "question_image",
+    "options_image",
+  ];
+  const lines = [headers.map(buildCsvValue).join(",")];
+  rows.forEach((q) => {
+    lines.push([
+      q.question_number,
+      q.question_text,
+      q.question_text_en || "",
+      q.category || "",
+      q.question_type,
+      q.scoring_rule,
+      getKraepelinCorrectAnswer(q),
+      q.question_image || "",
+      q.options_image || "",
+    ].map(buildCsvValue).join(","));
+  });
+  return lines.join("\n");
+};
+
 const QuestionBuilder = () => {
   const { instrumentId } = useParams();
   const navigate = useNavigate();
@@ -213,11 +327,13 @@ const QuestionBuilder = () => {
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [optionsByQ, setOptionsByQ] = useState<Record<string, OptionRow[]>>({});
   const [loading, setLoading] = useState(true);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+  const isKraepelin = isKraepelinInstrument(instrument);
 
   const load = async () => {
     if (!instrumentId) return;
     const [{ data: inst }, { data: qs }] = await Promise.all([
-      supabase.from("test_instruments").select("id, name, name_en, category, scoring_method").eq("id", instrumentId).maybeSingle(),
+      supabase.from("test_instruments").select("id, name, name_en, category, scoring_method, question_count").eq("id", instrumentId).maybeSingle(),
       supabase.from("test_questions").select("*").eq("instrument_id", instrumentId).order("question_number"),
     ]);
     setInstrument(inst as Instrument);
@@ -249,6 +365,7 @@ const QuestionBuilder = () => {
           <textarea id="q-text" class="swal2-textarea" style="margin:0 0 10px;width:100%;min-height:60px"></textarea>
           <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Teks Soal (EN)</label>
           <textarea id="q-text-en" class="swal2-textarea" style="margin:0 0 10px;width:100%;min-height:50px"></textarea>
+          ${isKraepelin ? `<label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Jawaban Benar</label><input id="q-correct" class="swal2-input" placeholder="Contoh: 7" style="margin:0 0 10px;width:100%">` : ""}
           <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Kategori / Dimensi</label>
           <input id="q-cat" class="swal2-input" placeholder="mis. Dominance, Extraversion" style="margin:0 0 10px;width:100%">
           <div style="display:flex;gap:10px">
@@ -285,6 +402,7 @@ const QuestionBuilder = () => {
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
+          correct_answer: isKraepelin ? (document.getElementById("q-correct") as HTMLInputElement).value.trim() : undefined,
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
@@ -294,15 +412,19 @@ const QuestionBuilder = () => {
       },
     });
     if (value) {
-      const { _imageFile1, _imageFile2, ...payload } = value as any;
+      const { _imageFile1, _imageFile2, correct_answer, ...payload } = value as any;
       let question_image: string | null = null;
       let options_image: string | null = null;
       if (_imageFile1) question_image = await uploadTestImage(_imageFile1, `q${nextNum}-soal`);
       if (_imageFile2) options_image = await uploadTestImage(_imageFile2, `q${nextNum}-pilihan`);
+      const question_text_en = correct_answer
+        ? `CORRECT_ANSWER: ${correct_answer}`
+        : payload.question_text_en || null;
       await supabase.from("test_questions").insert({
         instrument_id: instrumentId,
         question_number: nextNum,
         ...payload,
+        question_text_en,
         question_image,
         options_image,
       });
@@ -319,6 +441,7 @@ const QuestionBuilder = () => {
           <textarea id="q-text" class="swal2-textarea" style="margin:0 0 10px;width:100%;min-height:60px">${q.question_text}</textarea>
           <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Teks Soal (EN)</label>
           <textarea id="q-text-en" class="swal2-textarea" style="margin:0 0 10px;width:100%;min-height:50px">${q.question_text_en || ""}</textarea>
+          ${isKraepelin && q.question_type === "numeric" ? `<label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Jawaban Benar</label><input id="q-correct" class="swal2-input" style="margin:0 0 10px;width:100%" value="${getKraepelinCorrectAnswer(q)}">` : ""}
           <label style="display:block;margin-bottom:3px;font-weight:600;color:hsl(var(--muted-foreground))">Kategori / Dimensi</label>
           <input id="q-cat" class="swal2-input" value="${q.category || ""}" style="margin:0 0 10px;width:100%">
           <div style="display:flex;gap:10px">
@@ -362,6 +485,7 @@ const QuestionBuilder = () => {
         return {
           question_text: text,
           question_text_en: (document.getElementById("q-text-en") as HTMLTextAreaElement).value.trim(),
+          correct_answer: isKraepelin && q.question_type === "numeric" ? (document.getElementById("q-correct") as HTMLInputElement).value.trim() : undefined,
           category: (document.getElementById("q-cat") as HTMLInputElement).value.trim(),
           question_type: (document.getElementById("q-type") as HTMLSelectElement).value,
           scoring_rule: (document.getElementById("q-scoring") as HTMLSelectElement).value,
@@ -373,9 +497,11 @@ const QuestionBuilder = () => {
       },
     });
     if (value) {
-      const { _imageFile1, _imageFile2, _removeImage1, _removeImage2, ...payload } = value as any;
+      const { _imageFile1, _imageFile2, _removeImage1, _removeImage2, correct_answer, ...payload } = value as any;
       const updates: any = { ...payload };
-      if (_imageFile1) updates.question_image = await uploadTestImage(_imageFile1, `q${q.question_number}-soal`);
+      if (isKraepelin && q.question_type === "numeric") {
+        updates.question_text_en = correct_answer ? `CORRECT_ANSWER: ${correct_answer}` : payload.question_text_en || null;
+      }
       else if (_removeImage1) updates.question_image = null;
       if (_imageFile2) updates.options_image = await uploadTestImage(_imageFile2, `q${q.question_number}-pilihan`);
       else if (_removeImage2) updates.options_image = null;
@@ -474,6 +600,66 @@ const QuestionBuilder = () => {
     Swal.fire({ icon: "success", title: "Gambar otomatis selesai", text: `${targets.length} soal sudah dilengkapi gambar.`, ...SWAL_THEME() });
   };
 
+  const handleCsvFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = "";
+    const text = await file.text();
+    const importedRows = buildImportQuestions(csvRowsFromText(text));
+    if (importedRows.length === 0) {
+      Swal.fire("Gagal", "Tidak ada baris valid di file yang dipilih.", "error");
+      return;
+    }
+    const { isConfirmed } = await Swal.fire({
+      title: `Impor ${importedRows.length} soal`,
+      html: `
+        <p style="text-align:left;font-size:13px;line-height:1.5;color:hsl(var(--muted-foreground));">File akan menambahkan soal ke alat tes ini. Pastikan kolom <strong>question_number</strong>, <strong>question_text</strong>, dan <strong>correct_answer</strong> tersedia untuk Kraepelin.</p>
+      `,
+      ...SWAL_THEME(),
+      showCancelButton: true,
+      confirmButtonText: "Impor sekarang",
+      cancelButtonText: "Batal",
+      width: 560,
+    });
+    if (!isConfirmed) return;
+
+    const lastNumber = questions[questions.length - 1]?.question_number || 0;
+    const rowsWithNumbers = importedRows.map((row, index) => ({
+      ...row,
+      question_number: row.question_number || lastNumber + index + 1,
+    }));
+
+    const { error } = await supabase.from("test_questions").insert(
+      rowsWithNumbers.map((row) => ({
+        instrument_id: instrumentId,
+        ...row,
+      }))
+    );
+    if (error) {
+      Swal.fire("Error", "Gagal mengimpor soal dari file.", "error");
+      return;
+    }
+    await load();
+    Swal.fire("Sukses", `${rowsWithNumbers.length} soal berhasil diimpor.`, "success");
+  };
+
+  const handleImportQuestions = () => {
+    csvInputRef.current?.click();
+  };
+
+  const handleExportQuestions = () => {
+    const csv = buildExportCsv(questions);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${instrument?.name?.replace(/\s+/g, "_").toLowerCase() || "questions"}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleAddOption = async (q: QuestionRow) => {
     const opts = optionsByQ[q.id] || [];
     const nextOrder = opts.length;
@@ -564,12 +750,30 @@ const QuestionBuilder = () => {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-xl font-bold text-foreground">Bank Soal — {instrument.name}</h1>
-              <p className="text-sm text-muted-foreground">{instrument.category} · {questions.length} soal · {instrument.scoring_method || "—"}</p>
+              <p className="text-sm text-muted-foreground">
+                {instrument.category} · {getInstrumentQuestionCount(instrument, questions.length)} soal
+                {isKraepelin ? ` · ${getKraepelinColumnCount(instrument, questions.length)} kolom` : ` · ${instrument.scoring_method || "—"}`}
+              </p>
             </div>
-            <button onClick={handleAddQuestion} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
-              <Plus className="h-4 w-4" /> Tambah Soal
-            </button>
+            <div className="flex flex-wrap gap-2 items-center">
+              <button onClick={handleAddQuestion} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all glow-primary">
+                <Plus className="h-4 w-4" /> Tambah Soal
+              </button>
+              <button onClick={handleImportQuestions} className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/80">
+                <Upload className="h-4 w-4" /> Impor CSV/TSV
+              </button>
+              <button onClick={handleExportQuestions} className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/80">
+                <Download className="h-4 w-4" /> Ekspor CSV
+              </button>
+            </div>
           </div>
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=",.csv,.tsv,text/csv,text/tab-separated-values"
+            className="hidden"
+            onChange={handleCsvFileChange}
+          />
         </div>
 
         {questions.length === 0 ? (
@@ -593,6 +797,9 @@ const QuestionBuilder = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground leading-relaxed">{q.question_text}</p>
                       {q.question_text_en && <p className="text-xs text-muted-foreground italic mt-1">{q.question_text_en}</p>}
+                      {isKraepelin && q.question_type === "numeric" && (
+                        <p className="text-xs font-semibold text-primary mt-1">Kunci: {getKraepelinCorrectAnswer(q) || "—"}</p>
+                      )}
                       {(q.question_image || q.options_image || aptitudeFallbackImage) && (
                         <div className="mt-3 space-y-3">
                           {q.question_image && (

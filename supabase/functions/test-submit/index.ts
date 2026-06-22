@@ -75,6 +75,48 @@ const IST_SUBTEST_MAX: Record<string, number> = {
   ME: 20,
 };
 
+const IST_SUBTEST_NAMES: Record<string, string> = {
+  SE: "Sentence Completion",
+  WA: "Word Association",
+  AN: "Analogy",
+  GE: "Generalization",
+  RA: "Arithmetic",
+  ZR: "Number Series",
+  FA: "Figure Assembly",
+  WU: "Cube Rotation",
+  ME: "Memory",
+};
+
+const IST_SUBTEST_RANGES: Array<{ start: number; end: number; code: string }> = [
+  { start: 1, end: 20, code: "SE" },
+  { start: 21, end: 40, code: "WA" },
+  { start: 41, end: 60, code: "AN" },
+  { start: 61, end: 76, code: "GE" },
+  { start: 77, end: 96, code: "RA" },
+  { start: 97, end: 116, code: "ZR" },
+  { start: 117, end: 136, code: "FA" },
+  { start: 137, end: 156, code: "WU" },
+  { start: 157, end: 176, code: "ME" },
+];
+
+const getIstSubtestCode = (questionNumber: number | string | null | undefined) => {
+  const num = Number(questionNumber);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  const range = IST_SUBTEST_RANGES.find((range) => num >= range.start && num <= range.end);
+  return range?.code ?? null;
+};
+
+const getIstSubtestName = (code: string | null | undefined) => {
+  if (!code) return "IST";
+  return IST_SUBTEST_NAMES[code] || code;
+};
+
+const getIstCategoryKey = (q: any) => {
+  const code = getIstSubtestCode(q.subtest_code || q.question_number);
+  if (code) return `${code} - ${getIstSubtestName(code)}`;
+  return q.category?.trim() || "IST";
+};
+
 const APTITUDE_AREAS: Record<string, { label: string; max: number }> = {
   Verbal: { label: "Verbal", max: 11 },
   Numerical: { label: "Numerik", max: 10 },
@@ -482,15 +524,19 @@ Deno.serve(async (req) => {
 
       questions.forEach((q: any) => {
         const optionMax = Math.max(0, ...(q.options || []).map((o: any) => Number(o.score_value || 0)));
-        if (isIst && q.subtest_code && IST_SUBTEST_MAX[q.subtest_code]) {
-          maxPossibleScore += optionMax || (q.subtest_code === "GE" ? 2 : 1);
-        } else {
-          maxPossibleScore += optionMax || (q.options?.some((o: any) => o.is_correct) ? 1 : 0);
+        if (isIst) {
+          const subtestCode = getIstSubtestCode(q.subtest_code || q.question_number);
+          if (subtestCode && IST_SUBTEST_MAX[subtestCode]) {
+            const defaultMax = subtestCode === "GE" ? 2 : 1;
+            maxPossibleScore += Math.max(optionMax, defaultMax);
+            return;
+          }
         }
+        maxPossibleScore += optionMax || (q.options?.some((o: any) => o.is_correct) ? 1 : 0);
       });
 
       const categoryKey = (q: any) => {
-        if (isIst && q.subtest_code) return `${q.subtest_code} - ${q.category || "IST"}`;
+        if (isIst) return getIstCategoryKey(q);
         return q.category?.trim() || "Umum";
       };
 
@@ -502,11 +548,32 @@ Deno.serve(async (req) => {
         return String((Number(sum[1]) + Number(sum[2])) % 10);
       };
 
+      const normalizeIstText = (value: any) => String(value || "")
+        .toLowerCase()
+        .replace(/[–—/\\-]/g, " ")
+        .replace(/[^a-z0-9 ]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const findGeOptionForAnswer = (q: any, answerValue: any) => {
+        const normalizedAnswer = normalizeIstText(answerValue);
+        if (!normalizedAnswer) return null;
+
+        return (q.options || []).find((o: any) => {
+          const normalizedLabel = normalizeIstText(o.option_label);
+          const normalizedText = normalizeIstText(o.option_text);
+          if (normalizedLabel === normalizedAnswer || normalizedText === normalizedAnswer) return true;
+          if (normalizedAnswer.length === 1 && normalizedAnswer === normalizedLabel.charAt(0)) return true;
+          if (normalizedText.includes(normalizedAnswer) || normalizedAnswer.includes(normalizedText)) return true;
+          return false;
+        }) || null;
+      };
+
       const safeQuestionTextEn = (q: any) =>
         String(q.question_text_en || "").toUpperCase().startsWith("CORRECT_ANSWER:") ? null : q.question_text_en;
 
       for (const q of questions) {
-        const optId = answers[q.id];
+        let optId = answers[q.id];
         if (!optId) continue;
         answeredCount++;
         if (q.question_type === "numeric" || isKraepelin) {
@@ -519,6 +586,32 @@ Deno.serve(async (req) => {
           const segment = Math.max(0, (Number(q.group_number || parsedSubtest || Math.floor((Number(q.question_number || 1) - 1) / fallbackSegmentSize) + 1) - 1));
           kraepelinSegmentAnswered[segment] = (kraepelinSegmentAnswered[segment] || 0) + 1;
           kraepelinSegmentCorrect[segment] = (kraepelinSegmentCorrect[segment] || 0) + (isCorrect ? 1 : 0);
+          continue;
+        }
+        const questionCategory = categoryKey(q);
+        const isIstGe = isIst && (String(q.subtest_code || "").toUpperCase() === "GE" || (Number(q.question_number || 0) >= 61 && Number(q.question_number || 0) <= 76));
+        if (isIstGe) {
+          const answerText = String(optId || "");
+          const matchedOpt = findGeOptionForAnswer(q, answerText);
+          if (matchedOpt) {
+            const opt = matchedOpt;
+            const mbtiDim = isMbti ? normalizeMbtiDim(opt.category_target || opt.option_label || opt.option_text) : null;
+            const optScore = (isPapi && opt.category_target) || mbtiDim ? 1 : Number(opt.score_value || 0);
+            totalScore += optScore;
+            if (opt.is_correct) correctCount++;
+            const dim = mbtiDim || opt.category_target?.trim() || questionCategory;
+            cats[dim] = (cats[dim] || 0) + optScore;
+            continue;
+          }
+          const originalOpt = q.options.find((o: any) => o.id === optId || normalizeIstText(o.option_label) === normalizeIstText(optId) || normalizeIstText(o.option_text) === normalizeIstText(optId));
+          if (originalOpt) {
+            const mbtiDim = isMbti ? normalizeMbtiDim(originalOpt.category_target || originalOpt.option_label || originalOpt.option_text) : null;
+            const optScore = (isPapi && originalOpt.category_target) || mbtiDim ? 1 : Number(originalOpt.score_value || 0);
+            totalScore += optScore;
+            if (originalOpt.is_correct) correctCount++;
+            const dim = mbtiDim || originalOpt.category_target?.trim() || questionCategory;
+            cats[dim] = (cats[dim] || 0) + optScore;
+          }
           continue;
         }
         if (q.question_type === "disc_pair" && String(optId).includes("|")) {
@@ -711,6 +804,19 @@ Deno.serve(async (req) => {
               }
             }
       const cfitIqInfo = isCfit ? getCfitIqInfo(correctCount) : null;
+
+      if (isIst) {
+        const istGroupMapping: Record<string, string[]> = {
+          Verbal: ["SE - Sentence Completion", "WA - Word Association", "AN - Analogy"],
+          Konseptual: ["GE - Generalization"],
+          Numerik: ["RA - Arithmetic", "ZR - Number Series"],
+          "Figural-Spasial": ["FA - Figure Assembly", "WU - Cube Rotation"],
+          Memori: ["ME - Memory"],
+        };
+        Object.entries(istGroupMapping).forEach(([group, keys]) => {
+          normalizedCats[group] = keys.reduce((sum, key) => sum + Number(normalizedCats[key] || 0), 0);
+        });
+      }
 
       const { data: resultData, error: insErr } = await admin
         .from("test_results")

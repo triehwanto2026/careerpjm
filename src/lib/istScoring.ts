@@ -23,6 +23,14 @@ const levelDescription = (level: string) => {
 
 export const isIstName = (name?: string | null) => String(name || "").toUpperCase().includes("IST");
 
+const IST_GROUPING: Record<string, string[]> = {
+  Verbal: ["SE", "WA", "AN"],
+  Konseptual: ["GE"],
+  Numerik: ["RA", "ZR"],
+  "Figural-Spasial": ["FA", "WU"],
+  Memori: ["ME"],
+};
+
 export const getIstSubtestScore = (categories: Record<string, unknown>, code: string) => {
   const match = Object.entries(categories || {}).find(([key]) => key === code || key.startsWith(`${code} -`));
   return Number(match?.[1] || 0);
@@ -58,7 +66,20 @@ export const getIstSummary = (categories: Record<string, unknown>, fallbackScore
     pct: value.max > 0 ? Math.round((value.raw / value.max) * 100) : 0,
     items: value.items.join(", "),
   })).sort((a, b) => b.pct - a.pct);
-  return { rows, raw, max, score, strongest, weakest, domains };
+
+  const groups = Object.entries(IST_GROUPING).map(([group, codes]) => {
+    const rawGroup = codes.reduce((sum, code) => sum + getIstSubtestScore(categories, code), 0);
+    const maxGroup = codes.reduce((sum, code) => sum + (IST_SUBTESTS.find((sub) => sub.code === code)?.max || 0), 0);
+    return {
+      group,
+      raw: rawGroup,
+      max: maxGroup,
+      pct: maxGroup > 0 ? Math.round((rawGroup / maxGroup) * 100) : 0,
+      items: codes.join(", "),
+    };
+  });
+
+  return { rows, raw, max, score, strongest, weakest, domains, groups };
 };
 
 export const buildIstInterpretation = (categories: Record<string, unknown>, fallbackScore = 0) => {
