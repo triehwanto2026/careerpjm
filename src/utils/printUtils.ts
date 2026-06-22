@@ -350,7 +350,7 @@ export const generatePrintHTML = (
   </div>
   ` : isPapi ? `
   <div class="section">
-    <div class="section-title">Executive Summary — PAPI</div>
+    <div class="section-title">HALAMAN 1 — Executive Summary PAPI</div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
       ${getPapiMainFactors(cats as Record<string, unknown>).map(f => `<div style="flex:1 1 30%;background:#f8fafc;border:1px solid #e2e8f0;padding:10px;border-radius:6px;"><div style="font-size:9pt;font-weight:700;color:#0f766e;">${f.name}</div><div style="font-size:18pt;font-weight:800;color:#0f172a;margin-top:6px;">${f.value.toFixed(2)}</div><div style="font-size:9pt;color:#64748b;margin-top:6px;">${f.level}</div></div>`).join("")}
     </div>
@@ -370,7 +370,7 @@ export const generatePrintHTML = (
   </div>
   <div class="page-break"></div>
   <div class="section">
-    <div class="section-title">Detail Hasil — 7 Faktor & 20 Dimensi</div>
+    <div class="section-title">HALAMAN 2 — Detail Hasil PAPI</div>
     <table class="dim-table" style="margin-bottom:12px;">
       <thead>
         <tr><th>Faktor</th><th>Nilai</th><th>Keterangan</th></tr>

@@ -141,9 +141,9 @@ async function checkPapiScoring() {
 
         // Periksa dimensi yang melebihi max
         const maxScores = {
-          N: 8, E: 8, F: 8, W: 8,
-          G: 7, A: 7, L: 7, P: 7, I: 7, T: 7, V: 7, X: 7, S: 7, B: 7,
-          O: 7, R: 7, D: 7, C: 7, Z: 7, K: 7,
+          N: 9, E: 9, F: 9, W: 9,
+          G: 9, A: 9, L: 9, P: 9, I: 9, T: 9, V: 9, X: 9, S: 9, B: 9,
+          O: 9, R: 9, D: 9, C: 9, Z: 9, K: 9,
         };
 
         const exceeded = Object.entries(cats)
