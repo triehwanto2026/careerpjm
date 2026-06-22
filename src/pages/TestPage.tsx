@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadDataUrlAsPhoto } from "@/lib/photoUpload";
 import { getAptitudeFallbackImage } from "@/lib/aptitudeImageFallback";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface DbOption {
   id: string; question_id: string; option_label: string; option_text: string; option_text_en: string | null;
@@ -27,6 +28,24 @@ interface DbInstrument {
   questions: DbQuestion[];
 }
 
+interface KraepelinMetrics {
+  speed: number;
+  accuracy: number;
+  stability: number;
+  work_capacity: number;
+  columns_completed?: number;
+  peak_column?: number;
+  average_column?: number;
+}
+
+interface SubmissionResult {
+  instrument_id: string;
+  instrument_name: string;
+  score: number;
+  status: string;
+  kraepelin_metrics?: KraepelinMetrics;
+}
+
 const SWAL_THEME = { background: "hsl(var(--card))", color: "hsl(var(--foreground))", confirmButtonColor: "hsl(174, 72%, 46%)" };
 
 const TestPage = () => {
@@ -38,6 +57,8 @@ const TestPage = () => {
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [showEnglish, setShowEnglish] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionResults, setSubmissionResults] = useState<SubmissionResult[] | null>(null);
+  const [resultReturnPath, setResultReturnPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // For IST strict subtest navigation
   const [completedSubtests, setCompletedSubtests] = useState<Set<string>>(new Set());
@@ -367,6 +388,8 @@ const TestPage = () => {
   const saveSessionRef = useRef<() => Promise<void>>(async () => {});
   saveSessionRef.current = persistSession;
 
+  // Kraepelin input refs for autofocus navigation
+  const kraepelinInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   useEffect(() => {
     if (instruments.length === 0 || submitted) return;
     const intervalId = setInterval(() => { saveSessionRef.current(); }, 5000);
@@ -1344,6 +1367,16 @@ const TestPage = () => {
       if (!data?.ok || !Array.isArray(data.results) || data.results.length !== instrumentsPayload.length) {
         throw new Error(data?.error || "Hasil tes belum tersimpan lengkap di database.");
       }
+      const results = (data.results as Array<any>).map((result) => ({
+        instrument_id: result.instrument_id,
+        instrument_name: result.instrument_name || result.test_name || "Tes",
+        score: result.score,
+        status: result.status,
+        kraepelin_metrics: result.kraepelin_metrics,
+      })) as SubmissionResult[];
+      const fromCandidate = sessionStorage.getItem("psytest_origin") === "candidate";
+      setResultReturnPath(fromCandidate ? "/candidate/tests" : "/");
+      setSubmissionResults(results);
     } catch (err) {
       console.error("test-submit failed", err);
       setSubmitted(false);
@@ -1356,21 +1389,14 @@ const TestPage = () => {
       return;
     }
 
-    Swal.fire({
-      icon: "success", title: "Semua Tes Selesai!",
-      html: `Terima kasih telah menyelesaikan ${instruments.length} alat tes.<br/><b>${totalAnsweredAll}/${totalAllQuestions}</b> soal dijawab.`,
-      ...SWAL_THEME, confirmButtonText: "Selesai", allowOutsideClick: false,
-    }).then(async () => {
-      await clearSavedSession();
-      const fromCandidate = sessionStorage.getItem("psytest_origin") === "candidate";
-      sessionStorage.removeItem("psytest_auth");
-      sessionStorage.removeItem("psytest_candidate");
-      sessionStorage.removeItem("psytest_origin");
-      if (!fromCandidate) {
-        try { await supabase.auth.signOut(); } catch {}
-      }
-      navigate(fromCandidate ? "/candidate/tests" : "/", { replace: true });
-    });
+    await clearSavedSession();
+    const fromCandidate = sessionStorage.getItem("psytest_origin") === "candidate";
+    sessionStorage.removeItem("psytest_auth");
+    sessionStorage.removeItem("psytest_candidate");
+    sessionStorage.removeItem("psytest_origin");
+    if (!fromCandidate) {
+      try { await supabase.auth.signOut(); } catch {}
+    }
   };
   completeSubmissionRef.current = completeSubmission;
 
@@ -1398,7 +1424,88 @@ const TestPage = () => {
     navigate(fromCandidate ? "/candidate/tests" : "/", { replace: true });
   };
 
-  if (submitted) return null;
+  if (submitted && !submissionResults) return null;
+  if (submissionResults) {
+    const hasKraepelin = submissionResults.some((result) => result.kraepelin_metrics);
+    const chartData = submissionResults
+      .flatMap((result) => {
+        if (!result.kraepelin_metrics) return [];
+        return [
+          { name: `${result.instrument_name} - Kecepatan`, value: result.kraepelin_metrics.speed, key: `speed-${result.instrument_id}` },
+          { name: `${result.instrument_name} - Ketelitian`, value: result.kraepelin_metrics.accuracy, key: `accuracy-${result.instrument_id}` },
+          { name: `${result.instrument_name} - Stabilitas`, value: result.kraepelin_metrics.stability, key: `stability-${result.instrument_id}` },
+          { name: `${result.instrument_name} - Kapasitas Kerja`, value: result.kraepelin_metrics.work_capacity, key: `work_capacity-${result.instrument_id}` },
+        ];
+      });
+    return (
+      <div className="min-h-screen bg-background px-4 py-10">
+        <div className="mx-auto max-w-4xl space-y-6 rounded-3xl border border-border bg-card p-6 shadow-lg">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-semibold text-foreground">Hasil Tes Selesai</h1>
+                <p className="text-sm text-muted-foreground">Semua jawaban sudah tersimpan. Berikut ringkasan hasil tes Anda.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(resultReturnPath || "/", { replace: true });
+                }}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110"
+              >
+                Selesai
+              </button>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {submissionResults.map((result) => (
+                <div key={result.instrument_id} className="rounded-2xl border border-border bg-muted p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">{result.instrument_name}</p>
+                  <p className="text-3xl font-bold text-foreground">{result.score}%</p>
+                  <p className="text-sm text-muted-foreground">Status: {result.status}</p>
+                  {result.kraepelin_metrics && (
+                    <div className="mt-3 space-y-1 text-sm text-foreground">
+                      <p>Kecepatan: {result.kraepelin_metrics.speed}%</p>
+                      <p>Ketelitian: {result.kraepelin_metrics.accuracy}%</p>
+                      <p>Stabilitas: {result.kraepelin_metrics.stability}%</p>
+                      <p>Kapasitas Kerja: {result.kraepelin_metrics.work_capacity}%</p>
+                      {result.kraepelin_metrics.columns_completed !== undefined && (
+                        <>
+                          <p>Kolom selesai: {result.kraepelin_metrics.columns_completed}</p>
+                          <p>Puncak kolom: {result.kraepelin_metrics.peak_column}</p>
+                          <p>Rata-rata kolom: {result.kraepelin_metrics.average_column}</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {hasKraepelin && (
+              <div className="rounded-3xl border border-border bg-white p-4 shadow-sm">
+                <h2 className="text-lg font-semibold text-foreground">Grafik Ringkasan Kraepelin</h2>
+                <p className="text-sm text-muted-foreground">Perbandingan skor speed, accuracy, stability, dan work capacity.</p>
+                <div className="h-72 pt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ left: 0, right: 10, top: 10, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={60} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value: number) => `${value}%`} />
+                      <Bar dataKey="value" fill="#0ea5e9">
+                        {chartData.map((entry) => (
+                          <Cell key={entry.key} fill={entry.key.includes("speed") ? "#0ea5e9" : entry.key.includes("accuracy") ? "#14b8a6" : entry.key.includes("stability") ? "#f59e0b" : "#8b5cf6"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
   const currentDuration = currentTest?.duration_minutes || 30;
   
   // Calculate remaining seconds for timer recovery
@@ -1519,12 +1626,13 @@ const TestPage = () => {
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
                   Tulis angka satuan dari hasil penjumlahan. Contoh 7 + 8 = 15, tulis 5.
                 </div>
-                <div className="grid max-h-[62vh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-5">
+                <div className="grid max-h-[62vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                   {subtestQuestions.map((q, idx) => (
                     <label key={q.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
                       <span className="w-12 text-xs font-semibold text-muted-foreground">{idx + 1}.</span>
                       <span className="min-w-14 text-sm font-bold text-foreground">{q.question_text}</span>
                       <input
+                        ref={(el) => { kraepelinInputRefs.current[q.id] = el; }}
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
@@ -1533,16 +1641,47 @@ const TestPage = () => {
                         onChange={(e) => {
                           const filled = handleKraepelinAnswer(currentTest.id, q.id, e.target.value);
                           if (!filled) return;
-                          window.setTimeout(() => {
-                            const nextInput = document.querySelector<HTMLInputElement>(`[data-kraepelin-index="${idx + 1}"]`);
-                            if (nextInput) {
-                              nextInput.focus();
-                              nextInput.select();
+                          // focus next input via refs
+                          const next = subtestQuestions[idx + 1];
+                          if (next) {
+                            const nextEl = kraepelinInputRefs.current[next.id];
+                            if (nextEl) {
+                              nextEl.focus();
+                              nextEl.select();
                               return;
                             }
-                            const moved = finishCurrentSubtest();
-                            if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
-                          }, 80);
+                          }
+                          const moved = finishCurrentSubtest();
+                          if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                        }}
+                        onKeyDown={(e) => {
+                          // Accept single digit keys without needing Enter/Tab
+                          if (/^[0-9]$/.test(e.key)) {
+                            e.preventDefault();
+                            const digit = e.key;
+                            // write and move
+                            handleKraepelinAnswer(currentTest.id, q.id, digit);
+                            const next = subtestQuestions[idx + 1];
+                            if (next) {
+                              const nextEl = kraepelinInputRefs.current[next.id];
+                              if (nextEl) { nextEl.focus(); nextEl.select(); }
+                            } else {
+                              const moved = finishCurrentSubtest();
+                              if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                            }
+                            return;
+                          }
+                          if (e.key === 'Backspace') {
+                            const curVal = (answers[`${currentTest.id}:${q.id}`] as string) || "";
+                            if (!curVal) {
+                              // move to previous
+                              const prev = subtestQuestions[idx - 1];
+                              if (prev) {
+                                const prevEl = kraepelinInputRefs.current[prev.id];
+                                if (prevEl) { prevEl.focus(); prevEl.select(); }
+                              }
+                            }
+                          }
                         }}
                         data-kraepelin-index={idx}
                         className="ml-auto h-9 w-10 rounded-md border border-border bg-muted text-center text-lg font-bold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"

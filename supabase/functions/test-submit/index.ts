@@ -775,6 +775,10 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
               }
             : null,
           webcam_photo_url: payload.snap_url || null,
+          speed_score: isKraepelin && kraepelinMetrics ? kraepelinMetrics.speed : null,
+          accuracy_score: isKraepelin && kraepelinMetrics ? kraepelinMetrics.accuracy : null,
+          stability_score: isKraepelin && kraepelinMetrics ? kraepelinMetrics.stability : null,
+          work_capacity: isKraepelin && kraepelinMetrics ? kraepelinMetrics.work_capacity : null,
         })
         .select("id")
         .single();
@@ -864,7 +868,14 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
           return json({ error: answerErr.message || `Failed to insert answers for ${inst.name}` }, 500);
         }
       }
-      results.push({ instrument_id: ip.id, score, status });
+      results.push({
+        instrument_id: ip.id,
+        instrument_name: inst.name,
+        test_result_id: resultData.id,
+        score,
+        status,
+        kraepelin_metrics: kraepelinMetrics ? kraepelinMetrics : undefined,
+      });
     }
 
     if (payload.instruments.length > 0 && results.length !== payload.instruments.length) {

@@ -53,22 +53,129 @@ export const MSDT_CODES: Record<MsdtCode, { label: string; description: string; 
   },
 };
 
+export const MSDT_STYLE_ORDER = ["Democratic", "Executive", "Autocratic", "Bureaucratic", "Developer", "Human Relations", "Compromiser", "Laissez Faire"] as const;
+export type MsdtStyle = typeof MSDT_STYLE_ORDER[number];
+
+export interface MsdtInterpretationRow {
+  interpretation_key: string;
+  category: string | null;
+  min_value: number | null;
+  max_value: number | null;
+  interpretation_text: string;
+  interpretation_text_en?: string | null;
+}
+
+export const MSDT_STYLE_MAX: Record<MsdtStyle, number> = {
+  Democratic: 10,
+  Executive: 14,
+  Autocratic: 17,
+  Bureaucratic: 20,
+  Developer: 14,
+  "Human Relations": 18,
+  Compromiser: 21,
+  "Laissez Faire": 14,
+};
+
+export const MSDT_STYLES: Record<MsdtStyle, { label: string; description: string; strength: string; risk: string }> = {
+  Democratic: { label: "Demokratis / Partisipatif", description: "melibatkan bawahan dan membangun keputusan melalui partisipasi", strength: "membangun komitmen dan kolaborasi", risk: "dapat lambat saat keputusan cepat diperlukan" },
+  Executive: { label: "Eksekutif / Integratif", description: "menyeimbangkan target, ketegasan, dan perhatian terhadap orang", strength: "mengarah pada hasil sambil menjaga akuntabilitas", risk: "perlu menjaga agar tidak terlalu mengambil kendali akhir" },
+  Autocratic: { label: "Otoriter / Direktif", description: "menekankan kontrol, instruksi jelas, tenggat, dan hasil", strength: "efektif pada kondisi mendesak atau tim baru", risk: "dapat menurunkan inisiatif bila terlalu dominan" },
+  Bureaucratic: { label: "Birokratis / Berbasis Aturan", description: "menekankan prosedur, aturan, struktur, dan kepatuhan", strength: "menjaga konsistensi dan kontrol risiko", risk: "dapat terasa kaku bila perubahan cepat diperlukan" },
+  Developer: { label: "Pengembang / Coaching", description: "berorientasi pada pembinaan dan pertumbuhan bawahan", strength: "membangun kapasitas tim jangka panjang", risk: "bantuan perlu dijaga agar tidak mengambil alih tanggung jawab" },
+  "Human Relations": { label: "Relasi Manusia / Harmonis", description: "mengutamakan hubungan personal, penerimaan, dan suasana kerja nyaman", strength: "menciptakan iklim kerja hangat", risk: "dapat menghindari keputusan sulit" },
+  Compromiser: { label: "Kompromis / Politis", description: "mencari jalan tengah dan menghindari resistensi", strength: "berguna meredakan konflik", risk: "arah keputusan bisa kurang tegas" },
+  "Laissez Faire": { label: "Laissez Faire / Pasif", description: "cenderung melepas kontrol atau minim intervensi", strength: "memberi otonomi pada tim matang", risk: "berisiko menurunkan kontrol, disiplin, dan kualitas" },
+};
+
 export const isMsdtName = (name?: string | null) => {
   const upper = String(name || "").toUpperCase();
   return upper.includes("MSDT") || upper.includes("MANAGEMENT STYLE DIAGNOSTIC");
 };
 
+export const isMsdtStyleKey = (key?: string | null): key is MsdtStyle =>
+  Boolean(key) && MSDT_STYLE_ORDER.includes(key as MsdtStyle);
+
 export const getMsdtRows = (categories: Record<string, unknown>, totalAnswered = 64) => {
-  const getCodeValue = (code: string) => Math.max(0, Number(categories[code] || 0));
-  const totalScore = MSDT_CODE_ORDER.reduce((sum, code) => sum + getCodeValue(code), 0);
-  const total = totalAnswered > 0 ? totalAnswered : totalScore || 1;
-  
-  return MSDT_CODE_ORDER.map((code) => {
-    const value = getCodeValue(code);
-    const pct = Math.round((value / total) * 100);
-    const level = pct >= 76 ? "Sangat Tinggi" : pct >= 51 ? "Tinggi" : pct >= 26 ? "Cukup" : "Rendah";
-    return { code, value, pct, level, ...MSDT_CODES[code] };
+  const getStyleValue = (style: MsdtStyle) => Math.max(0, Math.min(MSDT_STYLE_MAX[style], Math.round(Number(categories[style] || 0))));
+
+  return MSDT_STYLE_ORDER.map((style) => {
+    const value = getStyleValue(style);
+    const max = MSDT_STYLE_MAX[style];
+    const pct = Math.round((value / Math.max(1, max)) * 100);
+    const level = pct >= 70 ? "Dominan" : pct >= 50 ? "Menonjol" : pct >= 25 ? "Situasional" : "Rendah";
+    return { code: style, style, value, pct, level, ...MSDT_STYLES[style] };
   });
+};
+
+export const getMsdtInterpretationRows = (
+  rows: MsdtInterpretationRow[] = [],
+  categories: Record<string, unknown>,
+) => {
+  const valueFor = (style: string) => Math.max(0, Math.round(Number(categories[style] || 0)));
+
+  return rows.filter((row) => {
+    if (!row.interpretation_text?.trim()) return false;
+    if (isMsdtStyleKey(row.interpretation_key)) {
+      const value = valueFor(row.interpretation_key);
+      const min = row.min_value ?? Number.NEGATIVE_INFINITY;
+      const max = row.max_value ?? Number.POSITIVE_INFINITY;
+      return value >= min && value <= max;
+    }
+    return true;
+  });
+};
+
+export const buildMsdtInterpretation = (
+  categories: Record<string, unknown>,
+  answered = 64,
+  total = 64,
+  interpretationRows: MsdtInterpretationRow[] = [],
+) => {
+  const rows = getMsdtRows(categories, answered);
+  const totalScore = rows.reduce((sum, row) => sum + row.value, 0);
+  const ranked = [...rows].sort((a, b) => b.pct - a.pct || b.value - a.value || a.style.localeCompare(b.style));
+  const dominant = ranked[0];
+  const secondary = ranked[1];
+  const warning = answered !== total || totalScore !== answered
+    ? `PERINGATAN VALIDITAS\nProfil MSDT belum lengkap/konsisten. Jawaban ${answered}/${total}, total skor kategori ${totalScore}. Interpretasi perlu diverifikasi sebelum dipakai.\n\n`
+    : "";
+
+  if (!dominant || !dominant.style) {
+    return `PERINGATAN VALIDITAS\nProfil MSDT tidak dapat ditampilkan karena data kategori tidak lengkap atau tidak valid. Pastikan tes MSDT diselesaikan dengan benar (64 soal) dan scoring mapping sudah diatur dengan benar.\n\nCATATAN INTERPRETASI\nMSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, referensi kerja, dan kebutuhan posisi.`;
+  }
+
+  const managerRows = getMsdtInterpretationRows(interpretationRows, categories);
+  const styleText = managerRows
+    .filter((row) => isMsdtStyleKey(row.interpretation_key))
+    .map((row) => `- ${row.interpretation_key}${row.category ? ` (${row.category})` : ""}: ${row.interpretation_text || row.interpretation_text_en || ""}`);
+  const generalText = managerRows
+    .filter((row) => !isMsdtStyleKey(row.interpretation_key))
+    .map((row) => `- ${row.interpretation_key}${row.category ? ` (${row.category})` : ""}: ${row.interpretation_text || row.interpretation_text_en || ""}`);
+
+  const managerSection = [
+    styleText.length > 0 ? `INTERPRETASI MSDT DARI MANAGER\n${styleText.join("\n")}` : "",
+    generalText.length > 0 ? `INTERPRETASI UMUM\n${generalText.join("\n")}` : "",
+  ].filter(Boolean).join("\n\n");
+
+  const baseInterpretation = `${warning}RINGKASAN PROFIL MSDT
+Gaya paling dominan: ${dominant.label} (${dominant.value}/${MSDT_STYLE_MAX[dominant.style]}; ${dominant.pct}%; ${dominant.level}).
+Gaya pendukung: ${secondary.label} (${secondary.value}/${MSDT_STYLE_MAX[secondary.style]}; ${secondary.pct}%; ${secondary.level}).
+
+MAKNA UTAMA
+Kandidat menunjukkan kecenderungan ${dominant.description}. Kekuatan utama gaya ini adalah ${dominant.strength}. Area yang perlu dijaga: ${dominant.risk}.
+
+KOMBINASI GAYA
+Kombinasi ${dominant.label} dengan ${secondary.label} menunjukkan pola kepemimpinan yang perlu dibaca bersama tuntutan jabatan, kematangan tim, tekanan target, serta budaya organisasi.
+
+PROFIL PER GAYA
+${rows.map((row) => `- ${row.label} (${row.value}/${MSDT_STYLE_MAX[row.style]}; ${row.pct}%; ${row.level}): ${row.description}. Kekuatan: ${row.strength}. Risiko: ${row.risk}.`).join("\n")}
+
+CATATAN INTERPRETASI
+MSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, riwayat kerja, referensi kerja, dan kebutuhan posisi.`;
+
+  return managerSection ? `${baseInterpretation}
+
+${managerSection}` : baseInterpretation;
 };
 
 export const getMsdtSummaryFactors = (categories: Record<string, unknown>) => {
@@ -80,7 +187,6 @@ export const getMsdtSummaryFactors = (categories: Record<string, unknown>) => {
   const executionControl = (getCodeValue("T") + getCodeValue("R")) / 2;
   
   const getFactorLevel = (value: number) => {
-    // Convert to percentage (assuming max possible is 64/2 = 32 for 2-code factors)
     const pct = Math.round((value / 32) * 100);
     return pct >= 76 ? "Sangat Tinggi" : pct >= 51 ? "Tinggi" : pct >= 26 ? "Cukup" : "Rendah";
   };
@@ -91,69 +197,4 @@ export const getMsdtSummaryFactors = (categories: Record<string, unknown>) => {
     { name: "Analytical", value: analytical, level: getFactorLevel(analytical), formula: "(A + S) / 2", codes: ["A", "S"] },
     { name: "Execution & Control", value: executionControl, level: getFactorLevel(executionControl), formula: "(T + R) / 2", codes: ["T", "R"] },
   ];
-};
-
-export const buildMsdtInterpretation = (categories: Record<string, unknown>, answered = 64, total = 64) => {
-  const rows = getMsdtRows(categories, answered);
-  const summaryFactors = getMsdtSummaryFactors(categories);
-  const totalScore = rows.reduce((sum, row) => sum + row.value, 0);
-  const ranked = [...rows].sort((a, b) => b.pct - a.pct || b.value - a.value || a.code.localeCompare(b.code));
-  const dominant = ranked[0];
-  const secondary = ranked[1];
-  const tertiary = ranked[2];
-  const warning = answered !== total || totalScore !== answered
-    ? `PERINGATAN VALIDITAS\nProfil MSDT belum lengkap/konsisten. Jawaban tersimpan ${answered}/${total}, total skor kategori ${totalScore}. Interpretasi perlu diverifikasi sebelum dipakai.\n\n`
-    : "";
-
-  // Handle case where categories might be empty or invalid
-  if (!dominant || !dominant.code) {
-    return `PERINGATAN VALIDITAS\nProfil MSDT tidak dapat ditampilkan karena data kategori tidak lengkap atau tidak valid. Pastikan tes MSDT diselesaikan dengan benar (64 soal) dan scoring mapping sudah diatur dengan benar.\n\nCATATAN INTERPRETASI\nMSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, referensi kerja, dan kebutuhan posisi.`;
-  }
-
-  const codeInterpretation: Record<MsdtCode, string> = {
-    P: "Peserta cenderung persuasif, komunikatif, mampu mempengaruhi orang lain, dan cocok untuk peran yang membutuhkan negosiasi atau relasi.",
-    A: "Peserta cenderung objektif, evaluatif, mampu menilai situasi, dan cocok untuk pekerjaan analisis atau pengambilan keputusan berbasis data.",
-    S: "Peserta cenderung mendalami bidang tertentu, fokus pada keahlian teknis, dan cocok untuk posisi spesialis.",
-    C: "Peserta cenderung tegas, cepat menyimpulkan, berorientasi pada keputusan, dan cocok untuk pekerjaan yang membutuhkan penyelesaian cepat.",
-    D: "Peserta cenderung mampu membimbing, mengembangkan orang lain, dan cocok untuk posisi leadership, supervisor, atau trainer.",
-    O: "Peserta cenderung terstruktur, sistematis, mampu mengatur pekerjaan, dan cocok untuk administrasi, operasional, atau koordinasi.",
-    T: "Peserta cenderung produktif, fokus pada hasil, target, dan output kerja.",
-    R: "Peserta cenderung mengontrol, memastikan aturan berjalan, teliti terhadap kepatuhan, dan cocok untuk audit, compliance, quality control, atau monitoring.",
-  };
-
-  const factorTable = summaryFactors.map(f => 
-    `${f.name}: ${f.value.toFixed(2)} (${f.level}) - Rumus: ${f.formula} - Kode: ${f.codes.join(", ")}`
-  ).join("\n");
-
-  const styleTable = rows.map((row, idx) => 
-    `${idx + 1}. ${row.code} - ${row.label}: Skor ${row.value}, Persentase ${row.pct}%, Kategori ${row.level}, Ranking ${ranked.findIndex(r => r.code === row.code) + 1}`
-  ).join("\n");
-
-  return `${warning}IDENTITAS PESERTA
-- Nama: [Dari data kandidat]
-- Posisi yang dilamar: [Dari data kandidat]
-- Tanggal tes: [Dari data kandidat]
-
-RINGKASAN HASIL
-- Gaya dominan pertama: ${dominant.label} (${dominant.code}) - Skor ${dominant.value}, Persentase ${dominant.pct}%, Kategori ${dominant.level}
-- Gaya dominan kedua: ${secondary.label} (${secondary.code}) - Skor ${secondary.value}, Persentase ${secondary.pct}%, Kategori ${secondary.level}
-- Gaya dominan ketiga: ${tertiary.label} (${tertiary.code}) - Skor ${tertiary.value}, Persentase ${tertiary.pct}%, Kategori ${tertiary.level}
-- Kesimpulan umum: ${codeInterpretation[dominant.code]}
-
-TABEL SKOR 8 GAYA MSDT
-${styleTable}
-
-4 FAKTOR RINGKASAN
-${factorTable}
-
-INTERPRETASI GAYA DOMINAN
-${codeInterpretation[dominant.code]}
-Kecocokan peran: ${dominant.suitable}
-
-KESIMPULAN AKHIR
-Berdasarkan gaya dominan ${dominant.label}, kandidat menunjukkan kecenderungan yang ${dominant.level} dalam aspek ini. 
-Perlu dilakukan penilaian lebih lanjut untuk menentukan tingkat kecocokan dengan posisi yang dilamar (Sangat Sesuai / Sesuai / Dipertimbangkan / Tidak Disarankan).
-
-CATATAN INTERPRETASI
-MSDT bukan tes benar-salah. Skoring dilakukan dengan menghitung kecenderungan gaya manajemen berdasarkan kode jawaban yang paling banyak muncul. Interpretasi perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, dan kebutuhan posisi sebelum menjadi dasar keputusan seleksi.`;
 };

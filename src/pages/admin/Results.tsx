@@ -8,7 +8,7 @@ import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfi
 import { buildDiscInterpretation as buildSharedDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation as buildSharedIstInterpretation, getIstRows as getSharedIstRows, getIstSummary as getSharedIstSummary } from "@/lib/istScoring";
 import { buildMbtiInterpretation as buildSharedMbtiInterpretation, getMbtiRows as getSharedMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { buildMsdtInterpretation, getMsdtRows, isMsdtName } from "@/lib/msdtScoring";
+import { buildMsdtInterpretation, getMsdtInterpretationRows, getMsdtRows, isMsdtName, MsdtInterpretationRow } from "@/lib/msdtScoring";
 import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES, PAPI_WHEEL_ORDER } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation, getPersonalityPlusRows } from "@/lib/personalityPlusScoring";
 import {
@@ -1726,9 +1726,20 @@ const Results = () => {
       : isAptitudeResult(r)
         ? getEffectiveAptitudeCategories(r, answers)
         : r.categories as Record<string, number>;
-    const data = Object.entries(cats)
-      .filter(([, value]) => typeof value === "number")
+    const sanitizedCats = Object.fromEntries(
+      Object.entries(cats || {}).map(([name, value]) => [name, Number.isFinite(Number(value)) ? Number(value) : 0]),
+    );
+    const data = Object.entries(sanitizedCats)
+      .filter(([, value]) => Number.isFinite(value))
       .map(([name, value]) => ({ name, value }));
+
+    if (data.length === 0) {
+      return (
+        <div className="rounded-xl border border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+          Grafik tidak tersedia karena data hasil tes belum lengkap atau tidak valid.
+        </div>
+      );
+    }
 
     // DISC: render Mask/Core/Mirror as bar charts + final Line chart trend + Radar (Spider)
     if (r.test_name.toUpperCase().includes("DISC")) {
@@ -1961,10 +1972,11 @@ const Results = () => {
     }
     if (isMsdtResult(r)) {
       const rows = getMsdtRows(cats);
+      const chartRows = rows.map(({ style, ...rest }) => rest);
       return (
         <div className="space-y-4">
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={rows} margin={{ left: 10, right: 20, top: 10, bottom: 40 }}>
+            <BarChart data={chartRows} margin={{ left: 10, right: 20, top: 10, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
               <XAxis dataKey="label" interval={0} angle={-25} textAnchor="end" height={80} tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} />
               <YAxis domain={[0, 100]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
