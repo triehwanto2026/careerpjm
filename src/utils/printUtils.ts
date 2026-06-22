@@ -167,10 +167,7 @@ export const generatePrintHTML = (
   const mbtiRows = isMbti ? getMbtiRows(cats) : [];
   const mbtiType = isMbti ? getMbtiType(cats) : "";
   const isKraepelin = r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in cats);
-  const isPapi = isPapiName(r.test_name) || (
-    !r.test_name.toUpperCase().includes("DISC")
-    && Object.keys(cats).filter((key) => getPapiRows(cats).some((row) => row.code === key)).length >= 8
-  );
+  
   const isPersonalityPlus = r.test_name.toUpperCase().includes("PERSONALITY PLUS") || r.test_name.toUpperCase().includes("TEMPERAMEN");
   const isIst = isIstName(r.test_name) || Object.keys(cats).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
   const autoInterpretation = isPersonalityPlus
