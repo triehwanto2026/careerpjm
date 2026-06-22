@@ -334,8 +334,10 @@ const isPersonalityPlusResult = (r: Pick<ResultRow, "test_name" | "categories">)
   return upper.includes("PERSONALITY") || upper.includes("TEMPERAMEN") || ["KOLERIS", "MELANKOLIS", "PLEGMATIS", "SANGUINIS"].some((key) => keys.includes(key));
 };
 
-const getResultConclusion = (r: ResultRow) => {
-  const cats = r.categories || {};
+const getResultConclusion = (r: ResultRow, answerRows: AnswerRow[] = []) => {
+  const cats = isPapiResult(r) && answerRows.length > 0
+    ? getEffectivePapiCategories(r, answerRows)
+    : r.categories || {};
   const upper = r.test_name.toUpperCase();
 
   if (upper.includes("DISC")) {
@@ -705,6 +707,7 @@ const Results = () => {
   const [search, setSearch] = useState(initialSearch);
   const [selectedResult, setSelectedResult] = useState<ResultRow | null>(null);
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
+  const [answersByResult, setAnswersByResult] = useState<Record<string, AnswerRow[]>>({});
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -750,6 +753,30 @@ const Results = () => {
   };
 
   useEffect(() => { load(); }, []);
+
+  const loadAnswersForResultIds = async (resultIds: string[]) => {
+    if (resultIds.length === 0) return;
+    const { data: answerData, error } = await supabase
+      .from("test_answers")
+      .select("*")
+      .in("test_result_id", resultIds)
+      .order("test_result_id", { ascending: true })
+      .order("question_number", { ascending: true });
+    if (error || !answerData) return;
+    const grouped: Record<string, AnswerRow[]> = {};
+    (answerData as AnswerRow[]).forEach((row) => {
+      const resultId = String((row as any).test_result_id || "");
+      if (!resultId) return;
+      grouped[resultId] = grouped[resultId] || [];
+      grouped[resultId].push(row);
+    });
+    await Promise.all(Object.entries(grouped).map(async ([resultId, rows]) => {
+      const result = results.find((r) => r.id === resultId);
+      if (!result) return;
+      grouped[resultId] = await enrichAnswersWithOptionText(result, rows);
+    }));
+    setAnswersByResult((prev) => ({ ...prev, ...grouped }));
+  };
 
   const enrichAnswersWithOptionText = async (result: ResultRow, rows: AnswerRow[]) => {
     const needsLookup = rows.some((row) => {
@@ -902,6 +929,16 @@ const Results = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  useEffect(() => {
+    const visiblePapiResultIds = paginatedResults
+      .filter((r) => isPapiResult(r))
+      .map((r) => r.id)
+      .filter((id) => !answersByResult[id]);
+    if (visiblePapiResultIds.length > 0) {
+      loadAnswersForResultIds(visiblePapiResultIds);
+    }
+  }, [paginatedResults, answersByResult]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -1669,7 +1706,7 @@ const Results = () => {
           r.candidate_name,
           r.position,
           r.test_name,
-          getResultConclusion(r),
+          getResultConclusion(r, answersByResult[r.id] || []),
           r.answered_questions,
           r.total_questions,
           r.completed_at,
@@ -2735,7 +2772,7 @@ const Results = () => {
               {loading ? (
                 <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat data...</td></tr>
               ) : paginatedResults.map((r) => {
-                const conclusion = getResultConclusion(r);
+                const conclusion = getResultConclusion(r, answersByResult[r.id] || []);
                 const status = getResultStatusBadge(r);
                 return (
                 <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
