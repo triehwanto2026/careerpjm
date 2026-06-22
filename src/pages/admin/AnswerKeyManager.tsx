@@ -5,7 +5,7 @@ import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { MBTI_DIMENSIONS, normalizeMbtiDimension } from "@/lib/mbtiScoring";
-import { MSDT_STYLE_ORDER } from "@/lib/msdtScoring";
+import { MSDT_CODE_ORDER } from "@/lib/msdtScoring";
 
 interface Inst { id: string; name: string; category: string; scoring_method: string; }
 interface Q { id: string; question_number: number; question_text: string; question_text_en: string | null; category: string | null; subtest_code: string | null; question_type: string; group_number?: number | null; }
@@ -139,6 +139,41 @@ const getExpectedOptionScore = (q: Q, o: O, isCorrect: boolean) => {
   const geScore = getIstGeScore(q.question_number, o.option_text);
   if (geScore !== null) return geScore;
   return 1;
+};
+
+const PAPI_CATEGORY_TARGETS: Record<number, { a: string; b: string }> = {
+  1: { a: "G", b: "E" }, 2: { a: "A", b: "N" }, 3: { a: "P", b: "A" }, 4: { a: "X", b: "P" },
+  5: { a: "B", b: "X" }, 6: { a: "O", b: "B" }, 7: { a: "Z", b: "O" }, 8: { a: "K", b: "Z" },
+  9: { a: "F", b: "K" }, 10: { a: "W", b: "F" }, 11: { a: "G", b: "C" }, 12: { a: "L", b: "E" },
+  13: { a: "P", b: "N" }, 14: { a: "X", b: "A" }, 15: { a: "B", b: "P" }, 16: { a: "O", b: "X" },
+  17: { a: "Z", b: "B" }, 18: { a: "K", b: "O" }, 19: { a: "F", b: "Z" }, 20: { a: "W", b: "K" },
+  21: { a: "G", b: "D" }, 22: { a: "L", b: "C" }, 23: { a: "I", b: "E" }, 24: { a: "X", b: "N" },
+  25: { a: "B", b: "A" }, 26: { a: "O", b: "P" }, 27: { a: "Z", b: "X" }, 28: { a: "K", b: "B" },
+  29: { a: "F", b: "O" }, 30: { a: "W", b: "Z" }, 31: { a: "G", b: "R" }, 32: { a: "L", b: "D" },
+  33: { a: "I", b: "C" }, 34: { a: "T", b: "E" }, 35: { a: "B", b: "N" }, 36: { a: "O", b: "A" },
+  37: { a: "Z", b: "P" }, 38: { a: "K", b: "X" }, 39: { a: "F", b: "B" }, 40: { a: "W", b: "O" },
+  41: { a: "G", b: "S" }, 42: { a: "L", b: "R" }, 43: { a: "I", b: "D" }, 44: { a: "T", b: "C" },
+  45: { a: "V", b: "E" }, 46: { a: "O", b: "N" }, 47: { a: "Z", b: "A" }, 48: { a: "K", b: "P" },
+  49: { a: "F", b: "X" }, 50: { a: "W", b: "B" }, 51: { a: "G", b: "V" }, 52: { a: "L", b: "S" },
+  53: { a: "I", b: "R" }, 54: { a: "T", b: "D" }, 55: { a: "V", b: "C" }, 56: { a: "S", b: "E" },
+  57: { a: "Z", b: "N" }, 58: { a: "K", b: "A" }, 59: { a: "F", b: "P" }, 60: { a: "W", b: "X" },
+  61: { a: "G", b: "T" }, 62: { a: "L", b: "V" }, 63: { a: "I", b: "S" }, 64: { a: "T", b: "R" },
+  65: { a: "V", b: "D" }, 66: { a: "S", b: "C" }, 67: { a: "R", b: "E" }, 68: { a: "K", b: "N" },
+  69: { a: "F", b: "A" }, 70: { a: "W", b: "P" }, 71: { a: "G", b: "I" }, 72: { a: "L", b: "T" },
+  73: { a: "I", b: "V" }, 74: { a: "T", b: "S" }, 75: { a: "V", b: "R" }, 76: { a: "S", b: "D" },
+  77: { a: "R", b: "C" }, 78: { a: "D", b: "E" }, 79: { a: "F", b: "N" }, 80: { a: "W", b: "A" },
+  81: { a: "G", b: "L" }, 82: { a: "L", b: "I" }, 83: { a: "I", b: "T" }, 84: { a: "T", b: "V" },
+  85: { a: "V", b: "S" }, 86: { a: "S", b: "R" }, 87: { a: "R", b: "D" }, 88: { a: "D", b: "C" },
+  89: { a: "C", b: "E" }, 90: { a: "W", b: "N" },
+};
+
+const getPapiCategoryTarget = (questionNumber: number, optionLabel: string) => {
+  const mapping = PAPI_CATEGORY_TARGETS[questionNumber];
+  if (!mapping) return null;
+  const normalizedLabel = String(optionLabel || "").trim().toLowerCase();
+  if (normalizedLabel === "a") return mapping.a;
+  if (normalizedLabel === "b") return mapping.b;
+  return null;
 };
 
 const AnswerKeyManager = () => {
@@ -425,7 +460,7 @@ const AnswerKeyManager = () => {
       const updatedOpts: Record<string, O[]> = { ...opts };
       questions.forEach(q => {
         updatedOpts[q.id] = (updatedOpts[q.id] || []).map(o => {
-          const style = MSDT_STYLE_ORDER.find(s => o.category_target?.toUpperCase().includes(s.toUpperCase()));
+          const style = MSDT_CODE_ORDER.find(s => o.category_target?.toUpperCase().includes(s.toUpperCase()));
           if (!style) return o;
           const patchValue = {
             category_target: style,
@@ -446,7 +481,7 @@ const AnswerKeyManager = () => {
         setDirty(prev => ({ ...prev, ...newDirty }));
       }
 
-      const styleCounts = MSDT_STYLE_ORDER.map(style => `${style}:${questions.reduce((sum, q) => sum + (updatedOpts[q.id] || []).filter(o => o.category_target === style).length, 0)}`).join(" · ");
+      const styleCounts = MSDT_CODE_ORDER.map(style => `${style}:${questions.reduce((sum, q) => sum + (updatedOpts[q.id] || []).filter(o => o.category_target === style).length, 0)}`).join(" · ");
       Swal.fire({
         icon: Object.keys(newDirty).length > 0 ? "success" : "info",
         title: Object.keys(newDirty).length > 0 ? "Kunci MSDT diterapkan" : "Kunci MSDT sudah sesuai",
@@ -458,6 +493,55 @@ const AnswerKeyManager = () => {
       });
     } catch (error: any) {
       Swal.fire({ icon: "error", title: "Gagal menerapkan kunci MSDT", text: error?.message || "Terjadi kesalahan saat menyelaraskan kunci MSDT." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyPapiAnswerKey = async () => {
+    if (!isPapiSelected) return;
+    const newDirty: Record<string, Partial<O>> = {};
+    setLoading(true);
+
+    try {
+      const updatedOpts: Record<string, O[]> = { ...opts };
+
+      questions.forEach(q => {
+        const qOpts = updatedOpts[q.id] || [];
+        updatedOpts[q.id] = qOpts.map(o => {
+          const category_target = getPapiCategoryTarget(q.question_number, o.option_label);
+          if (!category_target) return o;
+
+          const patchValue = {
+            category_target,
+            score_value: 1,
+            is_correct: true,
+          };
+
+          if (o.category_target !== patchValue.category_target || Number(o.score_value) !== patchValue.score_value || o.is_correct !== patchValue.is_correct) {
+            newDirty[o.id] = patchValue;
+          }
+
+          return { ...o, ...patchValue };
+        });
+      });
+
+      setOpts(updatedOpts);
+      if (Object.keys(newDirty).length > 0) {
+        setDirty(prev => ({ ...prev, ...newDirty }));
+      }
+
+      Swal.fire({
+        icon: Object.keys(newDirty).length > 0 ? "success" : "info",
+        title: Object.keys(newDirty).length > 0 ? "Kunci PAPI diterapkan" : "Kunci PAPI sudah sesuai",
+        text: Object.keys(newDirty).length > 0
+          ? `${Object.keys(newDirty).length} opsi PAPI disesuaikan. Klik Simpan untuk menyimpan perubahan.`
+          : "Semua opsi PAPI sudah memiliki category_target yang benar.",
+        timer: 2600,
+        showConfirmButton: false,
+      });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Gagal menerapkan kunci PAPI", text: error?.message || "Terjadi kesalahan saat menyelaraskan kunci PAPI." });
     } finally {
       setLoading(false);
     }
@@ -588,24 +672,9 @@ const AnswerKeyManager = () => {
                   Terapkan Kunci IST
                 </button>
               )}
-              {isCfitSelected && (
-                <button onClick={applyCfitAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
-                  Terapkan Kunci CFIT 3A
-                </button>
-              )}
-              {isMbtiSelected && (
-                <button onClick={applyMbtiAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
-                  Terapkan Kunci MBTI
-                </button>
-              )}
               {isMsdtSelected && (
                 <button onClick={applyMsdtAnswerKey} type="button" className="rounded-lg border border-primary bg-transparent px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10">
                   Terapkan Kunci MSDT
-                </button>
-              )}
-              {isPapiSelected && (
-                <button onClick={cleanupPapiOptions} type="button" className="rounded-lg border border-red-500 bg-transparent px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-500/10">
-                  Hapus Opsi A dan B
                 </button>
               )}
               <button onClick={saveAll} disabled={!Object.keys(dirty).length} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-40">

@@ -8,7 +8,7 @@ import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfi
 import { buildDiscInterpretation as buildSharedDiscInterpretation } from "@/lib/discScoring";
 import { buildIstInterpretation as buildSharedIstInterpretation, getIstRows as getSharedIstRows, getIstSummary as getSharedIstSummary } from "@/lib/istScoring";
 import { buildMbtiInterpretation as buildSharedMbtiInterpretation, getMbtiRows as getSharedMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
-import { buildMsdtInterpretation, getMsdtRows, isMsdtName, MSDT_STYLE_MAX } from "@/lib/msdtScoring";
+import { buildMsdtInterpretation, getMsdtRows, isMsdtName } from "@/lib/msdtScoring";
 import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES, PAPI_WHEEL_ORDER } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation, getPersonalityPlusRows } from "@/lib/personalityPlusScoring";
 import {
@@ -168,7 +168,7 @@ const isPapiResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
 
 const isMsdtResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
   isMsdtName(r.test_name)
-  || Object.keys(r.categories || {}).some((key) => getMsdtRows(r.categories || {}).some((row) => row.style === key));
+  || Object.keys(r.categories || {}).some((key) => getMsdtRows(r.categories || {}).some((row) => row.code === key));
 
 const PAPI_WHEEL_TEXT: Record<string, string> = {
   N: "Tuntas Tugas",
@@ -1070,7 +1070,7 @@ const Results = () => {
                   return `<tr>
                     <td><strong>${row.code}</strong></td>
                     <td>${row.label}</td>
-                    <td>${row.value}/9</td>
+                    <td>${row.value}/${(row as any).max || 9}</td>
                     <td>${row.level}</td>
                     <td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(pct, 100)}%; background:${pct >= 70 ? '#059669' : pct >= 40 ? '#d97706' : '#dc2626'};"></div></div></td>
                   </tr>`;
@@ -1082,7 +1082,7 @@ const Results = () => {
       specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil PAPI</div><div class="interpretation">${formatPapiInterpretationHtml(buildPapiInterpretation(cats))}</div></div>`;
     } else if (isMsdtResult(r)) {
       const rows = getMsdtRows(cats);
-      const top = [...rows].sort((a, b) => b.pct - a.pct || b.value - a.value || a.style.localeCompare(b.style))[0];
+      const top = [...rows].sort((a, b) => b.pct - a.pct || b.value - a.value || a.code.localeCompare(b.code))[0];
       msdtProfileHTML = `
         <div class="section">
           <div class="section-title">Profil MSDT - Gaya Manajemen</div>
@@ -1093,7 +1093,7 @@ const Results = () => {
           </div>
           <table class="dim-table">
             <thead><tr><th>Gaya</th><th>Skor</th><th>Level</th><th>Indikator</th></tr></thead>
-            <tbody>${rows.map(row => `<tr><td><strong>${row.label}</strong><br/><span style="color:#64748b;font-size:8pt;">${row.description}</span></td><td>${row.value}/${MSDT_STYLE_MAX[row.style]} (${row.pct}%)</td><td>${row.level}</td><td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(row.pct, 100)}%; background:${row.pct >= 70 ? '#059669' : row.pct >= 50 ? '#2563eb' : row.pct >= 25 ? '#d97706' : '#94a3b8'};"></div></div></td></tr>`).join("")}</tbody>
+            <tbody>${rows.map(row => `<tr><td><strong>${row.label}</strong><br/><span style="color:#64748b;font-size:8pt;">${row.description}</span></td><td>${row.value} (${row.pct}%)</td><td>${row.level}</td><td><div class="bar-container"><div class="bar-fill" style="width:${Math.min(row.pct, 100)}%; background:${row.pct >= 76 ? '#059669' : row.pct >= 51 ? '#2563eb' : row.pct >= 26 ? '#d97706' : '#94a3b8'};"></div></div></td></tr>`).join("")}</tbody>
           </table>
         </div>`;
       specialInterpretationHTML = `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil MSDT</div><div class="interpretation">${formatPapiInterpretationHtml(buildMsdtInterpretation(cats, r.answered_questions, r.total_questions))}</div></div>`;
@@ -1912,7 +1912,7 @@ const Results = () => {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
               <XAxis dataKey="label" interval={0} angle={-25} textAnchor="end" height={80} tick={{ fill: "hsl(210,20%,75%)", fontSize: 10 }} />
               <YAxis domain={[0, 100]} allowDecimals={false} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any, _name: any, props: any) => [`${v}% (${props.payload.value}/${MSDT_STYLE_MAX[props.payload.style as keyof typeof MSDT_STYLE_MAX]})`, "Skor"]} />
+              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any, _name: any, props: any) => [`${v}% (${props.payload.value})`, "Skor"]} />
               <Bar dataKey="pct" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -2399,11 +2399,11 @@ const Results = () => {
                     </tr></thead>
                     <tbody>
                       {getPapiRows(cats).map((row) => {
-                        const pct = (row.value / 9) * 100;
+                        const pct = (row.value / row.max) * 100;
                         return (
                           <tr key={row.code} className="border-b border-border/50">
                             <td className="py-1.5 px-2 text-foreground"><span className="font-bold">{row.code}</span><span className="text-muted-foreground"> - {row.label}</span></td>
-                            <td className="py-1.5 px-2 text-foreground whitespace-nowrap">{row.value}/9</td>
+                            <td className="py-1.5 px-2 text-foreground whitespace-nowrap">{row.value}/{row.max}</td>
                             <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">{row.level}</td>
                             <td className="py-1.5 px-2 w-32">
                               <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -2498,7 +2498,7 @@ const Results = () => {
                           <td className="py-2 px-3 text-muted-foreground">{row.note}</td>
                         </tr>
                       )) : catEntries.map(([dim, val]) => {
-                        const maxVal = isPapiResult(r) ? 9 : isMsdtResult(r) ? (MSDT_STYLE_MAX[dim as keyof typeof MSDT_STYLE_MAX] || 64) : 100;
+                        const maxVal = isPapiResult(r) ? 9 : isMsdtResult(r) ? 64 : 100;
                         const pct = (val / maxVal) * 100;
                         const suffix = isPapiResult(r) ? "/9" : isMsdtResult(r) ? `/${maxVal}` : "%";
                         return (

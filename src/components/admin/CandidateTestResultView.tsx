@@ -701,11 +701,11 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
               </tr>
             ))}
             {isPapikostik && getPapiRows(cats).map(row => {
-              const pct = (row.value / 9) * 100;
+              const pct = (row.value / row.max) * 100;
               return (
                 <tr key={row.code} className="border-b border-border/50">
                   <td className="py-2 px-3 text-foreground font-medium">{row.code} - {row.label}</td>
-                  <td className="py-2 px-3 text-foreground">{row.value}/9</td>
+                  <td className="py-2 px-3 text-foreground">{row.value}/{row.max}</td>
                   <td className="py-2 px-3 w-40">
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div className={`h-full ${pct >= 70 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(pct, 100)}%` }} />

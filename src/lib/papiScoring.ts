@@ -9,6 +9,29 @@ export type PapiScale = {
 
 export const PAPI_WHEEL_ORDER = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"] as const;
 
+export const PAPI_MAX_SCORES: Record<string, number> = {
+  N: 8,
+  E: 8,
+  F: 8,
+  W: 8,
+  G: 7,
+  A: 7,
+  L: 7,
+  P: 7,
+  I: 7,
+  T: 7,
+  V: 7,
+  X: 7,
+  S: 7,
+  B: 7,
+  O: 7,
+  R: 7,
+  D: 7,
+  C: 7,
+  Z: 7,
+  K: 7,
+};
+
 export const PAPI_SCALES: PapiScale[] = [
   { code: "A", label: "Need to Achieve", group: "Need", description: "dorongan mencapai target dan hasil kerja", high: "ambisi pencapaian kuat, berorientasi target", low: "lebih santai terhadap tuntutan prestasi" },
   { code: "B", label: "Need to Belong to Groups", group: "Need", description: "kebutuhan menjadi bagian kelompok", high: "nyaman bekerja dalam kelompok dan mencari rasa memiliki", low: "lebih mandiri dan tidak terlalu membutuhkan afiliasi kelompok" },
@@ -43,25 +66,102 @@ const getPapiLevel = (code: string, value: number) => {
 export const getPapiRows = (categories: Record<string, unknown>) => {
   const scaleByCode = new Map(PAPI_SCALES.map((scale) => [scale.code, scale]));
   return PAPI_WHEEL_ORDER.map((code) => scaleByCode.get(code)!).map((scale) => {
-    const value = Math.max(0, Math.min(9, Number(categories[scale.code] || 0)));
+    const max = PAPI_MAX_SCORES[scale.code] || 7;
+    const value = Math.max(0, Number(categories[scale.code] || 0));
+    const pct = max > 0 ? Math.round((value / max) * 100) : 0;
     const level = getPapiLevel(scale.code, value);
-    return { ...scale, value, level };
+    return { ...scale, value, max, pct, level };
   });
 };
 
 export const validatePapiProfile = (categories: Record<string, unknown>) => {
   const rows = getPapiRows(categories);
   const total = rows.reduce((sum, row) => sum + row.value, 0);
-  const invalidCodes = rows.filter((row) => !Number.isFinite(Number(categories[row.code])) || Number(categories[row.code]) < 0 || Number(categories[row.code]) > 9).map((row) => row.code);
+  
+  // Check total equals 90
+  const totalValid = total === 90;
+  
+  // Check no dimension exceeds maximum
+  const exceededMax = rows.filter((row) => row.value > row.max);
+  const exceededMaxCodes = exceededMax.map((row) => `${row.code}=${row.value}/${row.max}`);
+  
+  // Check no negative scores
+  const negativeScores = rows.filter((row) => row.value < 0);
+  const negativeCodes = negativeScores.map((row) => row.code);
+  
+  // Check all scales present
   const allScalesPresent = PAPI_WHEEL_ORDER.every(code => categories[code] !== undefined && categories[code] !== null);
-  return { valid: invalidCodes.length === 0 && allScalesPresent, total, invalidCodes };
+  
+  // Check all values are finite
+  const invalidCodes = rows.filter((row) => !Number.isFinite(Number(categories[row.code]))).map((row) => row.code);
+  
+  const valid = totalValid && exceededMax.length === 0 && negativeScores.length === 0 && allScalesPresent && invalidCodes.length === 0;
+  
+  const errors: string[] = [];
+  if (!totalValid) errors.push(`Total skor tidak sama dengan 90. Total: ${total}`);
+  if (exceededMax.length > 0) errors.push(`Skor melebihi maksimum: ${exceededMaxCodes.join(", ")}`);
+  if (negativeScores.length > 0) errors.push(`Skor negatif: ${negativeCodes.join(", ")}`);
+  if (!allScalesPresent) errors.push(`Beberapa skala tidak lengkap`);
+  if (invalidCodes.length > 0) errors.push(`Skor tidak valid: ${invalidCodes.join(", ")}`);
+  
+  return { valid, total, errors, exceededMax, negativeScores, allScalesPresent, invalidCodes };
+};
+
+export const getPapiMainFactors = (categories: Record<string, unknown>) => {
+  const getVal = (code: string) => Math.max(0, Number(categories[code] || 0));
+  
+  // Use raw scores (not percentages)
+  const workDirection = (getVal("N") + getVal("G") + getVal("A")) / 3;
+  const leadership = (getVal("L") + getVal("P") + getVal("I")) / 3;
+  const activity = (getVal("T") + getVal("V")) / 2;
+  const socialNature = (getVal("X") + getVal("S") + getVal("B") + getVal("O")) / 4;
+  const workStyle = (getVal("R") + getVal("D") + getVal("C")) / 3;
+  const temperament = (getVal("Z") + getVal("E") + getVal("K")) / 3;
+  const followership = (getVal("F") + getVal("W")) / 2;
+  
+  const getFactorLevel = (value: number) => {
+    if (value >= 7.5) return "Sangat Tinggi";
+    if (value >= 6.0) return "Tinggi";
+    if (value >= 4.0) return "Cukup";
+    return "Rendah";
+  };
+  
+  return [
+    { name: "WORK DIRECTION", value: workDirection, level: getFactorLevel(workDirection), dimensions: ["N", "G", "A"], description: "Dorongan menyelesaikan pekerjaan, orientasi target, dan semangat berprestasi" },
+    { name: "LEADERSHIP", value: leadership, level: getFactorLevel(leadership), dimensions: ["L", "P", "I"], description: "Kemampuan memimpin, mempengaruhi orang lain, dan mengambil keputusan" },
+    { name: "ACTIVITY", value: activity, level: getFactorLevel(activity), dimensions: ["T", "V"], description: "Kecepatan kerja, energi, dan tingkat aktivitas" },
+    { name: "SOCIAL NATURE", value: socialNature, level: getFactorLevel(socialNature), dimensions: ["X", "S", "B", "O"], description: "Kemampuan berinteraksi, kebutuhan sosial, dan hubungan interpersonal" },
+    { name: "WORK STYLE", value: workStyle, level: getFactorLevel(workStyle), dimensions: ["R", "D", "C"], description: "Pola berpikir, perhatian terhadap detail, dan keteraturan kerja" },
+    { name: "TEMPERAMENT", value: temperament, level: getFactorLevel(temperament), dimensions: ["Z", "E", "K"], description: "Stabilitas emosi, adaptasi terhadap perubahan, dan ketegasan" },
+    { name: "FOLLOWERSHIP", value: followership, level: getFactorLevel(followership), dimensions: ["F", "W"], description: "Kecenderungan mengikuti aturan, prosedur, dan otoritas" },
+  ];
 };
 
 export const buildPapiInterpretation = (categories: Record<string, unknown>) => {
   const rows = getPapiRows(categories);
+  const mainFactors = getPapiMainFactors(categories);
   const validity = validatePapiProfile(categories);
-  const { invalidCodes, total } = validity;
-  const allScalesPresent = PAPI_WHEEL_ORDER.every(code => categories[code] !== undefined && categories[code] !== null);
+  const { valid, total, errors } = validity;
+  
+  // If validation fails, show error message instead of interpretation
+  if (!valid) {
+    return `STATUS VALIDASI: INVALID
+
+Interpretasi tidak ditampilkan karena hasil scoring belum valid.
+
+Error Detail:
+${errors.map(err => `- ${err}`).join("\n")}
+
+Pesan:
+"SCORING INVALID - ${errors[0]}"
+
+Periksa:
+- Mapping kunci soal (scoring_rule dan category_target)
+- Jawaban peserta
+- Rumus perhitungan skor
+- Total skor harus = 90`;
+  }
+  
   const top = [...rows].sort((a, b) => b.value - a.value || a.code.localeCompare(b.code)).slice(0, 4);
   const highs = rows.filter((row) => row.level === "Tinggi").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const lows = rows.filter((row) => row.level === "Rendah").sort((a, b) => a.value - b.value || a.code.localeCompare(b.code)).slice(0, 5);
@@ -71,6 +171,7 @@ export const buildPapiInterpretation = (categories: Record<string, unknown>) => 
   const needRows = rows.filter((row) => row.group === "Need").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const roleRows = rows.filter((row) => row.group === "Role").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const orientation = needs > roles ? "kebutuhan/motivasi internal lebih menonjol" : roles > needs ? "peran dan gaya kerja yang tampak lebih menonjol" : "kebutuhan internal dan peran kerja relatif seimbang";
+  
   const workImplication = top.map((row) => {
     const tendency = row.level === "Tinggi" ? row.high : row.level === "Sedang" ? `menunjukkan ${row.description} pada taraf cukup` : row.low;
     return `${row.code} - ${row.label}: ${tendency}`;
@@ -86,12 +187,36 @@ export const buildPapiInterpretation = (categories: Record<string, unknown>) => 
       : row.level === "Sedang"
         ? "Perilaku biasanya fleksibel, dipengaruhi konteks, atasan, target, serta dinamika tim."
         : "Area ini bukan kelemahan mutlak; maknanya perlu dibaca sebagai preferensi yang relatif kurang dominan.";
-    return `${row.code} - ${row.label} (${row.value}/9; ${row.level}): ${meaning}. ${caution}`;
+    return `${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%; ${row.level}): ${meaning}. ${caution}`;
   };
+  
+  const factorInterpretation = mainFactors.map(factor => {
+    const levelDesc = {
+      "Sangat Tinggi": "Aspek sangat dominan dan menjadi karakteristik utama individu.",
+      "Tinggi": "Aspek cukup kuat dan sering muncul dalam perilaku kerja.",
+      "Cukup": "Aspek muncul secara moderat dan situasional.",
+      "Rendah": "Aspek tersebut bukan kecenderungan dominan individu."
+    }[factor.level];
+    
+    return `${factor.name} (${factor.value.toFixed(2)} - ${factor.level}): ${factor.description}. ${levelDesc} Dimensi: ${factor.dimensions.join(", ")}.`;
+  }).join("\n");
 
-  return `${validity.valid ? "" : `PERINGATAN VALIDITAS SKOR\n${invalidCodes.length > 0 ? `Skala tidak valid: ${invalidCodes.join(", ")}. ` : ""}${!allScalesPresent ? "Beberapa skala tidak lengkap. " : ""}Interpretasi perlu ditunda sampai scoring diverifikasi.\n\n`}RINGKASAN PROFIL
-Skala paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9; ${row.level})`).join(", ")}.
+  const scoreTable = rows.map((row) => 
+    `${row.code} - ${row.label}: Skor ${row.value}/${row.max}, Persentase ${row.pct}%, Kategori ${row.level}`
+  ).join("\n");
+
+  return `STATUS VALIDASI: VALID
+Total skor seluruh dimensi: ${total} (harus = 90)
+
+RINGKASAN PROFIL
+Skala paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%; ${row.level})`).join(", ")}.
 Makna umum: ${workImplication}.
+
+TABEL SKOR 20 DIMENSI
+${scoreTable}
+
+SCORING LANJUTAN PAPI KOSTICK (7 FAKTOR UTAMA)
+${factorInterpretation}
 
 NEED VS ROLE
 - Total Need: ${needs}
@@ -100,19 +225,19 @@ NEED VS ROLE
 - Catatan: Need menggambarkan dorongan/kebutuhan internal, sedangkan Role menggambarkan perilaku kerja yang lebih tampak dalam peran sehari-hari.
 
 SKALA TINGGI
-${highs.length ? highs.map((row) => `- ${row.code} - ${row.label} (${row.value}/9): ${row.high}`).join("\n") : "- Tidak ada skala yang sangat tinggi; profil relatif moderat dan perlu dilihat dari kombinasi keseluruhan skala."}
+${highs.length ? highs.map((row) => `- ${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%): ${row.high}`).join("\n") : "- Tidak ada skala yang sangat tinggi; profil relatif moderat dan perlu dilihat dari kombinasi keseluruhan skala."}
 
 SKALA RENDAH
-${lows.length ? lows.map((row) => `- ${row.code} - ${row.label} (${row.value}/9): ${row.low}`).join("\n") : "- Tidak ada skala rendah yang menonjol."}
+${lows.length ? lows.map((row) => `- ${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%): ${row.low}`).join("\n") : "- Tidak ada skala rendah yang menonjol."}
 
 INTERPRETASI RINCI PER DIMENSI
 ${rows.map((row) => `- ${explainRow(row)}`).join("\n")}
 
 ANALISIS NEED
-${needRows.map((row) => `- ${row.code} ${row.value}/9 - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "kebutuhan tampak cukup dan situasional" : row.low}`).join("\n")}
+${needRows.map((row) => `- ${row.code} ${row.value}/${row.max} (${row.pct}%) - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "kebutuhan tampak cukup dan situasional" : row.low}`).join("\n")}
 
 ANALISIS ROLE
-${roleRows.map((row) => `- ${row.code} ${row.value}/9 - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "peran kerja tampak cukup dan situasional" : row.low}`).join("\n")}
+${roleRows.map((row) => `- ${row.code} ${row.value}/${row.max} (${row.pct}%) - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "peran kerja tampak cukup dan situasional" : row.low}`).join("\n")}
 
 IMPLIKASI KERJA
 - Profil ini membantu membaca motivasi kerja, kebutuhan struktur, dorongan pencapaian, gaya relasi, ketegasan, kepemimpinan, tempo kerja, dan respons terhadap aturan/supervisi.

@@ -249,17 +249,68 @@ const PAPI_LABELS: Record<string, string> = {
   Z: "Need for Change",
 };
 
+const PAPI_MAX_SCORES: Record<string, number> = {
+  N: 8, E: 8, F: 8, W: 8,
+  G: 7, A: 7, L: 7, P: 7, I: 7, T: 7, V: 7, X: 7, S: 7, B: 7,
+  O: 7, R: 7, D: 7, C: 7, Z: 7, K: 7,
+};
+
 const buildPapiInterpretation = (cats: Record<string, number>, answeredCount: number, totalQuestions: number) => {
-  const rows = Object.entries(PAPI_LABELS)
-    .map(([code, label]) => ({
+  const papiCodes = Object.keys(PAPI_MAX_SCORES).sort();
+  const validatedCats: Record<string, number> = {};
+  let totalScore = 0;
+  const errors: string[] = [];
+
+  // Validate each dimension against its maximum
+  papiCodes.forEach((code) => {
+    const raw = Math.round(Number(cats[code] || 0));
+    const max = PAPI_MAX_SCORES[code] || 9;
+    if (raw > max) {
+      errors.push(`${code}: ${raw}/${max} MELEBIHI MAKSIMUM`);
+      validatedCats[code] = raw; // Keep raw for reporting
+    } else {
+      validatedCats[code] = raw;
+    }
+    totalScore += raw;
+  });
+
+  // Check total vs answered count
+  if (totalScore !== answeredCount && answeredCount > 0) {
+    errors.push(`Total skor ${totalScore} ≠ jawaban terisi ${answeredCount}`);
+  }
+
+  // Check for complete 90-question test
+  if (answeredCount === 90 && totalScore !== 90) {
+    errors.push(`PAPI 90 soal: total skor harus = 90, tapi ${totalScore}`);
+  }
+
+  // Build rows for display
+  const rows = papiCodes
+    .map((code) => ({
       code,
-      label,
-      value: Math.max(0, Math.min(9, Math.round(Number(cats[code] || 0)))),
+      label: PAPI_LABELS[code] || "Unknown",
+      value: validatedCats[code],
+      max: PAPI_MAX_SCORES[code],
     }))
     .sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
+
   const top = rows.slice(0, 4);
-  const low = rows.filter((row) => row.value <= 3).slice(0, 4);
-  return `Kandidat menjawab ${answeredCount} dari ${totalQuestions} soal PAPI Kostick. Profil paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/9)`).join(", ")}. ${low.length ? `Skala rendah: ${low.map((row) => `${row.code} - ${row.label} (${row.value}/9)`).join(", ")}. ` : ""}PAPI membaca kebutuhan dan peran kerja dalam konteks pekerjaan; interpretasi perlu dipadukan dengan wawancara, tuntutan jabatan, dan observasi perilaku.`;
+  const low = rows.filter((row) => row.value <= 2).slice(0, 4);
+
+  // If errors, show validation warning
+  if (errors.length > 0) {
+    return `STATUS VALIDASI: INVALID ⚠️\n\nInterpretasi PAPI tidak ditampilkan karena scoring belum valid.\n\nError Detail:\n${errors.map((e) => `• ${e}`).join("\n")}\n\nPeriksa:\n• Mapping kategori_target soal di database\n• Jawaban peserta (cek duplikasi atau multiple attempts)\n• Total jawaban vs total skor\n\nProfil skor mentah:\n${rows.map((r) => `${r.code}: ${r.value}/${r.max}`).join(", ")}`;
+  }
+
+  return `Kandidat menjawab ${answeredCount} dari ${totalQuestions} soal PAPI Kostick. 
+
+PROFIL DOMINAN
+${top.map((row) => `• ${row.code} - ${row.label}: ${row.value}/${row.max}`).join("\n")}
+
+${low.length ? `PROFIL RENDAH\n${low.map((row) => `• ${row.code} - ${row.label}: ${row.value}/${row.max}`).join("\n")}\n\n` : ""}INTERPRETASI
+PAPI Kostick membaca 20 skala dimensi yang merepresentasikan kebutuhan (needs) dan peran kerja (roles) dalam konteks pekerjaan. Profil ini membantu memahami motivasi kerja, preferensi gaya kerja, dan dinamika interpersonal kandidat.
+
+Catatan psikolog: Interpretasi PAPI perlu dipadukan dengan wawancara mendalam, tuntutan jabatan, riwayat kerja, observasi perilaku saat tes, dan feedback tim sebelum menjadi dasar keputusan seleksi atau pengembangan.`;
 };
 
 const MSDT_STYLES: Record<string, { label: string; description: string; strength: string; risk: string }> = {
@@ -622,16 +673,26 @@ Deno.serve(async (req) => {
               Object.entries(cats).forEach(([k, v]) => (normalizedCats[k] = Math.round(v)));
             }
             if (isPapi) {
-              const papiCodes = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"];
+              const papiCodes = Object.keys(PAPI_MAX_SCORES);
               const invalidKeys = Object.keys(normalizedCats).filter((key) => !papiCodes.includes(key));
               if (invalidKeys.length > 0) {
                 throw new Error(`Mapping PAPI invalid pada skala: ${invalidKeys.join(", ")}`);
               }
+
+              // Normalize PAPI counts to integers, but preserve raw totals for validation.
               papiCodes.forEach((code) => {
-                normalizedCats[code] = Math.max(0, Math.min(9, Number(normalizedCats[code] || 0)));
+                normalizedCats[code] = Math.max(0, Math.round(Number(normalizedCats[code] || 0)));
               });
+
+              // Ensure all PAPI dimensions are present (fill missing with 0)
+              papiCodes.forEach((code) => {
+                if (normalizedCats[code] === undefined) normalizedCats[code] = 0;
+              });
+
               const papiTotal = papiCodes.reduce((sum, code) => sum + normalizedCats[code], 0);
-              // PAPI total can vary (0-180), not fixed at 90. Remove strict validation.
+              if (answeredCount > 0 && papiTotal !== answeredCount) {
+                console.warn(`PAPI score mismatch: total=${papiTotal}, answered=${answeredCount}`);
+              }
             }
             if (isMsdt) {
               if (questions.length !== 64 || answeredCount !== 64) {

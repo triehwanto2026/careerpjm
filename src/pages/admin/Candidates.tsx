@@ -3822,8 +3822,8 @@ const buildPapiSummary = (result: any): TestSummary => {
   const top = rows.filter((row) => row.value > 0).slice(0, 4);
 
   return {
-    badge: top[0] ? `${top[0].code} ${top[0].value}/9` : "PAPI",
-    metrics: top.map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/9`, note: row.level })),
+    badge: top[0] ? `${top[0].code} ${top[0].value}/${top[0].max}` : "PAPI",
+    metrics: top.map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/${row.max}`, note: row.level })),
     text: buildPapiInterpretation(categories),
   };
 };

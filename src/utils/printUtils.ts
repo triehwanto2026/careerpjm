@@ -357,7 +357,7 @@ export const generatePrintHTML = (
         </tr>
       </thead>
       <tbody>
-        ${(cfitInfo ? cfitProfileRows : isKraepelin ? kraepelinRows : isPapi ? getPapiRows(cats).map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/9`, note: row.level })) : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
+        ${(cfitInfo ? cfitProfileRows : isKraepelin ? kraepelinRows : isPapi ? getPapiRows(cats).map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/${row.max}`, note: `${row.level} (${row.pct}%)` })) : catEntries.map(([dim, val]) => ({ label: dim, value: String(val), note: val > 0 ? 'Positif' : 'Netral' }))).map((row) => `<tr>
           <td><strong>${row.label}</strong></td>
           <td>${row.value}</td>
           <td>${row.note}</td>
