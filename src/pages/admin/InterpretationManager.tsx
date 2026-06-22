@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { isMsdtName } from "@/lib/msdtScoring";
+import { isMsdtName, MSDT_STYLE_ORDER, MSDT_STYLE_MAX, MSDT_STYLES, isMsdtStyleKey } from "@/lib/msdtScoring";
 import { isPapiName } from "@/lib/papiScoring";
 
 const SWAL_THEME = {
@@ -178,6 +178,37 @@ const InterpretationManager = () => {
     }
   };
 
+  const seedMsdtInterpretations = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    try {
+      const existingStyleKeys = new Set(items.filter((item) => isMsdtStyleKey(item.interpretation_key)).map((item) => item.interpretation_key));
+      const rows = MSDT_STYLE_ORDER.filter((style) => !existingStyleKeys.has(style)).map((style) => ({
+        instrument_id: selectedId,
+        interpretation_key: style,
+        category: "",
+        min_value: 0,
+        max_value: MSDT_STYLE_MAX[style],
+        interpretation_text: `Gaya ${MSDT_STYLES[style].label}: ${MSDT_STYLES[style].description}. Kekuatan: ${MSDT_STYLES[style].strength}. Risiko: ${MSDT_STYLES[style].risk}.`,
+        interpretation_text_en: null,
+      }));
+
+      if (rows.length > 0) await supabase.from("test_interpretations").insert(rows);
+      const { data } = await supabase
+        .from("test_interpretations")
+        .select("*")
+        .eq("instrument_id", selectedId)
+        .order("interpretation_key")
+        .order("min_value");
+      setItems((data || []) as Interpretation[]);
+      Swal.fire({ icon: "success", title: "Interpretasi MSDT dilengkapi", text: `${rows.length} baris baru ditambahkan.`, timer: 1500, showConfirmButton: false, ...SWAL_THEME });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Gagal melengkapi MSDT", text: error?.message || "Terjadi kesalahan.", ...SWAL_THEME });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const removeRow = async (id: string) => {
     const it = items.find((i) => i.id === id);
     if (!it) return;
@@ -308,6 +339,15 @@ const InterpretationManager = () => {
               Lengkapi Analisa IST
             </button>
           )}
+          {isMsdtName(selected?.name) && (
+            <button
+              onClick={seedMsdtInterpretations}
+              disabled={saving}
+              className="ml-2 rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-400 hover:bg-sky-400/20 disabled:opacity-50"
+            >
+              Lengkapi Interpretasi MSDT
+            </button>
+          )}
         </div>
 
         {Object.keys(grouped).length === 0 && (
@@ -315,13 +355,22 @@ const InterpretationManager = () => {
             {isMsdtName(selected?.name) ? (
               <div>
                 <p className="font-semibold text-foreground mb-2">MSDT menggunakan interpretasi dinamis berdasarkan scoring</p>
-                <p className="text-xs mb-3">Interpretasi MSDT di-generate secara otomatis dari hasil scoring kategori (Democratic, Executive, Autocratic, dll). Namun Anda tetap dapat menambahkan interpretasi statis untuk keperluan laporan khusus.</p>
-                <button
-                  onClick={addNewKey}
-                  className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Tambah Interpretasi untuk Laporan
-                </button>
+                <p className="text-xs mb-3">Interpretasi MSDT di-generate secara otomatis dari hasil scoring kategori (Democratic, Executive, Autocratic, dll). Anda dapat menambahkan interpretasi statis atau memuat semua gaya MSDT yang dapat diedit di sini.</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    onClick={seedMsdtInterpretations}
+                    disabled={saving}
+                    className="inline-flex items-center gap-2 rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-400 hover:bg-sky-400/20 disabled:opacity-50"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Muat Semua Gaya MSDT
+                  </button>
+                  <button
+                    onClick={addNewKey}
+                    className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Tambah Interpretasi untuk Laporan
+                  </button>
+                </div>
               </div>
             ) : isPapiName(selected?.name) ? (
               <div>

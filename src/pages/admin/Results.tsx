@@ -1283,6 +1283,8 @@ const Results = () => {
       </div>
     </div>
 
+    <div class="page-break"></div>
+
     ${(() => {
       // For CFIT, calculate IQ from correct answers
       let cfitIqHtml = '';
@@ -2277,6 +2279,44 @@ const Results = () => {
               <h3 className="text-sm font-semibold text-foreground mb-4">Grafik Hasil — {r.test_name}</h3>
               {renderChart(r)}
             </div>
+
+            {isMsdtResult(r) && (() => {
+              const rows = getMsdtRows(cats);
+              return (
+                <div className="glass rounded-xl p-5 glow-border mt-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Profil MSDT — Detail Gaya</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Gaya</th>
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Level</th>
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row) => (
+                          <tr key={row.style} className="border-b border-border/50">
+                            <td className="py-2 px-3 text-foreground font-semibold">
+                              {row.label}
+                              <div className="text-[11px] text-muted-foreground mt-1">{row.description}</div>
+                            </td>
+                            <td className="py-2 px-3 text-foreground">{row.value} ({row.pct}%)</td>
+                            <td className="py-2 px-3 text-foreground">{row.level}</td>
+                            <td className="py-2 px-3 w-40">
+                              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                <div className={`h-full rounded-full ${row.pct >= 76 ? "bg-emerald-400" : row.pct >= 51 ? "bg-amber-400" : row.pct >= 26 ? "bg-sky-400" : "bg-slate-400"}`} style={{ width: `${Math.min(row.pct, 100)}%` }} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Score table */}
             <div className="glass rounded-xl p-5 glow-border mt-4">
