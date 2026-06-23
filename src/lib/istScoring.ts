@@ -117,7 +117,7 @@ export const getIstSummary = (categories: Record<string, unknown>, fallbackScore
 export const buildIstInterpretation = (categories: Record<string, unknown>, fallbackScore = 0) => {
   const summary = getIstSummary(categories, fallbackScore);
   const { valid, errors } = summary.validity;
-  
+
   // If validation fails, return error message only
   if (!valid) {
     return `SCORING INVALID
@@ -125,12 +125,11 @@ ${errors.map(err => `- ${err}`).join("\n")}
 
 Interpretasi tidak ditampilkan karena hasil scoring belum valid. Periksa mapping kunci soal, jawaban peserta, dan rumus perhitungan.`;
   }
-  
+
   const overall = levelFromPct(summary.score);
-  const domainText = summary.domains.map((item) => `${item.domain} (${item.items}) ${item.raw}/${item.max} atau ${item.pct}%`).join("; ");
   const highRows = [...summary.rows].sort((a, b) => b.pct - a.pct).slice(0, 3);
   const lowRows = [...summary.rows].sort((a, b) => a.pct - b.pct).slice(0, 3);
-  
+
   // Get ability group scores
   const abilityGroups = summary.groups.map((group) => ({
     name: group.group,
@@ -139,56 +138,157 @@ Interpretasi tidak ditampilkan karena hasil scoring belum valid. Periksa mapping
     pct: group.pct,
     level: levelFromPct(group.pct),
   }));
-  
+
   const istTotal = summary.score;
   const istTotalLevel = overall;
-  
-  // Interpretation based on IST Total
-  const istTotalInterpretation = istTotal >= 80
-    ? "Kategori = Sangat Baik. Rekomendasi = Cocok untuk posisi analitis, profesional, supervisor, atau posisi dengan tuntutan belajar cepat."
-    : istTotal >= 60
-      ? "Kategori = Baik. Rekomendasi = Cocok untuk pekerjaan administrasi, operasional, teknikal ringan, dan posisi dengan instruksi kerja jelas."
-      : istTotal >= 40
-        ? "Kategori = Cukup. Rekomendasi = Masih dapat dipertimbangkan untuk pekerjaan rutin dengan arahan dan SOP yang jelas."
-        : "Kategori = Rendah. Rekomendasi = Perlu dipertimbangkan kembali untuk posisi yang membutuhkan analisis, kecepatan belajar, dan pemecahan masalah kompleks.";
-  
-  // Ability group interpretations
-  const abilityInterpretations = abilityGroups.map((group) => {
-    const interpretation = {
-      Verbal: "Peserta mampu memahami instruksi, bahasa, konsep, dan komunikasi dengan baik. Posisi cocok: HR, Legal, Trainer, Customer Service, Sales.",
-      Numerik: "Peserta kuat dalam berhitung, logika angka, analisis kuantitatif, dan pekerjaan berbasis data. Posisi cocok: Finance, Accounting, Auditor, Data Analyst.",
-      "Figural / Spasial": "Peserta kuat dalam memahami pola, bentuk, visual-spasial, dan pemecahan masalah non-verbal. Posisi cocok: Engineering, Design, Teknik, Produksi.",
-      Memori: "Peserta mampu mengingat informasi, detail, instruksi, dan materi kerja dengan baik. Posisi cocok: Admin, Supervisor, Customer Service.",
-    }[group.name];
 
-    return `${group.name}: ${group.raw}/${group.max} (${group.pct}%) - ${group.level}. ${interpretation}`;
-  }).join("\n");
+  // Detailed interpretation based on IST Total
+  const getIstTotalDetail = (score: number) => {
+    if (score >= 80) {
+      return `Kemampuan intelektual sangat baik. Kandidat memiliki potensi tinggi untuk:
+• Belajar cepat dan menyerap informasi baru dengan efisien
+• Memecahkan masalah kompleks secara analitis dan sistematis
+• Beradaptasi dengan perubahan dan tantangan baru
+• Mengemban tanggung jawab yang menuntut pemikiran abstrak
+
+Posisi yang sangat cocok: Manajer, Supervisor, Analyst, Specialist, Professional, atau peran yang membutuhkan pemecahan masalah tingkat lanjut.`;
+    }
+    if (score >= 60) {
+      return `Kemampuan intelektual baik. Kandidat memiliki kemampuan untuk:
+• Memahami instruksi dan menyelesaikan tugas dengan mandiri
+• Menganalisis masalah pada tingkat moderat
+• Belajar dengan kecepatan yang memadai
+• Bekerja dengan arahan yang jelas dan terstruktur
+
+Posisi yang cocok: Staff, Administrator, Technician, atau peran dengan tuntutan analisis dan pembelajaran moderat.`;
+    }
+    if (score >= 40) {
+      return `Kemampuan intelektual cukup. Kandidat dapat:
+• Menyelesaikan tugas rutin dengan arahan yang jelas
+• Mengikuti SOP dan instruksi kerja yang terstruktur
+• Bekerja dalam lingkungan yang stabil dan prediktif
+• Membutuhkan waktu lebih lama untuk pembelajaran baru
+
+Posisi yang cocok: Operator, Clerk, atau peran dengan tugas rutin dan prosedural yang jelas.`;
+    }
+    return `Kemampuan intelektual perlu perhatian khusus. Kandidat mungkin membutuhkan:
+• Instruksi yang sangat jelas dan terstruktur
+• Pelatihan intensif dan pendampingan
+• Tugas yang tidak menuntut analisis kompleks
+• Lingkungan kerja yang stabil dan mendukung
+
+Perlu evaluasi menyeluruh sebelum penempatan pada posisi yang menuntut analisis, kecepatan belajar, atau pemecahan masalah.`;
+  };
+
+  // Detailed subtest interpretations
+  const getSubtestInterpretation = (code: string, pct: number) => {
+    const interpretations: Record<string, (p: number) => string> = {
+      SE: (p) => p >= 80 ? "Memahami konteks kalimat dan inferensi makna dengan sangat baik. Komunikasi lisan dan tertulis efektif." : p >= 60 ? "Memahami makna kalimat dan konteks dengan baik. Komunikasi jelas dan efektif." : p >= 40 ? "Memahami kalimat sederhana dengan memadai. Komunikasi dasar fungsional." : "Kesulitan memahami konteks kalimat kompleks. Perlu instruksi yang eksplisit.",
+      WA: (p) => p >= 80 ? "Kosakata luas dan presisi. Mampu memilih kata yang tepat untuk berbagai konteks." : p >= 60 ? "Kosakata baik dan memadai. Mampu berkomunikasi dengan efektif." : p >= 40 ? "Kosakata dasar memadai. Komunikasi fungsional untuk kebutuhan sehari-hari." : "Kosakata terbatas. Perlu dukungan dalam komunikasi formal.",
+      AN: (p) => p >= 80 ? "Penalaran analogis sangat kuat. Mampu melihat pola dan hubungan kompleks." : p >= 60 ? "Penalaran analogis baik. Mampu menghubungkan konsep dan menerapkan pola." : p >= 40 ? "Penalaran analogis cukup. Mampu melihat hubungan sederhana." : "Kesulitan dalam penalaran analogis. Perlu contoh konkret.",
+      GE: (p) => p >= 80 ? "Abstraksi konsep sangat baik. Mampu menggeneralisasi dan mengkategorisasi dengan presisi." : p >= 60 ? "Abstraksi konsep baik. Mampu membentuk konsep umum dari contoh spesifik." : p >= 40 ? "Abstraksi konsep cukup. Mampu mengelompokkan informasi dasar." : "Kesulitan dalam abstraksi konsep. Perlu pendekatan yang konkret.",
+      RA: (p) => p >= 80 ? "Perhitungan sangat akurat dan cepat. Memahami masalah kuantitatif kompleks." : p >= 60 ? "Perhitungan akurat dan efisien. Memahami masalah numerik dengan baik." : p >= 40 ? "Perhitungan dasar memadai. Membutuhkan waktu untuk kalkulasi kompleks." : "Kesulitan dalam perhitungan. Perlu alat bantu dan waktu lebih.",
+      ZR: (p) => p >= 80 ? "Pola angka sangat kuat. Mampu memprediksi dan menganalisis deret kompleks." : p >= 60 ? "Pola angka baik. Mampu mengenali dan meneruskan deret numerik." : p >= 40 ? "Pola angka cukup. Mampu melihat pola sederhana." : "Kesulitan mengenali pola angka. Perlu latihan berulang.",
+      FA: (p) => p >= 80 ? "Analisis bentuk sangat tajam. Mampu membedakan detail visual yang halus." : p >= 60 ? "Analisis bentuk baik. Mampu mengenali pola visual dengan efektif." : p >= 40 ? "Analisis bentuk cukup. Mampu membedakan bentuk dasar." : "Kesulitan analisis visual. Perlu pendekatan yang lebih konkret.",
+      WU: (p) => p >= 80 ? "Visualisasi spasial sangat kuat. Mampu memanipulasi objek mental secara presisi." : p >= 60 ? "Visualisasi spasial baik. Mampu membayangkan rotasi dan posisi objek." : p >= 40 ? "Visualisasi spasial cukup. Mampu membayangkan bentuk sederhana." : "Kesulitan visualisasi spasial. Perlu contoh fisik.",
+      ME: (p) => p >= 80 ? "Daya ingat sangat kuat. Mampu mengingat detail dan instruksi dengan presisi." : p >= 60 ? "Daya ingat baik. Mampu mengingat informasi penting dengan efektif." : p >= 40 ? "Daya ingat cukup. Mampu mengingat informasi dasar." : "Daya ingat terbatas. Perlu catatan dan pengulangan.",
+    };
+    return interpretations[code]?.(pct) || "";
+  };
+
+  // Ability group detailed interpretations
+  const getAbilityGroupDetail = (group: string, pct: number) => {
+    const details: Record<string, string> = {
+      Verbal: pct >= 80 ? "Kemampuan verbal sangat kuat. Kandidat dapat memproses informasi verbal dengan cepat, berkomunikasi dengan sangat efektif, dan memahami konsep abstrak melalui bahasa. Cocok untuk peran yang menuntut komunikasi tingkat tinggi, negosiasi, atau presentasi." : pct >= 60 ? "Kemampuan verbal baik. Kandidat dapat berkomunikasi dengan jelas dan memahami instruksi verbal dengan efektif. Cocok untuk peran yang membutuhkan komunikasi rutin dan pemahaman konsep." : pct >= 40 ? "Kemampuan verbal cukup. Kandidat dapat berkomunikasi untuk kebutuhan dasar. Perlu dukungan untuk tugas yang menuntut komunikasi kompleks." : "Kemampuan verbal terbatas. Perlu instruksi tertulis dan pendekatan yang lebih konkret.",
+      Numerik: pct >= 80 ? "Kemampuan numerik sangat kuat. Kandidat dapat menganalisis data, melakukan perhitungan kompleks, dan memahami pola angka dengan presisi. Cocok untuk peran analitis, keuangan, atau data-driven." : pct >= 60 ? "Kemampuan numerik baik. Kandidat dapat bekerja dengan angka dan data dengan efektif. Cocok untuk peran yang membutuhkan perhitungan dan analisis dasar." : pct >= 40 ? "Kemampuan numerik cukup. Kandidat dapat melakukan perhitungan dasar. Perlu alat bantu untuk tugas numerik kompleks." : "Kemampuan numerik terbatas. Perlu menghindari tugas yang menuntut perhitungan intensif.",
+      "Figural / Spasial": pct >= 80 ? "Kemampuan visual-spasial sangat kuat. Kandidat dapat memvisualisasikan, menganalisis pola visual, dan memanipulasi objek mental dengan presisi. Cocok untuk peran desain, engineering, atau teknis." : pct >= 60 ? "Kemampuan visual-spasial baik. Kandidat dapat memahami diagram, sketsa, dan representasi visual dengan efektif. Cocok untuk peran yang membutuhkan pemahaman visual." : pct >= 40 ? "Kemampuan visual-spasial cukup. Kandidat dapat memahami representasi visual sederhana. Perlu contoh konkret untuk tugas kompleks." : "Kemampuan visual-spasial terbatas. Perlu pendekatan yang sangat konkret dan berbasis contoh.",
+      Memori: pct >= 80 ? "Daya ingat sangat kuat. Kandidat dapat mengingat informasi, detail, dan instruksi dengan presisi tinggi. Cocok untuk peran yang menuntut akurasi dan retensi informasi." : pct >= 60 ? "Daya ingat baik. Kandidat dapat mengingat informasi penting dengan efektif. Cocok untuk peran yang membutuhkan retensi informasi moderat." : pct >= 40 ? "Daya ingat cukup. Kandidat dapat mengingat informasi dasar. Perlu catatan dan pengulangan untuk informasi penting." : "Daya ingat terbatas. Perlu sistem dokumentasi dan pengingat yang kuat.",
+    };
+    return details[group] || "";
+  };
 
   return `STATUS VALIDASI: VALID
 Total skor seluruh subtes: ${summary.raw}/${summary.max}
 
-RINGKASAN PROFIL IST
-Skor total IST: ${istTotal}% (${istTotalLevel})
-${istTotalInterpretation}
+═══════════════════════════════════════════════════════════════
+RINGKASAN PROFIL KEMAMPUAN IST
+═══════════════════════════════════════════════════════════════
 
-TABEL RAW SCORE 9 SUBTES
-${summary.rows.map((row) => `${row.code} - ${row.name}: ${row.raw}/${row.max} (${row.pct}%) - ${row.level}`).join("\n")}
+Skor Kemampuan IST: ${istTotal}% (${istTotalLevel})
 
-KELOMPOK KEMAMPUAN
-${abilityInterpretations}
+${getIstTotalDetail(istTotal)}
 
-KEKUATAN UTAMA
-${highRows.length ? highRows.map((row) => `${row.code} - ${row.name}: ${row.description}.`).join("\n") : "Tidak ada subtes yang menonjol sangat tinggi; profil lebih perlu dibaca dari pola keseimbangan antar aspek."}
+═══════════════════════════════════════════════════════════════
+DETAIL PER SUBTES (9 SUBTES)
+═══════════════════════════════════════════════════════════════
 
-AREA PENGEMBANGAN
-${lowRows.length ? lowRows.map((row) => `${row.code} - ${row.name}: ${row.description}.`).join("\n") : "Tidak ada area rendah yang menonjol; tetap perhatikan kecocokan dengan tuntutan jabatan spesifik."}
+${summary.rows.map((row) => `${row.code} - ${row.name} (${row.area})
+  Skor: ${row.raw}/${row.max} (${row.pct}%) - Level: ${row.level}
+  Interpretasi: ${getSubtestInterpretation(row.code, row.pct)}`).join("\n\n")}
 
-IMPLIKASI KERJA
-Profil IST membantu memetakan cara kandidat memahami informasi, menangkap pola, menyelesaikan masalah, mengolah angka, membayangkan bentuk/ruang, dan mengingat informasi. Untuk posisi yang menuntut analisis cepat, ketelitian numerik, abstraksi konsep, atau daya ingat kuat, perhatikan subtes terkait secara khusus, bukan hanya skor total.
+═══════════════════════════════════════════════════════════════
+KELOMPOK KEMAMPUAN UTAMA
+═══════════════════════════════════════════════════════════════
 
-CATATAN PSIKOLOG
-IST adalah tes kemampuan intelektual, bukan tes kepribadian. Scoring utama berdasarkan jawaban benar dan salah. Interpretasi perlu dipadukan dengan riwayat pendidikan, pengalaman kerja, kompleksitas jabatan, observasi perilaku saat tes, serta hasil asesmen lain. Skor rendah pada satu subtes tidak otomatis menggugurkan kandidat bila tuntutan posisi tidak dominan pada aspek tersebut.
+${abilityGroups.map((group) => `${group.name}: ${group.raw}/${group.max} (${group.pct}%) - ${group.level}
+${getAbilityGroupDetail(group.name, group.pct)}`).join("\n\n")}
 
-CATATAN IQ
-Jika tersedia tabel norma IST, gunakan tabel norma untuk konversi: Raw Score → Standard Score → IQ. Jika tabel norma belum tersedia, tampilkan sebagai "Skor Kemampuan IST" berdasarkan persentase.`;
+═══════════════════════════════════════════════════════════════
+KEKUATAN UTAMA (TOP 3)
+═══════════════════════════════════════════════════════════════
+
+${highRows.map((row) => `• ${row.code} - ${row.name}: ${row.description}`).join("\n")}
+
+Implikasi: Fokus pada pengembangan dan pemanfaatan kekuatan ini untuk optimalisasi performa.
+
+═══════════════════════════════════════════════════════════════
+AREA PENGEMBANGAN (BOTTOM 3)
+═══════════════════════════════════════════════════════════════
+
+${lowRows.map((row) => `• ${row.code} - ${row.name}: ${row.description}`).join("\n")}
+
+Implikasi: Berikan dukungan tambahan, pelatihan, atau penyesuaian tugas untuk area ini.
+
+════════════════════════════════════════════════════════════════
+REKOMENDASI POSISI BERDASARKAN PROFIL
+════════════════════════════════════════════════════════════════
+
+${abilityGroups.filter(g => g.pct >= 60).length > 0 ? abilityGroups.filter(g => g.pct >= 60).map((group) => {
+  const positions: Record<string, string[]> = {
+    Verbal: ["HR Manager", "Legal Officer", "Corporate Trainer", "Customer Service Lead", "Sales Manager", "Marketing Communications", "Public Relations"],
+    Numerik: ["Finance Manager", "Accounting Supervisor", "Internal Auditor", "Data Analyst", "Business Analyst", "Financial Planner", "Risk Analyst"],
+    "Figural / Spasial": ["Engineering Manager", "Product Designer", "Technical Lead", "Production Supervisor", "Architect", "Quality Control Manager", "R&D Engineer"],
+    Memori: ["Office Manager", "Administrative Supervisor", "Customer Service Supervisor", "Operations Coordinator", "Logistics Manager"]
+  };
+  const posList = positions[group.name] || [];
+  return `• ${group.name} (${group.pct}%): ${posList.join(", ")}`;
+}).join("\n") : "Tidak ada kelompok kemampuan yang menonjol (≥60%). Rekomendasi posisi memerlukan evaluasi lebih lanjut berdasarkan kecocokan dengan tuntutan jabatan spesifik."}
+
+═══════════════════════════════════════════════════════════════
+REKOMENDASI PENGEMBANGAN
+═══════════════════════════════════════════════════════════════
+
+${lowRows.length > 0 ? `Untuk area pengembangan (${lowRows.map(r => r.code).join(", ")}):
+• Sediakan pelatihan khusus dan mentoring
+• Berikan tugas dengan tingkat kesulitan bertahap
+• Gunakan pendekatan pembelajaran yang sesuai dengan gaya belajar
+• Evaluasi progres secara berkala` : "Profil seimbang. Lanjutkan dengan pengembangan menyeluruh."}
+
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. IST mengukur kemampuan intelektual, bukan kepribadian atau motivasi.
+2. Skor rendah pada satu subtes tidak otomatis menggugurkan kandidat.
+3. Sesuaikan penilaian dengan tuntutan spesifik posisi yang dilamar.
+4. Padukan hasil dengan riwayat pendidikan, pengalaman kerja, dan asesmen lain.
+5. Pertimbangkan faktor motivasi, sikap, dan budaya kerja dalam keputusan akhir.
+
+═══════════════════════════════════════════════════════════════
+CATATAN TEKNIS
+═══════════════════════════════════════════════════════════════
+
+Skor yang ditampilkan adalah "Skor Kemampuan IST" berdasarkan persentase.
+Untuk konversi ke IQ, diperlukan tabel norma IST yang valid sesuai kelompok usia.
+Tabel norma saat ini belum tersedia, sehingga skor ditampilkan dalam bentuk persentase.`;
 };

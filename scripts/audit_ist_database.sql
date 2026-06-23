@@ -91,20 +91,17 @@ WHERE i.name ILIKE '%IST%'
 GROUP BY i.name, i.id;
 
 -- 7. Cek jawaban ganda (satu soal dijawab lebih dari 1 kali oleh peserta yang sama)
-SELECT 
+SELECT
   ta.test_result_id,
-  ta.question_id,
-  q.question_number,
-  q.subtest_code,
+  ta.question_number,
   COUNT(*) as answer_count
 FROM test_answers ta
-JOIN test_questions q ON q.question_id = ta.id
 JOIN test_results tr ON tr.id = ta.test_result_id
 JOIN test_instruments i ON i.id = tr.instrument_id
-WHERE i.name ILIKE '%IST%' 
+WHERE i.name ILIKE '%IST%'
    OR i.name_en ILIKE '%IST%'
    OR i.name ILIKE '%Intelligenz%'
-GROUP BY ta.test_result_id, ta.question_id, q.question_number, q.subtest_code
+GROUP BY ta.test_result_id, ta.question_number
 HAVING COUNT(*) > 1;
 
 -- 8. Distribusi soal IST per nomor (verifikasi 176 soal)

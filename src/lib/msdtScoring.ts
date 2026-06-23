@@ -137,11 +137,25 @@ export const buildMsdtInterpretation = (
   const dominant = ranked[0];
   const secondary = ranked[1];
   const warning = answered !== total || totalScore !== answered
-    ? `PERINGATAN VALIDITAS\nProfil MSDT belum lengkap/konsisten. Jawaban ${answered}/${total}, total skor kategori ${totalScore}. Interpretasi perlu diverifikasi sebelum dipakai.\n\n`
+    ? `═══════════════════════════════════════════════════════════════
+PERINGATAN VALIDITAS
+═══════════════════════════════════════════════════════════════
+
+Profil MSDT belum lengkap/konsisten. Jawaban ${answered}/${total}, total skor kategori ${totalScore}. Interpretasi perlu diverifikasi sebelum dipakai.\n\n`
     : "";
 
   if (!dominant || !dominant.style) {
-    return `PERINGATAN VALIDITAS\nProfil MSDT tidak dapat ditampilkan karena data kategori tidak lengkap atau tidak valid. Pastikan tes MSDT diselesaikan dengan benar (64 soal) dan scoring mapping sudah diatur dengan benar.\n\nCATATAN INTERPRETASI\nMSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, referensi kerja, dan kebutuhan posisi.`;
+    return `═══════════════════════════════════════════════════════════════
+PERINGATAN VALIDITAS
+═══════════════════════════════════════════════════════════════
+
+Profil MSDT tidak dapat ditampilkan karena data kategori tidak lengkap atau tidak valid. Pastikan tes MSDT diselesaikan dengan benar (64 soal) dan scoring mapping sudah diatur dengan benar.
+
+═══════════════════════════════════════════════════════════════
+CATATAN INTERPRETASI
+═══════════════════════════════════════════════════════════════
+
+MSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, referensi kerja, dan kebutuhan posisi.`;
   }
 
   const managerRows = getMsdtInterpretationRows(interpretationRows, categories);
@@ -157,9 +171,13 @@ export const buildMsdtInterpretation = (
     generalText.length > 0 ? `INTERPRETASI UMUM\n${generalText.join("\n")}` : "",
   ].filter(Boolean).join("\n\n");
 
-  const baseInterpretation = `${warning}RINGKASAN PROFIL MSDT
-Gaya paling dominan: ${dominant.label} (${dominant.value}/${MSDT_STYLE_MAX[dominant.style]}; ${dominant.pct}%; ${dominant.level}).
-Gaya pendukung: ${secondary.label} (${secondary.value}/${MSDT_STYLE_MAX[secondary.style]}; ${secondary.pct}%; ${secondary.level}).
+  const baseInterpretation = `${warning}═══════════════════════════════════════════════════════════════
+PROFIL MSDT - MANAGEMENT STYLE DIAGNOSTIC
+═══════════════════════════════════════════════════════════════
+
+RINGKASAN PROFIL MSDT
+Gaya paling dominan: ${dominant.label} (${dominant.value}/${MSDT_STYLE_MAX[dominant.style]}; ${dominant.pct}%; ${dominant.level})
+Gaya pendukung: ${secondary.label} (${secondary.value}/${MSDT_STYLE_MAX[secondary.style]}; ${secondary.pct}%; ${secondary.level})
 
 MAKNA UTAMA
 Kandidat menunjukkan kecenderungan ${dominant.description}. Kekuatan utama gaya ini adalah ${dominant.strength}. Area yang perlu dijaga: ${dominant.risk}.
@@ -168,10 +186,21 @@ KOMBINASI GAYA
 Kombinasi ${dominant.label} dengan ${secondary.label} menunjukkan pola kepemimpinan yang perlu dibaca bersama tuntutan jabatan, kematangan tim, tekanan target, serta budaya organisasi.
 
 PROFIL PER GAYA
-${rows.map((row) => `- ${row.label} (${row.value}/${MSDT_STYLE_MAX[row.style]}; ${row.pct}%; ${row.level}): ${row.description}. Kekuatan: ${row.strength}. Risiko: ${row.risk}.`).join("\n")}
+${rows.map((row) => `• ${row.label} (${row.value}/${MSDT_STYLE_MAX[row.style]}; ${row.pct}%; ${row.level}): ${row.description}. Kekuatan: ${row.strength}. Risiko: ${row.risk}.`).join("\n")}
 
-CATATAN INTERPRETASI
-MSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, riwayat kerja, referensi kerja, dan kebutuhan posisi.`;
+REKOMENDASI POSISI
+Berdasarkan gaya manajemen dominan ${dominant.label}, kandidat cocok untuk peran yang membutuhkan:
+${dominant.style === "Democratic" ? "• Kolaborasi tim dan partisipasi karyawan\n• Peran seperti HR Manager, Team Lead, Project Manager dengan fokus people" : dominant.style === "Executive" ? "• Keseimbangan antara hasil dan perhatian orang\n• Peran seperti Operations Manager, Department Head, Business Unit Manager" : dominant.style === "Autocratic" ? "• Pengambilan keputusan cepat dan kontrol ketat\n• Peran seperti Crisis Manager, Military/Security Leadership, Emergency Response" : dominant.style === "Bureaucratic" ? "• Kepatuhan prosedur dan kontrol risiko\n• Peran seperti Compliance Officer, Quality Assurance, Risk Manager" : dominant.style === "Developer" ? "• Pembinaan dan pengembangan tim\n• Peran seperti HR Development Manager, Coach, Trainer, Learning & Development" : dominant.style === "Human Relations" ? "• Hubungan interpersonal dan harmoni tim\n• Peran seperti HR Manager, Employee Relations, Customer Success Manager" : dominant.style === "Compromiser" ? "• Negosiasi dan resolusi konflik\n• Peran seperti Mediator, Diplomat, Sales Negotiator, Partnership Manager" : dominant.style === "Laissez Faire" ? "• Otonomi tim dan delegasi\n• Peran seperti Research Lead, Creative Director, Innovation Manager (dengan tim matang)" : "• Peran manajerial sesuai dengan kombinasi gaya yang ditunjukkan"}
+
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. MSDT menggambarkan preferensi gaya manajemen, bukan kemampuan mutlak.
+2. Hasil perlu dipadukan dengan wawancara, riwayat memimpin tim, observasi perilaku, riwayat kerja, referensi kerja, dan kebutuhan posisi.
+3. Tidak ada gaya manajemen yang lebih baik dari yang lain - setiap gaya memiliki konteks yang cocok.
+4. Sesuaikan penilaian dengan tuntutan spesifik posisi, kematangan tim, dan budaya organisasi.
+5. Pertimbangkan faktor motivasi kepemimpinan, nilai-nilai, dan adaptabilitas dalam keputusan akhir.`;
 
   return managerSection ? `${baseInterpretation}
 

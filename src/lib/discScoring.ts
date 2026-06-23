@@ -80,41 +80,53 @@ export const buildDiscInterpretation = (categories: Record<string, unknown>, tot
   const secondaryProfile = DISC_PROFILE[secondary.dim];
   const distribution = rows.map((row) => `${row.dim}: M=${row.m}, L=${row.l}, Net=${row.net} (${row.level}, rank #${row.rank})`).join("; ");
 
-  return `PROFIL DOMINAN
-- Kombinasi utama: ${primary.dim}${secondary ? ` & ${secondary.dim}` : ""}
-- Dimensi primer: ${primary.label} (${primary.dim})
-- Dimensi sekunder: ${secondary.label} (${secondary.dim})
+  return `═══════════════════════════════════════════════════════════════
+PROFIL DISC - ANALISIS PERILAKU KERJA
+═══════════════════════════════════════════════════════════════
+
+PROFIL DOMINAN
+Kombinasi utama: ${primary.dim}${secondary ? ` & ${secondary.dim}` : ""}
+Dimensi primer: ${primary.label} (${primary.dim})
+Dimensi sekunder: ${secondary.label} (${secondary.dim})
 
 RINGKASAN PSIKOLOGIS
-- ${primary.label} (${primary.dim}) yang tinggi menunjukkan kandidat cenderung ${profile.strength}.
-- Profil ini cocok untuk peran yang membutuhkan pola kerja sesuai karakter ${primary.dim}, dengan tetap mempertimbangkan tuntutan jabatan dan konteks tim.
+${primary.label} (${primary.dim}) yang tinggi menunjukkan kandidat cenderung ${profile.strength}. Profil ini cocok untuk peran yang membutuhkan pola kerja sesuai karakter ${primary.dim}, dengan tetap mempertimbangkan tuntutan jabatan dan konteks tim.
 
 KEKUATAN UTAMA
-- Dimensi ${primary.dim} menjadi pola paling menonjol berdasarkan skor Mirror/Net.
-- Kandidat berpotensi menunjukkan kekuatan utama berupa ${profile.strength}.
+• Dimensi ${primary.dim} menjadi pola paling menonjol berdasarkan skor Mirror/Net
+• Kandidat berpotensi menunjukkan kekuatan utama berupa ${profile.strength}
+• Kekuatan ini dapat dimanfaatkan untuk peran yang membutuhkan ${primary.dim} characteristics
 
 KOMBINASI PROFIL
-- Dimensi sekunder ${secondary.dim} (${secondary.label}) memberi warna tambahan: kandidat juga menunjukkan kecenderungan ${secondaryProfile.strength}.
-- Kombinasi ini perlu dibaca bersama, karena perilaku kerja kandidat tidak hanya dipengaruhi satu dimensi dominan.
+• Dimensi sekunder ${secondary.dim} (${secondary.label}) memberi warna tambahan: kandidat juga menunjukkan kecenderungan ${secondaryProfile.strength}
+• Kombinasi ini perlu dibaca bersama, karena perilaku kerja kandidat tidak hanya dipengaruhi satu dimensi dominan
+• Profil hybrid ini memberikan fleksibilitas dalam beradaptasi dengan berbagai situasi kerja
 
 AREA PERHATIAN
-- ${profile.watch}.
-- Pada situasi tekanan, pola ini perlu dikelola agar tetap produktif dan tidak menghambat kolaborasi.
+• ${profile.watch}
+• Pada situasi tekanan, pola ini perlu dikelola agar tetap produktif dan tidak menghambat kolaborasi
+• Perlu kesadaran diri untuk mengelola sisi yang mungkin berlebihan dari dimensi dominan
 
-GAYA KERJA
-- Kandidat biasanya paling efektif bila ${profile.work}.
+GAYA KERJA OPTIMAL
+Kandidat biasanya paling efektif bila ${profile.work}. Lingkungan kerja yang mendukung pola ini akan memaksimalkan performa dan kepuasan kerja.
 
-GAYA KOMUNIKASI
-- Pendekatan komunikasi yang disarankan: ${profile.communication}.
+GAYA KOMUNIKASI EFEKTIF
+Pendekatan komunikasi yang disarankan: ${profile.communication}. Menggunakan gaya komunikasi yang sesuai akan meningkatkan efektivitas interaksi dan kolaborasi.
 
-KECOCOKAN PERAN
-- ${profile.roles}.
-- Tetap sesuaikan dengan pengalaman, kompetensi teknis, budaya tim, dan tuntutan jabatan.
+REKOMENDASI POSISI
+${profile.roles}
+Tetap sesuaikan dengan pengalaman, kompetensi teknis, budaya tim, dan tuntutan jabatan spesifik.
 
 DISTRIBUSI SKOR DISC
-- ${distribution}.
+${distribution}
 
-CATATAN PSIKOLOG
-- DISC menggambarkan kecenderungan perilaku kerja dan gaya komunikasi, bukan ukuran kecerdasan atau kompetensi mutlak.
-- Gunakan hasil ini bersama wawancara berbasis kompetensi, riwayat kerja, observasi, dan hasil tes lain.`;
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. DISC menggambarkan kecenderungan perilaku kerja dan gaya komunikasi, bukan ukuran kecerdasan atau kompetensi mutlak.
+2. Tidak ada profil DISC yang lebih baik dari yang lain - setiap profil memiliki kekuatan dan konteks yang cocok.
+3. Gunakan hasil ini bersama wawancara berbasis kompetensi, riwayat kerja, observasi, dan hasil tes lain.
+4. Sesuaikan penilaian dengan tuntutan spesifik posisi yang dilamar dan budaya organisasi.
+5. Pertimbangkan faktor motivasi, sikap, dan nilai-nilai personal dalam keputusan akhir.`;
 };

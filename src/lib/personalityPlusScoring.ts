@@ -84,32 +84,51 @@ export const buildPersonalityPlusInterpretation = (categories: Record<string, un
   const isBlend = diff <= Math.max(2, Math.round(totalItems * 0.1));
   const distribution = rows.map((row) => `${row.name}: ${row.value} (${row.pct}%, ${row.level})`).join("; ");
 
-  return `Profil Personality Plus kandidat menunjukkan temperamen dominan ${primary.name} (${primary.value} jawaban; ${primary.pct}%)${secondary ? ` dengan kecenderungan sekunder ${secondary.name} (${secondary.value} jawaban; ${secondary.pct}%)` : ""}.
+  return `═══════════════════════════════════════════════════════════════
+PROFIL PERSONALITY PLUS - ANALISIS 4 TEMPERAMEN
+═══════════════════════════════════════════════════════════════
 
-Ringkasan profil:
+TEMPERAMEN DOMINAN
+Profil Personality Plus kandidat menunjukkan temperamen dominan ${primary.name} (${primary.value} jawaban; ${primary.pct}%)${secondary ? ` dengan kecenderungan sekunder ${secondary.name} (${secondary.value} jawaban; ${secondary.pct}%)` : ""}.
+
+RINGKASAN PROFIL
 ${isBlend ? `Skor ${primary.name} dan ${secondary.name} relatif berdekatan, sehingga kandidat lebih tepat dibaca sebagai kombinasi ${primary.name}-${secondary.name}.` : `${primary.name} tampak sebagai karakter paling menonjol dalam pola respons kandidat.`}
 
-Kekuatan utama:
-Kandidat cenderung ${primary.strength}.
+KEKUATAN UTAMA
+• Kandidat cenderung ${primary.strength}
+• Temperamen ini memberikan fondasi kuat untuk peran yang membutuhkan karakteristik ${primary.name}
+• Kekuatan ini dapat dimaksimalkan dalam lingkungan yang mendukung gaya kerja natural kandidat
 
-Kombinasi temperamen:
-Kecenderungan sekunder ${secondary.name} memberi warna tambahan: kandidat juga menunjukkan sisi ${secondary.strength}. Kombinasi ini membantu membaca cara kandidat bekerja dalam situasi berbeda.
+KOMBINASI TEMPERAMEN
+• Kecenderungan sekunder ${secondary.name} memberi warna tambahan: kandidat juga menunjukkan sisi ${secondary.strength}
+• Kombinasi ini membantu membaca cara kandidat bekerja dalam situasi berbeda
+• Profil hybrid memberikan fleksibilitas dan adaptabilitas dalam berbagai konteks kerja
 
-Area perhatian:
-${primary.watch}. Area ini bukan kelemahan tetap, tetapi indikator yang perlu dikelola terutama saat tekanan kerja meningkat.
+AREA PERHATIAN
+• ${primary.watch}
+• Area ini bukan kelemahan tetap, tetapi indikator yang perlu dikelola terutama saat tekanan kerja meningkat
+• Perlu strategi manajemen diri dan dukungan lingkungan untuk mengoptimalkan potensi
 
-Gaya kerja:
-Kandidat biasanya ${primary.work}.
+GAYA KERJA OPTIMAL
+Kandidat biasanya ${primary.work}. Lingkungan kerja yang sesuai akan meningkatkan performa dan kepuasan kerja.
 
-Gaya komunikasi:
-Pendekatan komunikasi yang disarankan: ${primary.communication}.
+GAYA KOMUNIKASI EFEKTIF
+Pendekatan komunikasi yang disarankan: ${primary.communication}. Komunikasi yang sesuai akan meningkatkan kolaborasi dan hubungan kerja.
 
-Rekomendasi kecocokan peran:
-Peran yang relatif selaras: ${primary.roles}. Tetap validasi dengan pengalaman, motivasi kerja, kompetensi teknis, dan tuntutan jabatan.
+REKOMENDASI POSISI
+Peran yang relatif selaras: ${primary.roles}
+Tetap validasi dengan pengalaman, motivasi kerja, kompetensi teknis, dan tuntutan jabatan spesifik.
 
-Distribusi skor:
-${distribution}.
+DISTRIBUSI SKOR
+${distribution}
 
-Catatan psikolog:
-Personality Plus membaca kecenderungan temperamen natural, bukan kemampuan mutlak dan bukan diagnosis. Interpretasi perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, dan hasil asesmen lain.`;
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. Personality Plus membaca kecenderungan temperamen natural, bukan kemampuan mutlak dan bukan diagnosis.
+2. Tidak ada temperamen yang lebih baik dari yang lain - setiap temperamen memiliki kekuatan dan konteks yang cocok.
+3. Interpretasi perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, dan hasil asesmen lain.
+4. Sesuaikan penilaian dengan tuntutan spesifik posisi dan budaya organisasi.
+5. Pertimbangkan faktor motivasi, nilai-nilai personal, dan lingkungan kerja dalam keputusan akhir.`;
 };

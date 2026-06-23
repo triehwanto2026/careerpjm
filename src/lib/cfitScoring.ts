@@ -149,30 +149,47 @@ export const buildCfitInterpretation = (result: CfitResultLike) => {
   const highSegments = segments.filter((segment) => segment.pct >= 65);
   const lowSegments = segments.filter((segment) => segment.pct < 45);
 
-  return `Estimasi IQ CFIT 3A kandidat adalah ${info.iq} dengan klasifikasi ${info.classification}. Raw score terhitung ${info.raw}/${info.max}; secara umum hasil ini menunjukkan ${info.note}.
+  return `═══════════════════════════════════════════════════════════════
+PROFIL CFIT 3A - CULTURE FAIR INTELLIGENCE TEST
+═══════════════════════════════════════════════════════════════
 
-Insight umum:
+HASIL IQ DAN KLASIFIKASI
+Estimasi IQ CFIT 3A kandidat adalah ${info.iq} dengan klasifikasi ${info.classification}.
+Raw score terhitung ${info.raw}/${info.max}; secara umum hasil ini menunjukkan ${info.note}.
+
+INSIGHT UMUM
 CFIT 3A terutama membaca penalaran nonverbal, kemampuan menangkap pola, klasifikasi visual, relasi figural, dan pemecahan masalah abstrak yang relatif minim pengaruh bahasa. Kekuatan relatif kandidat tampak pada segmen ${best.label} (${best.raw}/${best.max}; ${best.level}), yang berkaitan dengan ${best.insight}. Area yang perlu diperhatikan adalah ${watch.label} (${watch.raw}/${watch.max}; ${watch.level}), yang berkaitan dengan ${watch.insight}.
 
-Profil segmen:
-${segmentText}.
+PROFIL SEGEMEN
+${segmentText}
 
-Detail per dimensi:
+DETAIL PER DIMENSI
 ${segments.map((segment) => `
-${segment.label} (${segment.raw}/${segment.max}, ${segment.pct}%, ${segment.level}):
-- Kemampuan: ${segment.insight}
-- Kinerja: ${segment.pct}% dari maksimum yang diharapkan
-- Interpretasi: ${segment.pct >= 80 ? "Kemampuan sangat baik di area ini" : segment.pct >= 65 ? "Kemampuan baik di area ini" : segment.pct >= 45 ? "Kemampuan rata-rata di area ini" : segment.pct >= 30 ? "Kemampuan di bawah rata-rata di area ini" : "Kemampuan rendah di area ini"}`).join("\n")}
+${segment.label} (${segment.raw}/${segment.max}, ${segment.pct}%, ${segment.level})
+• Kemampuan: ${segment.insight}
+• Kinerja: ${segment.pct}% dari maksimum yang diharapkan
+• Interpretasi: ${segment.pct >= 80 ? "Kemampuan sangat baik di area ini" : segment.pct >= 65 ? "Kemampuan baik di area ini" : segment.pct >= 45 ? "Kemampuan rata-rata di area ini" : segment.pct >= 30 ? "Kemampuan di bawah rata-rata di area ini" : "Kemampuan rendah di area ini"}`).join("\n")}
 
-Kekuatan utama:
-${highSegments.length ? highSegments.map((segment) => `${segment.label}: ${segment.insight} berada pada taraf ${segment.level.toLowerCase()}.`).join("\n") : "Tidak ada segmen yang sangat menonjol; profil lebih perlu dibaca dari skor total dan konsistensi antar segmen."}
+KEKUATAN UTAMA
+${highSegments.length ? highSegments.map((segment) => `• ${segment.label}: ${segment.insight} berada pada taraf ${segment.level.toLowerCase()}.`).join("\n") : "• Tidak ada segmen yang sangat menonjol; profil lebih perlu dibaca dari skor total dan konsistensi antar segmen."}
 
-Area pengembangan:
-${lowSegments.length ? lowSegments.map((segment) => `${segment.label}: ${segment.insight} perlu divalidasi lebih lanjut, terutama bila posisi menuntut aspek tersebut.`).join("\n") : "Tidak ada segmen rendah yang menonjol."}
+AREA PENGEMBANGAN
+${lowSegments.length ? lowSegments.map((segment) => `• ${segment.label}: ${segment.insight} perlu divalidasi lebih lanjut, terutama bila posisi menuntut aspek tersebut.`).join("\n") : "• Tidak ada segmen rendah yang menonjol."}
 
-Implikasi kerja:
+IMPLIKASI KERJA
 Skor CFIT yang lebih tinggi umumnya mendukung pekerjaan yang membutuhkan pemahaman pola baru, analisis abstrak, problem solving nonverbal, dan belajar cepat dari struktur yang belum familiar. Untuk posisi yang lebih prosedural atau sangat verbal, interpretasi CFIT tetap perlu diseimbangkan dengan tes lain, wawancara, dan bukti pengalaman kerja.
 
-Catatan psikolog:
-CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Hasil dapat dipengaruhi kondisi saat tes, pemahaman instruksi, kecepatan kerja, dan konsentrasi. Gunakan bersama observasi perilaku, riwayat pendidikan/kerja, dan tuntutan jabatan.`;
+REKOMENDASI POSISI
+Berdasarkan skor IQ ${info.iq} (${info.classification}), kandidat cocok untuk:
+${info.iq >= 130 ? "• Posisi yang menuntut analisis kompleks, strategi, dan pemecahan masalah tingkat lanjut\n• Peran seperti Analyst, Strategist, Researcher, Engineer, atau Specialist" : info.iq >= 115 ? "• Posisi yang membutuhkan analisis dan pemecahan masalah di atas rata-rata\n• Peran seperti Manager, Supervisor, Analyst, atau Technical Lead" : info.iq >= 100 ? "• Posisi yang membutuhkan kemampuan analisis dan pemecahan masalah standar\n• Peran seperti Staff, Administrator, Technician, atau Coordinator" : "• Posisi dengan tugas rutin dan prosedural yang jelas\n• Peran seperti Operator, Clerk, atau Assistant dengan dukungan pelatihan yang memadai"}
+
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Hasil dapat dipengaruhi kondisi saat tes, pemahaman instruksi, kecepatan kerja, dan konsentrasi.
+2. Gunakan bersama observasi perilaku, riwayat pendidikan/kerja, dan tuntutan jabatan.
+3. Skor rendah pada satu segmen tidak otomatis menggugurkan kandidat bila tuntutan posisi tidak dominan pada aspek tersebut.
+4. Sesuaikan penilaian dengan kompleksitas jabatan dan kebutuhan organisasi.
+5. Pertimbangkan faktor motivasi, sikap belajar, dan budaya kerja dalam keputusan akhir.`;
 };

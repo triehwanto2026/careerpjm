@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Search, Eye, Download, Printer, FileText, Trash2, ClipboardCheck } from "lucide-react";
+import { Search, Eye, Download, Printer, FileText, Trash2 } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -826,108 +826,6 @@ const Results = () => {
     const { data } = await supabase.from("test_answers").select("*").eq("test_result_id", resultId).order("question_number");
     const rows = ((data as any) || []) as AnswerRow[];
     setAnswers(await enrichAnswersWithOptionText(result, rows));
-  };
-
-  const handleAuditScoring = async (r: ResultRow) => {
-    if (!isIstResult(r)) {
-      await Swal.fire({
-        icon: "info",
-        title: "Audit Scoring",
-        text: "Fitur audit scoring saat ini hanya tersedia untuk tes IST.",
-        confirmButtonColor: "hsl(174, 72%, 46%)",
-      });
-      return;
-    }
-
-    const resultId = r.id;
-    const { data: answers, error } = await supabase
-      .from("test_answers")
-      .select("question_number, question_text, selected_answer, selected_answer_label, correct_answer, is_correct, category")
-      .eq("test_result_id", resultId)
-      .order("question_number");
-
-    if (error) {
-      await Swal.fire({ icon: "error", title: "Gagal Memuat Data", text: error.message });
-      return;
-    }
-
-    const answerRows = (answers || []) as AnswerRow[];
-    const summary = getIstSummary(r.categories || {}, r.score);
-
-    // Group by subtest
-    const subtestRanges: Record<string, { start: number; end: number }> = {
-      SE: { start: 1, end: 20 },
-      WA: { start: 21, end: 40 },
-      AN: { start: 41, end: 60 },
-      GE: { start: 61, end: 76 },
-      RA: { start: 77, end: 96 },
-      ZR: { start: 97, end: 116 },
-      FA: { start: 117, end: 136 },
-      WU: { start: 137, end: 156 },
-      ME: { start: 157, end: 176 },
-    };
-
-    const subtestScores: Record<string, { correct: number; total: number; details: string[] }> = {};
-    Object.keys(subtestRanges).forEach(code => {
-      subtestScores[code] = { correct: 0, total: 0, details: [] };
-    });
-
-    answerRows.forEach(a => {
-      const qNum = a.question_number;
-      let subtest = "";
-      for (const [code, range] of Object.entries(subtestRanges)) {
-        if (qNum >= range.start && qNum <= range.end) {
-          subtest = code;
-          break;
-        }
-      }
-      if (subtest) {
-        subtestScores[subtest].total++;
-        if (a.is_correct) subtestScores[subtest].correct++;
-        subtestScores[subtest].details.push(
-          `No ${qNum}: ${a.selected_answer_label || a.selected_answer} vs ${a.correct_answer || '-'} = ${a.is_correct ? '✓' : '✗'}`
-        );
-      }
-    });
-
-    let auditHTML = `
-      <div style="text-align:left;max-height:70vh;overflow-y:auto;font-size:12px;">
-        <h3 style="margin:0 0 10px 0;font-size:14px;font-weight:bold;">AUDIT SCORING IST</h3>
-        <p style="margin:0 0 15px 0;color:#64748b;">Kandidat: ${r.candidate_name} | Tes: ${r.test_name}</p>
-        
-        <div style="background:#f1f5f9;padding:10px;border-radius:8px;margin-bottom:15px;">
-          <strong>Ringkasan Hasil:</strong><br/>
-          Total Raw Score: ${summary.raw}/${summary.max}<br/>
-          Skor IST: ${summary.score}%<br/>
-        </div>
-
-        <h4 style="margin:15px 0 10px 0;font-size:13px;font-weight:bold;">Detail per Subtes:</h4>
-    `;
-
-    Object.entries(subtestScores).forEach(([code, data]) => {
-      const pct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
-      auditHTML += `
-        <div style="margin-bottom:15px;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">
-          <strong>${code}:</strong> ${data.correct}/${data.total} (${pct}%)<br/>
-          <div style="max-height:100px;overflow-y:auto;margin-top:5px;color:#64748b;">
-            ${data.details.join('<br/>')}
-          </div>
-        </div>
-      `;
-    });
-
-    auditHTML += `
-      </div>
-    `;
-
-    await Swal.fire({
-      icon: "info",
-      title: "Audit Scoring IST",
-      html: auditHTML,
-      width: "700px",
-      confirmButtonColor: "hsl(174, 72%, 46%)",
-      confirmButtonText: "Tutup",
-    });
   };
 
   const handleDeleteResult = async (r: ResultRow) => {
@@ -2261,11 +2159,6 @@ const Results = () => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button onClick={() => { setSelectedResult(null); setAnswers([]); }} className="text-sm text-primary hover:underline">← Kembali ke Daftar Hasil</button>
             <div className="flex flex-wrap gap-2">
-              {isIstResult(r) && (
-                <button onClick={() => handleAuditScoring(r)} className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 transition-all">
-                  <ClipboardCheck className="h-4 w-4" /> Audit Scoring
-                </button>
-              )}
               <button onClick={handlePrint} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all">
                 <Printer className="h-4 w-4" /> Cetak Laporan Lengkap
               </button>
@@ -2575,31 +2468,112 @@ const Results = () => {
                 })()
                 : isIstResult(r) ? (() => {
                   const summary = getIstSummary(cats, r.score);
+                  const highRows = [...summary.rows].sort((a, b) => b.pct - a.pct).slice(0, 3);
+                  const lowRows = [...summary.rows].sort((a, b) => a.pct - b.pct).slice(0, 3);
                   return (
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b border-border">
-                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Subtes</th>
-                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Aspek</th>
-                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
-                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Level</th>
-                        <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
-                      </tr></thead>
-                      <tbody>
-                        {summary.rows.map((row) => (
-                          <tr key={row.code} className="border-b border-border/50">
-                            <td className="py-2 px-3 text-foreground font-semibold">{row.code} - {row.name}</td>
-                            <td className="py-2 px-3 text-muted-foreground">{row.area}</td>
-                            <td className="py-2 px-3 text-foreground">{row.raw}/{row.max} <span className="text-muted-foreground">({row.pct}%)</span></td>
-                            <td className="py-2 px-3 text-foreground">{row.level}</td>
-                            <td className="py-2 px-3 w-40">
-                              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                                <div className={`h-full rounded-full ${row.pct >= 65 ? "bg-emerald-400" : row.pct >= 45 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.pct, 100)}%` }} />
+                    <div className="space-y-4">
+                      {/* Subtest Detail Table */}
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-border">
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Subtes</th>
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Aspek</th>
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Skor</th>
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Level</th>
+                          <th className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">Indikator</th>
+                        </tr></thead>
+                        <tbody>
+                          {summary.rows.map((row) => (
+                            <tr key={row.code} className="border-b border-border/50">
+                              <td className="py-2 px-3 text-foreground font-semibold">{row.code} - {row.name}</td>
+                              <td className="py-2 px-3 text-muted-foreground">{row.area}</td>
+                              <td className="py-2 px-3 text-foreground">{row.raw}/{row.max} <span className="text-muted-foreground">({row.pct}%)</span></td>
+                              <td className="py-2 px-3 text-foreground">{row.level}</td>
+                              <td className="py-2 px-3 w-40">
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                  <div className={`h-full rounded-full ${row.pct >= 80 ? "bg-emerald-400" : row.pct >= 60 ? "bg-emerald-400/70" : row.pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(row.pct, 100)}%` }} />
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {/* Ability Groups */}
+                      <div className="rounded-lg border border-border bg-muted/30 p-4">
+                        <h4 className="text-xs font-semibold text-foreground mb-3">Kelompok Kemampuan</h4>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {summary.groups.map((group) => (
+                            <div key={group.group} className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span className="font-medium text-foreground">{group.group}</span>
+                                  <span className="text-muted-foreground">{group.raw}/{group.max} ({group.pct}%)</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                  <div className={`h-full rounded-full ${group.pct >= 80 ? "bg-emerald-400" : group.pct >= 60 ? "bg-emerald-400/70" : group.pct >= 40 ? "bg-amber-400" : "bg-destructive"}`} style={{ width: `${Math.min(group.pct, 100)}%` }} />
+                                </div>
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Strengths & Development Areas */}
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+                          <h4 className="text-xs font-semibold text-emerald-400 mb-2 flex items-center gap-2">
+                            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+                            Kekuatan Utama (Top 3)
+                          </h4>
+                          <ul className="space-y-1.5 text-xs">
+                            {highRows.map((row) => (
+                              <li key={row.code} className="text-foreground">
+                                <span className="font-semibold">{row.code} - {row.name}</span>: {row.description}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                          <h4 className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-2">
+                            <span className="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+                            Area Pengembangan (Bottom 3)
+                          </h4>
+                          <ul className="space-y-1.5 text-xs">
+                            {lowRows.map((row) => (
+                              <li key={row.code} className="text-foreground">
+                                <span className="font-semibold">{row.code} - {row.name}</span>: {row.description}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Position Recommendations */}
+                      <div className="rounded-lg border border-primary/30 bg-primary/10 p-4">
+                        <h4 className="text-xs font-semibold text-primary mb-3">Rekomendasi Posisi Berdasarkan Profil</h4>
+                        <div className="grid gap-2 text-xs">
+                          {summary.groups.filter(g => g.pct >= 60).length > 0 ? (
+                            summary.groups.filter(g => g.pct >= 60).map((group) => {
+                              const recommendations: Record<string, string[]> = {
+                                Verbal: ["HR", "Legal", "Trainer", "Customer Service", "Sales", "Marketing", "Public Relations"],
+                                Numerik: ["Finance", "Accounting", "Auditor", "Data Analyst", "Business Analyst", "Financial Planner"],
+                                "Figural / Spasial": ["Engineering", "Design", "Teknik", "Produksi", "Architecture", "Quality Control"],
+                                Memori: ["Admin", "Supervisor", "Customer Service", "Operations", "Logistics"]
+                              };
+                              const positions = recommendations[group.group] || [];
+                              return (
+                                <div key={group.group} className="flex items-start gap-2">
+                                  <span className="font-semibold text-foreground min-w-[100px]">{group.group} ({group.pct}%):</span>
+                                  <span className="text-muted-foreground">{positions.join(", ")}</span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-muted-foreground italic">Tidak ada kelompok kemampuan yang menonjol (≥60%). Rekomendasi posisi memerlukan evaluasi lebih lanjut berdasarkan kecocokan dengan tuntutan jabatan spesifik.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   );
                 })()
                 : isMbtiResult(r) ? (() => {
@@ -2816,6 +2790,74 @@ const Results = () => {
                   ) : (
                     <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{interpText}</p>
                   )}
+                </div>
+              );
+            })()}
+
+            {/* Professional Conclusion for IST */}
+            {isIstResult(r) && (() => {
+              const summary = getIstSummary(cats, r.score);
+              const highRows = [...summary.rows].sort((a, b) => b.pct - a.pct).slice(0, 3);
+              const lowRows = [...summary.rows].sort((a, b) => a.pct - b.pct).slice(0, 3);
+              const istLevel = summary.score >= 80 ? "Sangat Baik" : summary.score >= 60 ? "Baik" : summary.score >= 40 ? "Cukup" : "Rendah";
+              const istColor = summary.score >= 80 ? "text-emerald-400" : summary.score >= 60 ? "text-emerald-400/70" : summary.score >= 40 ? "text-amber-400" : "text-destructive";
+              return (
+                <div className="glass rounded-xl p-5 glow-border mt-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Kesimpulan & Rekomendasi Profesional</h3>
+                  <div className="space-y-4 text-sm">
+                    {/* Overall Assessment */}
+                    <div className="rounded-lg border border-primary/30 bg-primary/10 p-4">
+                      <h4 className="text-xs font-semibold text-primary mb-2">Penilaian Keseluruhan</h4>
+                      <p className="text-foreground">
+                        Kandidat memiliki <span className={`font-bold ${istColor}`}>Skor Kemampuan IST {summary.score}% ({istLevel})</span>.{" "}
+                        {summary.score >= 80 ? "Profil kemampuan intelektual sangat baik dan dapat mendukung pekerjaan yang menuntut analisis kompleks, pembelajaran cepat, dan pemecahan masalah tingkat lanjut." : ""}
+                        {summary.score >= 60 && summary.score < 80 ? "Profil kemampuan intelektual baik dan dapat mendukung pekerjaan dengan tuntutan analisis dan pembelajaran yang moderat." : ""}
+                        {summary.score >= 40 && summary.score < 60 ? "Profil kemampuan intelektual cukup dan dapat mendukung pekerjaan rutin dengan arahan dan SOP yang jelas." : ""}
+                        {summary.score < 40 ? "Profil kemampuan intelektual perlu dipertimbangkan untuk posisi yang menuntut analisis, kecepatan belajar, dan pemecahan masalah kompleks." : ""}
+                      </p>
+                    </div>
+
+                    {/* Key Strengths Summary */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-foreground mb-2">Poin Kekuatan Utama</h4>
+                      <ul className="space-y-1.5 text-muted-foreground">
+                        {highRows.map((row) => (
+                          <li key={row.code} className="flex items-start gap-2">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></span>
+                            <span><span className="font-semibold text-foreground">{row.code} ({row.name})</span> - {row.area} dengan skor {row.pct}% menunjukkan {row.description}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Development Focus */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-foreground mb-2">Fokus Pengembangan</h4>
+                      <ul className="space-y-1.5 text-muted-foreground">
+                        {lowRows.map((row) => (
+                          <li key={row.code} className="flex items-start gap-2">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"></span>
+                            <span><span className="font-semibold text-foreground">{row.code} ({row.name})</span> - {row.area} dengan skor {row.pct}% memerlukan {row.description}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Recruitment Decision Support */}
+                    <div className="rounded-lg border border-border bg-muted/30 p-4">
+                      <h4 className="text-xs font-semibold text-foreground mb-2">Rekomendasi Keputusan Rekrutmen</h4>
+                      <div className="space-y-2 text-xs text-muted-foreground">
+                        <p><span className="font-semibold text-foreground">Untuk posisi yang menuntut:</span></p>
+                        <ul className="space-y-1 ml-4">
+                          <li>• <span className="text-foreground">Kemampuan verbal tinggi</span> (HR, Legal, Trainer, Sales): Perhatikan skor SE, WA, AN, GE</li>
+                          <li>• <span className="text-foreground">Kemampuan numerik tinggi</span> (Finance, Accounting, Auditor): Perhatikan skor RA, ZR</li>
+                          <li>• <span className="text-foreground">Kemampuan visual/spasial tinggi</span> (Engineering, Design, Teknik): Perhatikan skor FA, WU</li>
+                          <li>• <span className="text-foreground">Daya ingat tinggi</span> (Admin, Supervisor, Customer Service): Perhatikan skor ME</li>
+                        </ul>
+                        <p className="mt-2 italic">Keputusan akhir harus mempertimbangkan seluruh profil kandidat termasuk pengalaman, pendidikan, dan hasil asesmen lainnya.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
