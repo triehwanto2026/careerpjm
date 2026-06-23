@@ -1661,70 +1661,67 @@ const TestPage = () => {
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                  Tulis angka satuan dari hasil penjumlahan. Contoh 7 + 8 = 15, tulis 5.
+                  Tulis angka satuan dari hasil penjumlahan. Contoh 7 + 8 = 15, tulis 5. Ketik angka dan otomatis lanjut ke soal berikutnya.
                 </div>
-                <div className="grid max-h-[62vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                  {subtestQuestions.map((q, idx) => (
-                    <label key={q.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
-                      <span className="w-12 text-xs font-semibold text-muted-foreground">{idx + 1}.</span>
-                      <span className="min-w-14 text-sm font-bold text-foreground">{q.question_text}</span>
-                      <input
-                        ref={(el) => { kraepelinInputRefs.current[q.id] = el; }}
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={1}
-                        value={(answers[`${currentTest.id}:${q.id}`] as string) || ""}
-                        onChange={(e) => {
-                          const filled = handleKraepelinAnswer(currentTest.id, q.id, e.target.value);
-                          if (!filled) return;
-                          // focus next input via refs
-                          const next = subtestQuestions[idx + 1];
-                          if (next) {
-                            const nextEl = kraepelinInputRefs.current[next.id];
-                            if (nextEl) {
-                              nextEl.focus();
-                              nextEl.select();
-                              return;
-                            }
-                          }
-                          const moved = finishCurrentSubtest();
-                          if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
-                        }}
-                        onKeyDown={(e) => {
-                          // Accept single digit keys without needing Enter/Tab
-                          if (/^[0-9]$/.test(e.key)) {
-                            e.preventDefault();
-                            const digit = e.key;
-                            // write and move
-                            handleKraepelinAnswer(currentTest.id, q.id, digit);
+                <div className="max-h-[65vh] overflow-y-auto rounded-lg border border-border bg-card p-4">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    {subtestQuestions.map((q, idx) => (
+                      <div key={q.id} className="flex items-center gap-2 rounded border border-border bg-muted/30 p-2">
+                        <span className="flex-shrink-0 w-8 text-sm font-bold text-muted-foreground">{idx + 1}</span>
+                        <span className="flex-shrink-0 min-w-20 text-base font-semibold text-foreground">{q.question_text}</span>
+                        <span className="text-muted-foreground">=</span>
+                        <input
+                          ref={(el) => { kraepelinInputRefs.current[q.id] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={1}
+                          value={(answers[`${currentTest.id}:${q.id}`] as string) || ""}
+                          onChange={(e) => {
+                            const filled = handleKraepelinAnswer(currentTest.id, q.id, e.target.value);
+                            if (!filled) return;
+                            // focus next input via refs
                             const next = subtestQuestions[idx + 1];
                             if (next) {
                               const nextEl = kraepelinInputRefs.current[next.id];
-                              if (nextEl) { nextEl.focus(); nextEl.select(); }
-                            } else {
-                              const moved = finishCurrentSubtest();
-                              if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
-                            }
-                            return;
-                          }
-                          if (e.key === 'Backspace') {
-                            const curVal = (answers[`${currentTest.id}:${q.id}`] as string) || "";
-                            if (!curVal) {
-                              // move to previous
-                              const prev = subtestQuestions[idx - 1];
-                              if (prev) {
-                                const prevEl = kraepelinInputRefs.current[prev.id];
-                                if (prevEl) { prevEl.focus(); prevEl.select(); }
+                              if (nextEl) {
+                                nextEl.focus();
+                                nextEl.select();
+                                return;
                               }
                             }
-                          }
-                        }}
-                        data-kraepelin-index={idx}
-                        className="ml-auto h-9 w-10 rounded-md border border-border bg-muted text-center text-lg font-bold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                      />
-                    </label>
-                  ))}
+                            const moved = finishCurrentSubtest();
+                            if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                          }}
+                          onKeyDown={(e) => {
+                            // Accept single digit keys without needing Enter/Tab
+                            if (/^[0-9]$/.test(e.key)) {
+                              e.preventDefault();
+                              const digit = e.key;
+                              // write and move
+                              handleKraepelinAnswer(currentTest.id, q.id, digit);
+                              const next = subtestQuestions[idx + 1];
+                              if (next) {
+                                const nextEl = kraepelinInputRefs.current[next.id];
+                                if (nextEl) { nextEl.focus(); nextEl.select(); }
+                              } else {
+                                const moved = finishCurrentSubtest();
+                                if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                              }
+                              return;
+                            }
+                            // Disable backspace navigation - no going back to previous questions
+                            if (e.key === 'Backspace') {
+                              e.preventDefault();
+                              return;
+                            }
+                          }}
+                          data-kraepelin-index={idx}
+                          className="ml-auto h-8 w-10 rounded border border-border bg-white text-center text-lg font-bold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-muted"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : currentQuestion ? (
