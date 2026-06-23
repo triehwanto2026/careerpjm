@@ -1241,39 +1241,39 @@ const Results = () => {
 
     const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
     <style>
-      @page { size: A4; margin: 10mm 12mm; }
+      @page { size: A4; margin: 8mm 10mm; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; font-size: 10pt; line-height: 1.4; }
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; font-size: 9pt; line-height: 1.35; }
 
-      .header { border-bottom: 2px solid #0f766e; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
-      .header-left h1 { font-size: 16pt; color: #0f172a; margin-bottom: 1px; letter-spacing: -0.3px; }
-      .header-left p { font-size: 8pt; color: #64748b; }
+      .header { border-bottom: 2px solid #0f766e; padding-bottom: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+      .header-left h1 { font-size: 14pt; color: #0f172a; margin-bottom: 1px; letter-spacing: -0.3px; }
+      .header-left p { font-size: 7pt; color: #64748b; }
       .header-right { text-align: right; }
-      .header-right .doc-id { font-size: 7pt; color: #64748b; font-family: 'Courier New', monospace; }
-      .header-right .doc-date { font-size: 8pt; color: #475569; margin-top: 1px; }
+      .header-right .doc-id { font-size: 6pt; color: #64748b; font-family: 'Courier New', monospace; }
+      .header-right .doc-date { font-size: 7pt; color: #475569; margin-top: 1px; }
 
-      .section { margin-bottom: 12px; page-break-inside: avoid; }
-      .section-title { font-size: 10pt; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; }
+      .section { margin-bottom: 10px; page-break-inside: avoid; }
+      .section-title { font-size: 9pt; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; padding-bottom: 2px; border-bottom: 1px solid #e2e8f0; }
 
-      .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
-      .profile-row { display: flex; padding: 3px 0; border-bottom: 1px dashed #f1f5f9; font-size: 9pt; }
+      .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 18px; }
+      .profile-row { display: flex; padding: 2px 0; border-bottom: 1px dashed #f1f5f9; font-size: 8pt; }
       .profile-row .label { color: #64748b; min-width: 100px; font-weight: 500; }
       .profile-row .value { color: #0f172a; font-weight: 600; flex: 1; }
 
-      .score-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
-      .score-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 5px; padding: 8px; text-align: center; }
-      .score-card .label { font-size: 7pt; color: #0f766e; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
-      .score-card .value { font-size: 18pt; font-weight: 800; color: #0f172a; line-height: 1; margin-top: 2px; }
-      .score-card .sub { font-size: 8pt; color: #64748b; }
+      .score-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 3px; }
+      .score-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 4px; padding: 6px; text-align: center; }
+      .score-card .label { font-size: 6pt; color: #0f766e; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+      .score-card .value { font-size: 16pt; font-weight: 800; color: #0f172a; line-height: 1; margin-top: 2px; }
+      .score-card .sub { font-size: 7pt; color: #64748b; }
 
-      table.dim-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-      table.dim-table th { background: #f8fafc; color: #475569; font-weight: 600; text-align: left; padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.2px; }
-      table.dim-table td { padding: 5px 8px; border: 1px solid #e2e8f0; }
+      table.dim-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+      table.dim-table th { background: #f8fafc; color: #475569; font-weight: 600; text-align: left; padding: 5px 7px; border: 1px solid #e2e8f0; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.2px; }
+      table.dim-table td { padding: 4px 7px; border: 1px solid #e2e8f0; }
       table.dim-table tr:nth-child(even) td { background: #fafafa; }
-      .bar-container { background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden; }
+      .bar-container { background: #e2e8f0; height: 5px; border-radius: 3px; overflow: hidden; }
       .bar-fill { height: 100%; border-radius: 3px; background: #0f766e; }
-      .mini-title { font-size: 8pt; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
-      .papi-section { page-break-inside: auto; margin-bottom: 8px; }
+      .mini-title { font-size: 7pt; font-weight: 700; color: #0f172a; margin: 0 0 3px; }
+      .papi-section { page-break-inside: auto; margin-bottom: 6px; }
       .papi-print-grid { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 8px; align-items: start; }
       .papi-wheel-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px; background: #ffffff; max-width: 300px; margin: 0 auto; }
       .papi-wheel-card svg { display: block; max-height: 260px; }
@@ -1285,11 +1285,11 @@ const Results = () => {
       table.papi-score-table td:nth-child(3),
       table.papi-score-table td:nth-child(4) { text-align: center; white-space: nowrap; }
 
-      .interpretation { background: #fefce8; border-left: 4px solid #eab308; padding: 8px 10px; border-radius: 0 5px 5px 0; font-size: 9pt; line-height: 1.5; color: #422006; }
-      .papi-interpretation-heading { margin: 6px 0 2px; color: #0f766e; font-size: 8pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
+      .interpretation { background: #fefce8; border-left: 4px solid #eab308; padding: 6px 8px; border-radius: 0 5px 5px 0; font-size: 8pt; line-height: 1.5; color: #422006; }
+      .papi-interpretation-heading { margin: 4px 0 1px; color: #0f766e; font-size: 7pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
       .papi-interpretation-heading:first-child { margin-top: 0; }
-      .papi-interpretation-paragraph { margin: 0 0 4px; }
-      .papi-interpretation-list { margin: 0 0 4px 14px; padding: 0; }
+      .papi-interpretation-paragraph { margin: 0 0 3px; }
+      .papi-interpretation-list { margin: 0 0 3px 10px; padding: 0; }
       .papi-interpretation-list li { margin: 1px 0; }
 
       table.answer-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
@@ -1521,7 +1521,7 @@ const Results = () => {
           `;
         })()
       : r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus") ? (() => {
-        // Personality Plus format
+        // Personality Plus format - ultra-compact single column for maximum space usage
         const ppMap: Record<string, string> = {
           K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
           S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
@@ -1536,66 +1536,37 @@ const Results = () => {
         
         // Calculate percentages for chart
         const chartData = order.map(t => ({ name: t, value: norm[t], pct: Math.round((norm[t] / total) * 100) }));
-        const maxVal = Math.max(...chartData.map(d => d.value), 1);
         
         // Sort by percentage to get dominant and secondary
         const sortedData = [...chartData].sort((a, b) => b.pct - a.pct);
         const dominant = sortedData[0];
         const secondary = sortedData[1];
         
+        // Get full interpretation
+        const fullInterpretation = buildSharedPersonalityPlusInterpretation(normalizedCats, r.total_questions || 40);
+        
         return `
-        <!-- Compact Table + Chart Side by Side -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-          <!-- Tabel Kiri -->
-          <div>
-            <p style="font-size: 9pt; font-weight: 700; color: #374151; margin-bottom: 6px;">Detail Skor per Dimensi</p>
-            <table style="width:100%; border-collapse: collapse; font-size: 8pt;">
-              <thead>
-                <tr style="background: #f1f5f9;">
-                  <th style="padding: 4px 6px; text-align: left; border: 1px solid #cbd5e1; font-weight: 600;">Temperamen</th>
-                  <th style="padding: 4px 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;">Jumlah</th>
-                  <th style="padding: 4px 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 600;">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${chartData.map(d => `
-                  <tr>
-                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: 600; color: ${colors[d.name]}">${d.name}</td>
-                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; text-align: center;">${d.value}</td>
-                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700;">${d.pct}%</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-            <div style="margin-top: 8px; font-size: 8pt; color: #64748b; background: #f8fafc; padding: 6px; border-radius: 4px;">
-              <strong>Dominan:</strong> ${dominant.name} (${dominant.pct}%)<br/>
-              <strong>Sekunder:</strong> ${secondary.name} (${secondary.pct}%)
-            </div>
+        <div style="margin-bottom: 4px;">
+          <!-- Ultra-compact scores row -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 4px;">
+            ${chartData.map(d => `
+              <div style="background: ${colors[d.name]}15; border: 1px solid ${colors[d.name]}40; border-radius: 3px; padding: 3px; text-align: center;">
+                <div style="font-size: 6pt; font-weight: 700; color: ${colors[d.name]}">${d.name}</div>
+                <div style="font-size: 8pt; font-weight: 800; color: #1f2937;">${d.value}</div>
+                <div style="font-size: 6pt; font-weight: 600; color: #64748b;">${d.pct}%</div>
+              </div>
+            `).join('')}
           </div>
           
-          <!-- Grafik Kanan -->
-          <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; background: #f8fafc;">
-            <p style="font-size: 8pt; font-weight: 700; color: #374151; margin-bottom: 4px; text-align: center;">Grafik 4 Temperamen</p>
-            <svg width="100%" height="140" viewBox="0 0 200 140">
-              <!-- Y axis -->
-              <line x1="25" y1="10" x2="25" y2="110" stroke="#374151" stroke-width="1"/>
-              <line x1="25" y1="110" x2="190" y2="110" stroke="#374151" stroke-width="1"/>
-              <!-- Y axis labels -->
-              <text x="22" y="115" text-anchor="end" font-size="7" fill="#6b7280">0</text>
-              <text x="22" y="85" text-anchor="end" font-size="7" fill="#6b7280">${Math.round(maxVal * 0.5)}</text>
-              <text x="22" y="55" text-anchor="end" font-size="7" fill="#6b7280">${Math.round(maxVal * 0.75)}</text>
-              <text x="22" y="15" text-anchor="end" font-size="7" fill="#6b7280">${maxVal}</text>
-              <!-- Bars -->
-              ${chartData.map((d, i) => {
-                const barHeight = (d.value / maxVal) * 100;
-                const x = 30 + (i * 40);
-                return `
-                  <rect x="${x}" y="${110 - barHeight}" width="32" height="${barHeight}" fill="${colors[d.name]}" rx="2" opacity="0.85"/>
-                  <text x="${x + 16}" y="${105 - barHeight}" text-anchor="middle" font-size="8" font-weight="700" fill="#374151">${d.value}</text>
-                  <text x="${x + 16}" y="${125}" text-anchor="middle" font-size="7" font-weight="600" fill="#374151">${d.name.substring(0, 3)}</text>
-                `;
-              }).join('')}
-            </svg>
+          <!-- Dominant/Secondary summary -->
+          <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 3px; padding: 3px 6px; margin-bottom: 4px; font-size: 7pt; color: #0f766e; display: flex; justify-content: space-between;">
+            <span><strong>Dominan:</strong> ${dominant.name} (${dominant.pct}%)</span>
+            <span><strong>Sekunder:</strong> ${secondary.name} (${secondary.pct}%)</span>
+          </div>
+          
+          <!-- Full Interpretation (compact) -->
+          <div style="background: #fefce8; border-left: 2px solid #eab308; padding: 3px 5px; border-radius: 0 2px 2px 0; font-size: 5.5pt; line-height: 1.25; color: #422006;">
+            ${formatPapiInterpretationHtml(fullInterpretation)}
           </div>
         </div>
         `;
@@ -1637,10 +1608,8 @@ const Results = () => {
 	      if (isDISC) return "";
 	      if (isIstResult(r)) return istInterpretationHTML;
 	      if (specialInterpretationHTML) return specialInterpretationHTML;
-      // Full format interpretation for PP
-      if (isPP) {
-        return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div><div class="interpretation">${formatPapiInterpretationHtml(buildSharedPersonalityPlusInterpretation(normalizedCats, r.total_questions || 40))}</div></div>`;
-      }
+      // Skip separate interpretation for PP - already included in compact layout
+      if (isPP) return "";
       // For other tests
       if (!r.interpretation) return "";
       return `
