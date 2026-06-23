@@ -624,10 +624,10 @@ const AnswerKeyManager = () => {
 
   const load = async (id: string) => {
     setLoading(true); setDirty({});
-    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, question_text_en, category, subtest_code, question_type, group_number").eq("instrument_id", id).order("question_number");
+    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, question_text_en, category, subtest_code, question_type, group_number").eq("instrument_id", id).order("question_number").limit(2000);
     setQuestions((qs as Q[]) || []);
     if (qs && qs.length) {
-      const { data: os } = await supabase.from("test_question_options").select("*").in("question_id", qs.map((q: any) => q.id)).order("display_order");
+      const { data: os } = await supabase.from("test_question_options").select("*").in("question_id", qs.map((q: any) => q.id)).order("display_order").limit(5000);
       const grouped: Record<string, O[]> = {};
       (os as O[] || []).forEach(o => { (grouped[o.question_id] ||= []).push(o); });
       setOpts(grouped);

@@ -1,7 +1,5 @@
-
--- Drop the views (linter flags them as Security Definer Views) and replace with explicit functions.
-DROP VIEW IF EXISTS public.test_questions_safe;
-DROP VIEW IF EXISTS public.test_question_options_safe;
+-- Update RPC function untuk menambahkan limit 2000
+-- Jalankan di Supabase SQL Editor
 
 CREATE OR REPLACE FUNCTION public.get_test_questions_safe(_instrument_ids uuid[])
 RETURNS TABLE (
@@ -46,36 +44,3 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_test_questions_safe(uuid[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_test_questions_safe(uuid[]) TO authenticated, service_role;
-
-CREATE OR REPLACE FUNCTION public.get_test_question_options_safe(_question_ids uuid[])
-RETURNS TABLE (
-  id uuid,
-  question_id uuid,
-  option_label text,
-  option_text text,
-  option_text_en text,
-  category_target text,
-  display_order integer,
-  image_url text
-)
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT
-    o.id,
-    o.question_id,
-    o.option_label,
-    o.option_text,
-    o.option_text_en,
-    o.category_target,
-    o.display_order,
-    o.image_url
-  FROM public.test_question_options o
-  WHERE o.question_id = ANY(_question_ids)
-  ORDER BY o.display_order;
-$$;
-
-REVOKE ALL ON FUNCTION public.get_test_question_options_safe(uuid[]) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_test_question_options_safe(uuid[]) TO authenticated, service_role;
