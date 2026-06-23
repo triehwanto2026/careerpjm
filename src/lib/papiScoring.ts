@@ -187,10 +187,12 @@ export const buildPapiInterpretation = (categories: Record<string, unknown>) => 
   const mainFactors = getPapiMainFactors(categories);
   const validity = validatePapiProfile(categories);
   const { valid, total, errors } = validity;
-  
+
   // If validation fails, show error message instead of interpretation
   if (!valid) {
-    return `STATUS VALIDASI: INVALID
+    return `═══════════════════════════════════════════════════════════════
+STATUS VALIDASI: INVALID
+═══════════════════════════════════════════════════════════════
 
 Interpretasi tidak ditampilkan karena hasil scoring belum valid.
 
@@ -201,12 +203,12 @@ Pesan:
 "SCORING INVALID - ${errors[0]}"
 
 Periksa:
-- Mapping kunci soal (scoring_rule dan category_target)
-- Jawaban peserta
-- Rumus perhitungan skor
-- Total skor harus = 90`;
+• Mapping kunci soal (scoring_rule dan category_target)
+• Jawaban peserta
+• Rumus perhitungan skor
+• Total skor harus = 90`;
   }
-  
+
   const top = [...rows].sort((a, b) => b.value - a.value || a.code.localeCompare(b.code)).slice(0, 4);
   const highs = rows.filter((row) => row.level === "Tinggi").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const lows = rows.filter((row) => row.level === "Rendah").sort((a, b) => a.value - b.value || a.code.localeCompare(b.code)).slice(0, 5);
@@ -216,7 +218,7 @@ Periksa:
   const needRows = rows.filter((row) => row.group === "Need").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const roleRows = rows.filter((row) => row.group === "Role").sort((a, b) => b.value - a.value || a.code.localeCompare(b.code));
   const orientation = needs > roles ? "kebutuhan/motivasi internal lebih menonjol" : roles > needs ? "peran dan gaya kerja yang tampak lebih menonjol" : "kebutuhan internal dan peran kerja relatif seimbang";
-  
+
   const workImplication = top.map((row) => {
     const tendency = row.level === "Tinggi" ? row.high : row.level === "Sedang" ? `menunjukkan ${row.description} pada taraf cukup` : row.low;
     return `${row.code} - ${row.label}: ${tendency}`;
@@ -234,7 +236,7 @@ Periksa:
         : "Area ini bukan kelemahan mutlak; maknanya perlu dibaca sebagai preferensi yang relatif kurang dominan.";
     return `${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%; ${row.level}): ${meaning}. ${caution}`;
   };
-  
+
   const factorInterpretation = mainFactors.map(factor => {
     const levelDesc = {
       "Sangat Tinggi": "Aspek sangat dominan dan menjadi karakteristik utama individu.",
@@ -242,57 +244,77 @@ Periksa:
       "Cukup": "Aspek muncul secara moderat dan situasional.",
       "Rendah": "Aspek tersebut bukan kecenderungan dominan individu."
     }[factor.level];
-    
+
     return `${factor.name} (${factor.value.toFixed(2)} - ${factor.level}): ${factor.description}. ${levelDesc} Dimensi: ${factor.dimensions.join(", ")}.`;
   }).join("\n");
 
-  const scoreTable = rows.map((row) => 
+  const scoreTable = rows.map((row) =>
     `${row.code} - ${row.label}: Skor ${row.value}/${row.max}, Persentase ${row.pct}%, Kategori ${row.level}`
   ).join("\n");
 
-  return `STATUS VALIDASI: VALID
+  return `═══════════════════════════════════════════════════════════════
+PROFIL PAPI KOSTICK - PREFERENCE ACTIVITIES INVENTORY
+═══════════════════════════════════════════════════════════════
+
+STATUS VALIDASI: VALID
 Total skor seluruh dimensi: ${total} (harus = 90)
 
+═══════════════════════════════════════════════════════════════
+RESUME UTAMA - 7 FAKTOR KEMAMPUAN PAPI KOSTICK
+═══════════════════════════════════════════════════════════════
+
+${factorInterpretation}
+
+═══════════════════════════════════════════════════════════════
+DETAIL PROFIL DIMENSI
+═══════════════════════════════════════════════════════════════
+
 RINGKASAN PROFIL
-Skala paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%; ${row.level})`).join(", ")}.
-Makna umum: ${workImplication}.
+Skala paling menonjol: ${top.map((row) => `${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%; ${row.level})`).join(", ")}
+Makna umum: ${workImplication}
 
 TABEL SKOR 20 DIMENSI
 ${scoreTable}
 
-SCORING LANJUTAN PAPI KOSTICK (7 FAKTOR UTAMA)
-${factorInterpretation}
-
 NEED VS ROLE
-- Total Need: ${needs}
-- Total Role: ${roles}
-- Kesimpulan: ${orientation}.
-- Catatan: Need menggambarkan dorongan/kebutuhan internal, sedangkan Role menggambarkan perilaku kerja yang lebih tampak dalam peran sehari-hari.
+• Total Need: ${needs}
+• Total Role: ${roles}
+• Kesimpulan: ${orientation}
+• Catatan: Need menggambarkan dorongan/kebutuhan internal, sedangkan Role menggambarkan perilaku kerja yang lebih tampak dalam peran sehari-hari
 
 SKALA TINGGI
-${highs.length ? highs.map((row) => `- ${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%): ${row.high}`).join("\n") : "- Tidak ada skala yang sangat tinggi; profil relatif moderat dan perlu dilihat dari kombinasi keseluruhan skala."}
+${highs.length ? highs.map((row) => `• ${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%): ${row.high}`).join("\n") : "• Tidak ada skala yang sangat tinggi; profil relatif moderat dan perlu dilihat dari kombinasi keseluruhan skala."}
 
 SKALA RENDAH
-${lows.length ? lows.map((row) => `- ${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%): ${row.low}`).join("\n") : "- Tidak ada skala rendah yang menonjol."}
+${lows.length ? lows.map((row) => `• ${row.code} - ${row.label} (${row.value}/${row.max}; ${row.pct}%): ${row.low}`).join("\n") : "• Tidak ada skala rendah yang menonjol."}
 
 INTERPRETASI RINCI PER DIMENSI
-${rows.map((row) => `- ${explainRow(row)}`).join("\n")}
+${rows.map((row) => `• ${explainRow(row)}`).join("\n")}
 
 ANALISIS NEED
-${needRows.map((row) => `- ${row.code} ${row.value}/${row.max} (${row.pct}%) - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "kebutuhan tampak cukup dan situasional" : row.low}`).join("\n")}
+${needRows.map((row) => `• ${row.code} ${row.value}/${row.max} (${row.pct}%) - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "kebutuhan tampak cukup dan situasional" : row.low}`).join("\n")}
 
 ANALISIS ROLE
-${roleRows.map((row) => `- ${row.code} ${row.value}/${row.max} (${row.pct}%) - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "peran kerja tampak cukup dan situasional" : row.low}`).join("\n")}
+${roleRows.map((row) => `• ${row.code} ${row.value}/${row.max} (${row.pct}%) - ${row.label}: ${row.level === "Tinggi" ? row.high : row.level === "Sedang" ? "peran kerja tampak cukup dan situasional" : row.low}`).join("\n")}
 
 IMPLIKASI KERJA
-- Profil ini membantu membaca motivasi kerja, kebutuhan struktur, dorongan pencapaian, gaya relasi, ketegasan, kepemimpinan, tempo kerja, dan respons terhadap aturan/supervisi.
-- ${moderate} skala berada pada area sedang, sehingga beberapa perilaku kemungkinan lebih situasional dan perlu divalidasi melalui wawancara.
-- Untuk jabatan dengan target tinggi, perhatikan kombinasi A, G, N, dan T.
-- Untuk jabatan koordinatif atau supervisori, perhatikan D, L, P, K, S, dan B.
-- Untuk jabatan yang membutuhkan ketelitian, prosedur, dan kepatuhan, perhatikan C, W, F, serta E.
+• Profil ini membantu membaca motivasi kerja, kebutuhan struktur, dorongan pencapaian, gaya relasi, ketegasan, kepemimpinan, tempo kerja, dan respons terhadap aturan/supervisi
+• ${moderate} skala berada pada area sedang, sehingga beberapa perilaku kemungkinan lebih situasional dan perlu divalidasi melalui wawancara
+• Untuk jabatan dengan target tinggi, perhatikan kombinasi A, G, N, dan T
+• Untuk jabatan koordinatif atau supervisori, perhatikan D, L, P, K, S, dan B
+• Untuk jabatan yang membutuhkan ketelitian, prosedur, dan kepatuhan, perhatikan C, W, F, serta E
 
-REKOMENDASI PENGGUNAAN
-- Cocokkan profil PAPI dengan tuntutan jabatan: target, koordinasi, struktur kerja, relasi interpersonal, perubahan, dan kebutuhan supervisi.
-- Skala tinggi dapat menjadi kekuatan bila sesuai konteks, namun dapat menjadi risiko bila tuntutan jabatan berlawanan.
-- PAPI adalah inventory preferensi/gaya kerja, bukan tes benar-salah. Interpretasi perlu dipadukan dengan wawancara, observasi perilaku, tuntutan jabatan, dan data asesmen lain sebelum menjadi dasar keputusan seleksi.`;
+REKOMENDASI POSISI
+Berdasarkan profil PAPI, kandidat cocok untuk peran yang sesuai dengan kombinasi skala dominan:
+${highs.length >= 3 ? "• Posisi dengan tuntutan tinggi dan target menantang (jika A, G, N, T tinggi)\n• Peran manajerial atau supervisori (jika L, P, K tinggi)\n• Posisi yang membutuhkan ketelitian dan prosedur (jika C, D, E tinggi)\n• Peran yang membutuhkan interaksi sosial (jika S, B, O tinggi)" : "• Posisi dengan tuntutan sesuai kombinasi skala yang ditunjukkan\n• Perlu evaluasi lebih lanjut untuk memetakan kecocokan dengan jabatan spesifik"}
+
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. Cocokkan profil PAPI dengan tuntutan jabatan: target, koordinasi, struktur kerja, relasi interpersonal, perubahan, dan kebutuhan supervisi.
+2. Skala tinggi dapat menjadi kekuatan bila sesuai konteks, namun dapat menjadi risiko bila tuntutan jabatan berlawanan.
+3. PAPI adalah inventory preferensi/gaya kerja, bukan tes benar-salah. Interpretasi perlu dipadukan dengan wawancara, observasi perilaku, tuntutan jabatan, dan data asesmen lain sebelum menjadi dasar keputusan seleksi.
+4. Tidak ada profil PAPI yang lebih baik dari yang lain - setiap profil memiliki konteks yang cocok.
+5. Pertimbangkan faktor motivasi, nilai-nilai personal, dan budaya organisasi dalam keputusan akhir.`;
 };

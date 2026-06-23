@@ -566,34 +566,48 @@ const buildAptitudeInterpretation = (cats: Record<string, number>, score: number
   const correct = getAptitudeRawValue(cats, { categories: cats, score, total_questions: total } as ResultRow);
   const wrong = Math.max(0, answered - correct);
 
-  return `RINGKASAN IQ
-- Estimasi IQ: ${info.iq}
-- Klasifikasi IQ: ${info.classification}
-- Raw score: ${correct}/${total} benar (${info.percentage}%); ${wrong} salah dari ${answered} soal dijawab.
-- Rekomendasi seleksi: ${level.recommendation}
+  return `═══════════════════════════════════════════════════════════════
+PROFIL APTITUDE - TES KEMAMPUAN INTELEKTUAL
+═══════════════════════════════════════════════════════════════
 
-ACUAN KATEGORI
-- <85: Kecerdasan di bawah rata-rata
-- 85-100: Kecerdasan rata-rata
-- 100-115: Kecerdasan di atas rata-rata
-- 115-130: Kecerdasan tinggi
-- 130-145: Kecerdasan superior
-- 145+: Sangat berbakat
+RINGKASAN IQ
+• Estimasi IQ: ${info.iq}
+• Klasifikasi IQ: ${info.classification}
+• Raw score: ${correct}/${total} benar (${info.percentage}%)
+• Jawaban salah: ${wrong} dari ${answered} soal dijawab
+• Rekomendasi seleksi: ${level.recommendation}
+
+ACUAN KATEGORI IQ
+• <85: Kecerdasan di bawah rata-rata
+• 85-100: Kecerdasan rata-rata
+• 100-115: Kecerdasan di atas rata-rata
+• 115-130: Kecerdasan tinggi
+• 130-145: Kecerdasan superior
+• 145+: Sangat berbakat
 
 KEKUATAN RELATIF
-- ${strongest.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.pct}%; ${row.level})`).join("\n- ")}
+${strongest.map((row) => `• ${row.label}: ${row.raw}/${row.max} (${row.pct}%; ${row.level})`).join("\n")}
 
 AREA PERHATIAN
-- ${weakest.map((row) => `${row.label}: ${row.raw}/${row.max} (${row.pct}%; ${row.level})`).join("\n- ")}
-- Area ini sebaiknya divalidasi melalui wawancara berbasis kasus, riwayat pendidikan/kerja, dan contoh pekerjaan yang relevan.
+${weakest.map((row) => `• ${row.label}: ${row.raw}/${row.max} (${row.pct}%; ${row.level})`).join("\n")}
+Area ini sebaiknya divalidasi melalui wawancara berbasis kasus, riwayat pendidikan/kerja, dan contoh pekerjaan yang relevan.
 
-PROFIL ASPEK
-${rows.map((row) => `- ${row.label}: ${row.raw}/${row.max} (${row.level})`).join("\n")}
+PROFIL ASPEK KEMAMPUAN
+${rows.map((row) => `• ${row.label}: ${row.raw}/${row.max} (${row.pct}%; ${row.level}) - ${row.note}`).join("\n")}
 
-CATATAN SKORING
-- Tes menggunakan correct-only scoring: jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0.
-- Raw score dikonversi menjadi estimasi IQ untuk laporan hasil.
-- Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.`;
+REKOMENDASI POSISI
+Berdasarkan skor IQ ${info.iq} (${info.classification}), kandidat cocok untuk:
+${info.iq >= 145 ? "• Posisi yang menuntut analisis kompleks, strategi, dan pemecahan masalah tingkat lanjut\n• Peran seperti Analyst, Strategist, Researcher, Engineer, atau Specialist" : info.iq >= 130 ? "• Posisi yang membutuhkan analisis dan pemecahan masalah superior\n• Peran seperti Senior Analyst, Research Lead, Technical Architect, atau Senior Specialist" : info.iq >= 115 ? "• Posisi yang membutuhkan analisis dan pemecahan masalah di atas rata-rata\n• Peran seperti Manager, Supervisor, Analyst, atau Technical Lead" : info.iq >= 100 ? "• Posisi yang membutuhkan kemampuan analisis dan pemecahan masalah standar\n• Peran seperti Staff, Administrator, Technician, atau Coordinator" : "• Posisi dengan tugas rutin dan prosedural yang jelas\n• Peran seperti Operator, Clerk, atau Assistant dengan dukungan pelatihan yang memadai"}
+
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. Tes menggunakan correct-only scoring: jawaban benar bernilai 1, jawaban salah atau kosong bernilai 0.
+2. Raw score dikonversi menjadi estimasi IQ untuk laporan hasil.
+3. Interpretasi ini bukan keputusan tunggal; gunakan bersama hasil wawancara, observasi perilaku saat tes, pengalaman kerja, dan tuntutan jabatan.
+4. Skor rendah pada satu aspek tidak otomatis menggugurkan kandidat bila tuntutan posisi tidak dominan pada aspek tersebut.
+5. Sesuaikan penilaian dengan kompleksitas jabatan dan kebutuhan organisasi.`;
 };
 
 const buildAptitudeCategoriesFromAnswers = (answerRows: AnswerRow[], totalQuestions = 60) => {
@@ -644,11 +658,46 @@ const getEffectivePapiCategories = (result: ResultRow, answerRows: AnswerRow[]) 
 const buildKraepelinInterpretation = (cats: Record<string, number>) => {
   const rows = getKraepelinRows(cats);
   const level = (v: number) => v >= 80 ? "sangat tinggi" : v >= 60 ? "tinggi" : v >= 40 ? "cukup" : v >= 20 ? "rendah" : "sangat rendah";
-  return `Profil Kraepelin menunjukkan ${rows.map((row) => `${row.label.toLowerCase()} ${level(row.value)} (${row.value}%)`).join(", ")}.
+  const speed = rows.find((row) => row.key === "speed")?.value ?? 0;
+  const accuracy = rows.find((row) => row.key === "accuracy")?.value ?? 0;
+  const stability = rows.find((row) => row.key === "stability")?.value ?? 0;
+  const workCapacity = rows.find((row) => row.key === "work_capacity")?.value ?? 0;
 
-Jawaban benar ${Number(cats.correct_answers || 0)} dan salah ${Number(cats.wrong_answers || 0)}. Kolom terselesaikan ${Number(cats.columns_completed || 0)}, rata-rata benar per kolom ${Number(cats.average_column || 0)}, dan puncak benar per kolom ${Number(cats.peak_column || 0)}.
+  return `═══════════════════════════════════════════════════════════════
+PROFIL KRAEPELIN - TES KERJA HITUNG
+═══════════════════════════════════════════════════════════════
 
-Secara psikologis, hasil ini menggambarkan pola kerja hitung sederhana dalam tekanan waktu: tempo kerja, ketelitian, stabilitas/fluktuasi performa antar kolom, dan daya tahan kerja rutin. Interpretasi akhir perlu dibandingkan dengan tuntutan jabatan, terutama toleransi kesalahan, kebutuhan konsistensi, dan ritme kerja target.`;
+RINGKASAN PROFIL
+Profil Kraepelin menunjukkan ${rows.map((row) => `${row.label.toLowerCase()} ${level(row.value)} (${row.value}%)`).join(", ")}.
+
+DETAIL PERFORMA
+• Jawaban benar: ${Number(cats.correct_answers || 0)}
+• Jawaban salah: ${Number(cats.wrong_answers || 0)}
+• Kolom terselesaikan: ${Number(cats.columns_completed || 0)}
+• Rata-rata benar per kolom: ${Number(cats.average_column || 0)}
+• Puncak benar per kolom: ${Number(cats.peak_column || 0)}
+
+ANALISIS PER ASPEK
+• Kecepatan (${speed}%): ${speed >= 80 ? "Tempo kerja sangat cepat, mampu menyelesaikan tugas dengan efisiensi tinggi" : speed >= 60 ? "Tempo kerja baik, mampu bekerja dengan ritme yang memadai" : speed >= 40 ? "Tempo kerja cukup, masih dapat ditingkatkan dengan latihan" : "Tempo kerja perlu perhatian, mungkin membutuhkan waktu lebih untuk tugas rutin"}
+• Ketelitian (${accuracy}%): ${accuracy >= 80 ? "Akurasi sangat tinggi, perhatian terhadap detail sangat baik" : accuracy >= 60 ? "Akurasi baik, perhatian terhadap detail memadai" : accuracy >= 40 ? "Akurasi cukup, perlu fokus lebih pada ketelitian" : "Akurasi perlu perhatian, mungkin cenderung terburu-buru"}
+• Stabilitas (${stability}%): ${stability >= 80 ? "Performa sangat stabil, konsisten sepanjang tes" : stability >= 60 ? "Performa stabil, fluktuasi minimal" : stability >= 40 ? "Performa cukup stabil, ada fluktuasi wajar" : "Performa fluktuatif, perlu evaluasi konsentrasi"}
+• Kapasitas Kerja (${workCapacity}%): ${workCapacity >= 80 ? "Daya tahan sangat kuat, mampu bekerja lama tanpa penurunan performa" : workCapacity >= 60 ? "Daya tahan baik, mampu menjaga performa dalam jangka waktu memadai" : workCapacity >= 40 ? "Daya tahan cukup, perlu istirahat berkala" : "Daya tahan perlu perhatian, mudah lelah"}
+
+IMPLIKASI KERJA
+Secara psikologis, hasil ini menggambarkan pola kerja hitung sederhana dalam tekanan waktu: tempo kerja, ketelitian, stabilitas/fluktuasi performa antar kolom, dan daya tahan kerja rutin. Interpretasi akhir perlu dibandingkan dengan tuntutan jabatan, terutama toleransi kesalahan, kebutuhan konsistensi, dan ritme kerja target.
+
+REKOMENDASI POSISI
+${speed >= 60 && accuracy >= 60 ? "• Posisi yang membutuhkan kecepatan dan ketelitian: Data Entry, Accounting, Finance, Quality Control\n• Peran dengan tugas rutin namun menuntut akurasi tinggi" : speed >= 60 ? "• Posisi yang membutuhkan kecepatan kerja: Operations, Logistics, Customer Service\n• Peran dengan tugas volume tinggi dan deadline ketat" : accuracy >= 60 ? "• Posisi yang membutuhkan ketelitian tinggi: Audit, Quality Assurance, Research\n• Peran dengan fokus pada akurasi dan detail" : "• Posisi dengan tugas rutin dan struktur jelas\n• Peran yang membutuhkan dukungan dan pelatihan untuk meningkatkan performa"}
+
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. Kraepelin mengukur pola kerja hitung sederhana dalam tekanan waktu, bukan kemampuan intelektual secara umum.
+2. Hasil dapat dipengaruhi kondisi fisik, konsentrasi, kelelahan, dan motivasi saat tes.
+3. Interpretasi perlu dipadukan dengan wawancara, observasi perilaku, dan tuntutan spesifik posisi.
+4. Sesuaikan penilaian dengan toleransi kesalahan, kebutuhan konsistensi, dan ritme kerja target jabatan.
+5. Pertimbangkan faktor motivasi, kondisi kerja, dan dukungan lingkungan dalam keputusan akhir.`;
 };
 
 const renderDiscPrintMiniChart = (
@@ -954,8 +1003,23 @@ const Results = () => {
       : isAptitudeResult(r)
         ? getEffectiveAptitudeCategories(r, answers)
         : r.categories as Record<string, number>;
+    
+    // Normalize Personality Plus categories for print
+    let normalizedCats = cats;
+    if (r.test_name === "Personality Plus" || r.test_name.includes("Personality Plus")) {
+      const ppMap: Record<string, string> = {
+        K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
+        S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
+        M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
+        P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
+      };
+      const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+      Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+      normalizedCats = norm as Record<string, number>;
+    }
+    
     const scoreResult = isAptitudeResult(r) ? { ...r, categories: cats } : r;
-    const catEntries = Object.entries(cats);
+    const catEntries = Object.entries(normalizedCats);
     const cfitProfileRows = isCfitName(r.test_name) ? getCfitProfileRows(r) : [];
     const maxVal = isPapiResult(r) ? 9 : isMsdtResult(r) ? 64 : 100;
 
@@ -1177,74 +1241,74 @@ const Results = () => {
 
     const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Laporan Hasil Tes — ${r.candidate_name}</title>
     <style>
-      @page { size: A4; margin: 16mm 14mm; }
+      @page { size: A4; margin: 10mm 12mm; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; font-size: 11pt; line-height: 1.5; }
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; font-size: 10pt; line-height: 1.4; }
 
-      .header { border-bottom: 3px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-      .header-left h1 { font-size: 18pt; color: #0f172a; margin-bottom: 2px; letter-spacing: -0.3px; }
-      .header-left p { font-size: 9pt; color: #64748b; }
+      .header { border-bottom: 2px solid #0f766e; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
+      .header-left h1 { font-size: 16pt; color: #0f172a; margin-bottom: 1px; letter-spacing: -0.3px; }
+      .header-left p { font-size: 8pt; color: #64748b; }
       .header-right { text-align: right; }
-      .header-right .doc-id { font-size: 8pt; color: #64748b; font-family: 'Courier New', monospace; }
-      .header-right .doc-date { font-size: 9pt; color: #475569; margin-top: 2px; }
+      .header-right .doc-id { font-size: 7pt; color: #64748b; font-family: 'Courier New', monospace; }
+      .header-right .doc-date { font-size: 8pt; color: #475569; margin-top: 1px; }
 
-      .section { margin-bottom: 18px; page-break-inside: avoid; }
-      .section-title { font-size: 11pt; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+      .section { margin-bottom: 12px; page-break-inside: avoid; }
+      .section-title { font-size: 10pt; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; }
 
-      .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
-      .profile-row { display: flex; padding: 4px 0; border-bottom: 1px dashed #f1f5f9; font-size: 10pt; }
-      .profile-row .label { color: #64748b; min-width: 110px; font-weight: 500; }
+      .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
+      .profile-row { display: flex; padding: 3px 0; border-bottom: 1px dashed #f1f5f9; font-size: 9pt; }
+      .profile-row .label { color: #64748b; min-width: 100px; font-weight: 500; }
       .profile-row .value { color: #0f172a; font-weight: 600; flex: 1; }
 
-      .score-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
-      .score-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 6px; padding: 12px; text-align: center; }
-      .score-card .label { font-size: 8pt; color: #0f766e; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
-      .score-card .value { font-size: 22pt; font-weight: 800; color: #0f172a; line-height: 1.1; margin-top: 4px; }
-      .score-card .sub { font-size: 9pt; color: #64748b; }
+      .score-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+      .score-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 5px; padding: 8px; text-align: center; }
+      .score-card .label { font-size: 7pt; color: #0f766e; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+      .score-card .value { font-size: 18pt; font-weight: 800; color: #0f172a; line-height: 1; margin-top: 2px; }
+      .score-card .sub { font-size: 8pt; color: #64748b; }
 
-      table.dim-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
-      table.dim-table th { background: #f8fafc; color: #475569; font-weight: 600; text-align: left; padding: 8px 10px; border: 1px solid #e2e8f0; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.3px; }
-      table.dim-table td { padding: 7px 10px; border: 1px solid #e2e8f0; }
+      table.dim-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+      table.dim-table th { background: #f8fafc; color: #475569; font-weight: 600; text-align: left; padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.2px; }
+      table.dim-table td { padding: 5px 8px; border: 1px solid #e2e8f0; }
       table.dim-table tr:nth-child(even) td { background: #fafafa; }
-      .bar-container { background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; }
-      .bar-fill { height: 100%; border-radius: 4px; background: #0f766e; }
-      .mini-title { font-size: 9pt; font-weight: 700; color: #0f172a; margin: 0 0 6px; }
-      .papi-section { page-break-inside: auto; margin-bottom: 12px; }
-      .papi-print-grid { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 10px; align-items: start; }
-      .papi-wheel-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; background: #ffffff; max-width: 330px; margin: 0 auto; }
-      .papi-wheel-card svg { display: block; max-height: 300px; }
-      .papi-wheel-summary { margin-top: 3px; border-top: 1px dashed #cbd5e1; padding-top: 4px; font-size: 7.4pt; color: #475569; }
-      table.papi-score-table { font-size: 7.5pt; }
-      table.papi-score-table th { padding: 4px 5px; font-size: 6.9pt; }
-      table.papi-score-table td { padding: 3px 5px; line-height: 1.25; }
+      .bar-container { background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden; }
+      .bar-fill { height: 100%; border-radius: 3px; background: #0f766e; }
+      .mini-title { font-size: 8pt; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
+      .papi-section { page-break-inside: auto; margin-bottom: 8px; }
+      .papi-print-grid { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 8px; align-items: start; }
+      .papi-wheel-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px; background: #ffffff; max-width: 300px; margin: 0 auto; }
+      .papi-wheel-card svg { display: block; max-height: 260px; }
+      .papi-wheel-summary { margin-top: 2px; border-top: 1px dashed #cbd5e1; padding-top: 3px; font-size: 7pt; color: #475569; }
+      table.papi-score-table { font-size: 7pt; }
+      table.papi-score-table th { padding: 3px 4px; font-size: 6.5pt; }
+      table.papi-score-table td { padding: 2px 4px; line-height: 1.2; }
       table.papi-score-table td:nth-child(1),
       table.papi-score-table td:nth-child(3),
       table.papi-score-table td:nth-child(4) { text-align: center; white-space: nowrap; }
 
-      .interpretation { background: #fefce8; border-left: 4px solid #eab308; padding: 12px 14px; border-radius: 0 6px 6px 0; font-size: 10pt; line-height: 1.7; color: #422006; }
-      .papi-interpretation-heading { margin: 8px 0 3px; color: #0f766e; font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.35px; }
+      .interpretation { background: #fefce8; border-left: 4px solid #eab308; padding: 8px 10px; border-radius: 0 5px 5px 0; font-size: 9pt; line-height: 1.5; color: #422006; }
+      .papi-interpretation-heading { margin: 6px 0 2px; color: #0f766e; font-size: 8pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
       .papi-interpretation-heading:first-child { margin-top: 0; }
-      .papi-interpretation-paragraph { margin: 0 0 6px; }
-      .papi-interpretation-list { margin: 0 0 6px 16px; padding: 0; }
+      .papi-interpretation-paragraph { margin: 0 0 4px; }
+      .papi-interpretation-list { margin: 0 0 4px 14px; padding: 0; }
       .papi-interpretation-list li { margin: 1px 0; }
 
-      table.answer-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-      table.answer-table th { background: #0f172a; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3px; }
-      table.answer-table td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+      table.answer-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+      table.answer-table th { background: #0f172a; color: #fff; padding: 6px 8px; text-align: left; font-weight: 600; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.2px; }
+      table.answer-table td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
       table.answer-table tr:nth-child(even) td { background: #f8fafc; }
-      .ans-num { font-weight: 700; color: #0f766e; width: 32px; text-align: center; }
-      .ans-q-en { color: #94a3b8; font-style: italic; font-size: 8pt; margin-top: 2px; }
-      .ans-pill { display: inline-block; background: #0f766e; color: #fff; padding: 2px 8px; border-radius: 3px; font-weight: 600; font-size: 8.5pt; }
+      .ans-num { font-weight: 700; color: #0f766e; width: 28px; text-align: center; }
+      .ans-q-en { color: #94a3b8; font-style: italic; font-size: 7pt; margin-top: 1px; }
+      .ans-pill { display: inline-block; background: #0f766e; color: #fff; padding: 1px 6px; border-radius: 2px; font-weight: 600; font-size: 7.5pt; }
       .ans-correct { background: #059669; }
       .ans-wrong { background: #dc2626; }
-      .ans-cat { color: #64748b; font-size: 8.5pt; }
+      .ans-cat { color: #64748b; font-size: 7.5pt; }
 
-      .signature-area { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; page-break-inside: avoid; }
-      .sig-box { text-align: center; font-size: 9pt; }
-      .sig-box .role { color: #64748b; margin-bottom: 60px; }
-      .sig-box .name { border-top: 1px solid #1f2937; padding-top: 4px; font-weight: 600; }
+      .signature-area { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; page-break-inside: avoid; }
+      .sig-box { text-align: center; font-size: 8pt; }
+      .sig-box .role { color: #64748b; margin-bottom: 50px; }
+      .sig-box .name { border-top: 1px solid #1f2937; padding-top: 3px; font-weight: 600; }
 
-      .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
+      .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 7pt; color: #94a3b8; }
 
       .page-break { page-break-before: always; }
       .hidden { display: none; }
@@ -1282,8 +1346,6 @@ const Results = () => {
         </div>
       </div>
     </div>
-
-    <div class="page-break"></div>
 
     ${(() => {
       // For CFIT, calculate IQ from correct answers
@@ -1366,15 +1428,18 @@ const Results = () => {
           P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
         };
         const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
-        Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+        Object.entries(normalizedCats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
         const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
         const dominant = sorted[0];
         const second = sorted[1];
+        const total = Object.values(norm).reduce((a, b) => a + b, 0) || 1;
+        const domPct = Math.round((dominant[1] / total) * 100);
+        const secPct = Math.round((second[1] / total) * 100);
         const diff = dominant[1] - second[1];
         if (diff >= 1 && diff <= 4) {
-          dominantScore = `${dominant[0]} (${dominant[1]}) / ${second[0]} (${second[1]})`;
+          dominantScore = `${dominant[0]} (${domPct}%) / ${second[0]} (${secPct}%)`;
         } else {
-          dominantScore = `${dominant[0]} (${dominant[1]})`;
+          dominantScore = `${dominant[0]} (${domPct}%)`;
         }
       }
       const istSummary = isIST ? getIstSummary(cats, r.score) : null;
@@ -1464,7 +1529,7 @@ const Results = () => {
           P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
         };
         const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
-        Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
+        Object.entries(normalizedCats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
         const total = Object.values(norm).reduce((a, b) => a + b, 0) || r.total_questions || 40;
         const order = ['Sanguinis', 'Koleris', 'Melankolis', 'Plegmatis'];
         const colors: Record<string, string> = { Sanguinis: '#f59e0b', Koleris: '#dc2626', Melankolis: '#2563eb', Plegmatis: '#059669' };
@@ -1472,6 +1537,11 @@ const Results = () => {
         // Calculate percentages for chart
         const chartData = order.map(t => ({ name: t, value: norm[t], pct: Math.round((norm[t] / total) * 100) }));
         const maxVal = Math.max(...chartData.map(d => d.value), 1);
+        
+        // Sort by percentage to get dominant and secondary
+        const sortedData = [...chartData].sort((a, b) => b.pct - a.pct);
+        const dominant = sortedData[0];
+        const secondary = sortedData[1];
         
         return `
         <!-- Compact Table + Chart Side by Side -->
@@ -1498,8 +1568,8 @@ const Results = () => {
               </tbody>
             </table>
             <div style="margin-top: 8px; font-size: 8pt; color: #64748b; background: #f8fafc; padding: 6px; border-radius: 4px;">
-              <strong>Dominan:</strong> ${chartData[0].name} (${chartData[0].pct}%)<br/>
-              <strong>Sekunder:</strong> ${chartData[1].name} (${chartData[1].pct}%)
+              <strong>Dominan:</strong> ${dominant.name} (${dominant.pct}%)<br/>
+              <strong>Sekunder:</strong> ${secondary.name} (${secondary.pct}%)
             </div>
           </div>
           
@@ -1569,69 +1639,7 @@ const Results = () => {
 	      if (specialInterpretationHTML) return specialInterpretationHTML;
       // Full format interpretation for PP
       if (isPP) {
-        return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div><div class="interpretation">${formatPapiInterpretationHtml(buildSharedPersonalityPlusInterpretation(cats, r.total_questions || 40))}</div></div>`;
-        const ppMap: Record<string, string> = {
-          K: 'Koleris', C: 'Koleris', Choleric: 'Koleris', Koleris: 'Koleris',
-          S: 'Sanguinis', Sanguine: 'Sanguinis', Sanguinis: 'Sanguinis',
-          M: 'Melankolis', Melancholy: 'Melankolis', Melancholic: 'Melankolis', Melankolis: 'Melankolis',
-          P: 'Plegmatis', Phlegmatic: 'Plegmatis', Plegmatis: 'Plegmatis', Plegmatic: 'Plegmatis',
-        };
-        const norm: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
-        Object.entries(cats).forEach(([k, v]) => { const n = ppMap[k] || k; if (n in norm) norm[n] += Number(v) || 0; });
-        const sorted = Object.entries(norm).sort((a, b) => b[1] - a[1]);
-        const [dom, domVal] = sorted[0];
-        const [sec, secVal] = sorted[1];
-        const total = Object.values(norm).reduce((a, b) => a + b, 0) || 1;
-        const domPct = Math.round((domVal / total) * 100);
-        const secPct = Math.round((secVal / total) * 100);
-        
-        const strengths: Record<string, string> = {
-          Sanguinis: 'Ekspresif, antusias, ramah, mudah bergaul, optimis, kreatif, dan mampu memotivasi orang lain. Cocok di lingkungan yang membutuhkan komunikasi intensif.',
-          Koleris: 'Tegas, berorientasi pada hasil, pemimpin alami, mandiri, cepat mengambil keputusan, dan tidak takut tantangan.',
-          Melankolis: 'Analitis, teliti, perfeksionis, terstruktur, dan berorientasi pada kualitas.',
-          Plegmatis: 'Tenang, sabar, konsisten, pendukung tim, dan mampu menjaga stabilitas.'
-        };
-        
-        const weaknesses: Record<string, string> = {
-          Sanguinis: 'Cenderung impulsif, kurang disiplin pada detail, mudah teralihkan, dan kadang sulit menyelesaikan tugas yang berulang/monoton.',
-          Koleris: 'Cenderung dominan, kurang sabar, bisa terkesan keras kepala, dan kadang mengabaikan perasaan orang lain.',
-          Melankolis: 'Cenderung perfeksionis, moody, sulit move on dari kesalahan, dan bisa terlalu kritis.',
-          Plegmatis: 'Cenderung lambat dalam mengambil inisiatif, sulit menolak, dan bisa terlalu menghindari konflik.'
-        };
-        
-        const recommendations: Record<string, string> = {
-          Sanguinis: 'Marketing, Public Relations, Sales, Trainer, Customer Engagement, Event Organizer',
-          Koleris: 'Manager, Entrepreneur, Sales Director, Project Leader, Business Development',
-          Melankolis: 'Analyst, Quality Control, Researcher, Programmer, Accountant',
-          Plegmatis: 'Customer Service, HR, Administrator, Counselor, Therapist'
-        };
-        
-        const secDesc: Record<string, string> = {
-          Koleris: 'tegas, berorientasi pada hasil, pemimpin alami, mandiri, cepat mengambil keputusan, dan tidak takut tantangan',
-          Sanguinis: 'ekspresif, antusias, ramah, dan mampu memotivasi orang lain',
-          Melankolis: 'analitis, teliti, dan berorientasi pada kualitas',
-          Plegmatis: 'tenang, sabar, dan pendukung tim'
-        };
-        
-        return `
-    <div class="section">
-      <div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div>
-      <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 12px; border-radius: 0 8px 8px 0; font-size: 9.5pt; line-height: 1.6; color: #422006;">
-        <p style="margin-bottom: 10px;">Berdasarkan hasil tes Personality Plus, kandidat menampilkan profil temperamen <strong>DOMINAN: ${dom}</strong> (${domVal} jawaban — ${domPct}%) dengan dukungan <strong>SEKUNDER: ${sec}</strong> (${secVal} jawaban — ${secPct}%). Distribusi jumlah jawaban — Sanguinis: ${norm.Sanguinis}, Koleris: ${norm.Koleris}, Melankolis: ${norm.Melankolis}, Plegmatis: ${norm.Plegmatis}.</p>
-        
-        <p style="margin-bottom: 6px; font-weight: 700; color: #0f766e;">KEKUATAN (${dom}):</p>
-        <p style="margin-bottom: 10px; padding-left: 12px;">${strengths[dom]}</p>
-        
-        <p style="margin-bottom: 6px; font-weight: 700; color: #dc2626;">AREA PERHATIAN (${dom}):</p>
-        <p style="margin-bottom: 10px; padding-left: 12px;">${weaknesses[dom]}</p>
-        
-        <p style="margin-bottom: 10px;"><strong>Kombinasi ${dom}-${sec}:</strong> kandidat memiliki karakter utama ${dom.toLowerCase()} yang dilengkapi nuansa ${sec.toLowerCase()} (${secDesc[sec]}). Kombinasi ini memperkaya profil dan memperluas zona efektivitas kerja.</p>
-        
-        <p style="margin-bottom: 10px;"><strong>REKOMENDASI POSISI:</strong> ${recommendations[dom]}.</p>
-        
-        <p style="font-size: 8.5pt; color: #64748b; border-top: 1px dashed #d1d5db; padding-top: 8px; margin-top: 10px;"><strong>CATATAN PSIKOLOG:</strong> Profil ini valid untuk ${total} item respons. Disarankan didampingi wawancara mendalam (kompetensi & nilai) untuk validasi konteks pekerjaan. Skor tertinggi adalah karakter natural; tidak menutup kemungkinan kandidat menampilkan perilaku temperamen lain situasionalnya.</p>
-      </div>
-    </div>`;
+        return `<div class="section"><div class="section-title">Interpretasi Psikolog — Profil 4 Temperamen</div><div class="interpretation">${formatPapiInterpretationHtml(buildSharedPersonalityPlusInterpretation(normalizedCats, r.total_questions || 40))}</div></div>`;
       }
       // For other tests
       if (!r.interpretation) return "";

@@ -236,34 +236,50 @@ export const buildMbtiInterpretation = (categories: Record<string, number>) => {
     .map((row) => row.pair)
     .join(", ");
 
-  return `PROFIL UTAMA
-- Tipe MBTI: ${type}${typeProfile ? ` - ${typeProfile.name}` : ""}
-- Gambaran preferensi: kandidat ${profile}.
+  return `═══════════════════════════════════════════════════════════════
+PROFIL MBTI - MYERS-BRIGGS TYPE INDICATOR
+═══════════════════════════════════════════════════════════════
+
+PROFIL UTAMA
+Tipe MBTI: ${type}${typeProfile ? ` - ${typeProfile.name}` : ""}
+Gambaran preferensi: kandidat ${profile}.
 
 RINGKASAN TIPE
-- ${typeProfile?.summary || "Profil tipe menunjukkan kombinasi preferensi kepribadian kandidat pada empat pasangan dimensi MBTI."}
+${typeProfile?.summary || "Profil tipe menunjukkan kombinasi preferensi kepribadian kandidat pada empat pasangan dimensi MBTI."}
 
 KEKUATAN UTAMA
-- ${typeProfile?.strengths || "Kekuatan utama perlu dibaca dari dimensi dominan dan konteks pekerjaan."}
+• ${typeProfile?.strengths || "Kekuatan utama perlu dibaca dari dimensi dominan dan konteks pekerjaan."}
+• Kekuatan ini dapat dimaksimalkan dalam lingkungan kerja yang sesuai dengan preferensi natural kandidat
+• Kombinasi kekuatan ini memberikan nilai unik untuk peran yang membutuhkan karakteristik ${type}
 
 AREA PERHATIAN
-- ${typeProfile?.watchouts || "Area perhatian perlu divalidasi melalui wawancara dan observasi perilaku kerja."}
+• ${typeProfile?.watchouts || "Area perhatian perlu divalidasi melalui wawancara dan observasi perilaku kerja."}
+• Perlu strategi manajemen diri dan dukungan lingkungan untuk mengoptimalkan potensi
+• Area ini bukan kelemahan mutlak, tetapi indikator yang perlu dikelola dalam konteks kerja
 
-GAYA KERJA
-- ${typeProfile?.workStyle || "Gaya kerja dipengaruhi oleh preferensi energi, cara mengolah informasi, pengambilan keputusan, dan struktur kerja."}
+GAYA KERJA OPTIMAL
+${typeProfile?.workStyle || "Gaya kerja dipengaruhi oleh preferensi energi, cara mengolah informasi, pengambilan keputusan, dan struktur kerja."}
+Lingkungan kerja yang sesuai akan meningkatkan performa dan kepuasan kerja.
 
-GAYA KOMUNIKASI
-- ${typeProfile?.communication || "Komunikasi paling efektif mengikuti preferensi dominan kandidat dan kebutuhan situasi kerja."}
+GAYA KOMUNIKASI EFEKTIF
+${typeProfile?.communication || "Komunikasi paling efektif mengikuti preferensi dominan kandidat dan kebutuhan situasi kerja."}
+Menggunakan gaya komunikasi yang sesuai akan meningkatkan kolaborasi dan hubungan kerja.
 
-KECOCOKAN PERAN
-- ${typeProfile?.suitableRoles || "Gunakan hasil ini untuk mendukung pemetaan peran, bukan sebagai satu-satunya dasar keputusan."}
+REKOMENDASI POSISI
+${typeProfile?.suitableRoles || "Gunakan hasil ini untuk mendukung pemetaan peran, bukan sebagai satu-satunya dasar keputusan."}
+Tetap sesuaikan dengan pengalaman, kompetensi teknis, budaya tim, dan tuntutan jabatan spesifik.
 
 DISTRIBUSI PASANGAN DIMENSI
-- ${distribution}.
-${balanceNotes ? `- Pasangan ${balanceNotes} relatif seimbang, sehingga perilaku kandidat pada dimensi tersebut dapat lebih situasional dan perlu divalidasi melalui wawancara.` : ""}
+${distribution}
+${balanceNotes ? `• Pasangan ${balanceNotes} relatif seimbang, sehingga perilaku kandidat pada dimensi tersebut dapat lebih situasional dan perlu divalidasi melalui wawancara.` : ""}
 
-CATATAN PSIKOLOG
-- Hasil MBTI dibaca sebagai preferensi gaya kerja, komunikasi, pengambilan keputusan, dan kebutuhan lingkungan kerja.
-- MBTI bukan ukuran kemampuan mutlak, bukan diagnosis klinis, dan bukan penentu tunggal kelayakan kandidat.
-- Interpretasi akhir tetap perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, serta tuntutan jabatan.`;
+═══════════════════════════════════════════════════════════════
+CATATAN PENTING BAGI REKRUTER
+═══════════════════════════════════════════════════════════════
+
+1. Hasil MBTI dibaca sebagai preferensi gaya kerja, komunikasi, pengambilan keputusan, dan kebutuhan lingkungan kerja.
+2. MBTI bukan ukuran kemampuan mutlak, bukan diagnosis klinis, dan bukan penentu tunggal kelayakan kandidat.
+3. Tidak ada tipe MBTI yang lebih baik dari yang lain - setiap tipe memiliki kekuatan dan konteks yang cocok.
+4. Interpretasi akhir tetap perlu dipadukan dengan wawancara, observasi perilaku, riwayat kerja, serta tuntutan jabatan.
+5. Sesuaikan penilaian dengan tuntutan spesifik posisi, budaya organisasi, dan dinamika tim.`;
 };

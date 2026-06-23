@@ -59,7 +59,9 @@ export const normalizePersonalityPlus = (categories: Record<string, unknown>) =>
   };
   Object.entries(categories || {}).forEach(([key, value]) => {
     const temperament = TEMPERAMENT_MAP[String(key).trim().toUpperCase()];
-    if (temperament) normalized[temperament] += Number(value) || 0;
+    if (temperament) {
+      normalized[temperament] += Number(value) || 0;
+    }
   });
   return normalized;
 };
