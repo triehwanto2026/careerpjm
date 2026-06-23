@@ -1,9 +1,9 @@
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 
-const envFilePath = '.env';
 const env = {};
-if (fs.existsSync(envFilePath)) {
+for (const envFilePath of ['.env', '.env.local']) {
+  if (!fs.existsSync(envFilePath)) continue;
   fs.readFileSync(envFilePath, 'utf8').split('\n').forEach((line) => {
     const [key, ...rest] = line.split('=');
     if (!key || rest.length === 0) return;
@@ -14,13 +14,11 @@ if (fs.existsSync(envFilePath)) {
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-  || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
   || env.SUPABASE_SERVICE_ROLE_KEY
-  || env.VITE_SUPABASE_SERVICE_ROLE_KEY
-  || env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  || env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing Supabase credentials. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_PUBLISHABLE_KEY in environment or .env.');
+  console.error('Missing admin Supabase credentials. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local, or pass SUPABASE_SERVICE_ROLE_KEY in the shell.');
   process.exit(1);
 }
 
@@ -163,6 +161,15 @@ async function main() {
     }
 
     const qid = question.id;
+    if (questionNumber >= 61 && questionNumber <= 76) {
+      const { error: typeError } = await supabase
+        .from('test_questions')
+        .update({ question_type: 'text', scoring_rule: 'correct_only', subtest_code: 'GE' })
+        .eq('id', qid);
+      if (typeError) {
+        console.error(`Failed to update question ${questionNumber} to text/essay:`, typeError.message || typeError);
+      }
+    }
 
     let { data: options, error: optionsError } = await supabase
       .from('test_question_options')
@@ -218,7 +225,7 @@ async function main() {
         const scoreValue = scoreAnswer(scoreKey, opt.option_text);
         const { error } = await supabase
           .from('test_question_options')
-          .update({ is_correct: scoreValue > 0, score_value: scoreValue })
+          .update({ is_correct: scoreValue > 0, score_value: scoreValue > 0 ? 1 : 0 })
           .eq('id', opt.id);
         if (error) {
           console.error(`Failed to update option ${opt.id} for question ${questionNumber}:`, error.message || error);

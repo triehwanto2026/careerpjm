@@ -119,7 +119,7 @@ const IST_SUBTESTS = [
   { code: "SE", name: "Satzergänzung", max: 20, area: "Pengetahuan bahasa dan pemahaman konsep verbal" },
   { code: "WA", name: "Wortauswahl", max: 20, area: "Kemampuan abstraksi verbal dan asosiasi kata" },
   { code: "AN", name: "Analogien", max: 20, area: "Penalaran analogis dan hubungan logis" },
-  { code: "GE", name: "Gemeinsamkeiten", max: 32, area: "Pembentukan konsep umum dan generalisasi" },
+  { code: "GE", name: "Gemeinsamkeiten", max: 16, area: "Pembentukan konsep umum dan generalisasi" },
   { code: "RA", name: "Rechenaufgaben", max: 20, area: "Kemampuan berhitung dan pemecahan masalah numerik" },
   { code: "ZR", name: "Zahlenreihen", max: 20, area: "Penalaran induktif numerik dan pola deret" },
   { code: "FA", name: "Figurenauswahl", max: 20, area: "Kemampuan analisis bentuk dan konstruksi figural" },
@@ -128,7 +128,7 @@ const IST_SUBTESTS = [
 ] as const;
 
 const isIstResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
-  r.test_name.toUpperCase().includes("IST") || Object.keys(r.categories || {}).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
+  r.test_name.toUpperCase().includes("IST") || Object.keys(r.categories || {}).some((key) => /^(SE|WA|AN|GE|RA|ZR|FA|WU|ME)(\s*-|$)/i.test(key));
 
 const getIstSubtestScore = (cats: Record<string, number>, code: string) => {
   const match = Object.entries(cats).find(([key]) => key === code || key.startsWith(`${code} -`));
@@ -1867,6 +1867,12 @@ const Results = () => {
     if (isIstResult(r)) {
       const summary = getIstSummary(cats, r.score);
       const chartData = summary.rows.map((row) => ({ name: row.code, value: row.pct, raw: row.raw, max: row.max, fullName: row.name }));
+      const abilityData = summary.groups.map((group) => ({ name: group.group, value: group.pct, raw: group.raw, max: group.max }));
+      const comparisonData = [
+        { name: "Kekuatan Utama", value: summary.strongest.pct, label: `${summary.strongest.code} - ${summary.strongest.name}` },
+        { name: "Area Pengembangan", value: summary.weakest.pct, label: `${summary.weakest.code} - ${summary.weakest.name}` },
+        { name: "IST Total", value: summary.score, label: "Rata-rata 9 subtes" },
+      ];
       return (
         <div className="space-y-4">
           <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
@@ -1885,6 +1891,11 @@ const Results = () => {
               </div>
             </div>
           </div>
+          {!summary.validity.valid && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              Scoring IST invalid: {summary.validity.errors.join("; ")}
+            </div>
+          )}
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
@@ -1897,6 +1908,38 @@ const Results = () => {
               <Bar dataKey="value" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-border bg-card p-3">
+              <p className="mb-2 text-sm font-semibold text-foreground">Radar 4 Kemampuan Utama</p>
+              <ResponsiveContainer width="100%" height={280}>
+                <RadarChart data={abilityData}>
+                  <PolarGrid stroke="hsl(220, 14%, 25%)" />
+                  <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+                  <Radar name="Kemampuan IST" dataKey="value" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.24} strokeWidth={2} />
+                  <Tooltip
+                    contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }}
+                    formatter={(v: any, _name: any, props: any) => [`${v}% (${props.payload.raw}/${props.payload.max})`, props.payload.name]}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3">
+              <p className="mb-2 text-sm font-semibold text-foreground">Kekuatan vs Area Pengembangan</p>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={comparisonData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" width={120} tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }}
+                    formatter={(v: any, _name: any, props: any) => [`${v}%`, props.payload.label]}
+                  />
+                  <Bar dataKey="value" fill="#f59e0b" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       );
     }

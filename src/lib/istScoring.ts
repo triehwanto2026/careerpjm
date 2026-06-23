@@ -2,7 +2,7 @@ export const IST_SUBTESTS = [
   { code: "SE", name: "Satzergänzung", max: 20, area: "Pemahaman bahasa dan pengetahuan verbal", domain: "Verbal", insight: "kemampuan memahami makna kalimat, konsep bahasa, dan ketepatan berpikir verbal" },
   { code: "WA", name: "Wortauswahl", max: 20, area: "Asosiasi kata dan abstraksi verbal", domain: "Verbal", insight: "kemampuan menemukan hubungan makna antar kata dan membentuk asosiasi konsep" },
   { code: "AN", name: "Analogien", max: 20, area: "Penalaran analogis", domain: "Verbal", insight: "kemampuan melihat hubungan logis dan menerapkannya pada pola baru" },
-  { code: "GE", name: "Gemeinsamkeiten", max: 32, area: "Pembentukan konsep umum", domain: "Verbal", insight: "kemampuan mengelompokkan informasi, membuat generalisasi, dan menangkap kategori konsep" },
+  { code: "GE", name: "Gemeinsamkeiten", max: 16, area: "Pembentukan konsep umum", domain: "Verbal", insight: "kemampuan mengelompokkan informasi, membuat generalisasi, dan menangkap kategori konsep" },
   { code: "RA", name: "Rechenaufgaben", max: 20, area: "Pemecahan masalah numerik", domain: "Numerik", insight: "kemampuan berhitung praktis, memahami masalah kuantitatif, dan menjaga ketelitian numerik" },
   { code: "ZR", name: "Zahlenreihen", max: 20, area: "Pola deret angka", domain: "Numerik", insight: "kemampuan mengenali pola, berpikir induktif, dan memprediksi kelanjutan hubungan angka" },
   { code: "FA", name: "Figurenauswahl", max: 20, area: "Analisis bentuk", domain: "Figural", insight: "kemampuan menganalisis komponen bentuk dan menyusun relasi visual" },
@@ -75,7 +75,7 @@ export const getIstSummary = (categories: Record<string, unknown>, fallbackScore
   const validity = validateIstProfile(categories);
   const raw = validity.raw;
   const max = validity.max;
-  const score = max > 0 ? Math.round((raw / max) * 100) : fallbackScore;
+  const score = rows.length > 0 ? Math.round(rows.reduce((sum, row) => sum + row.pct, 0) / rows.length) : fallbackScore;
   const strongest = [...rows].sort((a, b) => b.pct - a.pct)[0];
   const weakest = [...rows].sort((a, b) => a.pct - b.pct)[0];
   const domainScores = rows.reduce<Record<string, { raw: number; max: number; items: string[] }>>((acc, row) => {
@@ -97,11 +97,16 @@ export const getIstSummary = (categories: Record<string, unknown>, fallbackScore
   const groups = Object.entries(IST_GROUPING).map(([group, codes]) => {
     const rawGroup = codes.reduce((sum, code) => sum + getIstSubtestScore(categories, code), 0);
     const maxGroup = codes.reduce((sum, code) => sum + (IST_SUBTESTS.find((sub) => sub.code === code)?.max || 0), 0);
+    const subtestPcts = codes.map((code) => {
+      const subtest = IST_SUBTESTS.find((sub) => sub.code === code);
+      const max = subtest?.max || 0;
+      return max > 0 ? Math.round((getIstSubtestScore(categories, code) / max) * 100) : 0;
+    });
     return {
       group,
       raw: rawGroup,
       max: maxGroup,
-      pct: maxGroup > 0 ? Math.round((rawGroup / maxGroup) * 100) : 0,
+      pct: subtestPcts.length > 0 ? Math.round(subtestPcts.reduce((sum, pct) => sum + pct, 0) / subtestPcts.length) : 0,
       items: codes.join(", "),
     };
   });

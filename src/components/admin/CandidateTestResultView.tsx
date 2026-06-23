@@ -2,7 +2,7 @@ import React from "react";
 import { PrintResult, PrintAnswer } from "@/utils/printUtils";
 import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfitProfileRows, getCfitRawScore, isCfitName } from "@/lib/cfitScoring";
 import { buildDiscInterpretation } from "@/lib/discScoring";
-import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
+import { buildIstInterpretation, getIstSummary, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
 import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation as buildSharedPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
@@ -167,7 +167,7 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
   const isPersonalityPlus = result.test_name === "Personality Plus" || result.test_name.includes("Personality Plus");
   const isKraepelin = result.test_name === "Kraepelin" || result.test_name.includes("Kraepelin");
   const isCFIT = isCfitName(result.test_name);
-  const isIST = isIstName(result.test_name) || Object.keys(cats).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
+  const isIST = isIstName(result.test_name) || Object.keys(cats).some((key) => /^(SE|WA|AN|GE|RA|ZR|FA|WU|ME)(\s*-|$)/i.test(key));
   const isMBTI = isMbtiName(result.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
   const hasAptitudeAreas = APTITUDE_AREAS.some((area) => area.key in cats);
   const isAptitude = (isAptitudeName(result.test_name) || hasAptitudeAreas) && !isCFIT && !isIST && !isMBTI && !isPapikostik && !isPersonalityPlus && !isDISC && !isKraepelin;
@@ -294,6 +294,51 @@ CATATAN PSIKOLOG: Profil ini valid untuk ${total} item respons. Disarankan didam
 
   const renderChart = () => {
     const data = catEntries.map(([name, value]) => ({ name, value }));
+    if (isIST) {
+      const summary = getIstSummary(cats, result.score);
+      const subtestData = summary.rows.map((row) => ({ name: row.code, value: row.pct, raw: row.raw, max: row.max }));
+      const abilityData = summary.groups.map((group) => ({ name: group.group, value: group.pct, raw: group.raw, max: group.max }));
+      return (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3 text-center">
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">Raw Score</p>
+              <p className="text-2xl font-bold text-foreground">{summary.raw}/{summary.max}</p>
+            </div>
+            <div className="rounded-lg border border-primary/40 bg-primary/10 p-3">
+              <p className="text-xs text-muted-foreground">IST Total</p>
+              <p className="text-2xl font-bold text-primary">{summary.score}%</p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">Kekuatan Utama</p>
+              <p className="text-xl font-semibold text-foreground">{summary.strongest.code}</p>
+            </div>
+          </div>
+          {!summary.validity.valid && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+              Scoring IST invalid: {summary.validity.errors.join("; ")}
+            </div>
+          )}
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={subtestData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,20%)" />
+              <XAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+              <YAxis domain={[0, 100]} tick={{ fill: "hsl(210,20%,70%)", fontSize: 10 }} />
+              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,20%)", borderRadius: 8, color: "#fff" }} formatter={(v: any, _name: any, props: any) => [`${v}% (${props.payload.raw}/${props.payload.max})`, props.payload.name]} />
+              <Bar dataKey="value" fill="#2dd4bf" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={260}>
+            <RadarChart data={abilityData}>
+              <PolarGrid stroke="hsl(220, 14%, 25%)" />
+              <PolarAngleAxis dataKey="name" tick={{ fill: "hsl(210,20%,75%)", fontSize: 11 }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "hsl(210,20%,60%)", fontSize: 10 }} />
+              <Radar name="Kemampuan IST" dataKey="value" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.24} strokeWidth={2} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
     if (isDISC) {
       const dims = ["D", "I", "S", "C"] as const;
       const mask = dims.map((d) => ({ name: d, value: getM(d) }));

@@ -67,7 +67,7 @@ const IST_SUBTEST_MAX: Record<string, number> = {
   SE: 20,
   WA: 20,
   AN: 20,
-  GE: 32,
+  GE: 16,
   RA: 20,
   ZR: 20,
   FA: 20,
@@ -99,8 +99,11 @@ const IST_SUBTEST_RANGES: Array<{ start: number; end: number; code: string }> = 
   { start: 157, end: 176, code: "ME" },
 ];
 
-const getIstSubtestCode = (questionNumber: number | string | null | undefined) => {
-  const num = Number(questionNumber);
+const getIstSubtestCode = (subtestOrQuestionNumber: number | string | null | undefined) => {
+  const raw = String(subtestOrQuestionNumber ?? "").trim().toUpperCase();
+  if (IST_SUBTEST_MAX[raw]) return raw;
+
+  const num = Number(raw);
   if (!Number.isFinite(num) || num <= 0) return null;
   const range = IST_SUBTEST_RANGES.find((range) => num >= range.start && num <= range.end);
   return range?.code ?? null;
@@ -113,7 +116,7 @@ const getIstSubtestName = (code: string | null | undefined) => {
 
 const getIstCategoryKey = (q: any) => {
   const code = getIstSubtestCode(q.subtest_code || q.question_number);
-  if (code) return `${code} - ${getIstSubtestName(code)}`;
+  if (code) return code;
   return q.category?.trim() || "IST";
 };
 
@@ -519,6 +522,8 @@ Deno.serve(async (req) => {
       let totalScore = 0;
       let answeredCount = 0;
       let maxPossibleScore = 0;
+      let istScoringInvalid = false;
+      const istScoringErrors: string[] = [];
       const kraepelinSegmentCorrect: number[] = [];
       const kraepelinSegmentAnswered: number[] = [];
 
@@ -527,8 +532,7 @@ Deno.serve(async (req) => {
         if (isIst) {
           const subtestCode = getIstSubtestCode(q.subtest_code || q.question_number);
           if (subtestCode && IST_SUBTEST_MAX[subtestCode]) {
-            const defaultMax = subtestCode === "GE" ? 2 : 1;
-            maxPossibleScore += Math.max(optionMax, defaultMax);
+            maxPossibleScore += 1;
             return;
           }
         }
@@ -576,7 +580,33 @@ Deno.serve(async (req) => {
         let optId = answers[q.id];
         if (!optId) continue;
         answeredCount++;
-        if (q.question_type === "numeric" || isKraepelin) {
+        const questionCategory = categoryKey(q);
+        const isIstQuestion = isIst && Boolean(getIstSubtestCode(q.subtest_code || q.question_number));
+        const findIstCorrectOption = (q.options || []).find((o: any) => o.is_correct || Number(o.score_value || 0) > 0);
+        const selectedIstOption = (q.options || []).find((o: any) =>
+          o.id === optId
+          || normalizeIstText(o.option_label) === normalizeIstText(optId)
+          || normalizeIstText(o.option_text) === normalizeIstText(optId)
+        );
+
+        if (isIstQuestion && q.question_type === "numeric") {
+          if (!findIstCorrectOption) {
+            istScoringInvalid = true;
+            istScoringErrors.push(`Soal ${q.question_number} tidak memiliki kunci jawaban.`);
+          }
+          const isCorrect = Boolean(findIstCorrectOption) && Boolean(selectedIstOption)
+            && selectedIstOption.id === findIstCorrectOption.id;
+          if (isCorrect) {
+            correctCount++;
+            totalScore += 1;
+            cats[questionCategory] = (cats[questionCategory] || 0) + 1;
+          } else {
+            cats[questionCategory] = cats[questionCategory] || 0;
+          }
+          continue;
+        }
+
+        if (isKraepelin) {
           const selected = String(optId).replace(/\D/g, "");
           const correctAnswer = getKraepelinCorrectAnswer(q);
           const isCorrect = correctAnswer !== null && selected === correctAnswer;
@@ -588,17 +618,20 @@ Deno.serve(async (req) => {
           kraepelinSegmentCorrect[segment] = (kraepelinSegmentCorrect[segment] || 0) + (isCorrect ? 1 : 0);
           continue;
         }
-        const questionCategory = categoryKey(q);
         const isIstGe = isIst && (String(q.subtest_code || "").toUpperCase() === "GE" || (Number(q.question_number || 0) >= 61 && Number(q.question_number || 0) <= 76));
         if (isIstGe) {
+          if (!q.options?.some((o: any) => o.is_correct || Number(o.score_value || 0) > 0)) {
+            istScoringInvalid = true;
+            istScoringErrors.push(`Soal ${q.question_number} tidak memiliki kunci jawaban.`);
+          }
           const answerText = String(optId || "");
           const matchedOpt = findGeOptionForAnswer(q, answerText);
           if (matchedOpt) {
             const opt = matchedOpt;
             const mbtiDim = isMbti ? normalizeMbtiDim(opt.category_target || opt.option_label || opt.option_text) : null;
-            const optScore = (isPapi && opt.category_target) || mbtiDim ? 1 : Number(opt.score_value || 0);
+            const optScore = (opt.is_correct || Number(opt.score_value || 0) > 0) ? 1 : 0;
             totalScore += optScore;
-            if (opt.is_correct) correctCount++;
+            if (optScore > 0) correctCount++;
             const dim = mbtiDim || opt.category_target?.trim() || questionCategory;
             cats[dim] = (cats[dim] || 0) + optScore;
             continue;
@@ -606,9 +639,9 @@ Deno.serve(async (req) => {
           const originalOpt = q.options.find((o: any) => o.id === optId || normalizeIstText(o.option_label) === normalizeIstText(optId) || normalizeIstText(o.option_text) === normalizeIstText(optId));
           if (originalOpt) {
             const mbtiDim = isMbti ? normalizeMbtiDim(originalOpt.category_target || originalOpt.option_label || originalOpt.option_text) : null;
-            const optScore = (isPapi && originalOpt.category_target) || mbtiDim ? 1 : Number(originalOpt.score_value || 0);
+            const optScore = (originalOpt.is_correct || Number(originalOpt.score_value || 0) > 0) ? 1 : 0;
             totalScore += optScore;
-            if (originalOpt.is_correct) correctCount++;
+            if (optScore > 0) correctCount++;
             const dim = mbtiDim || originalOpt.category_target?.trim() || questionCategory;
             cats[dim] = (cats[dim] || 0) + optScore;
           }
@@ -657,9 +690,11 @@ Deno.serve(async (req) => {
         const opt = q.options.find((o: any) => o.id === optId);
         if (!opt) continue;
         const mbtiDim = isMbti ? normalizeMbtiDim(opt.category_target || opt.option_label || opt.option_text) : null;
-        const optScore = (isPapi && opt.category_target) || mbtiDim ? 1 : Number(opt.score_value || 0);
+        const optScore = isIstQuestion
+          ? (opt.is_correct || Number(opt.score_value || 0) > 0 ? 1 : 0)
+          : (isPapi && opt.category_target) || mbtiDim ? 1 : Number(opt.score_value || 0);
         totalScore += optScore;
-        if (opt.is_correct) correctCount++;
+        if (optScore > 0 && (isIstQuestion || opt.is_correct)) correctCount++;
         const dim = mbtiDim || opt.category_target?.trim() || categoryKey(q);
         cats[dim] = (cats[dim] || 0) + optScore;
       }
@@ -709,12 +744,15 @@ Deno.serve(async (req) => {
             return { ...info, classification: classifyAptitudeIq(info.iq) };
           })()
         : null;
+      const istSubtestPercentAverage = isIst
+        ? Math.round(Object.entries(IST_SUBTEST_MAX).reduce((sum, [code, max]) => sum + ((Number(cats[code] || 0) / max) * 100), 0) / Object.keys(IST_SUBTEST_MAX).length)
+        : 0;
       const score = isKraepelin && kraepelinMetrics
         ? Math.round((kraepelinMetrics.accuracy + kraepelinMetrics.work_capacity) / 2)
         : isAptitude && aptitudeIqInfo
           ? aptitudeIqInfo.iq
         : isIst && maxPossibleScore > 0
-          ? Math.round((totalScore / maxPossibleScore) * 100)
+          ? istSubtestPercentAverage
           : isMbti
             ? Math.round((answeredCount / Math.max(questions.length, 1)) * 100)
           : hasCorrectScoring && questions.length > 0
@@ -806,17 +844,43 @@ Deno.serve(async (req) => {
       const cfitIqInfo = isCfit ? getCfitIqInfo(correctCount) : null;
 
       if (isIst) {
+        Object.keys(IST_SUBTEST_MAX).forEach((code) => {
+          normalizedCats[code] = Math.max(0, Math.round(Number(normalizedCats[code] || 0)));
+          if (normalizedCats[code] > IST_SUBTEST_MAX[code]) {
+            istScoringInvalid = true;
+            istScoringErrors.push(`Raw score ${code} ${normalizedCats[code]} melebihi jumlah soal ${IST_SUBTEST_MAX[code]}.`);
+          }
+        });
+        if (answeredCount > questions.length) {
+          istScoringInvalid = true;
+          istScoringErrors.push(`Total soal dijawab ${answeredCount} melebihi total soal ${questions.length}.`);
+        }
         const istGroupMapping: Record<string, string[]> = {
-          Verbal: ["SE - Sentence Completion", "WA - Word Association", "AN - Analogy"],
-          Konseptual: ["GE - Generalization"],
-          Numerik: ["RA - Arithmetic", "ZR - Number Series"],
-          "Figural-Spasial": ["FA - Figure Assembly", "WU - Cube Rotation"],
-          Memori: ["ME - Memory"],
+          Verbal: ["SE", "WA", "AN", "GE"],
+          Numerik: ["RA", "ZR"],
+          "Figural / Spasial": ["FA", "WU"],
+          Memori: ["ME"],
         };
         Object.entries(istGroupMapping).forEach(([group, keys]) => {
-          normalizedCats[group] = keys.reduce((sum, key) => sum + Number(normalizedCats[key] || 0), 0);
+          normalizedCats[group] = Math.round(keys.reduce((sum, key) => sum + ((Number(normalizedCats[key] || 0) / IST_SUBTEST_MAX[key]) * 100), 0) / keys.length);
         });
+        normalizedCats["IST Raw Score"] = Object.keys(IST_SUBTEST_MAX).reduce((sum, key) => sum + Number(normalizedCats[key] || 0), 0);
+        normalizedCats["IST Max Score"] = Object.values(IST_SUBTEST_MAX).reduce((sum, value) => sum + value, 0);
+        if (istScoringInvalid) normalizedCats["IST Scoring Invalid"] = 1;
       }
+
+      const finalStatus = isIst && istScoringInvalid
+        ? "invalid"
+        : status;
+      const istInterpretation = istScoringInvalid
+        ? `SCORING INVALID\n${istScoringErrors.map((err) => `- ${err}`).join("\n")}\n\nInterpretasi tidak ditampilkan karena hasil scoring belum valid. Periksa mapping kunci soal, jawaban peserta, dan rumus perhitungan.`
+        : `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor mentah ${Math.round(totalScore)} dari maksimum ${Math.round(maxPossibleScore)}; skor akhir ${score}%.
+
+Insight umum: hasil IST menggambarkan struktur kemampuan intelektual kandidat pada aspek verbal, numerik, figural-spasial, dan memori. Distribusi subtes perlu dibaca untuk melihat kekuatan relatif dan area yang memerlukan dukungan, bukan hanya skor total.
+
+Profil subtes: ${Object.keys(IST_SUBTEST_MAX).map((key) => `${key}=${normalizedCats[key] || 0}/${IST_SUBTEST_MAX[key]}`).join("; ")}.
+
+Catatan psikolog: IST adalah tes kemampuan intelektual, bukan tes kepribadian. Scoring utama berdasarkan jawaban benar dan salah. Jika tabel norma IST belum tersedia, hasil ditampilkan sebagai Skor Kemampuan IST berbasis persentase, bukan IQ final.`;
 
       const { data: resultData, error: insErr } = await admin
         .from("test_results")
@@ -829,7 +893,7 @@ Deno.serve(async (req) => {
           total_questions: questions.length,
           answered_questions: answeredCount,
           categories: isIst
-            ? { ...normalizedCats, "IST Raw Score": Math.round(totalScore), "IST Max Score": Math.round(maxPossibleScore) }
+            ? normalizedCats
             : isCfit && cfitIqInfo
               ? { ...normalizedCats, "CFIT Raw Score": correctCount, "CFIT Max Score": questions.length, "CFIT IQ": cfitIqInfo.iq }
             : isAptitude
@@ -842,15 +906,9 @@ Deno.serve(async (req) => {
                   "Aptitude IQ Classification": aptitudeIqInfo?.classification || "",
                 }
             : normalizedCats,
-          status,
+          status: finalStatus,
           interpretation: isIst
-            ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Skor mentah ${Math.round(totalScore)} dari maksimum ${Math.round(maxPossibleScore)}; skor akhir ${score}%.
-
-Insight umum: hasil IST menggambarkan struktur kemampuan intelektual kandidat pada aspek verbal, konseptual, numerik, figural-spasial, dan memori. Distribusi subtes perlu dibaca untuk melihat kekuatan relatif dan area yang memerlukan dukungan, bukan hanya skor total.
-
-Profil subtes: ${Object.entries(normalizedCats).filter(([key]) => /^[A-Z]{2}\s*-/.test(key)).map(([key, value]) => `${key}=${value}`).join("; ")}.
-
-Catatan psikolog: interpretasi IST perlu dipadukan dengan wawancara, riwayat pendidikan/kerja, observasi perilaku saat tes, dan tuntutan jabatan. Skor rendah pada satu subtes tidak otomatis menggugurkan kandidat bila aspek tersebut tidak dominan pada posisi yang dilamar.`
+            ? istInterpretation
             : isCfit && cfitIqInfo
               ? `Kandidat menjawab ${answeredCount} dari ${questions.length} soal pada tes ${inst.name}. Raw score ${correctCount} dari ${questions.length}; estimasi IQ ${cfitIqInfo.iq} dengan klasifikasi ${cfitIqInfo.classification}.
 
@@ -938,6 +996,45 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
           });
           continue;
         }
+        const isAnswerRowIstGe = isIst && (String(q.subtest_code || "").toUpperCase() === "GE" || (Number(q.question_number || 0) >= 61 && Number(q.question_number || 0) <= 76));
+        if (isAnswerRowIstGe) {
+          const answerText = String(optId || "");
+          const matchedOpt = findGeOptionForAnswer(q, answerText);
+          const correctOpts = q.options.filter((o: any) => o.is_correct || Number(o.score_value || 0) > 0);
+          answerRows.push({
+            test_result_id: resultData.id,
+            question_number: q.question_number,
+            question_text: q.question_text,
+            question_text_en: safeQuestionTextEn(q),
+            selected_answer: answerText,
+            selected_answer_label: "",
+            category: categoryKey(q),
+            is_correct: matchedOpt ? Boolean(matchedOpt.is_correct || Number(matchedOpt.score_value || 0) > 0) : false,
+            correct_answer: correctOpts.map((o: any) => o.option_text).join(" / ") || null,
+          });
+          continue;
+        }
+        if (isIst && q.question_type === "numeric") {
+          const selected = String(optId || "");
+          const selectedOpt = q.options.find((o: any) =>
+            o.id === optId
+            || normalizeIstText(o.option_label) === normalizeIstText(selected)
+            || normalizeIstText(o.option_text) === normalizeIstText(selected)
+          );
+          const correctOpt = q.options.find((o: any) => o.is_correct || Number(o.score_value || 0) > 0);
+          answerRows.push({
+            test_result_id: resultData.id,
+            question_number: q.question_number,
+            question_text: q.question_text,
+            question_text_en: safeQuestionTextEn(q),
+            selected_answer: selected,
+            selected_answer_label: selectedOpt?.option_label || "",
+            category: categoryKey(q),
+            is_correct: correctOpt ? selectedOpt?.id === correctOpt.id : null,
+            correct_answer: correctOpt?.option_text || correctOpt?.option_label || null,
+          });
+          continue;
+        }
         if (q.question_type === "numeric" || isKraepelin) {
           const selected = String(optId).replace(/\D/g, "");
           const correctAnswer = getKraepelinCorrectAnswer(q);
@@ -979,7 +1076,7 @@ Catatan psikolog: CFIT tidak berdiri sendiri sebagai keputusan akhir seleksi. Ha
         instrument_name: inst.name,
         test_result_id: resultData.id,
         score,
-        status,
+        status: finalStatus,
         kraepelin_metrics: kraepelinMetrics ? kraepelinMetrics : undefined,
       });
     }

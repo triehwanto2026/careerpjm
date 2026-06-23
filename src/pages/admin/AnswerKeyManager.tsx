@@ -136,6 +136,8 @@ const getIstSeedOptions = (q: Q): IstSeedOption[] => {
 
 const getExpectedOptionScore = (q: Q, o: O, isCorrect: boolean) => {
   if (!isCorrect) return 0;
+  const isIstGe = q.question_number >= 61 && q.question_number <= 76;
+  if (isIstGe) return 1;
   const geScore = getIstGeScore(q.question_number, o.option_text);
   if (geScore !== null) return geScore;
   return 1;
@@ -216,13 +218,15 @@ const AnswerKeyManager = () => {
       const rowsToInsert = questions.flatMap(q => {
         const existing = workingOpts[q.id] || [];
         const existingTexts = new Set(existing.map(o => normalizeIstAnswer(o.option_text)));
+        const isIstGe = q.question_number >= 61 && q.question_number <= 76;
 
         return getIstSeedOptions(q).filter(option => !existingTexts.has(normalizeIstAnswer(option.text))).map((option, idx) => ({
           question_id: q.id,
           option_label: option.label || optionLabel(idx),
           option_text: option.text,
           option_text_en: option.text,
-          score_value: option.score,
+          score_value: option.score > 0 ? 1 : 0,
+          category_target: isIstGe ? "GE" : null,
           is_correct: option.score > 0,
           display_order: existing.length + idx,
         }));
@@ -248,10 +252,11 @@ const AnswerKeyManager = () => {
             const score = getIstGeScore(q.question_number, o.option_text);
             const score_value = score ?? 0;
             const is_correct = score_value > 0;
-            if (o.is_correct !== is_correct || o.score_value !== score_value) {
-              newDirty[o.id] = { is_correct, score_value };
+            const patchValue = { is_correct, score_value, category_target: null };
+            if (o.is_correct !== is_correct || o.score_value !== score_value || o.category_target !== null) {
+              newDirty[o.id] = patchValue;
             }
-            return { ...o, is_correct, score_value };
+            return { ...o, ...patchValue };
           });
           return;
         }
@@ -259,6 +264,7 @@ const AnswerKeyManager = () => {
         const answer = IST_ANSWER_KEY[q.question_number];
         if (answer === undefined) return;
 
+        const isIstGe = q.question_number >= 61 && q.question_number <= 76;
         const qOpts = updatedOpts[q.id] || [];
         const normalizedAnswer = normalizeIstAnswer(answer);
         const matched = qOpts.find(o => normalizeIstAnswer(o.option_label) === normalizedAnswer)
@@ -267,17 +273,29 @@ const AnswerKeyManager = () => {
         updatedOpts[q.id] = qOpts.map(o => {
           const is_correct = Boolean(matched && o.id === matched.id);
           const score_value = getExpectedOptionScore(q, o, is_correct);
-          if (o.is_correct !== is_correct || o.score_value !== score_value) {
-            newDirty[o.id] = { is_correct, score_value };
+          const patchValue = { is_correct, score_value, category_target: isIstGe ? "GE" : null };
+          if (o.is_correct !== is_correct || o.score_value !== score_value || o.category_target !== patchValue.category_target) {
+            newDirty[o.id] = patchValue;
           }
-          return { ...o, is_correct, score_value };
+          return { ...o, ...patchValue };
         });
       });
 
       setOpts(updatedOpts);
 
       if (Object.keys(newDirty).length > 0) {
-        setDirty(prev => ({ ...prev, ...newDirty }));
+        const updatePromises = Object.entries(newDirty).map(([oid, patchValue]) =>
+          supabase.from("test_question_options").update(patchValue as any).eq("id", oid)
+        );
+        const results = await Promise.all(updatePromises);
+        const failed = results.find(r => r.error);
+        if (failed?.error) throw failed.error;
+
+        setDirty(prev => {
+          const next = { ...prev };
+          Object.keys(newDirty).forEach(id => { delete next[id]; });
+          return next;
+        });
       }
 
       if (rowsToInsert.length > 0 || Object.keys(newDirty).length > 0) {

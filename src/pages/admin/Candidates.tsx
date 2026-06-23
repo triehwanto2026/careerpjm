@@ -3729,7 +3729,7 @@ const IST_SUBTESTS_FOR_CANDIDATE = [
   { code: "SE", name: "Sentence Completion", max: 20, area: "pemahaman konsep verbal" },
   { code: "WA", name: "Word Association", max: 20, area: "abstraksi verbal" },
   { code: "AN", name: "Analogy", max: 20, area: "penalaran analogis" },
-  { code: "GE", name: "Generalization", max: 32, area: "generalisasi konsep" },
+  { code: "GE", name: "Generalization", max: 16, area: "generalisasi konsep" },
   { code: "RA", name: "Arithmetic", max: 20, area: "berhitung praktis" },
   { code: "ZR", name: "Number Series", max: 20, area: "pola numerik" },
   { code: "FA", name: "Figure Assembly", max: 20, area: "analisis figural" },
@@ -3740,7 +3740,7 @@ const IST_SUBTESTS_FOR_CANDIDATE = [
 const isIstCandidateResult = (result: any) => {
   const testName = getResultTestName(result).toUpperCase();
   const keys = Object.keys(getResultCategories(result));
-  return testName.includes("IST") || keys.some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));
+  return testName.includes("IST") || keys.some((key) => /^(SE|WA|AN|GE|RA|ZR|FA|WU|ME)(\s*-|$)/i.test(key));
 };
 
 const getIstCandidateRows = (categories: Record<string, number>) => IST_SUBTESTS_FOR_CANDIDATE.map((subtest) => {

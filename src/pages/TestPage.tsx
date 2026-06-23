@@ -84,25 +84,43 @@ const TestPage = () => {
       Swal.fire({ icon: "warning", title: "Tidak Ada Tes", text: "Belum ada tes yang ditugaskan.", ...SWAL_THEME }).then(() => navigate("/", { replace: true }));
       return;
     }
+
     const { data: insts } = await supabase.from("test_instruments").select("id, name, name_en, duration_minutes, scoring_method").in("id", ids);
     if (!insts || insts.length === 0) { setLoading(false); return; }
-    // Use security-definer RPCs that strip answer keys (is_correct / score_value /
-    // "CORRECT_ANSWER:" markers) before sending data to the client.
+
+    // Use security-definer RPCs that strip answer keys before sending data to the client.
     const { data: qs } = await supabase.rpc("get_test_questions_safe" as any, { _instrument_ids: ids });
     const qIds = ((qs as any[]) || []).map((q: any) => q.id);
     const { data: opts } = qIds.length
       ? await supabase.rpc("get_test_question_options_safe" as any, { _question_ids: qIds })
       : { data: [] as any[] };
+
     const optsByQ: Record<string, DbOption[]> = {};
     ((opts as DbOption[]) || []).forEach(o => { (optsByQ[o.question_id] ||= []).push(o); });
+
+    const normalizeQuestion = (q: any): DbQuestion => {
+      const questionNumber = Number(q.question_number);
+      const isIstGeQuestion =
+        Number.isFinite(questionNumber)
+        && questionNumber >= 61
+        && questionNumber <= 76
+        && String(q.subtest_code || "").toUpperCase() === "GE";
+
+      return {
+        ...q,
+        question_number: questionNumber,
+        question_type: (isIstGeQuestion || String(q.question_type || "").toLowerCase() === "text") ? "essay" : q.question_type,
+        options: optsByQ[q.id] || [],
+      };
+    };
+
     const qsByInst: Record<string, DbQuestion[]> = {};
-    ((qs as any[]) || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push({ ...q, options: optsByQ[q.id] || [] }); });
+    ((qs as any[]) || []).forEach(q => { (qsByInst[q.instrument_id] ||= []).push(normalizeQuestion(q)); });
     const ordered: DbInstrument[] = ids.map(id => insts.find((i: any) => i.id === id)).filter(Boolean)
       .map((i: any) => ({ ...i, questions: qsByInst[i.id] || [] }));
     setInstruments(ordered);
     setLoading(false);
   }, [navigate]);
-
   useEffect(() => {
     if (sessionStorage.getItem("psytest_auth") !== "true") { navigate("/", { replace: true }); return; }
     loadAssignedTests();
@@ -509,10 +527,11 @@ const TestPage = () => {
   const isIstGeEssayQuestion = (q?: DbQuestion, t?: DbInstrument) => {
     if (!q) return false;
     const subtestCode = String(q.subtest_code || "").toUpperCase();
-    if (subtestCode === "GE") return true;
     const questionNumber = Number(q.question_number);
-    if (Number.isFinite(questionNumber) && questionNumber >= 61 && questionNumber <= 76) return true;
-    return false;
+    const isGeRange = Number.isFinite(questionNumber) && questionNumber >= 61 && questionNumber <= 76;
+    if (subtestCode === "GE") return true;
+    if (q.question_type === "essay" || q.question_type === "text") return true;
+    return isGeRange;
   };
   const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t) || isKraepelinTest(t);
   const currentTest = instruments[currentTestIdx];

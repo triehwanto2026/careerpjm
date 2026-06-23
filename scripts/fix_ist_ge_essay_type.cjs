@@ -50,10 +50,10 @@ async function fixIstGeEssayType() {
   
   // If questions exist, update them to essay type
   if (istQuestions && istQuestions.length > 0) {
-    console.log('Updating questions to essay type...');
+    console.log('Updating questions to text/essay type...');
     const { data, error } = await supabase
       .from('test_questions')
-      .update({ question_type: 'essay' })
+      .update({ question_type: 'text', scoring_rule: 'correct_only', subtest_code: 'GE' })
       .eq('instrument_id', IST_INSTRUMENT_ID)
       .gte('question_number', 61)
       .lte('question_number', 76);
