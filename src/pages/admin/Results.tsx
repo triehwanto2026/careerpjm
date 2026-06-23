@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Search, Eye, Download, Printer, FileText, Trash2 } from "lucide-react";
+import { Search, Eye, Download, Printer, FileText, Trash2, ClipboardCheck } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -826,6 +826,108 @@ const Results = () => {
     const { data } = await supabase.from("test_answers").select("*").eq("test_result_id", resultId).order("question_number");
     const rows = ((data as any) || []) as AnswerRow[];
     setAnswers(await enrichAnswersWithOptionText(result, rows));
+  };
+
+  const handleAuditScoring = async (r: ResultRow) => {
+    if (!isIstResult(r)) {
+      await Swal.fire({
+        icon: "info",
+        title: "Audit Scoring",
+        text: "Fitur audit scoring saat ini hanya tersedia untuk tes IST.",
+        confirmButtonColor: "hsl(174, 72%, 46%)",
+      });
+      return;
+    }
+
+    const resultId = r.id;
+    const { data: answers, error } = await supabase
+      .from("test_answers")
+      .select("question_number, question_text, selected_answer, selected_answer_label, correct_answer, is_correct, category")
+      .eq("test_result_id", resultId)
+      .order("question_number");
+
+    if (error) {
+      await Swal.fire({ icon: "error", title: "Gagal Memuat Data", text: error.message });
+      return;
+    }
+
+    const answerRows = (answers || []) as AnswerRow[];
+    const summary = getIstSummary(r.categories || {}, r.score);
+
+    // Group by subtest
+    const subtestRanges: Record<string, { start: number; end: number }> = {
+      SE: { start: 1, end: 20 },
+      WA: { start: 21, end: 40 },
+      AN: { start: 41, end: 60 },
+      GE: { start: 61, end: 76 },
+      RA: { start: 77, end: 96 },
+      ZR: { start: 97, end: 116 },
+      FA: { start: 117, end: 136 },
+      WU: { start: 137, end: 156 },
+      ME: { start: 157, end: 176 },
+    };
+
+    const subtestScores: Record<string, { correct: number; total: number; details: string[] }> = {};
+    Object.keys(subtestRanges).forEach(code => {
+      subtestScores[code] = { correct: 0, total: 0, details: [] };
+    });
+
+    answerRows.forEach(a => {
+      const qNum = a.question_number;
+      let subtest = "";
+      for (const [code, range] of Object.entries(subtestRanges)) {
+        if (qNum >= range.start && qNum <= range.end) {
+          subtest = code;
+          break;
+        }
+      }
+      if (subtest) {
+        subtestScores[subtest].total++;
+        if (a.is_correct) subtestScores[subtest].correct++;
+        subtestScores[subtest].details.push(
+          `No ${qNum}: ${a.selected_answer_label || a.selected_answer} vs ${a.correct_answer || '-'} = ${a.is_correct ? '✓' : '✗'}`
+        );
+      }
+    });
+
+    let auditHTML = `
+      <div style="text-align:left;max-height:70vh;overflow-y:auto;font-size:12px;">
+        <h3 style="margin:0 0 10px 0;font-size:14px;font-weight:bold;">AUDIT SCORING IST</h3>
+        <p style="margin:0 0 15px 0;color:#64748b;">Kandidat: ${r.candidate_name} | Tes: ${r.test_name}</p>
+        
+        <div style="background:#f1f5f9;padding:10px;border-radius:8px;margin-bottom:15px;">
+          <strong>Ringkasan Hasil:</strong><br/>
+          Total Raw Score: ${summary.raw}/${summary.max}<br/>
+          Skor IST: ${summary.score}%<br/>
+        </div>
+
+        <h4 style="margin:15px 0 10px 0;font-size:13px;font-weight:bold;">Detail per Subtes:</h4>
+    `;
+
+    Object.entries(subtestScores).forEach(([code, data]) => {
+      const pct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+      auditHTML += `
+        <div style="margin-bottom:15px;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">
+          <strong>${code}:</strong> ${data.correct}/${data.total} (${pct}%)<br/>
+          <div style="max-height:100px;overflow-y:auto;margin-top:5px;color:#64748b;">
+            ${data.details.join('<br/>')}
+          </div>
+        </div>
+      `;
+    });
+
+    auditHTML += `
+      </div>
+    `;
+
+    await Swal.fire({
+      icon: "info",
+      title: "Audit Scoring IST",
+      html: auditHTML,
+      width: "700px",
+      confirmButtonColor: "hsl(174, 72%, 46%)",
+      confirmButtonText: "Tutup",
+    });
   };
 
   const handleDeleteResult = async (r: ResultRow) => {
@@ -2159,6 +2261,11 @@ const Results = () => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button onClick={() => { setSelectedResult(null); setAnswers([]); }} className="text-sm text-primary hover:underline">← Kembali ke Daftar Hasil</button>
             <div className="flex flex-wrap gap-2">
+              {isIstResult(r) && (
+                <button onClick={() => handleAuditScoring(r)} className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 transition-all">
+                  <ClipboardCheck className="h-4 w-4" /> Audit Scoring
+                </button>
+              )}
               <button onClick={handlePrint} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all">
                 <Printer className="h-4 w-4" /> Cetak Laporan Lengkap
               </button>

@@ -860,39 +860,71 @@ const QuestionBuilder = () => {
                     </div>
                   </div>
 
-                  <div className="border-t border-border pt-3 space-y-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pilihan Jawaban ({opts.length})</p>
-                      <button onClick={() => handleAddOption(q)} className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors">
-                        <Plus className="h-3 w-3" /> Tambah Opsi
-                      </button>
-                    </div>
-                    {opts.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic py-2 text-center">Belum ada pilihan jawaban</p>
-                    ) : (
-                      <div className="grid gap-1.5">
-                        {opts.map((o) => (
-                          <div key={o.id} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-card border border-border text-xs font-bold text-foreground">{o.option_label}</span>
-                            {o.image_url && <img src={o.image_url} alt={o.option_label} className="h-10 w-10 rounded object-cover border border-border bg-card" />}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-foreground truncate">{o.option_text}</p>
-                              {o.option_text_en && <p className="text-[10px] text-muted-foreground italic truncate">{o.option_text_en}</p>}
-                              {o.option_definition && <p className="text-[10px] text-primary/80 mt-0.5 truncate">Def: {o.option_definition}</p>}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                              {o.is_correct && <span className="flex items-center gap-0.5 rounded bg-emerald-400/10 text-emerald-400 px-1.5 py-0.5"><Check className="h-2.5 w-2.5" /> Benar</span>}
-                              {o.category_target && <span className="rounded bg-blue-400/10 text-blue-400 px-1.5 py-0.5">→ {o.category_target}</span>}
-                              <span className="rounded bg-muted text-muted-foreground px-1.5 py-0.5 font-mono">{o.score_value}</span>
-                              <button onClick={() => handleDeleteOption(o)} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                  {(q.question_type === 'essay' || q.question_type === 'text') ? (
+                    <div className="border-t border-border pt-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kunci Jawaban Tersembunyi ({opts.length})</p>
+                        <button onClick={() => handleAddOption(q)} className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors">
+                          <Plus className="h-3 w-3" /> Tambah Kunci
+                        </button>
                       </div>
-                    )}
-                  </div>
+                      <p className="text-[10px] text-muted-foreground italic mb-2">Soal esai - kandidat mengetik jawaban. Opsi di bawah adalah kunci jawaban untuk scoring.</p>
+                      {opts.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-2 text-center">Belum ada kunci jawaban</p>
+                      ) : (
+                        <div className="grid gap-1.5">
+                          {opts.map((o) => (
+                            <div key={o.id} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-card border border-border text-xs font-bold text-foreground">{o.option_label}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-foreground truncate">{o.option_text}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px]">
+                                <span className="rounded bg-muted text-muted-foreground px-1.5 py-0.5 font-mono">{o.score_value}</span>
+                                <button onClick={() => handleDeleteOption(o)} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="border-t border-border pt-3 space-y-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pilihan Jawaban ({opts.length})</p>
+                        <button onClick={() => handleAddOption(q)} className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors">
+                          <Plus className="h-3 w-3" /> Tambah Opsi
+                        </button>
+                      </div>
+                      {opts.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-2 text-center">Belum ada pilihan jawaban</p>
+                      ) : (
+                        <div className="grid gap-1.5">
+                          {opts.map((o) => (
+                            <div key={o.id} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-card border border-border text-xs font-bold text-foreground">{o.option_label}</span>
+                              {o.image_url && <img src={o.image_url} alt={o.option_label} className="h-10 w-10 rounded object-cover border border-border bg-card" />}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-foreground truncate">{o.option_text}</p>
+                                {o.option_text_en && <p className="text-[10px] text-muted-foreground italic truncate">{o.option_text_en}</p>}
+                                {o.option_definition && <p className="text-[10px] text-primary/80 mt-0.5 truncate">Def: {o.option_definition}</p>}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px]">
+                                {o.is_correct && <span className="flex items-center gap-0.5 rounded bg-emerald-400/10 text-emerald-400 px-1.5 py-0.5"><Check className="h-2.5 w-2.5" /> Benar</span>}
+                                {o.category_target && <span className="rounded bg-blue-400/10 text-blue-400 px-1.5 py-0.5">→ {o.category_target}</span>}
+                                <span className="rounded bg-muted text-muted-foreground px-1.5 py-0.5 font-mono">{o.score_value}</span>
+                                <button onClick={() => handleDeleteOption(o)} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

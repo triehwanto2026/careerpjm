@@ -128,8 +128,8 @@ Interpretasi tidak ditampilkan karena hasil scoring belum valid. Periksa mapping
   
   const overall = levelFromPct(summary.score);
   const domainText = summary.domains.map((item) => `${item.domain} (${item.items}) ${item.raw}/${item.max} atau ${item.pct}%`).join("; ");
-  const highRows = summary.rows.filter((row) => row.pct >= 60).sort((a, b) => b.pct - a.pct);
-  const lowRows = summary.rows.filter((row) => row.pct < 40).sort((a, b) => a.pct - b.pct);
+  const highRows = [...summary.rows].sort((a, b) => b.pct - a.pct).slice(0, 3);
+  const lowRows = [...summary.rows].sort((a, b) => a.pct - b.pct).slice(0, 3);
   
   // Get ability group scores
   const abilityGroups = summary.groups.map((group) => ({
@@ -155,12 +155,12 @@ Interpretasi tidak ditampilkan karena hasil scoring belum valid. Periksa mapping
   // Ability group interpretations
   const abilityInterpretations = abilityGroups.map((group) => {
     const interpretation = {
-      Verbal: "Peserta mampu memahami instruksi, bahasa, konsep, dan komunikasi dengan baik.",
-      Numerik: "Peserta kuat dalam berhitung, logika angka, analisis kuantitatif, dan pekerjaan berbasis data.",
-      "Figural / Spasial": "Peserta kuat dalam memahami pola, bentuk, visual-spasial, dan pemecahan masalah non-verbal.",
-      Memori: "Peserta mampu mengingat informasi, detail, instruksi, dan materi kerja dengan baik.",
+      Verbal: "Peserta mampu memahami instruksi, bahasa, konsep, dan komunikasi dengan baik. Posisi cocok: HR, Legal, Trainer, Customer Service, Sales.",
+      Numerik: "Peserta kuat dalam berhitung, logika angka, analisis kuantitatif, dan pekerjaan berbasis data. Posisi cocok: Finance, Accounting, Auditor, Data Analyst.",
+      "Figural / Spasial": "Peserta kuat dalam memahami pola, bentuk, visual-spasial, dan pemecahan masalah non-verbal. Posisi cocok: Engineering, Design, Teknik, Produksi.",
+      Memori: "Peserta mampu mengingat informasi, detail, instruksi, dan materi kerja dengan baik. Posisi cocok: Admin, Supervisor, Customer Service.",
     }[group.name];
-    
+
     return `${group.name}: ${group.raw}/${group.max} (${group.pct}%) - ${group.level}. ${interpretation}`;
   }).join("\n");
 
