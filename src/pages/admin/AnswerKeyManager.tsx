@@ -624,10 +624,36 @@ const AnswerKeyManager = () => {
 
   const load = async (id: string) => {
     setLoading(true); setDirty({});
-    const { data: qs } = await supabase.from("test_questions").select("id, question_number, question_text, question_text_en, category, subtest_code, question_type, group_number").eq("instrument_id", id).order("question_number").limit(2000);
-    setQuestions((qs as Q[]) || []);
-    if (qs && qs.length) {
-      const { data: os } = await supabase.from("test_question_options").select("*").in("question_id", qs.map((q: any) => q.id)).order("display_order").limit(5000);
+    // Use pagination to fetch all data bypassing Supabase default limit
+    let allQuestions: any[] = [];
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data: qs, error } = await supabase
+        .from("test_questions")
+        .select("id, question_number, question_text, question_text_en, category, subtest_code, question_type, group_number")
+        .eq("instrument_id", id)
+        .order("question_number")
+        .range(from, from + batchSize - 1);
+
+      if (error) {
+        console.error("Error fetching questions:", error);
+        hasMore = false;
+      } else if (qs && qs.length > 0) {
+        allQuestions = allQuestions.concat(qs);
+        from += batchSize;
+        if (qs.length < batchSize) hasMore = false;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    setQuestions(allQuestions);
+
+    if (allQuestions.length > 0) {
+      const { data: os } = await supabase.from("test_question_options").select("*").in("question_id", allQuestions.map((q: any) => q.id)).order("display_order");
       const grouped: Record<string, O[]> = {};
       (os as O[] || []).forEach(o => { (grouped[o.question_id] ||= []).push(o); });
       setOpts(grouped);
