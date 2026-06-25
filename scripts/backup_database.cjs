@@ -47,12 +47,36 @@ const TABLES_TO_BACKUP = [
 ];
 
 async function exportTableToJson(tableName) {
-  const { data, error } = await supabase.from(tableName).select('*');
-  if (error) {
-    console.error(`Error exporting ${tableName}:`, error);
+  const { count, error: countError } = await supabase
+    .from(tableName)
+    .select('*', { count: 'exact', head: true });
+  
+  if (countError) {
+    console.error(`Error counting ${tableName}:`, countError);
     return null;
   }
-  return data;
+
+  const allData = [];
+  const batchSize = 1000;
+  let offset = 0;
+
+  while (offset < count) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .range(offset, offset + batchSize - 1);
+    
+    if (error) {
+      console.error(`Error exporting ${tableName} (offset ${offset}):`, error);
+      return null;
+    }
+    
+    allData.push(...data);
+    offset += batchSize;
+    console.log(`  Fetched ${allData.length}/${count} rows from ${tableName}...`);
+  }
+
+  return allData;
 }
 
 function generateInsertSQL(tableName, data) {
