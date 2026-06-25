@@ -144,11 +144,11 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
   const mobileTransform = collapsed ? "-translate-x-full" : "translate-x-0";
 
   return (
-    <div className="flex min-h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 w-64 ${desktopWidth} lg:translate-x-0 ${mobileTransform} transform transition-all duration-300 ease-in-out bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col h-[100dvh] pt-[env(safe-area-inset-top)] pb-[calc(1rem+env(safe-area-inset-bottom))]`}
+        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 w-64 ${desktopWidth} lg:translate-x-0 ${mobileTransform} transform transition-all duration-300 ease-in-out bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 shadow-lg flex flex-col h-screen pt-[env(safe-area-inset-top)] pb-[calc(1rem+env(safe-area-inset-bottom))]`}
       >
         <div className="p-3 border-b border-slate-700 flex items-center justify-between gap-2">
           <button
@@ -237,7 +237,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
       )}
 
       {/* Main */}
-      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col h-screen overflow-hidden">
         <header className="z-30 flex h-14 flex-shrink-0 items-center justify-between border-b border-border bg-card px-4 lg:px-6">
           <div className="flex items-center gap-2">
             <button
@@ -361,7 +361,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
             <ThemeToggle />
           </div>
         </header>
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6">{children}</main>
         <footer className="flex-shrink-0 border-t border-border bg-card/50 px-4 py-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:px-6">
           <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>{publicSettings.app_name || publicSettings.landing_header_title || "PJM Group"}</span>

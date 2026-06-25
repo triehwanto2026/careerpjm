@@ -11,6 +11,45 @@ export default function SimpleCandidateLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const handleResetPassword = async () => {
+    if (!email) {
+      Swal.fire("Error", "Masukkan email terlebih dahulu", "error");
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    
+    if (error) {
+      Swal.fire("Error", "Gagal mengirim: " + error.message, "error");
+    } else {
+      Swal.fire("Sukses", "Link reset password dikirim. Silakan cek inbox email Anda", "success");
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      Swal.fire("Error", "Masukkan email terlebih dahulu", "error");
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    setLoading(false);
+    
+    if (error) {
+      Swal.fire("Error", "Gagal mengirim: " + error.message, "error");
+    } else {
+      Swal.fire("Sukses", "Email konfirmasi dikirim. Silakan cek inbox email Anda", "success");
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -28,6 +67,26 @@ export default function SimpleCandidateLogin() {
       });
 
       if (error) {
+        const errorMessage = error.message.toLowerCase();
+        
+        // Check if error is related to unconfirmed email
+        if (errorMessage.includes("email not confirmed") || errorMessage.includes("email confirmation")) {
+          Swal.fire({
+            icon: "warning",
+            title: "Email belum dikonfirmasi",
+            text: "Akun Anda belum dikonfirmasi. Silakan klik tombol di bawah untuk mengirim ulang email konfirmasi.",
+            showCancelButton: true,
+            confirmButtonText: "Kirim Ulang Konfirmasi",
+            cancelButtonText: "Batal",
+            confirmButtonColor: "#3085d6",
+          }).then((result) => {
+            if (result.isConfirmed) {
+              handleResendConfirmation();
+            }
+          });
+          return;
+        }
+        
         Swal.fire("Error", "Login gagal: " + error.message, "error");
       } else if (data.user) {
         // Check if user has candidate profile
@@ -144,6 +203,25 @@ export default function SimpleCandidateLogin() {
 
           {/* Footer Links */}
           <div className="mt-6 text-center space-y-4">
+            <div className="flex flex-col gap-2 text-sm">
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={loading}
+                className="text-muted-foreground hover:text-primary transition disabled:opacity-50"
+              >
+                Lupa password?
+              </button>
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={loading}
+                className="text-muted-foreground hover:text-primary transition disabled:opacity-50"
+              >
+                Kirim ulang email konfirmasi
+              </button>
+            </div>
+            
             <div className="text-sm text-muted-foreground">
               Belum punya akun?{" "}
               <button
@@ -151,16 +229,6 @@ export default function SimpleCandidateLogin() {
                 className="text-primary hover:underline font-medium"
               >
                 Daftar sekarang
-              </button>
-            </div>
-            
-            <div className="text-sm text-muted-foreground">
-              Lupa password?{" "}
-              <button
-                onClick={() => Swal.fire("Info", "Hubungi admin untuk reset password", "info")}
-                className="text-primary hover:underline font-medium"
-              >
-                Reset password
               </button>
             </div>
           </div>

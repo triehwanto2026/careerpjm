@@ -43,6 +43,47 @@ const Login = () => {
     });
   }, [navigate]);
 
+  const handleResetPassword = async () => {
+    const loginId = identifier.trim();
+    if (!loginId.includes("@")) {
+      toast({ title: "Error", description: "Masukkan email untuk reset password", variant: "destructive" });
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(loginId, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    
+    if (error) {
+      toast({ title: "Gagal mengirim", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Link reset password dikirim", description: "Silakan cek inbox email Anda" });
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    const loginId = identifier.trim();
+    if (!loginId.includes("@")) {
+      toast({ title: "Error", description: "Masukkan email untuk kirim konfirmasi", variant: "destructive" });
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: loginId,
+    });
+    setLoading(false);
+    
+    if (error) {
+      toast({ title: "Gagal mengirim", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Email konfirmasi dikirim", description: "Silakan cek inbox email Anda" });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const loginId = identifier.trim();
@@ -92,7 +133,22 @@ const Login = () => {
         email: loginId,
         password,
       });
-      if (error) throw error;
+      
+      if (error) {
+        const errorMessage = error.message.toLowerCase();
+        
+        // Check if error is related to unconfirmed email
+        if (errorMessage.includes("email not confirmed") || errorMessage.includes("email confirmation")) {
+          toast({
+            title: "Email belum dikonfirmasi",
+            description: "Silakan gunakan tombol 'Kirim ulang konfirmasi' di bawah",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw error;
+      }
 
       sessionStorage.removeItem("psytest_admin");
       sessionStorage.removeItem("psytest_admin_user");
@@ -161,7 +217,26 @@ const Login = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
+          <div className="mt-6 flex flex-col gap-2 text-center text-sm">
+            <button
+              type="button"
+              onClick={handleResetPassword}
+              disabled={loading}
+              className="text-muted-foreground hover:text-primary transition disabled:opacity-50"
+            >
+              Lupa password?
+            </button>
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={loading}
+              className="text-muted-foreground hover:text-primary transition disabled:opacity-50"
+            >
+              Kirim ulang email konfirmasi
+            </button>
+          </div>
+
+          <div className="mt-4 text-center text-sm text-muted-foreground">
             Belum punya akun?{" "}
             <Link to="/register" className="text-primary hover:underline font-medium">
               Daftar Sekarang

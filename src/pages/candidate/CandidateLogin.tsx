@@ -16,12 +16,93 @@ export default function CandidateLogin() {
     });
   }, [navigate]);
 
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      Swal.fire({ icon: "warning", title: "Email diperlukan", text: "Masukkan email Anda terlebih dahulu" });
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    setLoading(false);
+    
+    if (error) {
+      Swal.fire({ icon: "error", title: "Gagal mengirim", text: error.message });
+    } else {
+      Swal.fire({ 
+        icon: "success", 
+        title: "Email konfirmasi dikirim", 
+        text: "Silakan cek inbox email Anda dan klik link konfirmasi untuk mengaktifkan akun." 
+      });
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      Swal.fire({ icon: "warning", title: "Email diperlukan", text: "Masukkan email Anda terlebih dahulu" });
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    
+    if (error) {
+      Swal.fire({ icon: "error", title: "Gagal mengirim", text: error.message });
+    } else {
+      Swal.fire({ 
+        icon: "success", 
+        title: "Link reset password dikirim", 
+        text: "Silakan cek inbox email Anda untuk instruksi reset password." 
+      });
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
+      const errorMessage = error.message.toLowerCase();
+      
+      // Check if error is related to unconfirmed email
+      if (errorMessage.includes("email not confirmed") || errorMessage.includes("email confirmation")) {
+        Swal.fire({
+          icon: "warning",
+          title: "Email belum dikonfirmasi",
+          text: "Akun Anda belum dikonfirmasi. Silakan klik tombol di bawah untuk mengirim ulang email konfirmasi.",
+          showCancelButton: true,
+          confirmButtonText: "Kirim Ulang Konfirmasi",
+          cancelButtonText: "Batal",
+          confirmButtonColor: "hsl(168, 76%, 42%)",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            handleResendConfirmation();
+          }
+        });
+        return;
+      }
+      
+      // Check if error is related to invalid credentials
+      if (errorMessage.includes("invalid login credentials") || errorMessage.includes("wrong password")) {
+        Swal.fire({
+          icon: "error",
+          title: "Login gagal",
+          text: "Email atau password salah. Silakan periksa kembali atau gunakan fitur reset password.",
+          footer: '<a href="#" onclick="window.handleResetPassword()" class="text-primary hover:underline">Lupa password?</a>',
+          didOpen: () => {
+            (window as any).handleResetPassword = handleResetPassword;
+          }
+        });
+        return;
+      }
+      
       Swal.fire({ icon: "error", title: "Login gagal", text: error.message });
       return;
     }
@@ -76,6 +157,24 @@ export default function CandidateLogin() {
             <LogIn className="h-4 w-4" />
             {loading ? "Memproses..." : "Masuk"}
           </button>
+          <div className="flex flex-col gap-2 text-center text-sm">
+            <button
+              type="button"
+              onClick={handleResetPassword}
+              disabled={loading}
+              className="text-muted-foreground hover:text-primary transition disabled:opacity-50"
+            >
+              Lupa password?
+            </button>
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={loading}
+              className="text-muted-foreground hover:text-primary transition disabled:opacity-50"
+            >
+              Kirim ulang email konfirmasi
+            </button>
+          </div>
           <div className="text-center text-sm text-muted-foreground">
             Belum punya akun?{" "}
             <Link to="/candidate/register" className="text-primary font-semibold hover:underline">
