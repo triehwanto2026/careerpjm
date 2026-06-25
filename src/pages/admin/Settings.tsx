@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Home, Mail, Shield, Layout, Upload, X, Database, Download, Plus, Archive, HardDrive, Trash2, AlertTriangle, FileDown } from "lucide-react";
+import { Save, RefreshCw, Image, Palette, Settings as SettingsIcon, Home, Mail, Shield, Layout, Upload, X, Database, Download, Plus, Archive, HardDrive, Trash2, AlertTriangle, FileDown, UploadCloud } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,6 +74,17 @@ const TABLES_TO_BACKUP = [
   "notifications",
   "notification_templates",
   "activity_logs",
+];
+
+const TEST_TABLES = [
+  "test_instruments",
+  "test_questions",
+  "test_question_options",
+  "test_answer_keys",
+  "test_interpretations",
+  "test_sessions",
+  "test_results",
+  "test_answers",
 ];
 
 const STORAGE_BUCKETS = [
@@ -156,6 +167,15 @@ const Settings = () => {
   const [maintenanceDays, setMaintenanceDays] = useState(30);
   const [maintenanceLoading, setMaintenanceLoading] = useState<MaintenanceActionId | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [testBackupLoading, setTestBackupLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [fullRestoreLoading, setFullRestoreLoading] = useState(false);
+  const [deleteBeforeRestore, setDeleteBeforeRestore] = useState(true);
+  const [restoreStorage, setRestoreStorage] = useState(true);
+  const [testBackupFormat, setTestBackupFormat] = useState<"json" | "postgresql" | "mysql">("json");
+  const [includeTestImages, setIncludeTestImages] = useState(false);
+  const [testDeleteBeforeRestore, setTestDeleteBeforeRestore] = useState(true);
+  const [testRestoreStorage, setTestRestoreStorage] = useState(true);
 
   const categories = [
     { id: "branding", name: "Branding", icon: Palette, description: "Logo, warna, header, footer" },
@@ -367,16 +387,44 @@ const Settings = () => {
     }
   };
 
-  const fetchTableData = async () => {
+  const fetchTableData = async (tables?: string[]) => {
     const backupData: Record<string, any[]> = {};
     const skippedTables: string[] = [];
+    const tablesToBackup = tables || TABLES_TO_BACKUP;
 
-    for (const table of TABLES_TO_BACKUP) {
-      const { data, error } = await supabase.from(table as any).select("*");
-      if (error) {
+    for (const table of tablesToBackup) {
+      try {
+        const { count, error: countError } = await supabase
+          .from(table as any)
+          .select("*", { count: "exact", head: true });
+        
+        if (countError) {
+          skippedTables.push(`${table}: ${countError.message}`);
+          continue;
+        }
+
+        const allData: any[] = [];
+        const batchSize = 1000;
+        let offset = 0;
+
+        while (offset < (count || 0)) {
+          const { data, error } = await supabase
+            .from(table as any)
+            .select("*")
+            .range(offset, offset + batchSize - 1);
+          
+          if (error) {
+            skippedTables.push(`${table}: ${error.message}`);
+            break;
+          }
+          
+          allData.push(...(data || []));
+          offset += batchSize;
+        }
+
+        backupData[table] = allData;
+      } catch (error: any) {
         skippedTables.push(`${table}: ${error.message}`);
-      } else {
-        backupData[table] = data || [];
       }
     }
 
@@ -500,6 +548,358 @@ const Settings = () => {
       });
     }
     setBackupLoading(false);
+  };
+
+  const handleTestBackup = async () => {
+    setTestBackupLoading(true);
+    try {
+      const { backupData, skippedTables } = await fetchTableData(TEST_TABLES);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const rowCount = Object.values(backupData).reduce((total, rows) => total + rows.length, 0);
+      
+      let storageObjects: StorageObjectBackup[] = [];
+      if (includeTestImages) {
+        storageObjects = await listStorageObjects("test-images");
+      }
+
+      if (testBackupFormat === "json") {
+        const testBackup = {
+          version: 1,
+          generated_at: new Date().toISOString(),
+          source: "CareerPJM Test Data",
+          type: "test_data",
+          tables: TEST_TABLES,
+          database: backupData,
+          storage: includeTestImages ? {
+            mode: "full",
+            buckets: ["test-images"],
+            objects: storageObjects,
+          } : undefined,
+          migration_sql: {
+            postgresql: generateInsertSql(backupData, "postgresql"),
+            mysql: generateInsertSql(backupData, "mysql"),
+          },
+          warnings: skippedTables,
+        };
+        downloadTextFile(`test-data-backup-${timestamp}.json`, JSON.stringify(testBackup, null, 2), "application/json");
+      } else if (testBackupFormat === "postgresql") {
+        downloadTextFile(`test-data-backup-postgresql-${timestamp}.sql`, generateInsertSql(backupData, "postgresql"), "text/plain");
+      } else if (testBackupFormat === "mysql") {
+        downloadTextFile(`test-data-backup-mysql-${timestamp}.sql`, generateInsertSql(backupData, "mysql"), "text/plain");
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "Backup Data Tes Berhasil",
+        html: `<div style="text-align:left;font-size:13px;">
+          <div><b>${rowCount}</b> baris data tes diproses.</div>
+          <div><b>${TEST_TABLES.length}</b> tabel tes termasuk: ${TEST_TABLES.join(", ")}</div>
+          <div><b>Format:</b> ${testBackupFormat.toUpperCase()}</div>
+          ${includeTestImages ? `<div><b>${storageObjects.length}</b> gambar soal di-backup</div>` : ""}
+          ${skippedTables.length ? `<br><b>Tabel dilewati:</b><br>${skippedTables.map((e) => `• ${e}`).join("<br>")}` : ""}
+        </div>`,
+        ...SWAL_THEME,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Test backup error:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Backup Data Tes Gagal",
+        text: `Terjadi kesalahan: ${errMsg}`,
+        ...SWAL_THEME,
+      });
+    }
+    setTestBackupLoading(false);
+  };
+
+  const handleRestore = async () => {
+    const { value: file } = await Swal.fire({
+      icon: "question",
+      title: "Restore Data Tes",
+      text: "Pilih file backup JSON untuk restore data tes",
+      input: "file",
+      inputAttributes: {
+        accept: "application/json",
+        "aria-label": "Upload file backup",
+      },
+      showCancelButton: true,
+      confirmButtonText: "Restore",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "hsl(168, 76%, 42%)",
+      ...SWAL_THEME,
+    });
+
+    if (!file || !(file instanceof File)) return;
+
+    setRestoreLoading(true);
+    try {
+      const fileContent = await file.text();
+      const backupData = JSON.parse(fileContent);
+
+      if (!backupData.database || typeof backupData.database !== "object") {
+        throw new Error("Format file backup tidak valid");
+      }
+
+      const tableSummary = Object.entries(backupData.database).map(([table, rows]: [string, any]) => 
+        `<div>• <b>${table}</b>: ${(rows as any[]).length} baris</div>`
+      ).join("");
+
+      const confirmation = await Swal.fire({
+        icon: "warning",
+        title: "Konfirmasi Restore Data Tes",
+        html: `<div style="text-align:left;font-size:13px;">
+          <div>Data yang akan di-restore:</div>
+          ${tableSummary}
+          <br>
+          <div><b>Hapus data sebelum restore:</b> ${testDeleteBeforeRestore ? "Ya" : "Tidak"}</div>
+          <div><b>Restore bucket storage:</b> ${testRestoreStorage ? "Ya" : "Tidak"}</div>
+          <br><div class="text-destructive font-semibold">PERINGATAN: Data yang ada akan ditimpa!</div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: "Ya, Restore",
+        cancelButtonText: "Batal",
+        confirmButtonColor: "hsl(0, 72%, 51%)",
+        ...SWAL_THEME,
+      });
+
+      if (!confirmation.isConfirmed) {
+        setRestoreLoading(false);
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+      let storageRestored = 0;
+
+      for (const [table, rows] of Object.entries(backupData.database)) {
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+
+        try {
+          if (testDeleteBeforeRestore) {
+            const { error: deleteError } = await supabase.from(table as any).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+            if (deleteError && deleteError.code !== "PGRST116") {
+              errors.push(`${table}: Gagal menghapus data lama - ${deleteError.message}`);
+              errorCount++;
+              continue;
+            }
+          }
+
+          const batchSize = 1000;
+          for (let i = 0; i < rows.length; i += batchSize) {
+            const batch = rows.slice(i, i + batchSize);
+            const { error: insertError } = await supabase.from(table as any).insert(batch);
+            if (insertError) {
+              errors.push(`${table}: Gagal insert batch ${Math.floor(i / batchSize) + 1} - ${insertError.message}`);
+              errorCount++;
+              break;
+            }
+          }
+          successCount++;
+        } catch (error: any) {
+          errors.push(`${table}: ${error.message}`);
+          errorCount++;
+        }
+      }
+
+      if (testRestoreStorage && backupData.storage && backupData.storage.objects) {
+        for (const obj of backupData.storage.objects) {
+          if (obj.base64 && obj.bucket && obj.path) {
+            try {
+              const base64Data = obj.base64.split(',')[1] || obj.base64;
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              const blob = new Blob([bytes], { type: obj.mime_type || 'application/octet-stream' });
+              
+              const { error: uploadError } = await supabase.storage
+                .from(obj.bucket)
+                .upload(obj.path, blob, { upsert: true });
+              
+              if (uploadError) {
+                errors.push(`Storage ${obj.bucket}/${obj.path}: ${uploadError.message}`);
+              } else {
+                storageRestored++;
+              }
+            } catch (error: any) {
+              errors.push(`Storage ${obj.bucket}/${obj.path}: ${error.message}`);
+            }
+          }
+        }
+      }
+
+      await Swal.fire({
+        icon: errorCount > 0 ? "warning" : "success",
+        title: errorCount > 0 ? "Restore Selesai dengan Error" : "Restore Berhasil",
+        html: `<div style="text-align:left;font-size:13px;">
+          <div><b>${successCount}</b> tabel berhasil di-restore</div>
+          ${storageRestored > 0 ? `<div><b>${storageRestored}</b> file storage di-restore</div>` : ""}
+          ${errorCount > 0 ? `<div><b>${errorCount}</b> tabel gagal</div><br><b>Error:</b><br>${errors.map((e) => `• ${e}`).join("<br>")}` : ""}
+        </div>`,
+        ...SWAL_THEME,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Restore error:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Restore Gagal",
+        text: `Terjadi kesalahan: ${errMsg}`,
+        ...SWAL_THEME,
+      });
+    }
+    setRestoreLoading(false);
+  };
+
+  const handleFullRestore = async () => {
+    const { value: file } = await Swal.fire({
+      icon: "question",
+      title: "Restore Database dari Backup",
+      text: "Upload file backup JSON (format Paket Lengkap atau JSON Database) untuk mengganti isi database saat ini",
+      input: "file",
+      inputAttributes: {
+        accept: ".json,.sql",
+        "aria-label": "Upload file backup",
+      },
+      showCancelButton: true,
+      confirmButtonText: "Lanjut",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "hsl(168, 76%, 42%)",
+      ...SWAL_THEME,
+    });
+
+    if (!file || !(file instanceof File)) return;
+
+    setFullRestoreLoading(true);
+    try {
+      const fileContent = await file.text();
+      const fileName = file.name.toLowerCase();
+      let backupData: any;
+
+      if (fileName.endsWith('.sql')) {
+        throw new Error("Restore dari file SQL belum didukung di UI. Gunakan tool DB eksternal.");
+      } else {
+        backupData = JSON.parse(fileContent);
+      }
+
+      if (!backupData.database || typeof backupData.database !== "object") {
+        throw new Error("Format file backup tidak valid");
+      }
+
+      const tableSummary = Object.entries(backupData.database).map(([table, rows]: [string, any]) => 
+        `<div>• <b>${table}</b>: ${(rows as any[]).length} baris</div>`
+      ).join("");
+
+      const confirmation = await Swal.fire({
+        icon: "warning",
+        title: "Konfirmasi Restore Database",
+        html: `<div style="text-align:left;font-size:13px;">
+          <div>Data yang akan di-restore:</div>
+          ${tableSummary}
+          <br>
+          <div><b>Hapus data sebelum restore:</b> ${deleteBeforeRestore ? "Ya" : "Tidak"}</div>
+          <div><b>Restore bucket storage:</b> ${restoreStorage ? "Ya" : "Tidak"}</div>
+          <br><div class="text-destructive font-semibold">PERINGATAN: Tindakan ini akan menimpa data produksi!</div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: "Ya, Restore",
+        cancelButtonText: "Batal",
+        confirmButtonColor: "hsl(0, 72%, 51%)",
+        ...SWAL_THEME,
+      });
+
+      if (!confirmation.isConfirmed) {
+        setFullRestoreLoading(false);
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+      let storageRestored = 0;
+
+      for (const [table, rows] of Object.entries(backupData.database)) {
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+
+        try {
+          if (deleteBeforeRestore) {
+            const { error: deleteError } = await supabase.from(table as any).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+            if (deleteError && deleteError.code !== "PGRST116") {
+              errors.push(`${table}: Gagal menghapus data lama - ${deleteError.message}`);
+              errorCount++;
+              continue;
+            }
+          }
+
+          const batchSize = 1000;
+          for (let i = 0; i < rows.length; i += batchSize) {
+            const batch = rows.slice(i, i + batchSize);
+            const { error: insertError } = await supabase.from(table as any).insert(batch);
+            if (insertError) {
+              errors.push(`${table}: Gagal insert batch ${Math.floor(i / batchSize) + 1} - ${insertError.message}`);
+              errorCount++;
+              break;
+            }
+          }
+          successCount++;
+        } catch (error: any) {
+          errors.push(`${table}: ${error.message}`);
+          errorCount++;
+        }
+      }
+
+      if (restoreStorage && backupData.storage && backupData.storage.objects) {
+        for (const obj of backupData.storage.objects) {
+          if (obj.base64 && obj.bucket && obj.path) {
+            try {
+              const base64Data = obj.base64.split(',')[1] || obj.base64;
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              const blob = new Blob([bytes], { type: obj.mime_type || 'application/octet-stream' });
+              
+              const { error: uploadError } = await supabase.storage
+                .from(obj.bucket)
+                .upload(obj.path, blob, { upsert: true });
+              
+              if (uploadError) {
+                errors.push(`Storage ${obj.bucket}/${obj.path}: ${uploadError.message}`);
+              } else {
+                storageRestored++;
+              }
+            } catch (error: any) {
+              errors.push(`Storage ${obj.bucket}/${obj.path}: ${error.message}`);
+            }
+          }
+        }
+      }
+
+      await Swal.fire({
+        icon: errorCount > 0 ? "warning" : "success",
+        title: errorCount > 0 ? "Restore Selesai dengan Error" : "Restore Berhasil",
+        html: `<div style="text-align:left;font-size:13px;">
+          <div><b>${successCount}</b> tabel berhasil di-restore</div>
+          ${storageRestored > 0 ? `<div><b>${storageRestored}</b> file storage di-restore</div>` : ""}
+          ${errorCount > 0 ? `<div><b>${errorCount}</b> tabel gagal</div><br><b>Error:</b><br>${errors.map((e) => `• ${e}`).join("<br>")}` : ""}
+        </div>`,
+        ...SWAL_THEME,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Full restore error:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Restore Gagal",
+        text: `Terjadi kesalahan: ${errMsg}`,
+        ...SWAL_THEME,
+      });
+    }
+    setFullRestoreLoading(false);
   };
 
   const cutoffIso = () => new Date(Date.now() - maintenanceDays * 24 * 60 * 60 * 1000).toISOString();
@@ -922,6 +1322,186 @@ const Settings = () => {
                           <>
                             <Download className="h-4 w-4" />
                             Buat & Download Backup
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Test Data Backup & Restore Section */}
+                  <div className="border border-border rounded-lg p-6 bg-muted/30">
+                    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <FileDown className="h-5 w-5 text-primary" />
+                      Backup & Restore Alat Tes
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Backup penuh khusus data alat tes: instrumen, soal, opsi/set jawaban, kunci jawaban, interpretasi/scoring, sesi, hasil, jawaban kandidat, dan gambar soal (bucket test-images). File hasil backup ini dapat di-restore menggunakan tombol restore di bawah.
+                    </p>
+                    <div className="grid gap-4 rounded-lg border border-border bg-background p-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Format Backup</label>
+                          <select
+                            value={testBackupFormat}
+                            onChange={(e) => setTestBackupFormat(e.target.value as "json" | "postgresql" | "mysql")}
+                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary"
+                          >
+                            <option value="json">JSON (dengan SQL migrasi)</option>
+                            <option value="postgresql">SQL PostgreSQL</option>
+                            <option value="mysql">SQL MySQL</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Info Format</label>
+                          <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                            {testBackupFormat === "json" && "JSON lengkap dengan data dan SQL migrasi untuk PostgreSQL & MySQL"}
+                            {testBackupFormat === "postgresql" && "SQL INSERT statements untuk database PostgreSQL"}
+                            {testBackupFormat === "mysql" && "SQL INSERT statements untuk database MySQL"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 text-sm text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={includeTestImages}
+                            onChange={(e) => setIncludeTestImages(e.target.checked)}
+                            className="h-4 w-4 accent-primary"
+                          />
+                          Sertakan gambar soal (base64) dari bucket test-images
+                        </label>
+                      </div>
+                      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Tabel:</span> {TEST_TABLES.join(", ")}
+                        </div>
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Bucket:</span> test-images (opsional)
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={handleTestBackup}
+                          disabled={testBackupLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {testBackupLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
+                              Backup...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" />
+                              Backup Alat Tes (Full)
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      
+                      <div className="border-t border-border pt-4 mt-4">
+                        <h4 className="text-sm font-semibold mb-3">Restore Alat Tes dari File</h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Restore menggunakan opsi yang sama dengan restore database di atas (wipe & upload bucket).
+                        </p>
+                        <div className="space-y-3 mb-4">
+                          <label className="flex items-center gap-3 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={testDeleteBeforeRestore}
+                              onChange={(e) => setTestDeleteBeforeRestore(e.target.checked)}
+                              className="h-4 w-4 accent-primary"
+                            />
+                            Hapus dulu semua data tabel sebelum restore
+                          </label>
+                          <label className="flex items-center gap-3 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={testRestoreStorage}
+                              onChange={(e) => setTestRestoreStorage(e.target.checked)}
+                              className="h-4 w-4 accent-primary"
+                            />
+                            Restore file bucket storage (jika ada base64 di backup)
+                          </label>
+                        </div>
+                        <button
+                          onClick={handleRestore}
+                          disabled={restoreLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {restoreLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                              Restore...
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-4 w-4" />
+                              Restore Alat Tes dari File
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Database Restore Section */}
+                  <div className="border border-border rounded-lg p-6 bg-muted/30">
+                    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <UploadCloud className="h-5 w-5 text-primary" />
+                      Restore Database dari Backup
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Upload file backup JSON (format Paket Lengkap atau JSON Database) untuk mengganti isi database saat ini. Restore dari file SQL belum didukung di UI — gunakan tool DB eksternal.
+                    </p>
+                    <div className="grid gap-4 rounded-lg border border-border bg-background p-4">
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 text-sm text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={deleteBeforeRestore}
+                            onChange={(e) => setDeleteBeforeRestore(e.target.checked)}
+                            className="h-4 w-4 accent-primary"
+                          />
+                          Hapus dulu semua data tabel sebelum restore (disarankan agar identik dengan backup)
+                        </label>
+                        <label className="flex items-center gap-3 text-sm text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={restoreStorage}
+                            onChange={(e) => setRestoreStorage(e.target.checked)}
+                            className="h-4 w-4 accent-primary"
+                          />
+                          Restore file bucket storage (jika ada base64 di backup)
+                        </label>
+                      </div>
+                      <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3">
+                        <p className="text-xs text-destructive font-semibold">
+                          Tindakan ini akan menimpa data produksi. Pastikan Anda sudah memiliki backup terbaru sebelum melanjutkan.
+                        </p>
+                      </div>
+                      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Format:</span> JSON (.json), SQL (.sql - read-only)
+                        </div>
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Fitur:</span> Mendukung file besar dengan jumlah baris tidak terbatas
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleFullRestore}
+                        disabled={fullRestoreLoading}
+                        className="flex w-fit items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {fullRestoreLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive-foreground" />
+                            Restore...
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className="h-4 w-4" />
+                            Pilih File Backup (.json/.sql)
                           </>
                         )}
                       </button>
