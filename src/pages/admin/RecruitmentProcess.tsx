@@ -1670,7 +1670,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
       </div>
       <div>
         <div class="kv"><b>Domisili</b><span>:</span><span>${escapeReportHtml(getProfileValue(profile, ["city", "address"]))}</span></div>
-        <div class="kv"><b>Ketersediaan</b><span>:</span><span>${escapeReportHtml(reportDraft.availability || profile.available_from || profile.notice_period || "-")}</span></div>
+        <div class="kv"><b>Ketersediaan</b><span>:</span><span>${escapeReportHtml(reportDraft.availability || (profile as any).available_from || (profile as any).notice_period || "-")}</span></div>
         <div class="kv"><b>Ekspektasi Gaji</b><span>:</span><span>${escapeReportHtml(formatExpectedSalary(profile))}</span></div>
         <div class="kv"><b>Tinggi Badan</b><span>:</span><span>${escapeReportHtml(profile.height || "-")}${profile.height ? " cm" : ""}</span></div>
         <div class="kv"><b>Berat Badan</b><span>:</span><span>${escapeReportHtml(profile.weight || "-")}${profile.weight ? " kg" : ""}</span></div>
