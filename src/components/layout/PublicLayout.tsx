@@ -83,25 +83,42 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
     syncHash();
     window.addEventListener("hashchange", syncHash);
 
-    const sections = ["beranda", "lowongan", "tentang"]
-      .map((id) => document.getElementById(id))
-      .filter(Boolean) as HTMLElement[];
+    const sectionIds = ["beranda", "lowongan", "tentang"];
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible?.target?.id) setActiveSection(visible.target.id);
-      },
-      { rootMargin: "-30% 0px -55% 0px", threshold: [0.1, 0.25, 0.5] }
-    );
+    const updateActive = () => {
+      const offset = 120; // header height + a bit
+      const scrollPos = window.scrollY + offset;
 
-    sections.forEach((section) => observer.observe(section));
+      // If near top, force beranda
+      if (window.scrollY < 80) {
+        setActiveSection("beranda");
+        return;
+      }
+
+      // If near bottom, force last section
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 20) {
+        setActiveSection(sectionIds[sectionIds.length - 1]);
+        return;
+      }
+
+      let current = "beranda";
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el && el.offsetTop <= scrollPos) {
+          current = id;
+        }
+      }
+      setActiveSection(current);
+    };
+
+    updateActive();
+    window.addEventListener("scroll", updateActive, { passive: true });
+    window.addEventListener("resize", updateActive);
 
     return () => {
       window.removeEventListener("hashchange", syncHash);
-      observer.disconnect();
+      window.removeEventListener("scroll", updateActive);
+      window.removeEventListener("resize", updateActive);
     };
   }, [location.pathname, location.hash]);
 
