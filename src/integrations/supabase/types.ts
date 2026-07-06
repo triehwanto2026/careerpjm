@@ -2490,6 +2490,50 @@ export type Database = {
         }
         Relationships: []
       }
+      screening_reports: {
+        Row: {
+          application_id: string
+          candidate_email: string | null
+          candidate_name: string | null
+          candidate_user_id: string | null
+          created_at: string
+          draft: Json
+          id: string
+          updated_at: string
+          vacancy_id: string | null
+        }
+        Insert: {
+          application_id: string
+          candidate_email?: string | null
+          candidate_name?: string | null
+          candidate_user_id?: string | null
+          created_at?: string
+          draft?: Json
+          id?: string
+          updated_at?: string
+          vacancy_id?: string | null
+        }
+        Update: {
+          application_id?: string
+          candidate_email?: string | null
+          candidate_name?: string | null
+          candidate_user_id?: string | null
+          created_at?: string
+          draft?: Json
+          id?: string
+          updated_at?: string
+          vacancy_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_reports_vacancy_id_fkey"
+            columns: ["vacancy_id"]
+            isOneToOne: false
+            referencedRelation: "job_vacancies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_answers: {
         Row: {
           category: string | null
