@@ -1661,68 +1661,86 @@ const TestPage = () => {
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                  Tulis angka satuan dari hasil penjumlahan. Contoh 7 + 8 = 15, tulis 5. Ketik angka dan otomatis lanjut ke soal berikutnya.
+                  Tulis <b>angka satuan</b> dari penjumlahan dua angka yang mengapit kotak. Contoh: 7 + 8 = 15 → tulis <b>5</b>. Kursor akan otomatis berpindah ke bawah setelah Anda mengetik. Jawaban <b>tidak dapat direvisi</b> dan Anda tidak bisa melewati kotak yang kosong.
                 </div>
-                <div className="max-h-[65vh] overflow-y-auto rounded-lg border border-border bg-card p-4">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    {subtestQuestions.map((q, idx) => (
-                      <div key={q.id} className="flex items-center gap-2 rounded border border-border bg-muted/30 p-2">
-                        <span className="flex-shrink-0 w-8 text-sm font-bold text-muted-foreground">{idx + 1}</span>
-                        <span className="flex-shrink-0 min-w-20 text-base font-semibold text-foreground">{q.question_text}</span>
-                        <span className="text-muted-foreground">=</span>
-                        <input
-                          ref={(el) => { kraepelinInputRefs.current[q.id] = el; }}
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          maxLength={1}
-                          value={(answers[`${currentTest.id}:${q.id}`] as string) || ""}
-                          onChange={(e) => {
-                            const filled = handleKraepelinAnswer(currentTest.id, q.id, e.target.value);
-                            if (!filled) return;
-                            // focus next input via refs
-                            const next = subtestQuestions[idx + 1];
-                            if (next) {
-                              const nextEl = kraepelinInputRefs.current[next.id];
-                              if (nextEl) {
-                                nextEl.focus();
-                                nextEl.select();
-                                return;
-                              }
-                            }
-                            const moved = finishCurrentSubtest();
-                            if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
-                          }}
-                          onKeyDown={(e) => {
-                            // Accept single digit keys without needing Enter/Tab
-                            if (/^[0-9]$/.test(e.key)) {
-                              e.preventDefault();
-                              const digit = e.key;
-                              // write and move
-                              handleKraepelinAnswer(currentTest.id, q.id, digit);
-                              const next = subtestQuestions[idx + 1];
-                              if (next) {
-                                const nextEl = kraepelinInputRefs.current[next.id];
-                                if (nextEl) { nextEl.focus(); nextEl.select(); }
-                              } else {
-                                const moved = finishCurrentSubtest();
-                                if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
-                              }
-                              return;
-                            }
-                            // Disable backspace navigation - no going back to previous questions
-                            if (e.key === 'Backspace') {
-                              e.preventDefault();
-                              return;
-                            }
-                          }}
-                          data-kraepelin-index={idx}
-                          className="ml-auto h-8 w-10 rounded border border-border bg-white text-center text-lg font-bold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-muted"
-                        />
+                {(() => {
+                  // Build vertical number column from question texts "a + b = ?"
+                  const parsePair = (txt: string): [number, number] => {
+                    const m = txt.match(/(\d+)\s*\+\s*(\d+)/);
+                    return m ? [Number(m[1]), Number(m[2])] : [0, 0];
+                  };
+                  const numbers: number[] = subtestQuestions.map(q => parsePair(q.question_text)[0]);
+                  if (subtestQuestions.length > 0) {
+                    const last = parsePair(subtestQuestions[subtestQuestions.length - 1].question_text)[1];
+                    numbers.push(last);
+                  }
+                  const firstUnanswered = subtestQuestions.findIndex(q => !answers[`${currentTest.id}:${q.id}`]);
+                  return (
+                    <div className="max-h-[65vh] overflow-y-auto rounded-lg border border-border bg-card p-4">
+                      <div className="mx-auto w-fit rounded-md border border-border bg-muted/10 px-6 py-4 font-mono">
+                        {numbers.map((n, i) => {
+                          const q = subtestQuestions[i]; // answer between number i and i+1
+                          const isActive = q && i === firstUnanswered;
+                          const answered = q ? (answers[`${currentTest.id}:${q.id}`] as string) : "";
+                          return (
+                            <div key={i}>
+                              <div className="flex items-center gap-3 py-0.5">
+                                <span className="w-6 text-right text-[10px] text-muted-foreground">{i + 1}</span>
+                                <span className="w-8 text-center text-lg font-bold text-foreground tabular-nums">{n}</span>
+                              </div>
+                              {q && (
+                                <div className="flex items-center gap-3">
+                                  <span className="w-6" />
+                                  <input
+                                    ref={(el) => { kraepelinInputRefs.current[q.id] = el; }}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={1}
+                                    disabled={!isActive}
+                                    readOnly={!isActive}
+                                    value={answered || ""}
+                                    autoFocus={isActive}
+                                    onKeyDown={(e) => {
+                                      if (!isActive) { e.preventDefault(); return; }
+                                      if (/^[0-9]$/.test(e.key)) {
+                                        e.preventDefault();
+                                        handleKraepelinAnswer(currentTest.id, q.id, e.key);
+                                        const next = subtestQuestions[i + 1];
+                                        if (next) {
+                                          setTimeout(() => {
+                                            const nextEl = kraepelinInputRefs.current[next.id];
+                                            if (nextEl) { nextEl.focus(); nextEl.select(); }
+                                          }, 0);
+                                        } else {
+                                          const moved = finishCurrentSubtest();
+                                          if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                                        }
+                                        return;
+                                      }
+                                      // Block backspace, arrows, tab back — no revision
+                                      if (["Backspace", "Delete", "ArrowUp", "ArrowLeft"].includes(e.key)) {
+                                        e.preventDefault();
+                                      }
+                                    }}
+                                    onChange={() => { /* handled in onKeyDown */ }}
+                                    className={`h-7 w-8 rounded border text-center text-base font-semibold outline-none tabular-nums transition-colors ${
+                                      isActive
+                                        ? "border-primary bg-primary/5 text-primary ring-2 ring-primary/30 animate-pulse"
+                                        : answered
+                                          ? "border-border bg-muted/40 text-muted-foreground"
+                                          : "border-dashed border-border/60 bg-transparent text-transparent"
+                                    }`}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : currentQuestion ? (
               <div className="animate-fade-in space-y-5">
