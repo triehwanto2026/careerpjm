@@ -1661,7 +1661,7 @@ const TestPage = () => {
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                  Tulis angka satuan dari hasil penjumlahan. Contoh 7 + 8 = 15, tulis 5. Ketik angka dan otomatis lanjut ke soal berikutnya.
+                  Tulis <b>angka satuan</b> dari penjumlahan dua angka yang mengapit kotak. Contoh: 7 + 8 = 15 → tulis <b>5</b>. Kursor akan otomatis berpindah ke bawah setelah Anda mengetik. Jawaban <b>tidak dapat direvisi</b> dan Anda tidak bisa melewati kotak yang kosong.
                 </div>
                 {(() => {
                   // Build vertical number column from question texts "a + b = ?"
