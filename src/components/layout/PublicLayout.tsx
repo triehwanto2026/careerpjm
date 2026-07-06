@@ -107,8 +107,8 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
   const navClass = (section: string) =>
     activeSection === section
-      ? "rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-600 dark:bg-sky-400 dark:text-slate-950 dark:shadow-sky-400/20"
-      : "rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-500 transition-all hover:bg-sky-50 hover:text-sky-600 hover:shadow-sm dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground";
+      ? "rounded-full bg-white px-5 py-2 text-sm font-semibold text-sky-600 shadow-sm ring-1 ring-slate-900/5 transition-all dark:bg-slate-700 dark:text-sky-300 dark:ring-white/10"
+      : "rounded-full px-5 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white";
 
   const navigate = useNavigate();
 
