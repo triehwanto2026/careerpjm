@@ -147,7 +147,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-2 rounded-full md:flex">
+          <nav className="hidden items-center gap-1 rounded-full border border-slate-200/70 bg-slate-100/80 p-1 backdrop-blur-sm md:flex dark:border-slate-700/50 dark:bg-slate-800/50">
             <button type="button" onClick={() => scrollToSection("beranda")} className={navClass("beranda")}>
               Beranda
             </button>
