@@ -471,8 +471,8 @@ Terima kasih.`;
 
   const fillApplicantContactTemplate = (candidate: CandidateProfile, template: string) => {
     return template
-      .replaceAll("{nama}", candidate.full_name || "Kandidat")
-      .replaceAll("{posisi}", getCandidateTargetPosition(candidate));
+      .replace(/\{nama\}/g, candidate.full_name || "Kandidat")
+      .replace(/\{posisi\}/g, getCandidateTargetPosition(candidate));
   };
 
   const buildApplicantContactDraft = (candidate: CandidateProfile) => {
