@@ -1388,7 +1388,8 @@ const TestPage = () => {
     } else await completeSubmission();
   };
 
-  const completeSubmission = async () => {
+  const completeSubmission = async (options?: { auto?: boolean }) => {
+    const isAuto = !!options?.auto;
     setSubmitted(true);
     const candidateRaw = sessionStorage.getItem("psytest_candidate");
     const candidate = candidateRaw ? JSON.parse(candidateRaw) : null;
@@ -1396,12 +1397,14 @@ const TestPage = () => {
     // Prefer a fresh final snap, but keep an automatic in-test snap as fallback.
     let snapUrl: string | null = null;
     const dataUrl = webcamRef.current?.capture() || autoSnapDataUrlRef.current;
-    if (!dataUrl) {
+    if (!dataUrl && !isAuto) {
       setSubmitted(false);
       await handleCameraViolation("Kamera wajib aktif sampai tes selesai. Snapshot kamera gagal diambil sehingga sesi dicatat sebagai <b>cheating</b>.");
       return;
     }
-    if (dataUrl) snapUrl = await uploadDataUrlAsPhoto(dataUrl, `snap-${candidate?.email || "anon"}`);
+    if (dataUrl) {
+      try { snapUrl = await uploadDataUrlAsPhoto(dataUrl, `snap-${candidate?.email || "anon"}`); } catch { snapUrl = null; }
+    }
 
     // Build per-instrument answers map { question_id -> optId } for the server.
     const instrumentsPayload = instruments.map((inst) => {
