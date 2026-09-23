@@ -1965,7 +1965,8 @@ const TestPage = () => {
               </button>
             ) : (
               <button onClick={handleNext}
-                className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98]">
+                disabled={isPersonalityTest(currentTest) && !!currentQuestion && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100">
                 Selanjutnya<ChevronRight className="h-4 w-4" />
               </button>
             )}
