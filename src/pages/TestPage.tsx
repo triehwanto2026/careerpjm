@@ -1112,7 +1112,7 @@ const TestPage = () => {
     }
   }, [remainingSec, currentSubtest, currentTest, submitted, subtestIntroActive, finishCurrentSubtest, handleNextTest]);
 
-  const completeSubmissionRef = useRef<() => Promise<void>>(async () => {});
+  const completeSubmissionRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
 
   const handleTimeUp = useCallback(async () => {
     if (submitted) return;
@@ -1158,7 +1158,7 @@ const TestPage = () => {
       text: "Jawaban Anda akan disimpan otomatis dan tes dianggap selesai.",
       ...SWAL_THEME,
       allowOutsideClick: false,
-    }).then(() => completeSubmissionRef.current());
+    }).then(() => completeSubmissionRef.current({ auto: true }));
   }, [submitted, currentTestIdx, currentQIdx, instruments, persistSession]);
 
   // Check if auto-submit is needed after resume
