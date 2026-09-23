@@ -1323,6 +1323,17 @@ const TestPage = () => {
       });
       return;
     }
+    if (isPersonalityTest(currentTest) && currentQuestion && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])) {
+      Swal.fire({
+        icon: "warning",
+        title: "Jawaban Belum Diisi",
+        text: "Silakan jawab pertanyaan ini terlebih dahulu sebelum lanjut ke pertanyaan berikutnya.",
+        ...SWAL_THEME,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+      return;
+    }
     // Subtest based tests: if next question belongs to a different subtest, mark current subtest completed.
     if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code) {
       const nextQ = currentTest.questions[currentQIdx + 1];
