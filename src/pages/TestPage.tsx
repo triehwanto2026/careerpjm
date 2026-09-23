@@ -1419,17 +1419,30 @@ const TestPage = () => {
     // Server-side scoring: edge function reads answer keys with the service role
     // and writes test_results + test_answers. Keys never reach the client.
     try {
-      const { data, error } = await supabase.functions.invoke("test-submit", {
-        body: {
-          candidate: candidate || {},
-          snap_url: snapUrl,
-          instruments: instrumentsPayload,
-        },
-      });
-      if (error) throw error;
-      if (!data?.ok || !Array.isArray(data.results) || data.results.length !== instrumentsPayload.length) {
-        throw new Error(data?.error || "Hasil tes belum tersimpan lengkap di database.");
+      let data: any = null;
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await supabase.functions.invoke("test-submit", {
+            body: {
+              candidate: candidate || {},
+              snap_url: snapUrl,
+              instruments: instrumentsPayload,
+            },
+          });
+          if (res.error) throw res.error;
+          data = res.data;
+          if (!data?.ok || !Array.isArray(data.results) || data.results.length !== instrumentsPayload.length) {
+            throw new Error(data?.error || "Hasil tes belum tersimpan lengkap di database.");
+          }
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+        }
       }
+      if (lastErr) throw lastErr;
       const results = (data.results as Array<any>).map((result) => ({
         instrument_id: result.instrument_id,
         instrument_name: result.instrument_name || result.test_name || "Tes",
