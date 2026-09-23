@@ -534,6 +534,18 @@ const TestPage = () => {
     return isGeRange;
   };
   const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t) || isKraepelinTest(t);
+  // Tes kepribadian (Personality Plus, DISC, MBTI, PAPI, dll) wajib dijawab sebelum lanjut.
+  const isPersonalityTest = (t?: DbInstrument) => {
+    if (!t) return false;
+    const upper = String(t.name || "").toUpperCase();
+    const method = String(t.scoring_method || "").toUpperCase();
+    return (
+      isMbtiTest(t) || isPapiTest(t) ||
+      upper.includes("PERSONALITY") || upper.includes("TEMPERAMEN") ||
+      upper.includes("KEPRIBADIAN") || upper.includes("DISC") ||
+      method.includes("DISC") || method.includes("PERSONALITY")
+    );
+  };
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
   const hideQuestionImages = isMbtiTest(currentTest) || isPapiTest(currentTest);
