@@ -534,6 +534,18 @@ const TestPage = () => {
     return isGeRange;
   };
   const usesSubtestIntro = (t?: DbInstrument) => isIST(t) || isCFIT(t) || isKraepelinTest(t);
+  // Tes kepribadian (Personality Plus, DISC, MBTI, PAPI, dll) wajib dijawab sebelum lanjut.
+  const isPersonalityTest = (t?: DbInstrument) => {
+    if (!t) return false;
+    const upper = String(t.name || "").toUpperCase();
+    const method = String(t.scoring_method || "").toUpperCase();
+    return (
+      isMbtiTest(t) || isPapiTest(t) ||
+      upper.includes("PERSONALITY") || upper.includes("TEMPERAMEN") ||
+      upper.includes("KEPRIBADIAN") || upper.includes("DISC") ||
+      method.includes("DISC") || method.includes("PERSONALITY")
+    );
+  };
   const currentTest = instruments[currentTestIdx];
   const currentQuestion = currentTest?.questions[currentQIdx];
   const hideQuestionImages = isMbtiTest(currentTest) || isPapiTest(currentTest);
@@ -1100,7 +1112,7 @@ const TestPage = () => {
     }
   }, [remainingSec, currentSubtest, currentTest, submitted, subtestIntroActive, finishCurrentSubtest, handleNextTest]);
 
-  const completeSubmissionRef = useRef<() => Promise<void>>(async () => {});
+  const completeSubmissionRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
 
   const handleTimeUp = useCallback(async () => {
     if (submitted) return;
@@ -1146,7 +1158,7 @@ const TestPage = () => {
       text: "Jawaban Anda akan disimpan otomatis dan tes dianggap selesai.",
       ...SWAL_THEME,
       allowOutsideClick: false,
-    }).then(() => completeSubmissionRef.current());
+    }).then(() => completeSubmissionRef.current({ auto: true }));
   }, [submitted, currentTestIdx, currentQIdx, instruments, persistSession]);
 
   // Check if auto-submit is needed after resume
@@ -1311,6 +1323,17 @@ const TestPage = () => {
       });
       return;
     }
+    if (isPersonalityTest(currentTest) && currentQuestion && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])) {
+      Swal.fire({
+        icon: "warning",
+        title: "Jawaban Belum Diisi",
+        text: "Silakan jawab pertanyaan ini terlebih dahulu sebelum lanjut ke pertanyaan berikutnya.",
+        ...SWAL_THEME,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+      return;
+    }
     // Subtest based tests: if next question belongs to a different subtest, mark current subtest completed.
     if (usesSubtestIntro(currentTest) && currentQuestion?.subtest_code) {
       const nextQ = currentTest.questions[currentQIdx + 1];
@@ -1365,7 +1388,8 @@ const TestPage = () => {
     } else await completeSubmission();
   };
 
-  const completeSubmission = async () => {
+  const completeSubmission = async (options?: { auto?: boolean }) => {
+    const isAuto = !!options?.auto;
     setSubmitted(true);
     const candidateRaw = sessionStorage.getItem("psytest_candidate");
     const candidate = candidateRaw ? JSON.parse(candidateRaw) : null;
@@ -1373,12 +1397,14 @@ const TestPage = () => {
     // Prefer a fresh final snap, but keep an automatic in-test snap as fallback.
     let snapUrl: string | null = null;
     const dataUrl = webcamRef.current?.capture() || autoSnapDataUrlRef.current;
-    if (!dataUrl) {
+    if (!dataUrl && !isAuto) {
       setSubmitted(false);
       await handleCameraViolation("Kamera wajib aktif sampai tes selesai. Snapshot kamera gagal diambil sehingga sesi dicatat sebagai <b>cheating</b>.");
       return;
     }
-    if (dataUrl) snapUrl = await uploadDataUrlAsPhoto(dataUrl, `snap-${candidate?.email || "anon"}`);
+    if (dataUrl) {
+      try { snapUrl = await uploadDataUrlAsPhoto(dataUrl, `snap-${candidate?.email || "anon"}`); } catch { snapUrl = null; }
+    }
 
     // Build per-instrument answers map { question_id -> optId } for the server.
     const instrumentsPayload = instruments.map((inst) => {
@@ -1393,17 +1419,30 @@ const TestPage = () => {
     // Server-side scoring: edge function reads answer keys with the service role
     // and writes test_results + test_answers. Keys never reach the client.
     try {
-      const { data, error } = await supabase.functions.invoke("test-submit", {
-        body: {
-          candidate: candidate || {},
-          snap_url: snapUrl,
-          instruments: instrumentsPayload,
-        },
-      });
-      if (error) throw error;
-      if (!data?.ok || !Array.isArray(data.results) || data.results.length !== instrumentsPayload.length) {
-        throw new Error(data?.error || "Hasil tes belum tersimpan lengkap di database.");
+      let data: any = null;
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await supabase.functions.invoke("test-submit", {
+            body: {
+              candidate: candidate || {},
+              snap_url: snapUrl,
+              instruments: instrumentsPayload,
+            },
+          });
+          if (res.error) throw res.error;
+          data = res.data;
+          if (!data?.ok || !Array.isArray(data.results) || data.results.length !== instrumentsPayload.length) {
+            throw new Error(data?.error || "Hasil tes belum tersimpan lengkap di database.");
+          }
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+        }
       }
+      if (lastErr) throw lastErr;
       const results = (data.results as Array<any>).map((result) => ({
         instrument_id: result.instrument_id,
         instrument_name: result.instrument_name || result.test_name || "Tes",
@@ -1942,7 +1981,8 @@ const TestPage = () => {
               </button>
             ) : (
               <button onClick={handleNext}
-                className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98]">
+                disabled={isPersonalityTest(currentTest) && !!currentQuestion && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100">
                 Selanjutnya<ChevronRight className="h-4 w-4" />
               </button>
             )}
