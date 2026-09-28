@@ -1280,7 +1280,7 @@ const TestPage = () => {
     setAnswers(prev => ({ ...prev, [key]: `M:${parts.M}|L:${parts.L}` }));
   };
 
-  const handleNextTestSync = () => {
+  const handleNextTestSync = async () => {
     if (currentTestIdx < instruments.length - 1) {
       // Hanya boleh lanjut ke test berikutnya jika test saat ini selesai (semua soal terjawab)
       const currentTest = instruments[currentTestIdx];
@@ -1294,17 +1294,59 @@ const TestPage = () => {
         setCompletedSubtests(new Set());
         setCurrentSubtest(null);
       } else {
-        // Belum semua soal terjawab
+        // Belum semua soal terjawab - cek apakah ada multi_choice yang belum lengkap
+        const incompleteMulti = currentTest.questions.filter(q => 
+          q.question_type === "multi_choice" && !isStoredAnswerComplete(q, answers[`${currentTest.id}:${q.id}`])
+        );
         const answered = currentTest.questions.filter(q => isStoredAnswerComplete(q, answers[`${currentTest.id}:${q.id}`])).length;
         const total = currentTest.questions.length;
-        Swal.fire({
-          icon: "warning",
-          title: "Belum Selesai",
-          text: `Selesaikan semua ${total} soal di tes ini terlebih dahulu (${answered}/${total}).`,
-          ...SWAL_THEME,
-          timer: 2000,
-          showConfirmButton: false,
-        });
+        
+        if (incompleteMulti.length > 0) {
+          const partialCount = incompleteMulti.filter(q => Boolean(answers[`${currentTest.id}:${q.id}`])).length;
+          const emptyCount = incompleteMulti.length - partialCount;
+          const message = `Ada ${incompleteMulti.length} soal pilihan ganda belum lengkap (${partialCount} terjawab sebagian, ${emptyCount} kosong).<br/><br/>Total terjawab: ${answered}/${total}.<br/><br/>Soal yang terjawab sebagian akan dianggap <b>salah</b>.`;
+          const result = await Swal.fire({
+            icon: "warning",
+            title: "Belum Selesai - Jawaban Belum Lengkap",
+            html: message,
+            ...SWAL_THEME,
+            showCancelButton: true,
+            confirmButtonText: "Lanjut ke Tes Berikutnya",
+            cancelButtonText: "Kembali & Lengkapi",
+            reverseButtons: true,
+          });
+          if (!result.isConfirmed) return;
+          
+          // Hapus jawaban parsial agar dianggap 0/salah
+          const answersToDelete: string[] = [];
+          incompleteMulti.forEach(q => {
+            answersToDelete.push(`${currentTest.id}:${q.id}`);
+          });
+          setAnswers(prev => {
+            const next = { ...prev };
+            answersToDelete.forEach(key => delete next[key]);
+            return next;
+          });
+        } else {
+          // Bukan multi_choice, tampilkan warning biasa
+          Swal.fire({
+            icon: "warning",
+            title: "Belum Selesai",
+            text: `Selesaikan semua ${total} soal di tes ini terlebih dahulu (${answered}/${total}).`,
+            ...SWAL_THEME,
+            timer: 2000,
+            showConfirmButton: false,
+          });
+          return;
+        }
+        
+        // Lanjut ke tes berikutnya
+        const nextTestIdx = currentTestIdx + 1;
+        startTimerForInstrument(instruments[nextTestIdx]);
+        setCurrentTestIdx(nextTestIdx);
+        setCurrentQIdx(0);
+        setCompletedSubtests(new Set());
+        setCurrentSubtest(null);
       }
     }
   };
@@ -1313,15 +1355,45 @@ const TestPage = () => {
     if (!currentTest) return;
     if (!(await ensureCameraActive())) return;
     if (currentQuestion?.question_type === "multi_choice" && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])) {
-      Swal.fire({
-        icon: "warning",
-        title: "Jawaban Belum Lengkap",
-        text: `Pilih tepat ${getRequiredPickCount(currentQuestion)} jawaban untuk soal ini.`,
-        ...SWAL_THEME,
-        timer: 1800,
-        showConfirmButton: false,
-      });
-      return;
+      const currentAns = answers[`${currentTest.id}:${currentQuestion.id}`] as string || "";
+      const pickedCount = currentAns.split("+").filter(Boolean).length;
+      const requiredCount = getRequiredPickCount(currentQuestion);
+      
+      if (pickedCount > 0 && pickedCount < requiredCount) {
+        // Ada jawaban tapi belum lengkap - beri opsi skip atau lengkapi
+        const result = await Swal.fire({
+          icon: "warning",
+          title: "Jawaban Belum Lengkap",
+          html: `Anda baru memilih <b>${pickedCount}</b> dari <b>${requiredCount}</b> jawaban yang diperlukan.<br/><br/>Pilih opsi:<br/>• <b>Lengkapi</b> - Kembali untuk memilih jawaban kedua<br/>• <b>Lanjut</b> - Skip soal ini (dianggap salah)`,
+          ...SWAL_THEME,
+          showCancelButton: true,
+          confirmButtonText: "Lengkapi Jawaban",
+          cancelButtonText: "Lanjut (Dianggap Salah)",
+          reverseButtons: true,
+        });
+        if (!result.isConfirmed) {
+          // User memilih lanjut - hapus jawaban parsial agar dianggap 0/salah
+          setAnswers(prev => {
+            const next = { ...prev };
+            delete next[`${currentTest.id}:${currentQuestion.id}`];
+            return next;
+          });
+        } else {
+          // User memilih lengkapi - kembali ke soal
+          return;
+        }
+      } else {
+        // Belum ada jawaban sama sekali
+        Swal.fire({
+          icon: "warning",
+          title: "Jawaban Belum Diisi",
+          text: `Pilih tepat ${requiredCount} jawaban untuk soal ini.`,
+          ...SWAL_THEME,
+          timer: 1800,
+          showConfirmButton: false,
+        });
+        return;
+      }
     }
     if (isPersonalityTest(currentTest) && currentQuestion && !isStoredAnswerComplete(currentQuestion, answers[`${currentTest.id}:${currentQuestion.id}`])) {
       Swal.fire({
@@ -1371,16 +1443,38 @@ const TestPage = () => {
     const incompleteMulti = instruments.flatMap(t => (
       t.questions
         .filter(q => q.question_type === "multi_choice" && !isStoredAnswerComplete(q, answers[`${t.id}:${q.id}`]))
-        .map(q => q.question_number)
+        .map(q => ({ number: q.question_number, hasPartial: Boolean(answers[`${t.id}:${q.id}`]) }))
     ));
     if (incompleteMulti.length > 0) {
-      await Swal.fire({
+      const partialCount = incompleteMulti.filter(q => q.hasPartial).length;
+      const emptyCount = incompleteMulti.length - partialCount;
+      const message = `Ada ${incompleteMulti.length} soal pilihan ganda belum lengkap (${partialCount} terjawab sebagian, ${emptyCount} kosong).<br/><br/>Soal: ${incompleteMulti.slice(0, 8).map(q => q.number).join(", ")}${incompleteMulti.length > 8 ? "..." : ""}.<br/><br/>Soal yang terjawab sebagian akan dianggap <b>salah</b>.`;
+      const result = await Swal.fire({
         icon: "warning",
         title: "Jawaban Pilihan Ganda Belum Lengkap",
-        text: `Pilih tepat 2 jawaban pada soal nomor ${incompleteMulti.slice(0, 8).join(", ")}${incompleteMulti.length > 8 ? "..." : ""}.`,
+        html: message,
         ...SWAL_THEME,
+        showCancelButton: true,
+        confirmButtonText: "Lanjutkan & Kirim",
+        cancelButtonText: "Kembali & Lengkapi",
+        reverseButtons: true,
       });
-      return;
+      if (!result.isConfirmed) return;
+      
+      // Hapus jawaban parsial agar dianggap 0/salah
+      const answersToDelete: string[] = [];
+      instruments.forEach(t => {
+        t.questions.forEach(q => {
+          if (q.question_type === "multi_choice" && !isStoredAnswerComplete(q, answers[`${t.id}:${q.id}`])) {
+            answersToDelete.push(`${t.id}:${q.id}`);
+          }
+        });
+      });
+      setAnswers(prev => {
+        const next = { ...prev };
+        answersToDelete.forEach(key => delete next[key]);
+        return next;
+      });
     }
     if (totalAnsweredAll < totalAllQuestions) {
       const r = await Swal.fire({ icon: "question", title: "Belum Semua Dijawab", html: `Dijawab <b>${totalAnsweredAll}</b>/<b>${totalAllQuestions}</b>. Yakin kirim?`, showCancelButton: true, confirmButtonText: "Ya, Kirim", cancelButtonText: "Kembali", ...SWAL_THEME });
