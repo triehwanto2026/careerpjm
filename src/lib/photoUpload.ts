@@ -5,10 +5,13 @@ export const uploadCandidatePhoto = async (file: File, fileNameHint = "photo"): 
   const ext = file.name.split(".").pop() || "jpg";
   const { data: sessionData } = await supabase.auth.getSession();
   const userId = sessionData.session?.user?.id;
-  // Storage RLS requires uploads under a folder named with the user's auth uid
-  const path = userId
-    ? `${userId}/${fileNameHint}-${Date.now()}.${ext}`
-    : `${fileNameHint}-${Date.now()}.${ext}`;
+  if (!userId) {
+    // Storage RLS requires uploads under a folder named with the user's auth uid;
+    // without a session the upload would always be rejected.
+    console.warn("Upload foto dibatalkan: sesi login tidak ditemukan atau sudah berakhir.");
+    return null;
+  }
+  const path = `${userId}/${fileNameHint}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from("candidate-photos").upload(path, file, { upsert: true, cacheControl: "3600" });
   if (error) {
     console.error("Upload error", error);
