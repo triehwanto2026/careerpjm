@@ -551,11 +551,24 @@ const Candidates = () => {
             || errorMessage.includes("user already exists");
 
           if (alreadyExists) {
-            const { data: resetData, error: resetError } = await (supabase as any).rpc("admin_reset_candidate_password", {
-              candidate_email: candidate.email,
-              new_password: passwordToUse,
-            });
-            if (resetError) throw new Error(resetError.message);
+            // Akun sudah ada: jangan ubah password kecuali admin memang meminta reset.
+            if (password?.trim()) {
+              const { data: resetData, error: resetError } = await (supabase as any).rpc("admin_reset_candidate_password", {
+                candidate_email: candidate.email,
+                new_password: passwordToUse,
+              });
+              if (resetError) throw new Error(resetError.message);
+
+              const { error: activateError } = await (supabase as any).rpc("admin_activate_candidate_login", {
+                candidate_email: candidate.email,
+              });
+              if (activateError) throw new Error(activateError.message);
+
+              return {
+                message: String(resetData) || "Password kandidat berhasil direset dan login diaktivasi",
+                created: false,
+              };
+            }
 
             const { error: activateError } = await (supabase as any).rpc("admin_activate_candidate_login", {
               candidate_email: candidate.email,
@@ -563,7 +576,7 @@ const Candidates = () => {
             if (activateError) throw new Error(activateError.message);
 
             return {
-              message: String(resetData) || "Password kandidat berhasil direset dan login diaktivasi",
+              message: "Akun kandidat sudah ada. Login diaktivasi tanpa mengubah password.",
               created: false,
             };
           }
@@ -936,7 +949,7 @@ Terima kasih.`;
     const url = await uploadCandidatePhoto(file, "cand");
     setUploading(false);
     if (url) setForm(f => ({ ...f, photo_url: url }));
-    else Swal.fire({ icon: "error", title: "Gagal upload foto", ...SWAL_THEME() });
+    else Swal.fire({ icon: "error", title: "Gagal upload foto", text: "Sesi login mungkin sudah berakhir. Silakan keluar lalu masuk kembali, kemudian ulangi upload.", ...SWAL_THEME() });
   };
 
   const handleEditSubmit = async () => {

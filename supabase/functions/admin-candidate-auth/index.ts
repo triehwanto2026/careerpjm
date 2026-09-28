@@ -105,7 +105,9 @@ Deno.serve(async (req) => {
       user_metadata: fullName ? { ...(user.user_metadata || {}), full_name: fullName } : user.user_metadata,
     };
 
-    if (body.action === "reset_password" || body.action === "create_or_update_user") {
+    // Hanya ubah password bila admin secara eksplisit mengirim password baru.
+    // Tanpa ini, aktivasi ulang akun lama bisa menimpa password kandidat dengan default.
+    if (body.password?.trim() && (body.action === "reset_password" || body.action === "create_or_update_user")) {
       updatePayload.password = passwordToUse;
     }
 
