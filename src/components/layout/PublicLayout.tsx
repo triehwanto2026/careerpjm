@@ -158,7 +158,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="min-h-[100dvh] w-full flex flex-col bg-background overflow-x-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 text-slate-950 shadow-sm backdrop-blur-xl dark:border-border dark:bg-card/90 dark:text-foreground">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 text-slate-950 shadow-sm backdrop-blur-xl dark:border-border dark:bg-card/90 dark:text-foreground">
         <div className="container flex h-[74px] items-center justify-between px-4 md:px-6">
           <Link to="/#beranda" className="flex items-center gap-3">
             {logoUrl ? (
@@ -268,7 +268,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pt-[74px]">{children}</main>
 
       {/* Footer */}
       <footer className="border-t border-border bg-slate-950 text-white">
