@@ -3,7 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 /** Upload a File to candidate-photos bucket and return public URL. */
 export const uploadCandidatePhoto = async (file: File, fileNameHint = "photo"): Promise<string | null> => {
   const ext = file.name.split(".").pop() || "jpg";
-  const path = `${fileNameHint}-${Date.now()}.${ext}`;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  // Storage RLS requires uploads under a folder named with the user's auth uid
+  const path = userId
+    ? `${userId}/${fileNameHint}-${Date.now()}.${ext}`
+    : `${fileNameHint}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from("candidate-photos").upload(path, file, { upsert: true, cacheControl: "3600" });
   if (error) {
     console.error("Upload error", error);
