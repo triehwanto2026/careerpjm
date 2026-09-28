@@ -1,7 +1,7 @@
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, MoreVertical, Eye, Edit, Trash2, MapPin, Clock, Filter, Building2, ToggleLeft, ToggleRight, Grid, List, Briefcase, Users, Settings, X } from "lucide-react";
+import { Plus, Search, MoreVertical, Eye, Edit, Trash2, MapPin, Clock, Filter, Building2, ToggleLeft, ToggleRight, Grid, List, Briefcase, Users, Settings, X, Calendar, DollarSign, FileText, CheckCircle, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -668,71 +668,176 @@ const HRJobs = () => {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Detail Lowongan</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedJob && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Judul Posisi</Label>
-                  <p className="font-medium">{selectedJob.title}</p>
-                </div>
-                <div>
-                  <Label>Departemen</Label>
-                  <p className="font-medium">{selectedJob.department}</p>
-                </div>
-                <div>
-                  <Label>Lokasi</Label>
-                  <p className="font-medium">{selectedJob.location}</p>
-                </div>
-                <div>
-                  <Label>Tipe Pekerjaan</Label>
-                  <p className="font-medium">{selectedJob.employment_type}</p>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <span className={`status-badge ${statusBadge[selectedJob.status]}`}>{statusLabel[selectedJob.status]}</span>
-                </div>
-                {selectedJob.min_salary && (
-                  <div>
-                    <Label>Gaji Min</Label>
-                    <p className="font-medium">Rp {parseInt(selectedJob.min_salary).toLocaleString('id-ID')}</p>
+            <>
+              {/* Header with gradient background */}
+              <div className="relative overflow-hidden rounded-t-lg bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 border-b border-border">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
+                <div className="relative">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadge[selectedJob.status]}`}>
+                          {statusLabel[selectedJob.status]}
+                        </span>
+                        {selectedJob.show_salary !== false && (
+                          <span className="rounded-full px-3 py-1 text-xs font-medium bg-success/10 text-success">
+                            Gaji Terlihat
+                          </span>
+                        )}
+                      </div>
+                      <DialogTitle className="text-2xl font-bold text-foreground mb-2">{selectedJob.title}</DialogTitle>
+                      <p className="text-sm text-muted-foreground">{selectedJob.department}</p>
+                    </div>
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+                      <Briefcase className="h-7 w-7 text-primary" />
+                    </div>
                   </div>
-                )}
-                {selectedJob.max_salary && (
-                  <div>
-                    <Label>Gaji Max</Label>
-                    <p className="font-medium">Rp {parseInt(selectedJob.max_salary).toLocaleString('id-ID')}</p>
-                  </div>
-                )}
-                {selectedJob.closes_at && (
-                  <div>
-                    <Label>Deadline</Label>
-                    <p className="font-medium">{new Date(selectedJob.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
-                  </div>
-                )}
+                </div>
               </div>
-              {selectedJob.description && (
-                <div>
-                  <Label>Deskripsi Pekerjaan</Label>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{selectedJob.description}</p>
+
+              <div className="space-y-6 py-6">
+                {/* Quick Info Cards */}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Lokasi</span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground truncate">{selectedJob.location}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Tipe</span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground truncate">{selectedJob.employment_type}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Deadline</span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {selectedJob.closes_at 
+                        ? new Date(selectedJob.closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" })
+                        : "Tidak ada"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Gaji</span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {selectedJob.min_salary || selectedJob.max_salary
+                        ? `${selectedJob.min_salary ? parseInt(selectedJob.min_salary).toLocaleString('id-ID') : 'N/A'} - ${selectedJob.max_salary ? parseInt(selectedJob.max_salary).toLocaleString('id-ID') : 'N/A'}`
+                        : "Tidak ditentukan"}
+                    </p>
+                  </div>
                 </div>
-              )}
-              {selectedJob.requirements && (
-                <div>
-                  <Label>Kualifikasi</Label>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{selectedJob.requirements}</p>
+
+                {/* Salary Section */}
+                {(selectedJob.min_salary || selectedJob.max_salary) && (
+                  <div className="rounded-xl border border-border bg-gradient-to-br from-success/5 to-background p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+                        <DollarSign className="h-5 w-5 text-success" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Rentang Gaji</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedJob.show_salary !== false ? "Tampil untuk kandidat" : "Disembunyikan dari kandidat"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-success">
+                        Rp {selectedJob.min_salary ? parseInt(selectedJob.min_salary).toLocaleString('id-ID') : '-'}
+                      </span>
+                      <span className="text-muted-foreground">-</span>
+                      <span className="text-3xl font-bold text-success">
+                        Rp {selectedJob.max_salary ? parseInt(selectedJob.max_salary).toLocaleString('id-ID') : '-'}
+                      </span>
+                      <span className="text-sm text-muted-foreground ml-2">/ bulan</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Description Section */}
+                {selectedJob.description && (
+                  <div className="rounded-xl border border-border bg-card p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-foreground">Deskripsi Pekerjaan</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedJob.description.split('\n').filter(Boolean).map((desc: string, idx: number) => (
+                        <div key={idx} className="flex items-start gap-3 text-sm text-muted-foreground">
+                          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          </div>
+                          <span className="leading-relaxed">{desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Requirements Section */}
+                {selectedJob.requirements && (
+                  <div className="rounded-xl border border-border bg-card p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <CheckCircle className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-foreground">Kualifikasi</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedJob.requirements.split('\n').filter(Boolean).map((req: string, idx: number) => (
+                        <div key={idx} className="flex items-start gap-3 text-sm text-muted-foreground">
+                          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
+                            <Check className="h-3 w-3 text-primary" />
+                          </div>
+                          <span className="leading-relaxed">{req}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">ID Lowongan:</span>
+                      <span className="ml-2 font-mono text-foreground">{selectedJob.id?.slice(0, 8)}...</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Dibuat:</span>
+                      <span className="ml-2 text-foreground">
+                        {selectedJob.created_at 
+                          ? new Date(selectedJob.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+                          : "-"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
+
+              <DialogFooter className="border-t border-border pt-4">
+                <DialogClose asChild>
+                  <Button variant="outline" className="min-w-[100px]">Tutup</Button>
+                </DialogClose>
+                <Button onClick={() => { handleEdit(selectedJob); setDetailDialogOpen(false); }} className="min-w-[100px]">
+                  <Edit className="h-4 w-4 mr-2" /> Edit
+                </Button>
+              </DialogFooter>
+            </>
           )}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Tutup</Button>
-            </DialogClose>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
