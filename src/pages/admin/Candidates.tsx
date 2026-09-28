@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Search, Eye, Trash2, Plus, Pencil, Upload, X, User, Users, UserPlus, MailCheck, CheckCircle, XCircle, Key, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2, Briefcase, MapPin, Clock, Calendar, GraduationCap, Award, AlertCircle, ChevronRight, Bell, SettingsIcon, UserCog, Shield, ChevronDown, Workflow, Mail, Phone, FileText, Save, Brain, Download } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
+import ProfessionalApplicationForm from "@/components/admin/ProfessionalApplicationForm";
 import DocumentPreview from "@/components/DocumentPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCandidatePhoto } from "@/lib/photoUpload";
@@ -83,6 +84,29 @@ const safeParseArray = (value: any) => {
   }
 };
 
+const compactJoin = (items: any[], separator = " - ") => items.filter((item) => item !== null && item !== undefined && item !== "").join(separator);
+
+const normalizeCandidateProfile = (profile: any) => {
+  if (!profile) return null;
+  const familyData = safeParseArray(profile.family_data);
+  const immediateFamilyData = safeParseArray(profile.immediate_family_data);
+  const fallbackFamilyData = safeParseArray(profile.family_members);
+
+  return {
+    ...profile,
+    family_members: familyData.length || immediateFamilyData.length
+      ? [...familyData, ...immediateFamilyData]
+      : fallbackFamilyData,
+    family_data: familyData,
+    immediate_family_data: immediateFamilyData,
+    education_history: safeParseArray(profile.education_history),
+    informal_education: safeParseArray(profile.informal_education),
+    work_experience: safeParseArray(profile.work_experience),
+    skills: safeParseArray(profile.skills),
+    languages: safeParseArray(profile.languages),
+  };
+};
+
 const getLatestEducationLabel = (profile: any, fallback?: string | null) => {
   const educationRows = safeParseArray(profile?.education_history);
   const latest = educationRows[educationRows.length - 1];
@@ -138,6 +162,7 @@ const Candidates = () => {
   const [activeDetailTab, setActiveDetailTab] = useState<"personal" | "family" | "education" | "skills" | "experience" | "salary" | "documents" | "additional">("personal");
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
+  const [showResumePreview, setShowResumePreview] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordCandidate, setPasswordCandidate] = useState<CandidateRow | null>(null);
   const [passwordMode, setPasswordMode] = useState<"default" | "custom">("default");
@@ -1287,6 +1312,9 @@ Terima kasih.`;
     setShowDetailModal(true);
     setDetailLoading(true);
     setActiveDetailTab("personal");
+    setCandidateProfile(null);
+    setCandidateDocs([]);
+    setCandidateResults([]);
     
     // Fetch detailed profile
     const { data: profileData } = await supabase
@@ -1294,18 +1322,24 @@ Terima kasih.`;
       .select("*")
       .eq("email", c.email)
       .maybeSingle();
-    setCandidateProfile(profileData);
+    const normalizedProfile = normalizeCandidateProfile(profileData);
     
     // Fetch candidate documents
     const { data: docsData } = await supabase
       .from("candidate_documents")
       .select("*")
-      .eq("user_id", profileData?.user_id || "")
+      .eq("user_id", normalizedProfile?.user_id || "")
       .order("created_at", { ascending: false });
     setCandidateDocs(docsData || []);
+
+    const photoDoc = (docsData || []).find((doc: any) => doc.document_type === "photo");
+    setCandidateProfile(normalizedProfile ? {
+      ...normalizedProfile,
+      photo_url: normalizedProfile.photo_url || photoDoc?.file_url || c.photo_url || null,
+    } : null);
     
     // Fetch test results from every candidate identifier used across modules.
-    const resultCandidateIds = [c.id, c.user_id, c.profile_id, profileData?.id, profileData?.user_id].filter(Boolean);
+    const resultCandidateIds = [c.id, c.user_id, c.profile_id, normalizedProfile?.id, normalizedProfile?.user_id].filter(Boolean);
     const { data: resultsData } = resultCandidateIds.length > 0
       ? await supabase
           .from("test_results")
@@ -1708,6 +1742,15 @@ Terima kasih.`;
       {label}
     </button>
   );
+
+  const detailFamilyRows = safeParseArray(candidateProfile?.family_members);
+  const detailEducationRows = safeParseArray(candidateProfile?.education_history);
+  const detailInformalEducationRows = safeParseArray(candidateProfile?.informal_education);
+  const detailWorkRows = safeParseArray(candidateProfile?.work_experience);
+  const detailSkillRows = safeParseArray(candidateProfile?.skills);
+  const detailLanguageRows = safeParseArray(candidateProfile?.languages);
+  const detailSocialMediaRows = safeParseArray(candidateProfile?.social_media);
+  const detailReferencesRows = safeParseArray(candidateProfile?.candidate_references || candidateProfile?.references);
 
   return (
     <AdminLayout>
@@ -2164,8 +2207,8 @@ Terima kasih.`;
               {/* Profile Header */}
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                {selectedCandidate.photo_url || candidateProfile?.photo_url ? (
-                  <img src={selectedCandidate.photo_url || candidateProfile?.photo_url} alt={selectedCandidate.name || "Kandidat"} className="h-20 w-20 rounded-xl object-cover border border-border shadow-sm" />
+                {candidateProfile?.photo_url || selectedCandidate.photo_url ? (
+                  <img src={candidateProfile?.photo_url || selectedCandidate.photo_url} alt={selectedCandidate.name || "Kandidat"} className="h-20 w-20 rounded-xl object-cover border border-border shadow-sm" />
                 ) : (
                   <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 text-primary text-2xl font-bold border border-primary/20">
                     {(selectedCandidate.name || selectedCandidate.email || "K").charAt(0).toUpperCase()}
@@ -2189,10 +2232,16 @@ Terima kasih.`;
                     )}
                   </div>
                 </div>
-                <button onClick={() => openPsychTestModal(selectedCandidate)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-500 hover:bg-violet-500/20">
-                  <Brain className="h-4 w-4" />
-                  Tes Psikologi
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => setShowResumePreview(true)} className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-500 hover:bg-blue-500/20">
+                    <FileText className="h-4 w-4" />
+                    PHC
+                  </button>
+                  <button onClick={() => openPsychTestModal(selectedCandidate)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-500 hover:bg-violet-500/20">
+                    <Brain className="h-4 w-4" />
+                    Tes Psikologi
+                  </button>
+                </div>
                 </div>
               </div>
 
@@ -2313,27 +2362,63 @@ Terima kasih.`;
                             </div>
                           </div>
 
-                          {/* Pendidikan */}
+                          {/* Riwayat Pendidikan Formal */}
                           <div className="bg-muted/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><GraduationCap className="h-4 w-4 text-primary" />Pendidikan</h4>
-                            <div className="grid gap-3 sm:grid-cols-2 text-sm">
-                              <InfoRow label="Jenjang" value={candidateProfile.education_level || "-"} />
-                              <InfoRow label="Jurusan" value={candidateProfile.education_major || "-"} />
-                              <InfoRow label="Institusi" value={candidateProfile.education_institution || "-"} />
-                              <InfoRow label="Tahun Lulus" value={candidateProfile.education_year || "-"} />
-                              <InfoRow label="IPK" value={candidateProfile.gpa || "-"} />
-                            </div>
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><GraduationCap className="h-4 w-4 text-primary" />Riwayat Pendidikan Formal</h4>
+                            {detailEducationRows.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">Belum ada riwayat pendidikan formal.</p>
+                            ) : (
+                              <DetailTable
+                                columns={["Jenjang", "Sekolah/Universitas", "Jurusan", "Periode", "Nilai/IPK", "Status"]}
+                                rows={detailEducationRows.map((edu: any) => [
+                                  edu.level || "-",
+                                  edu.school || edu.institution || "-",
+                                  edu.major || "-",
+                                  compactJoin([edu.start_year, edu.end_year || edu.graduation_year || edu.year]) || "-",
+                                  edu.grade || edu.gpa || "-",
+                                  edu.status || "-",
+                                ])}
+                              />
+                            )}
+                          </div>
+
+                          {/* Pendidikan Informal */}
+                          <div className="bg-muted/30 rounded-xl p-4">
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Award className="h-4 w-4 text-primary" />Pendidikan Informal</h4>
+                            {detailInformalEducationRows.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">Belum ada pendidikan informal.</p>
+                            ) : (
+                              <DetailTable
+                                columns={["Nama", "Lembaga", "Tahun", "Sertifikat"]}
+                                rows={detailInformalEducationRows.map((edu: any) => [
+                                  edu.name || "-",
+                                  edu.institution || "-",
+                                  edu.year || "-",
+                                  edu.certificate || "-",
+                                ])}
+                              />
+                            )}
                           </div>
 
                           {/* Data Keluarga */}
                           <div className="bg-muted/30 rounded-xl p-4">
                             <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Heart className="h-4 w-4 text-primary" />Data Keluarga</h4>
-                            <div className="grid gap-3 sm:grid-cols-2 text-sm">
-                              <InfoRow label="Nama Ayah" value={candidateProfile.father_name || "-"} />
-                              <InfoRow label="Nama Ibu" value={candidateProfile.mother_name || "-"} />
-                              <InfoRow label="Nama Suami/Istri" value={candidateProfile.spouse_name || "-"} />
-                              <InfoRow label="Jumlah Anak" value={candidateProfile.number_of_children || "0"} />
-                            </div>
+                            {detailFamilyRows.length > 0 && (
+                              <DetailTable
+                                columns={["Hubungan", "Nama", "Jenis Kelamin", "Usia", "Pendidikan", "Pekerjaan"]}
+                                rows={detailFamilyRows.map((member: any) => [
+                                  member.relation || member.relationship || "-",
+                                  member.name || "-",
+                                  member.gender || "-",
+                                  member.age || "-",
+                                  member.education || "-",
+                                  compactJoin([member.occupation, member.company]) || "-",
+                                ])}
+                              />
+                            )}
+                            {detailFamilyRows.length === 0 && (
+                              <p className="text-sm text-muted-foreground">Belum ada data keluarga.</p>
+                            )}
                           </div>
 
                           {/* Kontak Darurat */}
@@ -2346,18 +2431,141 @@ Terima kasih.`;
                             </div>
                           </div>
 
+                          {/* Pengalaman Kerja */}
+                          <div className="bg-muted/30 rounded-xl p-4">
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" />Pengalaman Kerja</h4>
+                            <div className="mb-3 grid gap-3 sm:grid-cols-3 text-sm">
+                              <InfoRow label="Posisi Saat Ini" value={candidateProfile.current_position || selectedCandidate.position || "-"} />
+                              <InfoRow label="Perusahaan Saat Ini" value={candidateProfile.current_company || "-"} />
+                              <InfoRow label="Total Pengalaman" value={candidateProfile.experience_years ? `${candidateProfile.experience_years} tahun` : "-"} />
+                            </div>
+                            {detailWorkRows.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">Belum ada riwayat pengalaman kerja.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {detailWorkRows.map((work: any, index: number) => (
+                                  <div key={index} className="rounded-lg border border-border bg-card p-3">
+                                    <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                      <p className="font-semibold text-foreground">{formatInfoValue(work.company_name)}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {compactJoin([work.join_date || work.start_date, work.still_working ? "Sekarang" : (work.end_date || work.finish_date)]) || "-"}
+                                      </p>
+                                    </div>
+                                    <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                                      <InfoRow label="Bidang Usaha" value={work.business_type || "-"} />
+                                      <InfoRow label="Kota" value={work.city || "-"} />
+                                      <InfoRow label="Jabatan Awal" value={work.position_start || "-"} />
+                                      <InfoRow label="Jabatan Akhir" value={work.position_end || work.position || "-"} />
+                                      <InfoRow label="Gaji Awal" value={work.salary_start || "-"} />
+                                      <InfoRow label="Gaji Akhir" value={work.salary_end || work.salary || "-"} />
+                                      <InfoRow label="Atasan" value={compactJoin([work.supervisor_name, work.supervisor_position]) || "-"} />
+                                      <InfoRow label="Telepon Atasan" value={work.supervisor_phone || "-"} />
+                                      <InfoRow label="Tugas" value={work.duties || work.description || "-"} full />
+                                      <InfoRow label="Prestasi" value={work.achievements || "-"} full />
+                                      <InfoRow label="Alasan Berhenti" value={work.resignation_reason || "-"} full />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Keahlian dan Bahasa */}
+                          <div className="bg-muted/30 rounded-xl p-4">
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Star className="h-4 w-4 text-primary" />Keahlian & Bahasa</h4>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keahlian</p>
+                                {detailSkillRows.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">Belum ada data keahlian.</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {detailSkillRows.map((skill: any, index: number) => (
+                                      <div key={index} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                                        <span className="font-medium text-foreground">{formatInfoValue(skill.name || skill)}</span>
+                                        {typeof skill === "object" && skill.level && <span className="text-muted-foreground"> - {skill.level}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bahasa</p>
+                                {detailLanguageRows.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">Belum ada data bahasa.</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {detailLanguageRows.map((language: any, index: number) => (
+                                      <div key={index} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                                        <span className="font-medium text-foreground">{formatInfoValue(language.name || language)}</span>
+                                        {typeof language === "object" && language.level && <span className="text-muted-foreground"> - {language.level}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Ekspektasi Gaji */}
+                          <div className="bg-muted/30 rounded-xl p-4">
+                            <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Ekspektasi Gaji & Ketersediaan</h4>
+                            <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                              <InfoRow label="Gaji Pokok" value={candidateProfile.salary_exp_base || candidateProfile.expected_salary || "-"} />
+                              <InfoRow label="Tunjangan" value={candidateProfile.salary_exp_allowances || "-"} />
+                              <InfoRow label="Benefit" value={candidateProfile.salary_exp_benefits || "-"} />
+                              <InfoRow label="Rentang Gaji" value={candidateProfile.expected_salary_range || "-"} />
+                              <InfoRow label="Negosiasi" value={candidateProfile.salary_negotiable ? "Ya" : "Tidak"} />
+                              <InfoRow label="Siap Mulai" value={candidateProfile.available_from || candidateProfile.available_start_date || "-"} />
+                              <InfoRow label="Notice Period" value={candidateProfile.notice_period || "-"} />
+                              <InfoRow label="Catatan" value={candidateProfile.salary_requirements || candidateProfile.benefits_requirements || "-"} full />
+                            </div>
+                          </div>
+
                           {/* Informasi Lainnya */}
                           <div className="bg-muted/30 rounded-xl p-4">
                             <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Informasi Lainnya</h4>
                             <div className="grid gap-3 sm:grid-cols-2 text-sm">
                               <InfoRow label="Hobi" value={candidateProfile.hobbies || "-"} />
+                              <InfoRow label="Kelebihan" value={candidateProfile.strengths || "-"} />
+                              <InfoRow label="Kekurangan" value={candidateProfile.weaknesses || "-"} />
+                              <InfoRow label="Aktivitas Sosial" value={candidateProfile.social_activities || "-"} />
                               <InfoRow label="SIM" value={candidateProfile.vehicle_license || "-"} />
                               <InfoRow label="Memiliki Kendaraan" value={candidateProfile.has_vehicle ? "Ya" : "Tidak"} />
+                              <InfoRow label="Jenis Kendaraan" value={candidateProfile.vehicle_type || "-"} />
+                              <InfoRow label="Merek Kendaraan" value={candidateProfile.vehicle_brand || "-"} />
                               <InfoRow label="Sumber Info Lowongan" value={candidateProfile.source_info || "-"} />
                               <InfoRow label="Bersedia Relokasi" value={candidateProfile.willing_relocate ? "Ya" : "Tidak"} />
                               <InfoRow label="Bersedia Lembur" value={candidateProfile.willing_overtime ? "Ya" : "Tidak"} />
                               <InfoRow label="Bersedia Shift" value={candidateProfile.willing_shift ? "Ya" : "Tidak"} />
+                              <InfoRow label="LinkedIn" value={candidateProfile.linkedin_url || "-"} />
+                              <InfoRow label="Bio" value={candidateProfile.bio || "-"} full />
+                              <InfoRow label="Info Tambahan" value={candidateProfile.additional_info || "-"} full />
                             </div>
+                            {(detailSocialMediaRows.length > 0 || detailReferencesRows.length > 0) && (
+                              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                {detailSocialMediaRows.length > 0 && (
+                                  <div>
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Media Sosial</p>
+                                    <div className="space-y-2">
+                                      {detailSocialMediaRows.map((item: any, index: number) => (
+                                        <div key={index} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground">{formatInfoValue(item)}</div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {detailReferencesRows.length > 0 && (
+                                  <div>
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Referensi</p>
+                                    <div className="space-y-2">
+                                      {detailReferencesRows.map((item: any, index: number) => (
+                                        <div key={index} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground">{formatInfoValue(item)}</div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </>
                       )}
@@ -2513,6 +2721,45 @@ Terima kasih.`;
             setDocPreviewUrl(null);
             setDocPreviewName(undefined);
           }}
+        />
+      )}
+
+      {showResumePreview && selectedCandidate && (
+        <ProfessionalApplicationForm
+          candidate={{
+            ...selectedCandidate,
+            ...candidateProfile,
+            full_name: candidateProfile?.full_name || selectedCandidate.name || selectedCandidate.email || "Kandidat",
+            photo_url: candidateProfile?.photo_url || selectedCandidate.photo_url,
+            email: candidateProfile?.email || selectedCandidate.email,
+            phone: candidateProfile?.phone || selectedCandidate.phone,
+            birth_place: candidateProfile?.birth_place || (selectedCandidate as any).birth_place,
+            birth_date: candidateProfile?.birth_date || selectedCandidate.birth_date,
+            gender: candidateProfile?.gender || selectedCandidate.gender,
+            marital_status: candidateProfile?.marital_status || (selectedCandidate as any).marital_status,
+            religion: candidateProfile?.religion || (selectedCandidate as any).religion,
+            address: candidateProfile?.address || (selectedCandidate as any).address,
+            height: candidateProfile?.height_cm ? `${candidateProfile.height_cm} cm` : candidateProfile?.height,
+            weight: candidateProfile?.weight_kg ? `${candidateProfile.weight_kg} kg` : candidateProfile?.weight,
+            id_card_number: candidateProfile?.nik || candidateProfile?.id_card_number,
+            vehicle_type: candidateProfile?.vehicle_type || candidateProfile?.vehicle_license,
+            family_members: detailFamilyRows,
+            education_history: detailEducationRows,
+            skills: candidateProfile?.skills,
+            work_experience: detailWorkRows,
+            languages: candidateProfile?.languages,
+            hobbies: candidateProfile?.hobbies,
+            certificates: candidateProfile?.certificates,
+            references: detailReferencesRows,
+            current_position: candidateProfile?.current_position || selectedCandidate.position,
+            current_company: candidateProfile?.current_company,
+            experience_years: candidateProfile?.experience_years,
+            education_level: candidateProfile?.education_level,
+            education_institution: candidateProfile?.education_institution,
+            major: candidateProfile?.education_major || candidateProfile?.major,
+            graduation_year: candidateProfile?.education_year || candidateProfile?.graduation_year,
+          }}
+          onClose={() => setShowResumePreview(false)}
         />
       )}
 
@@ -3873,6 +4120,33 @@ const InfoRow = ({ label, value, full }: { label: string; value: any; full?: boo
   <div className={`${full ? 'sm:col-span-2' : ''} flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3`}>
     <span className="text-xs text-muted-foreground sm:w-32 shrink-0">{label}</span>
     <span className="text-foreground font-medium break-words">{formatInfoValue(value)}</span>
+  </div>
+);
+
+const DetailTable = ({ columns, rows }: { columns: string[]; rows: any[][] }) => (
+  <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <table className="w-full min-w-[640px] text-sm">
+      <thead className="bg-muted/70">
+        <tr>
+          {columns.map((column) => (
+            <th key={column} className="border-b border-r border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground last:border-r-0">
+              {column}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, rowIndex) => (
+          <tr key={rowIndex} className="odd:bg-card even:bg-muted/20">
+            {columns.map((column, columnIndex) => (
+              <td key={`${rowIndex}-${column}`} className="border-r border-border px-3 py-2 align-top text-foreground last:border-r-0">
+                {formatInfoValue(row[columnIndex])}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
 );
 

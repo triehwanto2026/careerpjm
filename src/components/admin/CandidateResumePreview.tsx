@@ -61,6 +61,20 @@ interface CandidateResumePreviewProps {
 }
 
 export default function CandidateResumePreview({ candidate, onClose }: CandidateResumePreviewProps) {
+  const safeArray = (value: any) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'object') return [value];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const joinFilled = (items: any[], separator = ' - ') => items.filter((item) => item !== null && item !== undefined && item !== '').join(separator);
+
   const handlePrint = () => {
     window.print();
   };
@@ -128,7 +142,7 @@ export default function CandidateResumePreview({ candidate, onClose }: Candidate
     kendaraan: candidate.vehicle_type || '-',
   };
 
-  const keluarga = candidate.family_members?.map(member => ({
+  const keluarga = safeArray(candidate.family_members).map(member => ({
     hubungan: member.relationship || member.hubungan || member.relation || '-',
     nama: member.name || member.nama || '-',
     pekerjaan: member.occupation || member.pekerjaan || '-',
@@ -136,24 +150,32 @@ export default function CandidateResumePreview({ candidate, onClose }: Candidate
     pendidikan: member.education || member.pendidikan || '-',
   })) || [];
 
-  const pendidikan = candidate.education_history?.map(edu => ({
+  const pendidikan = safeArray(candidate.education_history).map(edu => ({
     tingkat: edu.level || '-',
-    sekolah: edu.school || '-',
+    sekolah: edu.school || edu.institution || edu.education_institution || '-',
     jurusan: edu.major || '-',
-    sampai: edu.graduation_year || '-',
+    sampai: joinFilled([edu.start_year, edu.end_year || edu.graduation_year || edu.year], ' - ') || '-',
     status: edu.status || '-',
   })) || [];
 
   const keahlian = (() => {
     if (!candidate.skills) return [];
     if (typeof candidate.skills === 'string') {
+      const parsed = safeArray(candidate.skills);
+      if (parsed.length > 0) {
+        return parsed.map(skill => ({
+          skill: typeof skill === 'string' ? skill : skill.name || '-',
+          level: typeof skill === 'string' ? 'Baik' : skill.level || 'Baik'
+        }));
+      }
       return candidate.skills.split(',').map(skill => ({
         skill: skill.trim(),
         level: 'Baik'
       }));
     }
-    if (Array.isArray(candidate.skills)) {
-      return candidate.skills.map(skill => ({
+    const parsedSkills = safeArray(candidate.skills);
+    if (parsedSkills.length > 0) {
+      return parsedSkills.map(skill => ({
         skill: typeof skill === 'string' ? skill : skill.name || '-',
         level: typeof skill === 'string' ? 'Baik' : skill.level || 'Baik'
       }));
@@ -161,14 +183,14 @@ export default function CandidateResumePreview({ candidate, onClose }: Candidate
     return [];
   })();
 
-  const pekerjaan = candidate.work_experience?.map(work => ({
+  const pekerjaan = safeArray(candidate.work_experience).map(work => ({
     perusahaan: work.company_name || '-',
-    periode: work.period || '-',
+    periode: work.period || joinFilled([work.join_date || work.start_date, work.still_working ? 'Sekarang' : (work.end_date || work.finish_date)], ' - ') || '-',
     jabatanAwal: work.position_start || '-',
-    jabatanAkhir: work.position_end || '-',
-    gaji: work.salary || '-',
+    jabatanAkhir: work.position_end || work.position || '-',
+    gaji: work.salary || joinFilled([work.salary_start, work.salary_end], ' - ') || '-',
     alasan: work.resignation_reason || '-',
-    tugas: work.duties || '-',
+    tugas: work.duties || work.description || '-',
     prestasi: work.achievements || '-',
   })) || [];
 

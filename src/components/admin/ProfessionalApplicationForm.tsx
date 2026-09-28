@@ -57,6 +57,19 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
     return found === undefined ? '' : String(found);
   };
 
+  const formatPeriodDate = (value: any) => {
+    const raw = optionalText(value);
+    if (!raw) return '';
+    if (!/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    return date.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
   const escapeHtml = (value: any) => text(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -65,8 +78,8 @@ export default function ProfessionalApplicationForm({ candidate, onClose }: Prof
     .replace(/'/g, '&#039;');
 
   const formatWorkPeriod = (work: any) => {
-    const start = optionalText(work.join_date, work.start_date, work.start_year);
-    const end = work.still_working ? 'Sekarang' : optionalText(work.end_date, work.end_year);
+    const start = formatPeriodDate(optionalText(work.join_date, work.start_date, work.start_year));
+    const end = work.still_working ? 'Sekarang' : formatPeriodDate(optionalText(work.end_date, work.end_year));
     if (start && end) return `${start} - ${end}`;
     if (start) return start;
     if (end) return end;
