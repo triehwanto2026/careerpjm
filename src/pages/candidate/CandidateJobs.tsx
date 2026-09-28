@@ -87,8 +87,15 @@ export default function CandidateJobs() {
       .in("status", ACTIVE_APPLICATION_STATUSES);
 
     const { error } = await supabase.from("job_applications").insert({
-      user_id: userId, vacancy_id: selected.id, cover_letter: coverLetter, status: "submitted",
-    });
+      user_id: userId,
+      vacancy_id: selected.id,
+      cover_letter: coverLetter,
+      status: "submitted",
+      position_snapshot: selected.title,
+      department_snapshot: selected.department,
+      location_snapshot: selected.location,
+      vacancy_status_snapshot: "active",
+    } as any);
     if (error) {
       Swal.fire({ icon: "error", title: "Gagal melamar", text: error.message });
       return;
