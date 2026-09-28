@@ -488,11 +488,23 @@ export default function CandidateProfile() {
     const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
     const fileUrl = pub.publicUrl;
     const old = docs.find((d) => d.document_type === type);
-    if (old) await supabase.from("candidate_documents").delete().eq("id", old.id);
-    await supabase.from("candidate_documents").insert({
-      user_id: uid, document_type: type, file_name: file.name, file_url: fileUrl,
-      file_size: file.size, mime_type: file.type,
-    });
+    const docPayload = {
+      id: old?.id,
+      user_id: uid,
+      document_type: type,
+      file_name: file.name,
+      file_url: fileUrl,
+      file_size: file.size,
+      mime_type: file.type,
+    };
+
+    const { error: docErr } = await supabase.from("candidate_documents").upsert(docPayload, { onConflict: "id" });
+    if (docErr) {
+      console.error("candidate_documents upsert failed", docErr);
+      Swal.fire({ icon: "error", title: "Upload gagal", text: docErr.message });
+      return;
+    }
+
     if (type === "photo") {
       await supabase.from("candidate_profiles").upsert({ user_id: uid, photo_url: fileUrl }, { onConflict: "user_id" });
       await supabase.from("candidates").update({ photo_url: fileUrl }).eq("email", profile.email);
