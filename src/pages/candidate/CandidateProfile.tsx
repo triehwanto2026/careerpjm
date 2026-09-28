@@ -468,7 +468,18 @@ export default function CandidateProfile() {
   const uploadDoc = async (type: string, file: File) => {
     const bucket = type === "photo" ? "candidate-photos" : "candidate-documents";
     const ext = file.name.split(".").pop();
-    const path = `${userId}/${type}-${Date.now()}.${ext}`;
+    // Pastikan user id valid — storage RLS mewajibkan folder pertama = auth uid
+    let uid = userId;
+    if (!uid) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      uid = sessionData.session?.user?.id || "";
+      if (uid) setUserId(uid);
+    }
+    if (!uid) {
+      Swal.fire({ icon: "error", title: "Upload gagal", text: "Sesi login tidak ditemukan. Silakan masuk ulang." });
+      return;
+    }
+    const path = `${uid}/${type}-${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
     if (upErr) {
       Swal.fire({ icon: "error", title: "Upload gagal", text: upErr.message });
