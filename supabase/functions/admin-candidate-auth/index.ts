@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
       const updateMessage = String(updateError.message || "").toLowerCase();
       const weakPassword = updateMessage.includes("weak") || updateMessage.includes("easy to guess") || updateMessage.includes("at least 6") || updateMessage.includes("too short");
 
-      if (weakPassword && (body.action === "reset_password" || body.action === "create_or_update_user")) {
+      if (weakPassword && body.password?.trim() && (body.action === "reset_password" || body.action === "create_or_update_user")) {
         const { error: resetError } = await admin.rpc("admin_reset_candidate_password", {
           candidate_email: email,
           new_password: passwordToUse,
