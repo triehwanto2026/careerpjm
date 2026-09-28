@@ -490,11 +490,11 @@ export default function CandidateProfile() {
     const old = docs.find((d) => d.document_type === type);
     if (old) await supabase.from("candidate_documents").delete().eq("id", old.id);
     await supabase.from("candidate_documents").insert({
-      user_id: userId, document_type: type, file_name: file.name, file_url: fileUrl,
+      user_id: uid, document_type: type, file_name: file.name, file_url: fileUrl,
       file_size: file.size, mime_type: file.type,
     });
     if (type === "photo") {
-      await supabase.from("candidate_profiles").upsert({ user_id: userId, photo_url: fileUrl }, { onConflict: "user_id" });
+      await supabase.from("candidate_profiles").upsert({ user_id: uid, photo_url: fileUrl }, { onConflict: "user_id" });
       await supabase.from("candidates").update({ photo_url: fileUrl }).eq("email", profile.email);
       setProfile((prev) => ({ ...prev, photo_url: fileUrl }));
       window.dispatchEvent(new CustomEvent("candidate-profile-photo-updated", { detail: { photo_url: fileUrl } }));
