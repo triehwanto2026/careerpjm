@@ -2409,6 +2409,7 @@ export type Database = {
           employment_type: string | null
           id: string
           is_active: boolean | null
+          show_salary: boolean
           location: string | null
           max_salary: number | null
           min_salary: number | null
@@ -2427,6 +2428,7 @@ export type Database = {
           employment_type?: string | null
           id?: string
           is_active?: boolean | null
+          show_salary?: boolean
           location?: string | null
           max_salary?: number | null
           min_salary?: number | null
@@ -2445,6 +2447,7 @@ export type Database = {
           employment_type?: string | null
           id?: string
           is_active?: boolean | null
+          show_salary?: boolean
           location?: string | null
           max_salary?: number | null
           min_salary?: number | null

@@ -42,6 +42,11 @@ const JobDetail = () => {
     "Negotiable";
   const showSalary = (job as any).show_salary !== false;
 
+  const formatDate = (v?: string | null) => {
+    if (!v) return "-";
+    try { return new Date(v).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }); } catch { return v; }
+  };
+
   return (
     <PublicLayout>
       <div className="container py-8">
@@ -50,31 +55,39 @@ const JobDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-6">
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>
-                <div>
-                  <h1 className="text-xl md:text-2xl font-bold">{(job as any).title || (job as any).position}</h1>
-                  <p className="text-xs md:text-sm text-muted-foreground">{(job as any).department || (job as any).category}</p>
+              <div className="flex items-start gap-4 mb-4">
+                <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center"><Building2 className="h-6 w-6 text-primary" /></div>
+                <div className="flex-1">
+                  <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{(job as any).title || (job as any).position}</h1>
+                  <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+                    <span>{(job as any).department || (job as any).category}</span>
+                    <span className="opacity-50">•</span>
+                    <span>{(job as any).location || "-"}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {showSalary && <div className="text-sm font-semibold text-foreground">{salaryLabel}</div>}
+                  {(job as any).closes_at && <div className="text-xs text-muted-foreground">Deadline: {formatDate((job as any).closes_at)}</div>}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <Badge variant="secondary" className="gap-1.5"><MapPin className="h-3 w-3" /> {(job as any).location || "-"}</Badge>
+
+              <div className="flex flex-wrap gap-3 mb-3">
                 <Badge variant="secondary" className="gap-1.5"><Briefcase className="h-3 w-3" /> {(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
-                {showSalary && <Badge variant="secondary" className="gap-1.5"><Banknote className="h-3 w-3" /> {salaryLabel}</Badge>}
-                {(job as any).closes_at && <Badge variant="secondary" className="gap-1.5"><Clock className="h-3 w-3" /> Deadline: {new Date((job as any).closes_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</Badge>}
+                <Badge variant="secondary" className="gap-1.5"><MapPin className="h-3 w-3" /> {(job as any).location || "-"}</Badge>
+                <Badge variant="secondary" className="gap-1.5"><Clock className="h-3 w-3" /> {formatDate((job as any).created_at)}</Badge>
               </div>
             </div>
 
-            <div className="card-elevated p-4">
-              <h2 className="text-base md:text-lg font-semibold mb-2">Deskripsi Pekerjaan</h2>
-              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{(job as any).description || "Detail deskripsi pekerjaan akan segera diupdate."}</p>
+            <div className="card-elevated p-6">
+              <h2 className="text-lg font-semibold mb-3">Deskripsi Pekerjaan</h2>
+              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">{(job as any).description || "Detail deskripsi pekerjaan akan segera diupdate."}</div>
             </div>
 
-            <div className="card-elevated p-4">
-              <h2 className="text-base md:text-lg font-semibold mb-3">Kualifikasi</h2>
-              <ul className="space-y-2">
+            <div className="card-elevated p-6">
+              <h2 className="text-lg font-semibold mb-3">Kualifikasi & Tanggung Jawab</h2>
+              <ul className="space-y-3">
                 {requirements.map((q: string, i: number) => (
-                  <li key={i} className="flex items-start gap-2 text-sm md:text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />{q}</li>
+                  <li key={i} className="flex items-start gap-3 text-sm"><CheckCircle2 className="h-5 w-5 text-success mt-1 shrink-0" /><span className="text-muted-foreground">{q}</span></li>
                 ))}
               </ul>
             </div>
@@ -82,11 +95,17 @@ const JobDetail = () => {
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="space-y-4">
             <div className="card-elevated p-4 sticky top-20">
-              <h3 className="font-semibold mb-3">Tertarik dengan posisi ini?</h3>
-              <p className="text-xs md:text-sm text-muted-foreground mb-4">Daftar atau masuk untuk melamar posisi ini. Pastikan profil kamu sudah lengkap.</p>
+              <div className="mb-3">
+                <h3 className="font-semibold">Tertarik dengan posisi ini?</h3>
+                <p className="text-sm text-muted-foreground">Daftar atau masuk untuk melamar. Pastikan profil dan CV Anda siap.</p>
+              </div>
               <div className="space-y-3">
-                <Button className="w-full" size="lg" onClick={handleApplyDirect}><Send className="h-4 w-4 mr-2" /> Apply Now</Button>
+                <Button className="w-full" size="lg" onClick={handleApplyDirect}><Send className="h-4 w-4 mr-2" /> Lamar Sekarang</Button>
                 <Button variant="outline" className="w-full" size="lg" asChild><Link to="/login">Sudah punya akun? Masuk</Link></Button>
+              </div>
+              <div className="mt-4 text-xs text-muted-foreground">
+                <div><strong>Status:</strong> {(job as any).status}</div>
+                <div className="mt-1"><strong>Posted:</strong> {formatDate((job as any).created_at)}</div>
               </div>
             </div>
           </motion.div>
