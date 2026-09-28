@@ -273,28 +273,6 @@ export default function CandidateJobs() {
                 </div>
               )}
 
-              {/* Responsibilities */}
-              {selected.responsibilities && (
-                <div className="rounded-xl border border-border bg-card p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <Briefcase className="h-5 w-5 text-primary" />
-                    </div>
-                    <h3 className="font-semibold text-foreground">Tanggung Jawab</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {selected.responsibilities.split('\n').filter(Boolean).map((resp: string, idx: number) => (
-                      <div key={idx} className="flex items-start gap-3 text-sm text-muted-foreground">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                        </div>
-                        <span className="leading-relaxed">{resp}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Requirements */}
               {selected.requirements && (
                 <div className="rounded-xl border border-border bg-card p-5">
@@ -308,7 +286,7 @@ export default function CandidateJobs() {
                     {selected.requirements.split('\n').filter(Boolean).map((req: string, idx: number) => (
                       <div key={idx} className="flex items-start gap-3 text-sm text-muted-foreground">
                         <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
-                          <Check className="h-3 w-3 text-primary" />
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary" />
                         </div>
                         <span className="leading-relaxed">{req}</span>
                       </div>

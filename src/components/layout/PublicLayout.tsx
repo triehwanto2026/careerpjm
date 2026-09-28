@@ -137,7 +137,14 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
     const element = document.getElementById(section);
     if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
       window.history.replaceState(null, "", `/#${section}`);
       setActiveSection(section);
     }

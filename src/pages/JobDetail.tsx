@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import PublicLayout from "@/components/layout/PublicLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Building2, Clock, Banknote, ArrowLeft, CheckCircle2, Briefcase, Send } from "lucide-react";
+import { MapPin, Building2, Clock, DollarSign, ArrowLeft, CheckCircle2, Briefcase, Send, FileText, Calendar, Users, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -54,58 +54,110 @@ const JobDetail = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-6">
-            <div>
-              <div className="flex items-start gap-4 mb-4">
-                <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center"><Building2 className="h-6 w-6 text-primary" /></div>
-                <div className="flex-1">
-                  <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{(job as any).title || (job as any).position}</h1>
-                  <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                    <span>{(job as any).department || (job as any).category}</span>
-                    <span className="opacity-50">•</span>
-                    <span>{(job as any).location || "-"}</span>
+            {/* Header with gradient */}
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 border border-border">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
+              <div className="relative">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+                    <Building2 className="h-7 w-7 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="rounded-full px-3 py-1 text-xs font-semibold bg-success/10 text-success">
+                        Aktif
+                      </span>
+                      {showSalary && (
+                        <span className="rounded-full px-3 py-1 text-xs font-medium bg-primary/10 text-primary">
+                          Gaji Terlihat
+                        </span>
+                      )}
+                    </div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">{(job as any).title || (job as any).position}</h1>
+                    <p className="text-sm text-muted-foreground">{(job as any).department || (job as any).category}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  {showSalary && <div className="text-sm font-semibold text-foreground">{salaryLabel}</div>}
-                  {(job as any).closes_at && <div className="text-xs text-muted-foreground">Deadline: {formatDate((job as any).closes_at)}</div>}
+                
+                {/* Quick Info */}
+                <div className="flex flex-wrap gap-3 mt-4 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5 bg-background/50 px-3 py-1.5 rounded-lg border border-border"><MapPin className="h-3.5 w-3.5" />{(job as any).location || "-"}</span>
+                  <span className="inline-flex items-center gap-1.5 bg-background/50 px-3 py-1.5 rounded-lg border border-border"><Clock className="h-3.5 w-3.5" />{(job as any).employment_type || (job as any).type || "Full-time"}</span>
+                  {(job as any).closes_at && <span className="inline-flex items-center gap-1.5 bg-background/50 px-3 py-1.5 rounded-lg border border-border"><Calendar className="h-3.5 w-3.5" />Deadline: {formatDate((job as any).closes_at)}</span>}
                 </div>
               </div>
+            </div>
 
-              <div className="flex flex-wrap gap-3 mb-3">
-                <Badge variant="secondary" className="gap-1.5"><Briefcase className="h-3 w-3" /> {(job as any).employment_type || (job as any).type || "Full-time"}</Badge>
-                <Badge variant="secondary" className="gap-1.5"><MapPin className="h-3 w-3" /> {(job as any).location || "-"}</Badge>
-                <Badge variant="secondary" className="gap-1.5"><Clock className="h-3 w-3" /> {formatDate((job as any).created_at)}</Badge>
+            {/* Salary Section */}
+            {showSalary && salaryLabel !== "Negotiable" && (
+              <div className="rounded-xl border border-border bg-gradient-to-br from-success/5 to-background p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+                    <DollarSign className="h-5 w-5 text-success" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Rentang Gaji</h3>
+                    <p className="text-xs text-muted-foreground">Per bulan</p>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-success">{salaryLabel}</div>
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-semibold text-foreground">Deskripsi Pekerjaan</h3>
+              </div>
+              <div className="space-y-2">
+                {(job as any).description?.split('\n').filter(Boolean).map((desc: string, idx: number) => (
+                  <div key={idx} className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    </div>
+                    <span className="leading-relaxed">{desc}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="card-elevated p-6">
-              <h2 className="text-lg font-semibold mb-3">Deskripsi Pekerjaan</h2>
-              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">{(job as any).description || "Detail deskripsi pekerjaan akan segera diupdate."}</div>
-            </div>
-
-            <div className="card-elevated p-6">
-              <h2 className="text-lg font-semibold mb-3">Kualifikasi & Tanggung Jawab</h2>
-              <ul className="space-y-3">
+            {/* Requirements */}
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-semibold text-foreground">Kualifikasi & Tanggung Jawab</h3>
+              </div>
+              <div className="space-y-2">
                 {requirements.map((q: string, i: number) => (
-                  <li key={i} className="flex items-start gap-3 text-sm"><CheckCircle2 className="h-5 w-5 text-success mt-1 shrink-0" /><span className="text-muted-foreground">{q}</span></li>
+                  <div key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
+                      <Check className="h-3 w-3 text-primary" />
+                    </div>
+                    <span className="leading-relaxed">{q}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="space-y-4">
-            <div className="card-elevated p-4 sticky top-20">
-              <div className="mb-3">
-                <h3 className="font-semibold">Tertarik dengan posisi ini?</h3>
+            <div className="rounded-xl border border-border bg-card p-5 sticky top-24">
+              <div className="mb-4">
+                <h3 className="font-semibold text-foreground mb-2">Tertarik dengan posisi ini?</h3>
                 <p className="text-sm text-muted-foreground">Daftar atau masuk untuk melamar. Pastikan profil dan CV Anda siap.</p>
               </div>
               <div className="space-y-3">
                 <Button className="w-full" size="lg" onClick={handleApplyDirect}><Send className="h-4 w-4 mr-2" /> Lamar Sekarang</Button>
                 <Button variant="outline" className="w-full" size="lg" asChild><Link to="/login">Sudah punya akun? Masuk</Link></Button>
               </div>
-              <div className="mt-4 text-xs text-muted-foreground">
-                <div><strong>Status:</strong> {(job as any).status}</div>
-                <div className="mt-1"><strong>Posted:</strong> {formatDate((job as any).created_at)}</div>
+              <div className="mt-6 pt-4 border-t border-border space-y-2 text-xs text-muted-foreground">
+                <div className="flex justify-between"><span>Status:</span><span className="font-medium text-foreground">{(job as any).status}</span></div>
+                <div className="flex justify-between"><span>Posted:</span><span className="font-medium text-foreground">{formatDate((job as any).created_at)}</span></div>
+                {(job as any).closes_at && <div className="flex justify-between"><span>Deadline:</span><span className="font-medium text-foreground">{formatDate((job as any).closes_at)}</span></div>}
               </div>
             </div>
           </motion.div>
