@@ -238,7 +238,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col h-screen overflow-hidden">
-        <header className="z-30 flex h-14 flex-shrink-0 items-center justify-between border-b border-border bg-card px-4 lg:px-6">
+        <header className="z-30 flex h-14 flex-shrink-0 items-center justify-between border-b border-border bg-card px-4 lg:px-6 sticky top-0">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCollapsed((c) => !c)}
@@ -361,37 +361,36 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
             <ThemeToggle />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6 lg:pb-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:p-6 lg:pb-6">{children}</main>
         
-        {/* Mobile Bottom Navigation */}
-        {isMobile && (
-          <nav className="flex-shrink-0 border-t border-border bg-card px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] lg:hidden">
-            <div className="flex items-center justify-around">
-              {nav.map((n) => {
-                const active = location.pathname.startsWith(n.to);
-                const Icon = n.icon;
-                const shortLabel = n.label.replace(" Saya", "").replace(" Psikologi", "");
-                return (
-                  <NavLink
-                    key={n.to}
-                    to={n.to}
-                    className={`flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition ${
-                      active
-                        ? "text-primary"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-[10px] font-medium">{shortLabel}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          </nav>
-        )}
+        {/* Mobile Bottom Navigation - Fixed at bottom */}
+        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] lg:hidden">
+          <div className="flex items-center justify-around">
+            {nav.map((n) => {
+              const active = location.pathname.startsWith(n.to);
+              const Icon = n.icon;
+              const shortLabel = n.label.replace(" Saya", "").replace(" Psikologi", "");
+              return (
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  className={`flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition ${
+                    active
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-[10px] font-medium">{shortLabel}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        </nav>
         
-        <footer className="flex-shrink-0 border-t border-border bg-card/50 px-4 py-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:px-6">
-          <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        {/* Desktop Footer Only */}
+        <footer className="hidden lg:flex flex-shrink-0 border-t border-border bg-card/50 px-6 py-2">
+          <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between w-full">
             <span>{publicSettings.app_name || publicSettings.landing_header_title || "PJM Group"}</span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
