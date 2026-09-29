@@ -589,7 +589,16 @@ export default function CandidateProfile() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {!isEditing && (
+                {isEditing ? (
+                  <>
+                    <button onClick={handleCancelEdit} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-50">
+                      <X className="h-4 w-4" /> Batal
+                    </button>
+                    <button onClick={save} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
+                      <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
+                    </button>
+                  </>
+                ) : (
                   <button onClick={handleEdit} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
                     <Edit className="h-4 w-4" /> Edit
                   </button>
