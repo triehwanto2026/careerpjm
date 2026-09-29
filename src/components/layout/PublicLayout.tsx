@@ -277,7 +277,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
             <div className="max-w-lg">
               <div className="flex items-center gap-2 mb-4">
                 {logoUrl ? (
-                  <img src={logoUrl} alt={companyName} className="h-10 w-auto max-w-[150px] rounded-lg bg-white object-contain p-1.5" />
+                  <img src={logoUrl} alt={companyName} className="h-10 w-auto max-w-[150px] object-contain" />
                 ) : (
                   <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Building2 className="h-5 w-5 text-primary" />

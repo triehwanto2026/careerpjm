@@ -26,20 +26,152 @@ const stats = [
   { label: "Perusahaan Partner", value: "50+", icon: Shield },
 ];
 
+const companyVision = {
+  title: "Growing Together for a Better Future",
+  description:
+    "Bertumbuh bersama untuk masa depan yang lebih baik melalui pengembangan properti yang bernilai, serta perluasan bisnis finansial dan komersial yang memberi manfaat berkelanjutan bagi pelanggan, mitra, karyawan, dan masyarakat.",
+};
+
+const companyMissions = [
+  "Mengembangkan properti dan kawasan yang berkualitas, sesuai kebutuhan pasar, serta menciptakan nilai jangka panjang.",
+  "Mengembangkan bisnis finansial dan komersial, termasuk HORECA dan entertainment, secara bertanggung jawab dan saling mendukung dengan bisnis inti.",
+  "Menghadirkan produk, layanan, dan pengalaman pelanggan yang aman, nyaman, inovatif, dan terpercaya.",
+  "Membangun kerja sama yang saling menguntungkan dengan pelanggan, mitra usaha, pemerintah, dan masyarakat.",
+  "Mengembangkan sumber daya manusia yang profesional, adaptif, kolaboratif, dan berorientasi pada hasil.",
+  "Menjalankan tata kelola perusahaan yang baik serta melakukan perbaikan berkelanjutan agar pertumbuhan bisnis memberi manfaat bagi semua pihak.",
+];
+
+const companyValues = [
+  {
+    name: "M",
+    full: "Modern",
+    meaning: "Terbuka terhadap inovasi dan pengembangan.",
+    application: "Menggunakan gagasan dan cara kerja yang relevan untuk menghasilkan nilai lebih baik.",
+  },
+  {
+    name: "A",
+    full: "Adaptif",
+    meaning: "Cepat menyesuaikan diri terhadap perubahan.",
+    application: "Tanggap terhadap perkembangan pasar, kebutuhan pelanggan, dan arah bisnis.",
+  },
+  {
+    name: "S",
+    full: "Sinergis",
+    meaning: "Membangun kolaborasi untuk mencapai tujuan bersama.",
+    application: "Bekerja sama lintas tim dan menjalin kemitraan yang produktif.",
+  },
+  {
+    name: "Y",
+    full: "Yakin",
+    meaning: "Percaya diri, konsisten, dan optimis dalam mencapai keberhasilan.",
+    application: "Berani mengambil tanggung jawab dan menuntaskan komitmen.",
+  },
+  {
+    name: "H",
+    full: "Handal",
+    meaning: "Profesional, berintegritas, dan dapat dipercaya.",
+    application: "Menjaga mutu pekerjaan serta memenuhi janji kepada pelanggan dan mitra.",
+  },
+  {
+    name: "U",
+    full: "Unggul",
+    meaning: "Berorientasi pada kualitas, hasil terbaik, dan perbaikan berkelanjutan.",
+    application: "Menetapkan standar tinggi dan terus meningkatkan kinerja.",
+  },
+  {
+    name: "R",
+    full: "Responsif",
+    meaning: "Cepat tanggap, proaktif, dan berorientasi pada solusi.",
+    application: "Memahami kebutuhan dan menyelesaikan persoalan secara tepat.",
+  },
+];
+
+const companyMilestones = [
+  {
+    year: "1982",
+    title: "Awal Perjalanan Properti",
+    description:
+      "PJM Group memulai perjalanan di bisnis properti melalui keterlibatan dalam pembangunan perumahan RS/RSS di atas lahan seluas dua hektare.",
+  },
+  {
+    year: "1984",
+    title: "Tambak Rejo Indah",
+    description:
+      "PJM Group memperoleh kepercayaan untuk mengembangkan proyek perumahan Tambak Rejo Indah di Pasuruan.",
+  },
+  {
+    year: "1985",
+    title: "Sarana Tidar",
+    description:
+      "Melalui proyek Sarana Tidar, PJM Group mengembangkan perumahan kelas menengah ke atas di wilayah Malang dan Sidoarjo.",
+  },
+  {
+    year: "1997",
+    title: "22 Proyek di Jawa Timur",
+    description:
+      "PJM Group mencapai tonggak penting dengan pembangunan 22 proyek sekaligus di Jawa Timur.",
+  },
+  {
+    year: "2000",
+    title: "Villa Puncak Tidar",
+    description:
+      "PJM Group mengembangkan Villa Puncak Tidar, Malang, sebagai proyek hunian mewah.",
+  },
+  {
+    year: "2004",
+    title: "Kolaborasi Pengembang Nasional",
+    description:
+      "PJM Group memulai kolaborasi dengan pengembang properti, termasuk Ciputra Group dan Lippo Group, dalam pembangunan proyek perumahan kelas menengah ke atas di beberapa kota.",
+  },
+  {
+    year: "2005",
+    title: "Perluasan Wilayah",
+    description:
+      "PJM Group memperluas jangkauan pengembangan ke Jawa Timur, DKI Jakarta, Jawa Barat, dan DI Yogyakarta.",
+  },
+  {
+    year: "2008",
+    title: "Batu Night Spectacular",
+    description:
+      "PJM Group berkolaborasi dengan Jatim Park Group dan memperluas portofolio ke sektor hiburan melalui Batu Night Spectacular (BNS) di Batu, Malang.",
+  },
+  {
+    year: "2012",
+    title: "Swiss-Belinn Malang",
+    description:
+      "PJM Group memasuki sektor perhotelan melalui pengembangan Swiss-Belinn Malang bersama mitra usaha.",
+  },
+  {
+    year: "2020",
+    title: "Kesehatan & Komersial",
+    description:
+      "PJM Group mengembangkan Intibios Clinic di Surabaya pada sektor kesehatan dan meluncurkan Elpico Mall sebagai kawasan komersial di Malang.",
+  },
+  {
+    year: "2021",
+    title: "Citraland Puncak Tidar",
+    description:
+      "PJM Group bekerja sama dengan Ciputra Group dalam pengembangan Citraland Puncak Tidar, Malang.",
+  },
+  {
+    year: "2022",
+    title: "Sakala",
+    description:
+      "PJM Group meluncurkan Sakala, hunian dengan konsep resort style living.",
+  },
+  {
+    year: "2024",
+    title: "TERALAND, 221 Lane, F&B, dan Workspace",
+    description:
+      "PJM Group meluncurkan TERALAND di Menganti dan 221 Lane di MERR Surabaya. Pada tahun yang sama, PJM Group memperluas bisnis F&B melalui Ahpek Kopitiam dan Common Grounds Malang, serta meresmikan ruang kerja HQ Lippo Thamrin di Jakarta Pusat melalui kolaborasi dengan IWG Group.",
+  },
+];
+
 const Index = () => {
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [landingSettings, setLandingSettings] = useState<Record<string, string>>({});
   const { data: jobs = [], isLoading, error } = useActiveJobs();
-
-  const parseJsonValue = (value: string) => {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
 
   useEffect(() => {
     const loadLandingSettings = async () => {
@@ -52,12 +184,6 @@ const Index = () => {
         "landing_contact_email",
         "landing_contact_phone",
         "landing_contact_address",
-        "landing_about_vision",
-        "landing_about_mission",
-        "landing_about_milestones",
-        "landing_about_values",
-        "landing_about_milestones_items",
-        "landing_about_values_items",
       ];
       const { data, error } = await supabase
         .from("app_settings")
@@ -95,38 +221,13 @@ const Index = () => {
   const heroTitle = landingSettings.landing_header_title || "Temukan Karir Impianmu";
   const heroSubtitle = landingSettings.landing_header_subtitle || "Jelajahi lowongan pekerjaan di PJM Group dan anak perusahaannya. Bangun karir yang bermakna bersama kami.";
   const heroBrand = landingSettings.app_name || landingSettings.landing_header_title || "PJM GROUP Career Management";
-  const logoUrl = landingSettings.app_logo_url;
+  const logoUrl = landingSettings.app_logo_url || "/pjmgroup-logo.svg";
   const heroBackgroundUrl = landingSettings.landing_hero_background_url || "/__l5e/assets-v1/80b11226-9de5-420a-9265-8d649b07e87f/hero-bg.jpg";
-  const aboutVision = landingSettings.landing_about_vision || "Growing Together for a Better Future";
-  const aboutVisionDesc = landingSettings.landing_about_vision_desc || "Bertumbuh bersama untuk masa depan yang lebih baik melalui pengembangan properti yang bernilai, serta perluasan bisnis finansial dan komersial yang memberi manfaat berkelanjutan bagi pelanggan, mitra, karyawan, dan masyarakat.";
-  const aboutMission = landingSettings.landing_about_mission || "Mengembangkan properti dan kawasan yang berkualitas, sesuai kebutuhan pasar, serta menciptakan nilai jangka panjang.\nMengembangkan bisnis finansial dan komersial, termasuk HORECA dan entertainment, secara bertanggung jawab dan saling mendukung dengan bisnis inti.\nMenghadirkan produk, layanan, dan pengalaman pelanggan yang aman, nyaman, inovatif, dan terpercaya.\nMembangun kerja sama yang saling menguntungkan dengan pelanggan, mitra usaha, pemerintah, dan masyarakat.\nMengembangkan sumber daya manusia yang profesional, adaptif, kolaboratif, dan berorientasi pada hasil.\nMenjalankan tata kelola perusahaan yang baik serta melakukan perbaikan berkelanjutan agar pertumbuhan bisnis memberi manfaat bagi semua pihak.";
-  const aboutValues = parseJsonValue(landingSettings.landing_about_values_items || "[]");
-  const aboutMilestones = parseJsonValue(landingSettings.landing_about_milestones_items || "[]");
-  const missionItems = aboutMission.split("\n").map((line) => line.replace(/^[-•]\s*/, "").trim()).filter(Boolean);
-  const valuesToShow = (aboutValues.length > 0 ? aboutValues : [
-    { name: "M", full: "Modern", description: "Terbuka terhadap inovasi dan pengembangan. Menggunakan gagasan dan cara kerja yang relevan untuk menghasilkan nilai lebih baik." },
-    { name: "A", full: "Adaptif", description: "Cepat menyesuaikan diri terhadap perubahan. Tanggap terhadap perkembangan pasar, kebutuhan pelanggan, dan arah bisnis." },
-    { name: "S", full: "Sinergis", description: "Membangun kolaborasi untuk mencapai tujuan bersama. Bekerja sama lintas tim dan menjalin kemitraan yang produktif." },
-    { name: "Y", full: "Yakin", description: "Percaya diri, konsisten, dan optimis dalam mencapai keberhasilan. Berani mengambil tanggung jawab dan menuntaskan komitmen." },
-    { name: "H", full: "Handal", description: "Profesional, berintegritas, dan dapat dipercaya. Menjaga mutu pekerjaan serta memenuhi janji kepada pelanggan dan mitra." },
-    { name: "U", full: "Unggul", description: "Berorientasi pada kualitas, hasil terbaik, dan perbaikan berkelanjutan. Menetapkan standar tinggi dan terus meningkatkan kinerja." },
-    { name: "R", full: "Responsif", description: "Cepat tanggap, proaktif, dan berorientasi pada solusi. Memahami kebutuhan dan menyelesaikan persoalan secara tepat." },
-  ]).slice(0, 7);
-  const milestonesToShow = (aboutMilestones.length > 0 ? aboutMilestones : [
-    { year: "1982", title: "Awal Perjalanan", description: "PJM Group memulai perjalanan di bisnis properti melalui keterlibatan dalam pembangunan perumahan RS/RSS di atas lahan seluas dua hektare." },
-    { year: "1984", title: "Tambak Rejo Indah", description: "PJM Group memperoleh kepercayaan untuk mengembangkan proyek perumahan Tambak Rejo Indah di Pasuruan." },
-    { year: "1985", title: "Sarana Tidar", description: "Melalui proyek Sarana Tidar, PJM Group mengembangkan perumahan kelas menengah ke atas di wilayah Malang dan Sidoarjo." },
-    { year: "1997", title: "22 Proyek", description: "PJM Group mencapai tonggak penting dengan pembangunan 22 proyek sekaligus di Jawa Timur." },
-    { year: "2000", title: "Villa Puncak Tidar", description: "PJM Group mengembangkan Villa Puncak Tidar, Malang, sebagai proyek hunian mewah." },
-    { year: "2004", title: "Kolaborasi", description: "PJM Group memulai kolaborasi dengan pengembang properti, termasuk Ciputra Group dan Lippo Group." },
-    { year: "2005", title: "Perluasan Wilayah", description: "PJM Group memperluas jangkauan pengembangan ke Jawa Timur, DKI Jakarta, Jawa Barat, dan DI Yogyakarta." },
-    { year: "2008", title: "Sektor Hiburan", description: "PJM Group berkolaborasi dengan Jatim Park Group dan memperluas portofolio ke sektor hiburan melalui BNS." },
-    { year: "2012", title: "Perhotelan", description: "PJM Group memasuki sektor perhotelan melalui pengembangan Swiss-Belinn Malang bersama mitra usaha." },
-    { year: "2020", title: "Kesehatan & Komersial", description: "PJM Group mengembangkan Intibios Clinic di Surabaya dan meluncurkan Elpico Mall sebagai kawasan komersial." },
-    { year: "2021", title: "Citraland Puncak Tidar", description: "PJM Group bekerja sama dengan Ciputra Group dalam pengembangan Citraland Puncak Tidar, Malang." },
-    { year: "2022", title: "Sakala", description: "PJM Group meluncurkan Sakala, hunian dengan konsep resort style living." },
-    { year: "2024", title: "TERALAND & Ekspansi", description: "PJM Group meluncurkan TERALAND di Menganti dan 221 Lane di MERR Surabaya, serta memperluas bisnis F&B." },
-  ]).slice(0, 13);
+  const aboutVision = companyVision.title;
+  const aboutVisionDesc = companyVision.description;
+  const missionItems = companyMissions;
+  const valuesToShow = companyValues;
+  const milestonesToShow = companyMilestones;
 
   if (error) {
     console.error("Error loading jobs:", error);
@@ -299,28 +400,29 @@ const Index = () => {
       {/* About */}
       <section id="tentang" className="scroll-mt-24 overflow-hidden bg-gradient-to-b from-background via-muted/30 to-background">
         <div className="container py-16 md:py-24">
-            {/* Brand Card */}
+            {/* Brand */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="rounded-2xl border border-border bg-card p-6 md:p-8 mb-12 shadow-sm"
+              className="mb-12"
             >
-              <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
+              <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 text-center">
                 {logoUrl ? (
-                  <img src={logoUrl} alt={heroBrand} className="h-16 w-auto max-w-[200px] object-contain" />
+                  <img src={logoUrl} alt={heroBrand} className="h-auto w-full max-w-[360px] object-contain" />
                 ) : (
                   <div className="flex h-16 w-16 items-center justify-center">
                     <Building2 className="h-8 w-8 text-primary" />
                   </div>
                 )}
-                <div className="text-center md:text-left">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-1">Career Ecosystem</p>
-                  <p className="text-xl font-bold text-foreground">{heroBrand}</p>
-                  <p className="text-sm text-muted-foreground mt-1">PJM Group Recruitment</p>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Platform Rekrutmen Resmi PJM Group</p>
+                  <p className="mt-3 text-lg text-muted-foreground">
+                    Temukan karir impian Anda bersama kami.
+                  </p>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="mt-10 grid gap-4 sm:grid-cols-3">
                 {[
                   { label: "Fair", icon: Shield, desc: "Proses yang adil" },
                   { label: "Insightful", icon: Sparkles, desc: "Data-driven" },
@@ -397,26 +499,40 @@ const Index = () => {
                   <Award className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Value</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Nilai Perusahaan</p>
                   <h3 className="text-lg font-bold text-foreground">Nilai Perusahaan — MASYHUR</h3>
                 </div>
               </div>
               <Carousel opts={{ align: "start", loop: true }} className="w-full">
-                <CarouselContent>
-                  {valuesToShow.map((value: any, idx: number) => (
-                    <CarouselItem key={idx} className="sm:basis-1/2 lg:basis-1/3">
-                      <div className="rounded-xl border border-border bg-muted/30 p-5 hover:bg-muted/50 transition h-full">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 mb-4 mx-auto">
-                          <span className="text-2xl font-black text-primary">{value.name}</span>
+                <CarouselContent className="-ml-4">
+                  {valuesToShow.map((value, idx) => (
+                    <CarouselItem key={idx} className="pl-4 sm:basis-1/2 lg:basis-1/3">
+                      <div className="h-full min-h-[270px] rounded-xl border border-border bg-muted/30 p-5 transition hover:border-primary/30 hover:bg-muted/50">
+                        <div className="mb-4 flex items-center gap-3">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                            <span className="text-xl font-black">{value.name}</span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">MASYHUR</p>
+                            <p className="text-lg font-bold text-foreground">{value.full}</p>
+                          </div>
                         </div>
-                        <p className="text-lg font-bold text-foreground mb-1 text-center">{value.full}</p>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{value.description}</p>
+                        <div className="space-y-3 text-sm leading-relaxed">
+                          <div>
+                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Makna</p>
+                            <p className="text-foreground">{value.meaning}</p>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Penerapan</p>
+                            <p className="text-muted-foreground">{value.application}</p>
+                          </div>
+                        </div>
                       </div>
                     </CarouselItem>
                   ))}
                 </CarouselContent>
-                <CarouselPrevious className="left-0 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
-                <CarouselNext className="right-0 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
+                <CarouselPrevious className="left-2 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
+                <CarouselNext className="right-2 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
               </Carousel>
             </motion.div>
 
@@ -432,7 +548,7 @@ const Index = () => {
                   <Clock className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Journey</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Perjalanan</p>
                   <h3 className="text-lg font-bold text-foreground">Milestone PJM Group</h3>
                 </div>
               </div>
