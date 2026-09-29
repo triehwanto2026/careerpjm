@@ -173,6 +173,15 @@ const Index = () => {
   const [landingSettings, setLandingSettings] = useState<Record<string, string>>({});
   const { data: jobs = [], isLoading, error } = useActiveJobs();
 
+  const parseJsonValue = (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   useEffect(() => {
     const loadLandingSettings = async () => {
       const keys = [
@@ -184,6 +193,12 @@ const Index = () => {
         "landing_contact_email",
         "landing_contact_phone",
         "landing_contact_address",
+        "landing_about_vision",
+        "landing_about_mission",
+        "landing_about_milestones",
+        "landing_about_values",
+        "landing_about_milestones_items",
+        "landing_about_values_items",
       ];
       const { data, error } = await supabase
         .from("app_settings")
@@ -219,7 +234,7 @@ const Index = () => {
   }, []);
 
   const heroTitle = landingSettings.landing_header_title || "Temukan Karir Impianmu";
-  const heroSubtitle = landingSettings.landing_header_subtitle || "Jelajahi lowongan pekerjaan di PJM Group dan anak perusahaannya. Bangun karir yang bermakna bersama kami.";
+  const heroSubtitle = landingSettings.landing_header_subtitle || "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
   const heroBrand = landingSettings.app_name || landingSettings.landing_header_title || "PJM GROUP Career Management";
   const logoUrl = landingSettings.app_logo_url || "/pjmgroup-logo.svg";
   const heroBackgroundUrl = landingSettings.landing_hero_background_url || "/__l5e/assets-v1/80b11226-9de5-420a-9265-8d649b07e87f/hero-bg.jpg";
@@ -400,29 +415,29 @@ const Index = () => {
       {/* About */}
       <section id="tentang" className="scroll-mt-24 overflow-hidden bg-gradient-to-b from-background via-muted/30 to-background">
         <div className="container py-16 md:py-24">
-            {/* Brand */}
+            {/* Brand Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="mb-12"
+              className="rounded-2xl border border-border bg-card p-6 md:p-8 mb-12 shadow-sm"
             >
-              <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 text-center">
+              <div className="mb-8 flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
                 {logoUrl ? (
-                  <img src={logoUrl} alt={heroBrand} className="h-auto w-full max-w-[360px] object-contain" />
+                  <img src={logoUrl} alt={heroBrand} className="h-16 w-auto max-w-[200px] object-contain" />
                 ) : (
                   <div className="flex h-16 w-16 items-center justify-center">
                     <Building2 className="h-8 w-8 text-primary" />
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Platform Rekrutmen Resmi PJM Group</p>
-                  <p className="mt-3 text-lg text-muted-foreground">
+                  <p className="text-xl font-bold text-foreground">Platform Rekrutmen Resmi PJM Group</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
                     Temukan karir impian Anda bersama kami.
                   </p>
                 </div>
               </div>
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-3">
                 {[
                   { label: "Fair", icon: Shield, desc: "Proses yang adil" },
                   { label: "Insightful", icon: Sparkles, desc: "Data-driven" },
@@ -499,7 +514,7 @@ const Index = () => {
                   <Award className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Nilai Perusahaan</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Value</p>
                   <h3 className="text-lg font-bold text-foreground">Nilai Perusahaan — MASYHUR</h3>
                 </div>
               </div>
@@ -548,7 +563,7 @@ const Index = () => {
                   <Clock className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Perjalanan</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Journey</p>
                   <h3 className="text-lg font-bold text-foreground">Milestone PJM Group</h3>
                 </div>
               </div>

@@ -56,7 +56,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
 
   const companyName = publicSettings.app_name || publicSettings.landing_header_title || "PJM GROUP Career Management";
   const logoUrl = publicSettings.app_logo_url || "/pjmgroup-logo.svg";
-  const brandSubtitle = publicSettings.landing_header_subtitle || "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
+  const brandSubtitle = "Platform rekrutmen resmi PJM Group. Temukan karir impian Anda bersama kami.";
   const contactEmail = publicSettings.landing_contact_email || "hrd@pjm-group.com";
   const contactPhone = publicSettings.landing_contact_phone || "(031) 5962700";
   const contactAddress = publicSettings.landing_contact_address || "Jl. Raya Kertajaya Indah No.47, Manyar Sabrangan, Kec. Mulyorejo, Surabaya, Jawa Timur 60116";
