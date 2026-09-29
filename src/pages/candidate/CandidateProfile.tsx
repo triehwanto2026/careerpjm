@@ -578,7 +578,7 @@ export default function CandidateProfile() {
         {/* Header - Fixed Top */}
         <div className="border-b border-border bg-background">
           <div className="mx-auto w-full max-w-[96rem] px-4 py-4 md:px-6 lg:px-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                   <ClipboardList className="h-5 w-5 text-primary" />
@@ -588,7 +588,14 @@ export default function CandidateProfile() {
                   <p className="text-sm text-muted-foreground">Lengkapi seluruh data untuk meningkatkan peluang Anda</p>
                 </div>
               </div>
-              <button onClick={calculateProgress} className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted">Refresh Progress</button>
+              <div className="flex items-center gap-2">
+                {!isEditing && (
+                  <button onClick={handleEdit} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
+                    <Edit className="h-4 w-4" /> Edit
+                  </button>
+                )}
+                <button onClick={calculateProgress} className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted">Refresh Progress</button>
+              </div>
             </div>
             
             {/* Progress Bar */}
