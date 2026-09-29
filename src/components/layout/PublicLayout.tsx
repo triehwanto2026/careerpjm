@@ -271,46 +271,43 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
       <main className="flex-1 pt-[74px]">{children}</main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-muted/30">
-        <div className="container px-4 py-5 md:px-6">
-          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="shrink-0">
-                {logoUrl ? (
-                  <img src={logoUrl} alt={companyName} className="h-9 w-auto max-w-[145px] object-contain" />
-                ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                    <Building2 className="h-5 w-5 text-primary" />
-                  </div>
-                )}
-              </div>
-              <p className="max-w-lg text-sm leading-6 text-muted-foreground">
+      <footer className="border-t border-border bg-background">
+        <div className="container px-4 py-6 md:px-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(280px,0.8fr)_minmax(420px,1.2fr)] lg:items-start">
+            <div>
+              <p className="max-w-xl text-[15px] font-medium leading-7 text-foreground md:text-base">
                 {brandSubtitle}
               </p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                PJM Group Recruitment
+              </p>
             </div>
-            <div className="min-w-0 rounded-xl border border-border bg-background p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Contact Kami</p>
-              <ul className="grid gap-2 text-sm sm:grid-cols-2">
-                <li className="min-w-0">
+            <div className="min-w-0">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Contact Us</p>
+              <ul className="grid gap-3 text-sm md:grid-cols-[minmax(180px,0.8fr)_minmax(150px,0.65fr)_minmax(260px,1.4fr)]">
+                <li className="min-w-0 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
                   <a href={`mailto:${contactEmail}`} className="flex items-center gap-2 font-semibold text-foreground transition hover:text-primary">
                     <Mail className="h-4 w-4 shrink-0 text-primary" />
                     <span className="truncate">{contactEmail}</span>
                   </a>
                 </li>
-                <li>
+                <li className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
                   <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 font-semibold text-foreground transition hover:text-primary">
                     <Phone className="h-4 w-4 shrink-0 text-primary" />
                     <span>{contactPhone}</span>
                   </a>
                 </li>
-                <li className="sm:col-span-2">
+                <li className="min-w-0 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
                   <div className="flex items-start gap-2 text-muted-foreground">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span className="leading-6">{contactAddress}</span>
+                    <span className="leading-5">{contactAddress}</span>
                   </div>
                 </li>
               </ul>
             </div>
+          </div>
+          <div className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
+            Copyright @pjmgroup.
           </div>
         </div>
       </footer>
