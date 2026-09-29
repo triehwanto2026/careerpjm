@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Users, Search, Filter, Download, Eye, Mail, Phone, Calendar, Briefcase, MapPin, GraduationCap, Award, CheckCircle, XCircle, Clock, AlertCircle, FileText, MoreVertical, Edit, Trash2, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2 } from "lucide-react";
+import { Users, Search, Filter, Download, Eye, Mail, Phone, Calendar, Briefcase, MapPin, GraduationCap, Award, CheckCircle, XCircle, X, Clock, AlertCircle, FileText, MoreVertical, Edit, Trash2, Building2, User, Camera, BookOpen, FolderOpen, Heart, Globe, Ruler, Weight, CreditCard, Home, Car, Languages, Target, Users2, Star, MessageSquare, Link2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,65 @@ const SWAL_THEME = () => ({
   color: "hsl(var(--foreground))",
   confirmButtonColor: "hsl(174, 72%, 46%)",
 });
+
+const safeParseArray = (value: any) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "object") return [value];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const safeParseObject = (value: any) => {
+  if (!value) return {};
+  if (Array.isArray(value)) return {};
+  if (typeof value === "object") return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const parseCandidateDetail = (candidate: CandidateProfile) => ({
+  ...candidate,
+  family_members: safeParseArray((candidate as any).family_data).length || safeParseArray((candidate as any).immediate_family_data).length
+    ? [...safeParseArray((candidate as any).family_data), ...safeParseArray((candidate as any).immediate_family_data)]
+    : safeParseArray(candidate.family_members),
+  education_history: safeParseArray(candidate.education_history),
+  informal_education: safeParseArray((candidate as any).informal_education),
+  work_experience: safeParseArray(candidate.work_experience),
+  languages: safeParseArray(candidate.languages),
+  hobbies: safeParseArray(candidate.hobbies),
+  certificates: safeParseArray(candidate.certificates),
+  references: safeParseArray(candidate.references),
+  social_media: safeParseObject(candidate.social_media),
+  skills: safeParseArray(candidate.skills),
+});
+
+const compactJoin = (items: any[], separator = " - ") => items.filter((item) => item !== null && item !== undefined && item !== "").join(separator);
+
+const formatInfoValue = (value: any) => {
+  if (value == null || value === "") return "-";
+  if (Array.isArray(value)) {
+    const text = value
+      .map((item) => {
+        if (item == null || item === "") return "";
+        if (typeof item === "object") return item.name || item.label || item.value || Object.values(item).filter(Boolean).join(" - ");
+        return String(item);
+      })
+      .filter(Boolean)
+      .join(", ");
+    return text || "-";
+  }
+  if (typeof value === "object") return Object.values(value).filter(Boolean).join(" - ") || "-";
+  return String(value);
+};
 
 interface CandidateProfile {
   id: string;
@@ -120,6 +179,11 @@ export default function Applicants() {
   const [dateTo, setDateTo] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCandidateDetailModal, setShowCandidateDetailModal] = useState(false);
+  const [candidateDetailDocs, setCandidateDetailDocs] = useState<any[]>([]);
+  const [candidateDetailResults, setCandidateDetailResults] = useState<any[]>([]);
+  const [candidateDetailLoading, setCandidateDetailLoading] = useState(false);
+  const [activeApplicantDetailTab, setActiveApplicantDetailTab] = useState<"personal" | "documents" | "additional" | "whatsapp">("personal");
   const [showCommunicationModal, setShowCommunicationModal] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [showDocPreview, setShowDocPreview] = useState(false);
@@ -225,6 +289,7 @@ export default function Applicants() {
           // Parse array fields for each candidate
           const parsedCandidate = {
             ...candidate,
+            photo_url: candidate.photo_url || (docsByUser[candidate.user_id] || []).find((doc: any) => doc.document_type === "photo")?.file_url || null,
             family_members: safeParseJSON(candidate.family_members, []),
             education_history: safeParseJSON(candidate.education_history, []),
             languages: safeParseJSON(candidate.languages, []),
@@ -758,6 +823,52 @@ Terima kasih.`;
     setShowApplicationForm(true);
   };
 
+  const openCandidateDetailModal = async (candidate: CandidateProfile) => {
+    const parsedCandidate = parseCandidateDetail(candidate);
+    setSelectedCandidate(parsedCandidate);
+    setContactDraft(buildApplicantContactDraft(parsedCandidate));
+    setActiveApplicantDetailTab("personal");
+    setShowCandidateDetailModal(true);
+    setCandidateDetailLoading(true);
+
+    const existingDocs = (parsedCandidate as any).documents || [];
+    let docs = existingDocs;
+    if ((!docs || docs.length === 0) && parsedCandidate.user_id) {
+      const { data } = await supabase
+        .from("candidate_documents")
+        .select("*")
+        .eq("user_id", parsedCandidate.user_id)
+        .order("created_at", { ascending: false });
+      docs = data || [];
+    }
+    setCandidateDetailDocs(docs || []);
+
+    const resultCandidateIds = [
+      parsedCandidate.id,
+      parsedCandidate.user_id,
+      (parsedCandidate as any).profile_id,
+    ].filter(Boolean);
+    const [resultsById, resultsByEmail] = await Promise.all([
+      resultCandidateIds.length > 0
+        ? supabase
+            .from("test_results")
+            .select("*, test:test_instruments(name, category)")
+            .in("candidate_id", resultCandidateIds)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null } as any),
+      parsedCandidate.email
+        ? supabase
+            .from("test_results")
+            .select("*, test:test_instruments(name, category)")
+            .eq("candidate_profile->>email", parsedCandidate.email)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null } as any),
+    ]);
+    const mergedResults = [...(resultsById.data || []), ...(resultsByEmail.data || [])];
+    setCandidateDetailResults(Array.from(new Map(mergedResults.map((result: any) => [result.id, result])).values()));
+    setCandidateDetailLoading(false);
+  };
+
   const handleDeleteCandidate = async (candidate: CandidateProfile) => {
     const result = await Swal.fire({
       icon: 'warning',
@@ -1022,6 +1133,15 @@ Terima kasih.`;
     }
   };
 
+  const detailFamilyRows = safeParseArray(selectedCandidate?.family_members);
+  const detailEducationRows = safeParseArray(selectedCandidate?.education_history);
+  const detailInformalEducationRows = safeParseArray((selectedCandidate as any)?.informal_education);
+  const detailWorkRows = safeParseArray(selectedCandidate?.work_experience);
+  const detailSkillRows = safeParseArray(selectedCandidate?.skills);
+  const detailLanguageRows = safeParseArray(selectedCandidate?.languages);
+  const detailSocialMediaRows = Object.entries(safeParseObject(selectedCandidate?.social_media)).map(([platform, url]) => `${platform}: ${url}`);
+  const detailReferencesRows = safeParseArray(selectedCandidate?.references);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -1217,11 +1337,15 @@ Terima kasih.`;
                     <tr key={candidate.id} className="hover:bg-muted/50 transition">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-medium text-primary">
-                              {candidate.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'NA'}
-                            </span>
-                          </div>
+                          {candidate.photo_url ? (
+                            <img src={candidate.photo_url} alt={candidate.full_name || "Pelamar"} className="h-8 w-8 rounded-full border border-border object-cover" />
+                          ) : (
+                            <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-primary">
+                                {candidate.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'NA'}
+                              </span>
+                            </div>
+                          )}
                           <div>
                             <div className="text-sm font-medium text-foreground">{candidate.full_name || '-'}</div>
                             <div className="text-sm text-muted-foreground">{candidate.phone || '-'}</div>
@@ -1282,9 +1406,9 @@ Terima kasih.`;
                             Profil
                           </button>
                           <button
-                            onClick={() => openCandidateCommunication(candidate)}
+                            onClick={() => openCandidateDetailModal(candidate)}
                             className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/15 transition"
-                            title="Detail dan komunikasi kandidat"
+                            title="Detail kandidat"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             Detail
@@ -1305,6 +1429,367 @@ Terima kasih.`;
             </table>
           </div>
         </div>
+
+        {/* Candidate Detail Modal - same structure as Daftar Kandidat */}
+        {showCandidateDetailModal && selectedCandidate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowCandidateDetailModal(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="glass relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl glow-border">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-6 py-4">
+                <h2 className="text-lg font-bold text-foreground">Detail Kandidat</h2>
+                <button type="button" onClick={() => setShowCandidateDetailModal(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-5 w-5" /></button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    {selectedCandidate.photo_url ? (
+                      <img src={selectedCandidate.photo_url} alt={selectedCandidate.full_name || "Kandidat"} className="h-20 w-20 rounded-xl object-cover border border-border shadow-sm" />
+                    ) : (
+                      <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 text-primary text-2xl font-bold border border-primary/20">
+                        {(selectedCandidate.full_name || selectedCandidate.email || "K").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-xl font-bold text-foreground">{selectedCandidate.full_name || selectedCandidate.email || "Kandidat"}</h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        <span className="break-all">{selectedCandidate.email}</span>
+                        <span>{selectedCandidate.phone || "-"}</span>
+                        <span>{formatInfoValue(selectedCandidate.current_position || getCandidateTargetPosition(selectedCandidate) || "Posisi tidak ditentukan")}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+                          {selectedCandidate.has_applied ? "Sudah Melamar" : "Belum Melamar"}
+                        </span>
+                        {(selectedCandidate as any).is_complete && (
+                          <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium bg-emerald-400/10 text-emerald-400">
+                            Profil Lengkap
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button onClick={() => setShowApplicationForm(true)} className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-500 hover:bg-blue-500/20">
+                        <FileText className="h-4 w-4" />
+                        PHC
+                      </button>
+                      <button onClick={() => openCandidateWhatsApp(selectedCandidate)} className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-500 hover:bg-emerald-500/20">
+                        <Phone className="h-4 w-4" />
+                        WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg md:grid-cols-4">
+                  <button onClick={() => setActiveApplicantDetailTab("personal")} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeApplicantDetailTab === "personal" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    Profil Lengkap
+                  </button>
+                  <button onClick={() => setActiveApplicantDetailTab("documents")} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeApplicantDetailTab === "documents" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    Dokumen ({candidateDetailDocs.length})
+                  </button>
+                  <button onClick={() => setActiveApplicantDetailTab("additional")} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeApplicantDetailTab === "additional" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    Hasil Tes ({candidateDetailResults.length})
+                  </button>
+                  <button onClick={() => setActiveApplicantDetailTab("whatsapp")} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeApplicantDetailTab === "whatsapp" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    Template WA
+                  </button>
+                </div>
+
+                {candidateDetailLoading ? (
+                  <div className="py-8 text-center text-muted-foreground">Memuat data...</div>
+                ) : (
+                  <>
+                    {activeApplicantDetailTab === "personal" && (
+                      <div className="space-y-4">
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><User className="h-4 w-4 text-primary" />Data Pribadi</h4>
+                          <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                            <DetailInfoRow label="NIK" value={(selectedCandidate as any).nik || selectedCandidate.nik || "-"} />
+                            <DetailInfoRow label="Email" value={selectedCandidate.email || "-"} />
+                            <DetailInfoRow label="Telepon" value={selectedCandidate.phone || "-"} />
+                            <DetailInfoRow label="Tempat Lahir" value={selectedCandidate.birth_place || "-"} />
+                            <DetailInfoRow label="Tanggal Lahir" value={formatDate(selectedCandidate.birth_date)} />
+                            <DetailInfoRow label="Golongan Darah" value={selectedCandidate.blood_type || "-"} />
+                            <DetailInfoRow label="Jenis Kelamin" value={selectedCandidate.gender || "-"} />
+                            <DetailInfoRow label="Status Pernikahan" value={selectedCandidate.marital_status || "-"} />
+                            <DetailInfoRow label="Agama" value={selectedCandidate.religion || "-"} />
+                            <DetailInfoRow label="Kewarganegaraan" value={selectedCandidate.nationality || "-"} />
+                          </div>
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Home className="h-4 w-4 text-primary" />Alamat</h4>
+                          <div className="grid gap-3 text-sm">
+                            <DetailInfoRow label="Alamat Lengkap" value={selectedCandidate.address || "-"} full />
+                            <div className="grid sm:grid-cols-3 gap-3">
+                              <DetailInfoRow label="Kota" value={(selectedCandidate as any).city || "-"} />
+                              <DetailInfoRow label="Provinsi" value={(selectedCandidate as any).province || "-"} />
+                              <DetailInfoRow label="Kode Pos" value={(selectedCandidate as any).postal_code || "-"} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Ruler className="h-4 w-4 text-primary" />Data Fisik</h4>
+                          <div className="grid gap-3 sm:grid-cols-4 text-sm">
+                            <DetailInfoRow label="Tinggi" value={(selectedCandidate as any).height_cm ? `${(selectedCandidate as any).height_cm} cm` : "-"} />
+                            <DetailInfoRow label="Berat" value={(selectedCandidate as any).weight_kg ? `${(selectedCandidate as any).weight_kg} kg` : "-"} />
+                            <DetailInfoRow label="Riwayat Penyakit" value={(selectedCandidate as any).medical_history || "-"} full />
+                          </div>
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><GraduationCap className="h-4 w-4 text-primary" />Riwayat Pendidikan Formal</h4>
+                          {detailEducationRows.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Belum ada riwayat pendidikan formal.</p>
+                          ) : (
+                            <DetailTable
+                              columns={["Jenjang", "Sekolah/Universitas", "Jurusan", "Periode", "Nilai/IPK", "Status"]}
+                              rows={detailEducationRows.map((edu: any) => [
+                                edu.level || "-",
+                                edu.school || edu.institution || "-",
+                                edu.major || "-",
+                                compactJoin([edu.start_year, edu.end_year || edu.graduation_year || edu.year]) || "-",
+                                edu.grade || edu.gpa || "-",
+                                edu.status || "-",
+                              ])}
+                            />
+                          )}
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Award className="h-4 w-4 text-primary" />Pendidikan Informal</h4>
+                          {detailInformalEducationRows.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Belum ada pendidikan informal.</p>
+                          ) : (
+                            <DetailTable
+                              columns={["Nama", "Lembaga", "Tahun", "Sertifikat"]}
+                              rows={detailInformalEducationRows.map((edu: any) => [edu.name || "-", edu.institution || "-", edu.year || "-", edu.certificate || "-"])}
+                            />
+                          )}
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Heart className="h-4 w-4 text-primary" />Data Keluarga</h4>
+                          {detailFamilyRows.length > 0 ? (
+                            <DetailTable
+                              columns={["Hubungan", "Nama", "Jenis Kelamin", "Usia", "Pendidikan", "Pekerjaan"]}
+                              rows={detailFamilyRows.map((member: any) => [
+                                member.relation || member.relationship || "-",
+                                member.name || "-",
+                                member.gender || "-",
+                                member.age || "-",
+                                member.education || "-",
+                                compactJoin([member.occupation, member.company]) || "-",
+                              ])}
+                            />
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Belum ada data keluarga.</p>
+                          )}
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" />Pengalaman Kerja</h4>
+                          <div className="mb-3 grid gap-3 sm:grid-cols-3 text-sm">
+                            <DetailInfoRow label="Posisi Saat Ini" value={selectedCandidate.current_position || "-"} />
+                            <DetailInfoRow label="Perusahaan Saat Ini" value={selectedCandidate.current_company || "-"} />
+                            <DetailInfoRow label="Total Pengalaman" value={selectedCandidate.experience_years ? `${selectedCandidate.experience_years} tahun` : "-"} />
+                          </div>
+                          {detailWorkRows.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Belum ada riwayat pengalaman kerja.</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {detailWorkRows.map((work: any, index: number) => (
+                                <div key={index} className="rounded-lg border border-border bg-card p-3">
+                                  <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="font-semibold text-foreground">{formatInfoValue(work.company_name || work.company)}</p>
+                                    <p className="text-xs text-muted-foreground">{compactJoin([work.join_date || work.start_date, work.still_working ? "Sekarang" : (work.end_date || work.finish_date)]) || "-"}</p>
+                                  </div>
+                                  <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                                    <DetailInfoRow label="Jabatan Awal" value={work.position_start || "-"} />
+                                    <DetailInfoRow label="Jabatan Akhir" value={work.position_end || work.position || "-"} />
+                                    <DetailInfoRow label="Gaji Awal" value={work.salary_start || "-"} />
+                                    <DetailInfoRow label="Gaji Akhir" value={work.salary_end || work.salary || "-"} />
+                                    <DetailInfoRow label="Tugas" value={work.duties || work.description || "-"} full />
+                                    <DetailInfoRow label="Prestasi" value={work.achievements || "-"} full />
+                                    <DetailInfoRow label="Alasan Berhenti" value={work.resignation_reason || "-"} full />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Star className="h-4 w-4 text-primary" />Keahlian & Bahasa</h4>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <DetailList title="Keahlian" rows={detailSkillRows} />
+                            <DetailList title="Bahasa" rows={detailLanguageRows} />
+                          </div>
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Ekspektasi Gaji & Ketersediaan</h4>
+                          <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                            <DetailInfoRow label="Gaji Pokok" value={(selectedCandidate as any).salary_exp_base || selectedCandidate.expected_salary || "-"} />
+                            <DetailInfoRow label="Tunjangan" value={(selectedCandidate as any).salary_exp_allowances || "-"} />
+                            <DetailInfoRow label="Benefit" value={(selectedCandidate as any).salary_exp_benefits || "-"} />
+                            <DetailInfoRow label="Siap Mulai" value={(selectedCandidate as any).available_from || selectedCandidate.available_start_date || "-"} />
+                            <DetailInfoRow label="Notice Period" value={(selectedCandidate as any).notice_period || "-"} />
+                          </div>
+                        </div>
+
+                        <div className="bg-muted/30 rounded-xl p-4">
+                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Informasi Lainnya</h4>
+                          <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                            <DetailInfoRow label="Hobi" value={selectedCandidate.hobbies || "-"} />
+                            <DetailInfoRow label="Kelebihan" value={selectedCandidate.strengths || "-"} />
+                            <DetailInfoRow label="SIM" value={(selectedCandidate as any).vehicle_license || "-"} />
+                            <DetailInfoRow label="Memiliki Kendaraan" value={(selectedCandidate as any).has_vehicle ? "Ya" : "Tidak"} />
+                            <DetailInfoRow label="Sumber Info Lowongan" value={(selectedCandidate as any).source_info || "-"} />
+                            <DetailInfoRow label="Bersedia Relokasi" value={(selectedCandidate as any).willing_relocate ? "Ya" : "Tidak"} />
+                            <DetailInfoRow label="Bersedia Lembur" value={(selectedCandidate as any).willing_overtime ? "Ya" : "Tidak"} />
+                            <DetailInfoRow label="Bersedia Shift" value={(selectedCandidate as any).willing_shift ? "Ya" : "Tidak"} />
+                            <DetailInfoRow label="Info Tambahan" value={selectedCandidate.additional_info || "-"} full />
+                          </div>
+                          {(detailSocialMediaRows.length > 0 || detailReferencesRows.length > 0) && (
+                            <div className="mt-4 grid gap-4 md:grid-cols-2">
+                              <DetailList title="Media Sosial" rows={detailSocialMediaRows} />
+                              <DetailList title="Referensi" rows={detailReferencesRows} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {activeApplicantDetailTab === "documents" && (
+                      <div className="space-y-3">
+                        {candidateDetailDocs.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">Belum ada dokumen yang diupload</div>
+                        ) : (
+                          candidateDetailDocs.map((doc) => (
+                            <div key={doc.id} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <FileText className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{formatInfoValue(doc.file_name)}</p>
+                                <p className="text-xs text-muted-foreground">{formatInfoValue(doc.document_type)}</p>
+                              </div>
+                              <Button variant="outline" size="sm" onClick={() => { setDocPreviewUrl(doc.file_url); setDocPreviewName(formatInfoValue(doc.file_name)); setShowDocPreview(true); }}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {activeApplicantDetailTab === "additional" && (
+                      <div className="space-y-3">
+                        {candidateDetailResults.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">Belum ada hasil tes</div>
+                        ) : (
+                          <>
+                            {(() => {
+                              const scored = candidateDetailResults.filter((result) => typeof result.score === "number");
+                              const avg = scored.length ? Math.round(scored.reduce((sum, result) => sum + Number(result.score || 0), 0) / scored.length) : null;
+                              const interpreted = candidateDetailResults.filter((result) => result.interpretation).length;
+                              return (
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                  <div className="rounded-xl border border-border bg-card p-4">
+                                    <div className="text-xs text-muted-foreground">Total Tes</div>
+                                    <div className="mt-1 text-2xl font-bold text-foreground">{candidateDetailResults.length}</div>
+                                  </div>
+                                  <div className="rounded-xl border border-border bg-card p-4">
+                                    <div className="text-xs text-muted-foreground">Rata-rata Skor</div>
+                                    <div className="mt-1 text-2xl font-bold text-foreground">{avg ?? "-"}</div>
+                                  </div>
+                                  <div className="rounded-xl border border-border bg-card p-4">
+                                    <div className="text-xs text-muted-foreground">Interpretasi</div>
+                                    <div className="mt-1 text-2xl font-bold text-foreground">{interpreted}</div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {candidateDetailResults.map((result) => (
+                              <div key={result.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                  <div>
+                                    <h4 className="font-semibold text-foreground">{formatInfoValue((result.test as any)?.name || result.test_name || "Tes Psikologi")}</h4>
+                                    <p className="text-sm text-muted-foreground">{formatInfoValue((result.test as any)?.category || result.status || "-")}</p>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {result.score !== null && result.score !== undefined && (
+                                      <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">Skor {formatInfoValue(result.score)}</span>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">{(result.completed_at || result.created_at)?.split("T")[0] || "-"}</span>
+                                  </div>
+                                </div>
+                                <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kesimpulan Interpretasi</div>
+                                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
+                                    {formatInfoValue(result.interpretation) !== "-" ? formatInfoValue(result.interpretation) : "Belum ada interpretasi tersimpan untuk hasil tes ini."}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {activeApplicantDetailTab === "whatsapp" && (
+                      <div className="rounded-xl border border-border bg-card p-4">
+                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h4 className="font-semibold text-foreground flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4 text-primary" />
+                              Template WhatsApp
+                            </h4>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Draft sudah otomatis memakai nama kandidat dan posisi yang dilamar. Ubah isi pesan bila perlu sebelum dikirim.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setContactDraft(buildApplicantContactDraft(selectedCandidate))}>
+                              Reset
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => saveApplicantContactDraftTemplate(selectedCandidate)}>
+                              Simpan Template
+                            </Button>
+                          </div>
+                        </div>
+                        <textarea
+                          value={contactDraft}
+                          onChange={(event) => setContactDraft(event.target.value)}
+                          rows={9}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                          placeholder="Tulis pesan WhatsApp untuk kandidat..."
+                        />
+                        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            Tujuan: {selectedCandidate.full_name || "Kandidat"} • {selectedCandidate.phone || "Nomor belum tersedia"}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={copyApplicantContactDraft}>
+                              Salin
+                            </Button>
+                            <Button size="sm" onClick={() => openCandidateWhatsApp(selectedCandidate)} className="bg-emerald-600 hover:bg-emerald-700">
+                              <Phone className="mr-2 h-4 w-4" />
+                              Kirim WhatsApp
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Professional Detail Modal */}
         {showDetailModal && selectedCandidate && (
@@ -2353,3 +2838,55 @@ Terima kasih.`;
     </AdminLayout>
   );
 }
+
+const DetailInfoRow = ({ label, value, full }: { label: string; value: any; full?: boolean }) => (
+  <div className={`${full ? "sm:col-span-2" : ""} flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3`}>
+    <span className="shrink-0 text-xs text-muted-foreground sm:w-32">{label}</span>
+    <span className="break-words font-medium text-foreground">{formatInfoValue(value)}</span>
+  </div>
+);
+
+const DetailTable = ({ columns, rows }: { columns: string[]; rows: any[][] }) => (
+  <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <table className="w-full min-w-[640px] text-sm">
+      <thead className="bg-muted/70">
+        <tr>
+          {columns.map((column) => (
+            <th key={column} className="border-b border-r border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground last:border-r-0">
+              {column}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, rowIndex) => (
+          <tr key={rowIndex} className="odd:bg-card even:bg-muted/20">
+            {columns.map((column, columnIndex) => (
+              <td key={`${rowIndex}-${column}`} className="border-r border-border px-3 py-2 align-top text-foreground last:border-r-0">
+                {formatInfoValue(row[columnIndex])}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const DetailList = ({ title, rows }: { title: string; rows: any[] }) => (
+  <div>
+    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
+    {rows.length === 0 ? (
+      <p className="text-sm text-muted-foreground">Belum ada data.</p>
+    ) : (
+      <div className="space-y-2">
+        {rows.map((item, index) => (
+          <div key={index} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground">
+            {formatInfoValue(typeof item === "object" ? item.name || item.language || item.skill || item : item)}
+            {typeof item === "object" && item.level && <span className="text-muted-foreground"> - {item.level}</span>}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);

@@ -177,6 +177,7 @@ const Candidates = () => {
   const [psychAccess, setPsychAccess] = useState<{ code: string; password: string } | null>(null);
   const [psychExistingCodes, setPsychExistingCodes] = useState<any[]>([]);
   const [psychEditCodeId, setPsychEditCodeId] = useState<string | null>(null);
+  const [openedDetailEmail, setOpenedDetailEmail] = useState<string | null>(null);
 
   // Edit modal states
   const [showEditModal, setShowEditModal] = useState(false);
@@ -442,6 +443,20 @@ const Candidates = () => {
       loadUnverifiedCandidates();
     }
   }, [activeView]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const openEmail = params.get("openEmail")?.toLowerCase();
+    if (!openEmail || loading || openedDetailEmail === openEmail) return;
+
+    const candidate = candidates.find((item) => item.email?.toLowerCase() === openEmail);
+    if (!candidate) return;
+
+    setOpenedDetailEmail(openEmail);
+    handleView(candidate);
+    params.delete("openEmail");
+    navigate({ pathname: location.pathname, search: params.toString() ? `?${params.toString()}` : "" }, { replace: true });
+  }, [candidates, loading, location.pathname, location.search, openedDetailEmail]);
 
   const loadActiveInstruments = async () => {
     const { data, error } = await supabase
