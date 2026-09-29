@@ -2491,7 +2491,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1180px]">
+                <table className="w-full min-w-[1060px]">
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pelamar</th>
@@ -2552,64 +2552,83 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                           </td>
                           <td className="px-4 py-3">
                             {application.activation_codes && application.activation_codes.length > 0 ? (
-                              <div className="space-y-2">
-                                {application.activation_codes.map((c: ActivationCode) => (
-                                  <div key={c.id} className="rounded-md p-3 border border-border bg-background">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div>
-                                        <div className="font-mono text-sm text-primary">{c.code}</div>
-                                        <div className="text-xs text-muted-foreground">{c.assigned_tests?.length ? `Tes: ${getAssignedTestNames(c.assigned_tests)}` : 'Belum ada tes terpilih'}</div>
+                              <details className="group relative w-[210px]">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted">
+                                  <span>
+                                    {application.activation_codes.length} kode tes
+                                    <span className="ml-1 text-xs text-muted-foreground">
+                                      ({application.activation_codes.filter((c: ActivationCode) => c.test_completed_at).length} selesai)
+                                    </span>
+                                  </span>
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+                                </summary>
+                                <div className="absolute left-0 top-[calc(100%+6px)] z-20 w-[320px] space-y-2 rounded-xl border border-border bg-card p-2 shadow-xl">
+                                  {application.activation_codes.map((c: ActivationCode) => (
+                                    <div key={c.id} className="rounded-lg border border-border bg-background p-3">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <div className="font-mono text-sm font-semibold text-primary">{c.code}</div>
+                                          <div className="mt-1 text-xs text-muted-foreground">
+                                            {c.assigned_tests?.length ? getAssignedTestNames(c.assigned_tests) : "Belum ada tes terpilih"}
+                                          </div>
+                                        </div>
+                                        <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${getActivationStatusClass(c)}`}>
+                                          {getActivationStatusLabel(c)}
+                                        </span>
                                       </div>
-                                      <span className={`px-2 py-1 text-[11px] font-semibold rounded-full ${getActivationStatusClass(c)}`}>
-                                        {getActivationStatusLabel(c)}
-                                      </span>
+                                      <div className="mt-2 text-xs text-muted-foreground">
+                                        {c.test_completed_at
+                                          ? `Selesai ${formatDate(c.test_completed_at)}`
+                                          : c.expires_at
+                                            ? `Berlaku hingga ${formatDate(c.expires_at)}`
+                                            : "Aktif"}
+                                      </div>
                                     </div>
-                                    <div className="mt-2 text-xs text-muted-foreground">
-                                      {c.test_completed_at
-                                        ? `Selesai ${formatDate(c.test_completed_at)}`
-                                        : c.expires_at
-                                          ? `Berlaku hingga ${formatDate(c.expires_at)}`
-                                          : 'Aktif'}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              </details>
                             ) : (
-                              <div className="space-y-2">
-                                <div className="text-sm text-muted-foreground">Belum ditugaskan</div>
-                              </div>
+                              <span className="inline-flex rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground">Belum ditugaskan</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex min-w-[360px] flex-wrap items-center gap-2">
+                            <div className="flex min-w-[260px] flex-wrap items-center gap-2">
                               <button
                                 onClick={() => viewApplicationDetail(application)}
-                                className="px-3 py-1.5 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                title="Detail"
+                                aria-label="Detail"
                               >
-                                Detail
+                                <Eye className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => viewCandidateProfile(application)}
-                                className="px-3 py-1.5 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                title="Profil"
+                                aria-label="Profil"
                               >
-                                Profil
+                                <User className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => openActivationModal(application)}
-                                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition hover:bg-primary/90"
+                                title="Atur Tes Psikologi"
+                                aria-label="Atur Tes Psikologi"
                               >
-                                Tes Psikologi
+                                <Brain className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => viewTestResults(application)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700"
+                                title="Lihat Hasil Tes"
+                                aria-label="Lihat Hasil Tes"
                               >
-                                Lihat Hasil Tes
+                                <FileText className="h-4 w-4" />
                               </button>
                               <select
                                 value={application.status}
                                 onChange={(e) => updateApplicationStatus(application.id, e.target.value)}
-                                className="text-sm border border-border rounded px-2 py-1 bg-background"
+                                className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
                               >
                                 <option value="applied">1. Lamaran Diterima</option>
                                 <option value="screening">2. Screening CV</option>
