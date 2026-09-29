@@ -271,37 +271,43 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
       <main className="flex-1 pt-[74px]">{children}</main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-slate-950 text-white">
-        <div className="container px-4 py-10 md:px-6">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="max-w-lg">
-              <div className="flex items-center gap-2 mb-4">
+      <footer className="border-t border-border bg-muted/30">
+        <div className="container px-4 py-5 md:px-6">
+          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="shrink-0">
                 {logoUrl ? (
-                  <img src={logoUrl} alt={companyName} className="h-10 w-auto max-w-[150px] object-contain" />
+                  <img src={logoUrl} alt={companyName} className="h-9 w-auto max-w-[145px] object-contain" />
                 ) : (
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
                     <Building2 className="h-5 w-5 text-primary" />
                   </div>
                 )}
               </div>
-              <p className="text-sm leading-relaxed text-slate-300">
+              <p className="max-w-lg text-sm leading-6 text-muted-foreground">
                 {brandSubtitle}
               </p>
             </div>
-            <div>
-              <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-sky-300">Kontak</h3>
-              <ul className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
-                <li className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <Mail className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
-                  <span>{contactEmail}</span>
+            <div className="min-w-0 rounded-xl border border-border bg-background p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Contact Kami</p>
+              <ul className="grid gap-2 text-sm sm:grid-cols-2">
+                <li className="min-w-0">
+                  <a href={`mailto:${contactEmail}`} className="flex items-center gap-2 font-semibold text-foreground transition hover:text-primary">
+                    <Mail className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="truncate">{contactEmail}</span>
+                  </a>
                 </li>
-                <li className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <Phone className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
-                  <span>{contactPhone}</span>
+                <li>
+                  <a href={`tel:${contactPhone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 font-semibold text-foreground transition hover:text-primary">
+                    <Phone className="h-4 w-4 shrink-0 text-primary" />
+                    <span>{contactPhone}</span>
+                  </a>
                 </li>
-                <li className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3 sm:col-span-2">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
-                  <span>{contactAddress}</span>
+                <li className="sm:col-span-2">
+                  <div className="flex items-start gap-2 text-muted-foreground">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span className="leading-6">{contactAddress}</span>
+                  </div>
                 </li>
               </ul>
             </div>
