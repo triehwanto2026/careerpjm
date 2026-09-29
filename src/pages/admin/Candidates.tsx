@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ProfessionalApplicationForm from "@/components/admin/ProfessionalApplicationForm";
 import DocumentPreview from "@/components/DocumentPreview";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCandidatePhoto } from "@/lib/photoUpload";
 import { resolveStorageUrl } from "@/lib/storage";
@@ -159,10 +160,12 @@ const Candidates = () => {
   const [candidateDocs, setCandidateDocs] = useState<any[]>([]);
   const [candidateResults, setCandidateResults] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [activeDetailTab, setActiveDetailTab] = useState<"personal" | "family" | "education" | "skills" | "experience" | "salary" | "documents" | "additional">("personal");
+  const [activeDetailTab, setActiveDetailTab] = useState<"personal" | "family" | "education" | "skills" | "experience" | "salary" | "documents" | "additional" | "whatsapp">("personal");
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [docPreviewName, setDocPreviewName] = useState<string | undefined>(undefined);
   const [showResumePreview, setShowResumePreview] = useState(false);
+  const [candidateWaDraft, setCandidateWaDraft] = useState("");
+  const [candidateWaManualPhone, setCandidateWaManualPhone] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordCandidate, setPasswordCandidate] = useState<CandidateRow | null>(null);
   const [passwordMode, setPasswordMode] = useState<"default" | "custom">("default");
@@ -799,6 +802,68 @@ Terima kasih.`;
     return digits;
   };
 
+  const candidateWaTemplateKey = "candidate-detail-wa-template";
+
+  const getDefaultCandidateWaTemplate = () => `Yth. {nama},
+
+Terima kasih telah mengikuti proses rekrutmen di PJM Group untuk posisi {posisi}. Kami ingin menyampaikan informasi lanjutan terkait proses seleksi Anda.
+
+Mohon konfirmasi ketersediaan Anda untuk dihubungi.
+
+Terima kasih.`;
+
+  const getStoredCandidateWaTemplate = () => {
+    if (typeof window === "undefined") return getDefaultCandidateWaTemplate();
+    return localStorage.getItem(candidateWaTemplateKey) || getDefaultCandidateWaTemplate();
+  };
+
+  const getCandidateWaPosition = (candidate: CandidateRow | null, profile?: any) => {
+    return candidate?.position || profile?.current_position || "posisi yang dilamar";
+  };
+
+  const buildCandidateWaDraft = (candidate: CandidateRow, profile?: any) => {
+    return getStoredCandidateWaTemplate()
+      .replace(/\{nama\}/g, candidate.name || candidate.email || "Kandidat")
+      .replace(/\{posisi\}/g, getCandidateWaPosition(candidate, profile));
+  };
+
+  const saveCandidateWaTemplate = () => {
+    if (!selectedCandidate) return;
+    const template = (candidateWaDraft || buildCandidateWaDraft(selectedCandidate, candidateProfile))
+      .replaceAll(selectedCandidate.name || selectedCandidate.email || "Kandidat", "{nama}")
+      .replaceAll(getCandidateWaPosition(selectedCandidate, candidateProfile), "{posisi}");
+    localStorage.setItem(candidateWaTemplateKey, template);
+    setCandidateWaDraft(buildCandidateWaDraft(selectedCandidate, candidateProfile));
+    Swal.fire({ icon: "success", title: "Template WA disimpan", timer: 1300, showConfirmButton: false, ...SWAL_THEME() });
+  };
+
+  const copyCandidateWaDraft = async () => {
+    try {
+      await navigator.clipboard.writeText(candidateWaDraft);
+      Swal.fire({ icon: "success", title: "Draft WA disalin", timer: 1200, showConfirmButton: false, ...SWAL_THEME() });
+    } catch {
+      Swal.fire({ icon: "error", title: "Gagal menyalin", text: "Browser tidak mengizinkan akses clipboard.", ...SWAL_THEME() });
+    }
+  };
+
+  const openCandidateWa = () => {
+    if (!selectedCandidate) return;
+    const rawPhone = candidateWaManualPhone || selectedCandidate.phone || candidateProfile?.phone || "";
+    const phone = normalizeWhatsAppPhone(rawPhone);
+    if (!phone) {
+      Swal.fire({
+        icon: "warning",
+        title: "Nomor WhatsApp belum tersedia",
+        text: "Silakan input nomor telepon/WhatsApp kandidat atau masukkan nomor manual di tab Template WA.",
+        ...SWAL_THEME(),
+      });
+      setActiveDetailTab("whatsapp");
+      return;
+    }
+    const body = candidateWaDraft || buildCandidateWaDraft(selectedCandidate, candidateProfile);
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(body)}`, "_blank", "noopener,noreferrer");
+  };
+
   const sendPsychAccessWhatsApp = () => {
     if (!psychTestCandidate || !psychAccess) return;
     const phone = normalizeWhatsAppPhone(psychTestCandidate.phone);
@@ -1327,6 +1392,8 @@ Terima kasih.`;
     setShowDetailModal(true);
     setDetailLoading(true);
     setActiveDetailTab("personal");
+    setCandidateWaManualPhone(c.phone || "");
+    setCandidateWaDraft(buildCandidateWaDraft(c));
     setCandidateProfile(null);
     setCandidateDocs([]);
     setCandidateResults([]);
@@ -1348,10 +1415,13 @@ Terima kasih.`;
     setCandidateDocs(docsData || []);
 
     const photoDoc = (docsData || []).find((doc: any) => doc.document_type === "photo");
-    setCandidateProfile(normalizedProfile ? {
+    const detailProfile = normalizedProfile ? {
       ...normalizedProfile,
       photo_url: normalizedProfile.photo_url || photoDoc?.file_url || c.photo_url || null,
-    } : null);
+    } : null;
+    setCandidateProfile(detailProfile);
+    setCandidateWaManualPhone(c.phone || detailProfile?.phone || "");
+    setCandidateWaDraft(buildCandidateWaDraft(c, detailProfile));
     
     // Fetch test results from every candidate identifier used across modules.
     const resultCandidateIds = [c.id, c.user_id, c.profile_id, normalizedProfile?.id, normalizedProfile?.user_id].filter(Boolean);
@@ -2252,6 +2322,10 @@ Terima kasih.`;
                     <FileText className="h-4 w-4" />
                     PHC
                   </button>
+                  <button onClick={openCandidateWa} className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-500 hover:bg-emerald-500/20">
+                    <Phone className="h-4 w-4" />
+                    WhatsApp
+                  </button>
                   <button onClick={() => openPsychTestModal(selectedCandidate)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-500 hover:bg-violet-500/20">
                     <Brain className="h-4 w-4" />
                     Tes Psikologi
@@ -2293,7 +2367,7 @@ Terima kasih.`;
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-1 p-1 bg-muted rounded-lg">
+              <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg md:grid-cols-4">
                 <button
                   onClick={() => setActiveDetailTab("personal")}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
@@ -2317,6 +2391,14 @@ Terima kasih.`;
                   }`}
                 >
                   Hasil Tes ({candidateResults.length})
+                </button>
+                <button
+                  onClick={() => setActiveDetailTab("whatsapp")}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                    activeDetailTab === "whatsapp" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Template WA
                 </button>
               </div>
 
@@ -2713,6 +2795,79 @@ Terima kasih.`;
                           </div>
                         </>
                       )}
+                    </div>
+                  )}
+
+                  {activeDetailTab === "whatsapp" && (
+                    <div className="rounded-xl border border-border bg-card p-4">
+                      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h4 className="flex items-center gap-2 font-semibold text-foreground">
+                            <MessageSquare className="h-4 w-4 text-primary" />
+                            Template WhatsApp
+                          </h4>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Draft memakai nama kandidat dan posisi yang dilamar. Admin bisa mengubah isi pesan sebelum dikirim.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setCandidateWaDraft(buildCandidateWaDraft(selectedCandidate, candidateProfile))}
+                          >
+                            Reset
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={saveCandidateWaTemplate}>
+                            <Save className="mr-2 h-4 w-4" />
+                            Simpan Template
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_2fr]">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Nomor WhatsApp</label>
+                          <input
+                            value={candidateWaManualPhone}
+                            onChange={(event) => setCandidateWaManualPhone(event.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            placeholder="Contoh: 08123456789"
+                          />
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Otomatis memakai nomor telepon kandidat. Isi manual jika data belum tersedia.
+                          </p>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Penerima</label>
+                          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
+                            {selectedCandidate.name || selectedCandidate.email || "Kandidat"} • {candidateWaManualPhone || selectedCandidate.phone || candidateProfile?.phone || "Nomor belum tersedia"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <textarea
+                        value={candidateWaDraft}
+                        onChange={(event) => setCandidateWaDraft(event.target.value)}
+                        rows={9}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Tulis pesan WhatsApp untuk kandidat..."
+                      />
+
+                      <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Template tersimpan memakai placeholder {"{nama}"} dan {"{posisi}"}.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={copyCandidateWaDraft}>
+                            Salin
+                          </Button>
+                          <Button size="sm" onClick={openCandidateWa} className="bg-emerald-600 hover:bg-emerald-700">
+                            <Phone className="mr-2 h-4 w-4" />
+                            Kirim WhatsApp
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>

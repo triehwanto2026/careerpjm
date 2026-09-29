@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Brain, Play, CheckCircle2, Clock, KeyRound, X, AlertCircle, ClipboardList } from "lucide-react";
+import { Brain, Play, CheckCircle2, Clock, KeyRound, X, AlertCircle, ClipboardList, Eye, Printer, XCircle } from "lucide-react";
 import Swal from "sweetalert2";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
+import CandidateTestResultView from "@/components/admin/CandidateTestResultView";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface Code {
   id: string;
@@ -23,12 +25,17 @@ export default function CandidateTests() {
   const navigate = useNavigate();
   const [codes, setCodes] = useState<Code[]>([]);
   const [results, setResults] = useState<any[]>([]);
+  const [candidateProfile, setCandidateProfile] = useState<any>(null);
   const [showStartModal, setShowStartModal] = useState(false);
   const [selectedCode, setSelectedCode] = useState<Code | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginCode, setLoginCode] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [resultAnswers, setResultAnswers] = useState<any[]>([]);
+  const [resultLoadingAnswers, setResultLoadingAnswers] = useState(false);
 
   const sortCodes = (codes: Code[]) => {
     if (!codes.length) return [];
@@ -60,11 +67,12 @@ export default function CandidateTests() {
       .ilike("candidate_email", candidateEmail)
       .order("created_at", { ascending: false });
     setCodes(sortCodes((c as any) || []));
-    
+
     // Get candidate profile to get candidate_id
     const { data: profile } = await supabase.from("candidate_profiles").select("*").eq("email", session.user.email).maybeSingle();
+    setCandidateProfile(profile);
     const candidateId = profile?.id;
-    
+
     // Filter test results by candidate_id if available
     let query = supabase.from("test_results").select("*").order("completed_at", { ascending: false });
     if (candidateId) {
@@ -247,6 +255,36 @@ export default function CandidateTests() {
   const activeCodes = codes.filter((c) => !(c.test_completed_at || c.status === "completed") && !(c.expires_at && new Date(c.expires_at) < new Date()));
   const completedCodes = codes.filter((c) => c.test_completed_at || c.status === "completed");
 
+  const loadResultAnswers = async (resultId: string) => {
+    setResultLoadingAnswers(true);
+    try {
+      const { data, error } = await supabase
+        .from("test_answers")
+        .select("*")
+        .eq("test_result_id", resultId)
+        .order("question_number", { ascending: true });
+      if (error) throw error;
+      setResultAnswers((data as any) || []);
+    } catch (err) {
+      console.error("Error loading answers:", err);
+    } finally {
+      setResultLoadingAnswers(false);
+    }
+  };
+
+  const viewTestResult = async (result: any) => {
+    // Enrich result with candidate_profile data for complete interpretation
+    const enrichedResult = {
+      ...result,
+      candidate_profile: candidateProfile,
+    };
+    console.log("CandidateTests - Result categories:", result.categories);
+    console.log("CandidateTests - Result test_name:", result.test_name);
+    setSelectedResult(enrichedResult);
+    setShowResultModal(true);
+    await loadResultAnswers(result.id);
+  };
+
   return (
     <CandidateLayout>
       <div className="min-h-screen bg-muted/20">
@@ -361,11 +399,16 @@ export default function CandidateTests() {
             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
               {results.slice(0, 5).map((r) => (
                 <div key={r.id} className="flex items-center justify-between gap-3 bg-background p-3 text-sm">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{r.test_name}</div>
                     <div className="text-xs text-muted-foreground">{fmtDate(r.completed_at)}</div>
                   </div>
-                  <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-600">Tersimpan</span>
+                  <button
+                    onClick={() => viewTestResult(r)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition"
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Detail
+                  </button>
                 </div>
               ))}
             </div>
@@ -376,6 +419,35 @@ export default function CandidateTests() {
       </div>
 
     {false && showLoginModal && null}
+
+    {/* Test Result Modal */}
+    <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        {selectedResult && (
+          <>
+            <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Detail Hasil Tes</h2>
+                <p className="text-sm text-muted-foreground">Lihat hasil tes psikologi Anda secara lengkap.</p>
+              </div>
+              <button
+                onClick={() => setShowResultModal(false)}
+                className="p-1 rounded hover:bg-muted transition"
+              >
+                <XCircle className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6">
+              <CandidateTestResultView
+                result={selectedResult}
+                answers={resultAnswers}
+                profilePhoto={null}
+              />
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
     </CandidateLayout>
   );
 }

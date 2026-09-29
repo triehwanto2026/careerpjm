@@ -14,6 +14,12 @@ import ProfessionalResume from "../../components/admin/ProfessionalResume";
 import DocumentPreview from "@/components/DocumentPreview";
 import ProfessionalApplicationForm from "../../components/admin/ProfessionalApplicationForm";
 import { syncExpiredRecruitment } from "@/lib/recruitmentExpiry";
+import { buildCfitInterpretation, getCfitIqInfoFromResult } from "@/lib/cfitScoring";
+import { buildDiscInterpretation } from "@/lib/discScoring";
+import { buildIstInterpretation } from "@/lib/istScoring";
+import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
+import { buildPapiInterpretation, getPapiRows, isPapiName, PAPI_SCALES } from "@/lib/papiScoring";
+import { buildPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
 
 interface Doc {
   id: string;
@@ -86,6 +92,188 @@ const formatInfoValue = (value: any) => {
   }
   if (typeof value === "object") return Object.values(value).filter(Boolean).join(" - ") || "-";
   return String(value);
+};
+
+const getResultTestName = (result: any) => formatInfoValue((result?.test as any)?.name || result?.test_name || "Tes Psikologi");
+
+const getResultCategories = (result: any): Record<string, number> => {
+  const raw = result?.categories;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, Number(value) || 0]));
+};
+
+type TestMetric = { label: string; value: string | number; note?: string };
+type TestSummary = { badge: string; metrics: TestMetric[]; text: string };
+
+const getDiscMirrorValue = (categories: Record<string, number>, dim: "D" | "I" | "S" | "C") => {
+  const dimMap: Record<typeof dim, string> = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
+  const direct = categories[dim] ?? categories[`${dim}_N`] ?? categories[dimMap[dim]] ?? categories[`${dimMap[dim]}_N`];
+  if (direct !== undefined) return Number(direct) || 0;
+  const most = Number(categories[`${dim}_M`] ?? categories[`${dimMap[dim]}_M`] ?? 0);
+  const least = Number(categories[`${dim}_L`] ?? categories[`${dimMap[dim]}_L`] ?? 0);
+  return most - least;
+};
+
+const buildDiscSummary = (result: any) => {
+  const categories = getResultCategories(result);
+  const dims = (["D", "I", "S", "C"] as const).map((dim) => ({ dim, value: getDiscMirrorValue(categories, dim) }));
+  const sorted = [...dims].sort((a, b) => b.value - a.value);
+  const labels: Record<string, string> = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Conscientiousness" };
+  return {
+    badge: `Profil ${sorted[0]?.dim || "D"} & ${sorted[1]?.dim || "C"}`,
+    metrics: dims.map(({ dim, value }) => ({ label: `Mirror ${dim}`, value: value > 0 ? `+${value}` : value, note: labels[dim] })),
+    text: buildDiscInterpretation(categories, Number(result?.total_questions || 24)),
+  };
+};
+
+const buildPersonalityPlusSummary = (result: any) => {
+  const categories = getResultCategories(result);
+  const map: Record<string, string> = {
+    K: "Koleris", C: "Koleris", Choleric: "Koleris", Koleris: "Koleris",
+    S: "Sanguinis", Sanguine: "Sanguinis", Sanguinis: "Sanguinis",
+    M: "Melankolis", Melancholy: "Melankolis", Melancholic: "Melankolis", Melankolis: "Melankolis",
+    P: "Plegmatis", Phlegmatic: "Plegmatis", Plegmatis: "Plegmatis", Plegmatic: "Plegmatis",
+  };
+  const normalized: Record<string, number> = { Sanguinis: 0, Koleris: 0, Melankolis: 0, Plegmatis: 0 };
+  Object.entries(categories).forEach(([key, value]) => {
+    const target = map[key] || key;
+    if (target in normalized) normalized[target] += Number(value) || 0;
+  });
+  const sorted = Object.entries(normalized).sort((a, b) => b[1] - a[1]);
+  const total = Object.values(normalized).reduce((sum, value) => sum + value, 0) || Number(result?.answered_questions) || 1;
+  const pct = (value: number) => Math.round((value / total) * 100);
+  return {
+    badge: `${sorted[0]?.[0] || "-"} / ${sorted[1]?.[0] || "-"}`,
+    metrics: Object.entries(normalized).map(([label, value]) => ({ label, value, note: `${pct(value)}%` })),
+    text: buildPersonalityPlusInterpretation(categories, Number(result?.total_questions || 40)),
+  };
+};
+
+const buildCfitSummary = (result: any) => {
+  const info = getCfitIqInfoFromResult(result);
+  return {
+    badge: `IQ ${info.iq}`,
+    metrics: [
+      { label: "IQ", value: info.iq },
+      { label: "Klasifikasi", value: info.classification },
+      { label: "Raw Score", value: `${info.raw}/${info.max}` },
+      { label: "Area Ukur", value: "Nonverbal", note: "pola & abstraksi" },
+    ],
+    text: buildCfitInterpretation(result),
+  };
+};
+
+const IST_SUBTESTS_FOR_APPLICANT = [
+  { code: "SE", name: "Sentence Completion", max: 20, area: "pemahaman konsep verbal" },
+  { code: "WA", name: "Word Association", max: 20, area: "abstraksi verbal" },
+  { code: "AN", name: "Analogy", max: 20, area: "penalaran analogis" },
+  { code: "GE", name: "Generalization", max: 16, area: "generalisasi konsep" },
+  { code: "RA", name: "Arithmetic", max: 20, area: "berhitung praktis" },
+  { code: "ZR", name: "Number Series", max: 20, area: "pola numerik" },
+  { code: "FA", name: "Figure Assembly", max: 20, area: "analisis figural" },
+  { code: "WU", name: "Cube Rotation", max: 20, area: "daya ruang" },
+  { code: "ME", name: "Memory", max: 20, area: "daya ingat" },
+];
+
+const isIstApplicantResult = (result: any) => {
+  const testName = getResultTestName(result).toUpperCase();
+  const keys = Object.keys(getResultCategories(result));
+  return testName.includes("IST") || keys.some((key) => /^(SE|WA|AN|GE|RA|ZR|FA|WU|ME)(\s*-|$)/i.test(key));
+};
+
+const buildIstSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  const rows = IST_SUBTESTS_FOR_APPLICANT.map((subtest) => {
+    const match = Object.entries(categories).find(([key]) => key === subtest.code || key.startsWith(`${subtest.code} -`));
+    const raw = Number(match?.[1] || 0);
+    const pct = Math.round((raw / subtest.max) * 100);
+    const level = pct >= 80 ? "Sangat Tinggi" : pct >= 65 ? "Tinggi" : pct >= 45 ? "Sedang" : pct >= 30 ? "Rendah" : "Sangat Rendah";
+    return { ...subtest, raw, level };
+  });
+  const raw = Number(categories["IST Raw Score"] ?? rows.reduce((sum, row) => sum + row.raw, 0));
+  const max = Number(categories["IST Max Score"] ?? rows.reduce((sum, row) => sum + row.max, 0));
+  const score = max > 0 ? Math.round((raw / max) * 100) : Number(result?.score || 0);
+  return {
+    badge: `IST ${score}%`,
+    metrics: rows.map((row) => ({ label: row.code, value: `${row.raw}/${row.max}`, note: `${row.level} - ${row.area}` })),
+    text: buildIstInterpretation(categories, Number(result?.score || 0)),
+  };
+};
+
+const isMbtiApplicantResult = (result: any) => {
+  const categories = getResultCategories(result);
+  const keys = Object.keys(categories);
+  return isMbtiName(getResultTestName(result)) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => keys.includes(key));
+};
+
+const buildMbtiSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  return {
+    badge: getMbtiType(categories),
+    metrics: getMbtiRows(categories).map((row) => ({ label: row.pair, value: `${row.a} ${row.av} / ${row.b} ${row.bv}`, note: `Dominan ${row.dominant} (${row.strength}%)` })),
+    text: buildMbtiInterpretation(categories),
+  };
+};
+
+const buildKraepelinSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  const keys = [
+    { key: "speed", label: "Kecepatan" },
+    { key: "accuracy", label: "Ketelitian" },
+    { key: "stability", label: "Stabilitas" },
+    { key: "work_capacity", label: "Kapasitas Kerja" },
+  ];
+  const rows = keys.map((item) => ({ ...item, value: Number(categories[item.key] ?? result?.[`${item.key}_score`] ?? result?.[item.key] ?? 0) }));
+  const level = (value: number) => value >= 80 ? "Sangat Tinggi" : value >= 60 ? "Tinggi" : value >= 40 ? "Sedang" : value >= 20 ? "Rendah" : "Sangat Rendah";
+  const best = [...rows].sort((a, b) => b.value - a.value)[0];
+  const watch = [...rows].sort((a, b) => a.value - b.value)[0];
+  return {
+    badge: `Kuat: ${best.label}`,
+    metrics: rows.map((row) => ({ label: row.label, value: `${row.value}%`, note: level(row.value) })),
+    text: `Profil Kraepelin menunjukkan kekuatan relatif pada aspek ${best.label.toLowerCase()} dan area perhatian pada ${watch.label.toLowerCase()}.\n\nTes ini menggambarkan pola kerja dalam tekanan waktu: tempo kerja, ketelitian, stabilitas performa, dan daya tahan menyelesaikan tugas rutin. Interpretasi akhir perlu memperhatikan jenis pekerjaan, tuntutan target, dan toleransi kesalahan pada posisi yang dilamar.`,
+  };
+};
+
+const PAPI_LABELS_FOR_APPLICANT: Record<string, string> = Object.fromEntries(PAPI_SCALES.map((scale) => [scale.code, scale.label]));
+
+const isPapiApplicantResult = (result: any) => {
+  const name = getResultTestName(result).toUpperCase();
+  const keys = Object.keys(getResultCategories(result));
+  return isPapiName(name) || (!name.includes("DISC") && keys.filter((key) => PAPI_LABELS_FOR_APPLICANT[key]).length >= 8);
+};
+
+const buildPapiSummary = (result: any): TestSummary => {
+  const categories = getResultCategories(result);
+  const top = getPapiRows(categories).sort((a, b) => b.value - a.value || a.code.localeCompare(b.code)).filter((row) => row.value > 0).slice(0, 4);
+  return {
+    badge: top[0] ? `${top[0].code} ${top[0].value}/${top[0].max}` : "PAPI",
+    metrics: top.map((row) => ({ label: `${row.code} - ${row.label}`, value: `${row.value}/${row.max}`, note: row.level })),
+    text: buildPapiInterpretation(categories),
+  };
+};
+
+const isTechnicalCompletionInterpretation = (value: any) => {
+  const text = formatInfoValue(value).toLowerCase();
+  return text.includes("kandidat menjawab") || text.includes("skor akhir") || text.includes("jawaban benar");
+};
+
+const buildPsychologicalTestSummary = (result: any): TestSummary => {
+  const testName = getResultTestName(result);
+  const upperName = testName.toUpperCase();
+  if (upperName.includes("DISC")) return buildDiscSummary(result);
+  if (upperName.includes("PERSONALITY PLUS") || upperName.includes("TEMPERAMEN")) return buildPersonalityPlusSummary(result);
+  if (upperName.includes("CFIT") || upperName.includes("CULTURE FAIR")) return buildCfitSummary(result);
+  if (isIstApplicantResult(result)) return buildIstSummary(result);
+  if (isMbtiApplicantResult(result)) return buildMbtiSummary(result);
+  if (upperName.includes("KRAEPELIN")) return buildKraepelinSummary(result);
+  if (isPapiApplicantResult(result)) return buildPapiSummary(result);
+  const savedInterpretation = formatInfoValue(result?.interpretation);
+  if (savedInterpretation !== "-" && !isTechnicalCompletionInterpretation(savedInterpretation)) return { badge: "", metrics: [], text: savedInterpretation };
+  return {
+    badge: "",
+    metrics: [],
+    text: "Belum ada interpretasi psikologis tersimpan untuk hasil tes ini. Silakan lengkapi interpretasi pada Manajer Interpretasi atau halaman hasil tes.",
+  };
 };
 
 interface CandidateProfile {
@@ -1715,24 +1903,49 @@ Terima kasih.`;
                             })()}
                             {candidateDetailResults.map((result) => (
                               <div key={result.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                  <div>
-                                    <h4 className="font-semibold text-foreground">{formatInfoValue((result.test as any)?.name || result.test_name || "Tes Psikologi")}</h4>
-                                    <p className="text-sm text-muted-foreground">{formatInfoValue((result.test as any)?.category || result.status || "-")}</p>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    {result.score !== null && result.score !== undefined && (
-                                      <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">Skor {formatInfoValue(result.score)}</span>
-                                    )}
-                                    <span className="text-xs text-muted-foreground">{(result.completed_at || result.created_at)?.split("T")[0] || "-"}</span>
-                                  </div>
-                                </div>
-                                <div className="mt-3 rounded-lg bg-muted/40 p-3">
-                                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kesimpulan Interpretasi</div>
-                                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
-                                    {formatInfoValue(result.interpretation) !== "-" ? formatInfoValue(result.interpretation) : "Belum ada interpretasi tersimpan untuk hasil tes ini."}
-                                  </p>
-                                </div>
+                                {(() => {
+                                  const testSummary = buildPsychologicalTestSummary(result);
+                                  return (
+                                    <>
+                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                          <h4 className="font-semibold text-foreground">{formatInfoValue((result.test as any)?.name || result.test_name || "Tes Psikologi")}</h4>
+                                          <p className="text-sm text-muted-foreground">{formatInfoValue((result.test as any)?.category || result.status || "-")}</p>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          {testSummary.badge && (
+                                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-500">
+                                              {testSummary.badge}
+                                            </span>
+                                          )}
+                                          {result.score !== null && result.score !== undefined && (
+                                            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                                              Skor {formatInfoValue(result.score)}
+                                            </span>
+                                          )}
+                                          <span className="text-xs text-muted-foreground">{(result.completed_at || result.created_at)?.split("T")[0] || "-"}</span>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kesimpulan Interpretasi</div>
+                                        {testSummary.metrics.length > 0 && (
+                                          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                            {testSummary.metrics.map((metric) => (
+                                              <div key={`${metric.label}-${metric.value}`} className="rounded-lg border border-border bg-card px-3 py-2">
+                                                <div className="text-[11px] text-muted-foreground">{metric.label}</div>
+                                                <div className="mt-0.5 text-sm font-bold text-foreground">{metric.value}</div>
+                                                {metric.note && <div className="mt-0.5 text-[11px] text-muted-foreground">{metric.note}</div>}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
+                                          {testSummary.text}
+                                        </p>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             ))}
                           </>

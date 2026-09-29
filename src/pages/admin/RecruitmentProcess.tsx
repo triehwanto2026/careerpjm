@@ -267,6 +267,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
   const [reportApplications, setReportApplications] = useState<JobApplication[]>([]);
   const [reportJobFilter, setReportJobFilter] = useState("all");
   const [reportCurrentPage, setReportCurrentPage] = useState(1);
+  const [activeProfileTab, setActiveProfileTab] = useState<"personal" | "whatsapp">("personal");
   const [reportItemsPerPage, setReportItemsPerPage] = useState(10);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1528,6 +1529,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     const reportJob = activeJobs.find((job) => job.id === application.vacancy_id);
     const position = reportJob?.title || selectedJob?.title || profile.current_position || "-";
     const companyAddress = "Jl. Raya Kertajaya Indah No.47, Manyar Sabrangan, Kec. Mulyorejo, Surabaya, Jawa Timur 60116";
+    const pjmLogoUrl = `${window.location.origin}/pjmgroup-logo.svg`;
     const checked = (active: boolean) => active ? "☑" : "☐";
     const resultRows = results.length ? results.map((result) => {
       const categories = result.categories || {};
@@ -1572,81 +1574,79 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
   <meta charset="utf-8" />
   <title>${pageTitle} - ${escapeReportHtml(profile.full_name)}</title>
   <style>
-    @page { size: A4 portrait; margin: 8mm; }
+    @page { size: A4 portrait; margin: 10mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #071b46; background: #eef2f7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page { width: 100%; min-height: auto; margin: 0 auto; padding: 14px 16px 12px; background: #fff; border: 1px solid #b8c4d7; overflow: visible; }
-    .header { display: grid; grid-template-columns: 155px 1fr 175px; gap: 12px; align-items: start; margin-bottom: 8px; }
-    .logo { font-size: 26px; font-weight: 900; letter-spacing: -1px; color: #10357b; line-height: 1; padding-top: 10px; }
-    .logo span { color: #0ea5e9; }
+    body { margin: 0; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #1e293b; background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { width: 100%; min-height: auto; margin: 0 auto; padding: 20px 24px 16px; background: #fff; border: 1px solid #cbd5e1; overflow: visible; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .header { display: grid; grid-template-columns: 180px 1fr 200px; gap: 16px; align-items: start; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 2px solid #0ea5e9; }
+    .logo img { height: 60px; width: auto; }
     .title { text-align: center; }
-    .title h1 { margin: 4px 0 3px; font-size: 21px; letter-spacing: .2px; color: #062d75; }
-    .title h2 { margin: 0; font-size: 13px; color: #062d75; }
-    .ribbon { display: inline-block; margin-top: 8px; padding: 6px 12px; border-radius: 4px; background: #062d75; color: white; font-size: 11px; font-weight: 700; letter-spacing: .2px; }
-    .company { font-size: 9.5px; line-height: 1.45; color: #111827; }
-    .company strong { display: block; color: #062d75; font-size: 14px; margin-bottom: 3px; }
-    .page-tag { display: none; }
-    .section-title { display: inline-block; margin: 7px 0 -1px; padding: 5px 16px 5px 12px; min-width: 160px; background: linear-gradient(90deg,#062d75,#0b3b8f); color: #fff; border-radius: 5px 14px 0 0; font-size: 12px; font-weight: 800; break-after: avoid; page-break-after: avoid; }
-    .box { border: 1px solid #193f85; border-radius: 5px; padding: 9px; background: #fff; width:100%; break-inside: auto; page-break-inside: auto; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .info-grid { display: grid; grid-template-columns: 115px 1fr 1fr; gap: 10px; }
-    .photo { width: 108px; height: 128px; object-fit: cover; border-radius: 5px; border: 1px solid #d1d5db; background: #f1f5f9; }
-    .placeholder-photo { width: 108px; height: 128px; border-radius: 5px; background: #e2e8f0; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:800; color:#0f3a88; }
-    .kv { display: grid; grid-template-columns: 96px 7px 1fr; gap: 4px; margin-bottom: 6px; font-size: 9.3px; line-height: 1.35; }
-    .kv b { color:#111827; }
-    table { width: 100%; border-collapse: collapse; font-size: 9.6px; }
-    th { background: #f3f6fb; color:#062d75; font-weight:800; }
-    th,td { border: 1px solid #d7deeb; padding: 4px 5px; vertical-align: top; }
+    .title h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; color: #0f172a; }
+    .title h2 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #475569; }
+    .ribbon { display: inline-block; padding: 8px 16px; border-radius: 6px; background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+    .company { font-size: 10px; line-height: 1.6; color: #64748b; }
+    .company strong { display: block; color: #0f172a; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .section-title { display: inline-block; margin: 12px 0 -1px; padding: 8px 20px 8px 16px; min-width: 180px; background: linear-gradient(135deg, #0ea5e9, #0369a1); color: #fff; border-radius: 8px 16px 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; break-after: avoid; page-break-after: avoid; }
+    .box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fff; width:100%; break-inside: auto; page-break-inside: auto; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .info-grid { display: grid; grid-template-columns: 120px 1fr 1fr; gap: 12px; }
+    .photo { width: 120px; height: 140px; object-fit: cover; border-radius: 8px; border: 2px solid #e2e8f0; background: #f8fafc; }
+    .placeholder-photo { width: 120px; height: 140px; border-radius: 8px; background: linear-gradient(135deg, #f1f5f9, #e2e8f0); display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:800; color:#0ea5e9; border: 2px solid #e2e8f0; }
+    .kv { display: grid; grid-template-columns: 100px 8px 1fr; gap: 4px; margin-bottom: 8px; font-size: 10px; line-height: 1.5; }
+    .kv b { color:#0f172a; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    th { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); color:#0f172a; font-weight:700; padding: 8px 10px; text-transform: uppercase; font-size: 9px; letter-spacing: 0.3px; }
+    th,td { border: 1px solid #e2e8f0; padding: 8px 10px; vertical-align: top; }
     .center { text-align:center; }
     .muted { color:#64748b; }
-    .green { color:#07883b; font-weight:800; }
-    .red { color:#d00; font-weight:800; }
-    .small { font-size: 9.8px; line-height: 1.5; }
-    ul { margin: 5px 0 0 15px; padding: 0; }
-    li { margin: 0 0 4px; }
-    .compact-list { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; margin-top:6px; font-size:9px; color:#334155; }
-    .mini-grid { display:grid; grid-template-columns: 1fr; gap: 7px; margin-top: 8px; }
-    .score-pill { display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid #e5e7eb; padding:4px 0; }
-    .stars { white-space:nowrap; font-size:13px; letter-spacing:1px; }
-    .star-on { color:#0b3b8f; } .star-off { color:#cbd5e1; }
-    .decision { display:inline-flex; align-items:center; justify-content:center; min-width:88px; padding:7px 10px; border-radius:6px; background:#059669; color:white; font-weight:900; }
-    .page-2-layout { display:grid; grid-template-columns: 1fr; gap: 8px; }
-    .test-card { border:1px solid #d7deeb; border-radius:6px; padding:10px; min-height:auto; break-inside:auto; page-break-inside:auto; background:#fbfdff; }
-    .test-title { font-size:10.5px; font-weight:900; color:#062d75; min-height:auto; }
-    .test-score { margin-top:4px; font-size:12px; font-weight:800; color:#062d75; }
+    .green { color:#059669; font-weight:700; }
+    .red { color:#dc2626; font-weight:700; }
+    .small { font-size: 10px; line-height: 1.6; }
+    ul { margin: 6px 0 0 18px; padding: 0; }
+    li { margin: 0 0 5px; }
+    .compact-list { display:grid; grid-template-columns:1fr 1fr; gap:3px 14px; margin-top:8px; font-size:10px; color:#475569; }
+    .mini-grid { display:grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
+    .score-pill { display:flex; align-items:center; justify-content:space-between; gap:10px; border-bottom:1px solid #e2e8f0; padding:4px 0; }
+    .stars { white-space:nowrap; font-size:14px; letter-spacing:2px; }
+    .star-on { color:#0ea5e9; } .star-off { color:#cbd5e1; }
+    .decision { display:inline-flex; align-items:center; justify-content:center; min-width:100px; padding:10px 14px; border-radius:8px; background: linear-gradient(135deg, #059669, #047857); color:white; font-weight:800; font-size: 12px; }
+    .page-2-layout { display:grid; grid-template-columns: 1fr; gap: 12px; }
+    .test-card { border:1px solid #e2e8f0; border-radius:8px; padding:12px; min-height:auto; break-inside:auto; page-break-inside:auto; background:#f8fafc; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .test-title { font-size:11px; font-weight:800; color:#0f172a; min-height:auto; text-transform: uppercase; letter-spacing: 0.3px; }
+    .test-score { margin-top:6px; font-size:13px; font-weight:800; color:#0ea5e9; }
     .test-score span { font-size:10px; color:#64748b; }
     .bar { display:none; }
-    .bar i { display:block; height:100%; background:linear-gradient(90deg,#0ea5e9,#062d75); }
-    .test-card p { margin:4px 0 0; font-size:9.2px; line-height:1.45; color:#334155; }
-    .interpretation-box { margin-top:7px; border-left:3px solid #0f3a88; background:#f8fafc; padding:8px 10px; color:#1f2937; font-size:9.3px; line-height:1.5; }
-    .interpretation-box h4 { margin:6px 0 3px; color:#062d75; font-size:9.5px; letter-spacing:.2px; text-transform:uppercase; }
+    .bar i { display:block; height:100%; background:linear-gradient(90deg,#0ea5e9,#0369a1); }
+    .test-card p { margin:6px 0 0; font-size:10px; line-height:1.5; color:#475569; }
+    .interpretation-box { margin-top:10px; border-left:4px solid #0ea5e9; background: linear-gradient(135deg, #f0f9ff, #f8fafc); padding:10px 12px; color:#1e293b; font-size:10px; line-height:1.6; border-radius: 0 8px 8px 0; }
+    .interpretation-box h4 { margin:8px 0 4px; color:#0f172a; font-size:10px; font-weight:700; letter-spacing:0.3px; text-transform:uppercase; }
     .interpretation-box h4:first-child { margin-top:0; }
-    .interpretation-box p { margin:0 0 5px; }
-    .interp-list { margin:3px 0 5px 15px; padding:0; }
-    .disc-summary { margin-top:7px; }
-    .disc-dominant { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; border:1px solid #d7deeb; border-radius:6px; padding:6px 8px; background:#fff; }
-    .disc-dominant span { color:#64748b; font-size:9px; text-transform:uppercase; letter-spacing:.3px; }
-    .disc-dominant strong { color:#dc2626; font-size:14px; }
-    .match { display:flex; align-items:center; justify-content:center; flex-direction:column; min-height:95px; border:1px solid #d7deeb; border-radius:8px; background:linear-gradient(180deg,#f8fafc,#fff); }
-    .match strong { font-size:30px; color:#059669; }
-    .match span { color:#059669; font-weight:900; text-transform:uppercase; }
-    .summary-table td:first-child { width: 42%; font-weight:700; color:#111827; }
-    .footer { margin-top: 7px; text-align:center; font-size:10px; color:#062d75; font-style:italic; }
-    .signature { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
-    .sign-box { border:1px solid #d7deeb; border-radius:6px; min-height:68px; padding:8px; text-align:center; font-size:11px; }
-    .empty-state { grid-column:1/-1; border:1px dashed #cbd5e1; padding:18px; text-align:center; color:#64748b; border-radius:8px; }
+    .interpretation-box p { margin:0 0 6px; }
+    .interp-list { margin:4px 0 6px 18px; padding:0; }
+    .disc-summary { margin-top:10px; }
+    .disc-dominant { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; background:#fff; }
+    .disc-dominant span { color:#64748b; font-size:9px; text-transform:uppercase; letter-spacing:0.4px; }
+    .disc-dominant strong { color:#dc2626; font-size:15px; }
+    .match { display:flex; align-items:center; justify-content:center; flex-direction:column; min-height:100px; border:2px solid #e2e8f0; border-radius:10px; background: linear-gradient(180deg,#f0f9ff,#fff); }
+    .match strong { font-size:32px; color:#059669; }
+    .match span { color:#059669; font-weight:900; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+    .summary-table td:first-child { width: 45%; font-weight:700; color:#0f172a; }
+    .footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; text-align:center; font-size:10px; color:#64748b; font-style:italic; }
+    .signature { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px; }
+    .sign-box { border:1px solid #e2e8f0; border-radius:8px; min-height:75px; padding:10px; text-align:center; font-size:11px; background: #f8fafc; }
+    .empty-state { grid-column:1/-1; border:2px dashed #cbd5e1; padding:24px; text-align:center; color:#94a3b8; border-radius:10px; background: #f8fafc; }
     tr { break-inside: avoid; page-break-inside: avoid; }
     thead { display: table-header-group; }
     .section-title + .box { break-before: avoid; page-break-before: avoid; }
     .page-2-layout > div { break-inside: auto; page-break-inside: auto; }
-    @media print { body { background:#fff; } .page { margin:0; border:none; } .no-print { display:none !important; } }
+    @media print { body { background:#fff; } .page { margin:0; border:none; box-shadow:none; } .no-print { display:none !important; } }
   </style>
 </head>
 <body>
   <div class="page">
     <div class="header">
-      <div class="logo">PJM<span>GROUP</span></div>
+      <div class="logo"><img src="${escapeReportHtml(pjmLogoUrl)}" alt="PJM Group" /></div>
       <div class="title">
         <h1>${pageTitle}</h1>
         <h2>SCREENING AWAL & INTERVIEW AWAL</h2>
@@ -3315,6 +3315,10 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                             <MessageSquare className="h-4 w-4" />
                             Informasi
                           </TabsTrigger>
+                          <TabsTrigger value="whatsapp" className="flex-shrink-0 inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/70 bg-card/80 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:shadow-sm">
+                            <MessageSquare className="h-4 w-4" />
+                            WhatsApp
+                          </TabsTrigger>
                         </TabsList>
                       </div>
                     </div>
@@ -3888,6 +3892,54 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                           ) : (
                             <p className="text-sm text-muted-foreground">Belum ada referensi</p>
                           )}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* WhatsApp Tab */}
+                    <TabsContent value="whatsapp" className="p-6 space-y-6">
+                      <div className="rounded-xl border border-border bg-card p-4">
+                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h4 className="font-semibold text-foreground flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4 text-primary" />
+                              Template WhatsApp
+                            </h4>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Draft sudah otomatis memakai nama kandidat dan posisi yang dilamar. Ubah isi pesan bila perlu sebelum dikirim.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={() => saveContactDraftTemplate(selectedApplication)}>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Simpan Draft
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setContactDraft(buildContactDraft(selectedApplication))}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Reset
+                            </Button>
+                          </div>
+                        </div>
+                        <textarea
+                          value={contactDraft}
+                          onChange={(event) => setContactDraft(event.target.value)}
+                          rows={9}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                          placeholder="Tulis pesan WhatsApp untuk kandidat..."
+                        />
+                        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            Pesan akan dikirim menggunakan WhatsApp dari device yang sedang login.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={copyContactDraft}>
+                              Salin
+                            </Button>
+                            <Button size="sm" onClick={() => openWhatsAppContact(selectedApplication)} className="bg-emerald-600 hover:bg-emerald-700">
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Kirim WhatsApp
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </TabsContent>
