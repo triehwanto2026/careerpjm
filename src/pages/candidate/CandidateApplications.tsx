@@ -110,6 +110,14 @@ const PROCESS_STAGES = [
     description: "Finalisasi penerimaan dan persiapan bergabung.",
     icon: CheckCircle2,
   },
+  {
+    key: "rejected",
+    aliases: ["rejected"],
+    title: "Ditolak",
+    shortLabel: "Ditolak",
+    description: "Lamaran tidak melanjutkan ke tahap berikutnya.",
+    icon: XCircle,
+  },
 ];
 
 const colors: Record<string, string> = {

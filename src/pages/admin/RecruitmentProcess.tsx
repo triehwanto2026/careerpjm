@@ -1267,7 +1267,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
       case 'hired':
         return '7. Onboarding';
       case 'rejected':
-        return 'Ditolak';
+        return '8. Ditolak';
       default:
         return status;
     }
@@ -2095,7 +2095,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                     <option value="user_interview">Wawancara User</option>
                     <option value="offer">Penawaran</option>
                     <option value="hired">Diterima</option>
-                    <option value="rejected">Ditolak</option>
+                    <option value="rejected">8. Ditolak</option>
                   </select>
                 </div>
               </div>
@@ -2429,7 +2429,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                     <option value="user_interview">Wawancara User</option>
                     <option value="offer">Penawaran</option>
                     <option value="hired">Diterima</option>
-                    <option value="rejected">Ditolak</option>
+                    <option value="rejected">8. Ditolak</option>
                   </select>
                   <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
@@ -2674,7 +2674,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                                 <option value="user_interview">5. Interview User</option>
                                 <option value="offer">6. Offering</option>
                                 <option value="onboarding">7. Onboarding</option>
-                                <option value="rejected">Ditolak</option>
+                                <option value="rejected">8. Ditolak</option>
                               </select>
                             </div>
                           </td>
