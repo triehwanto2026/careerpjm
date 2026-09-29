@@ -86,7 +86,7 @@ export default function CandidateJobs() {
       .eq("vacancy_id", selected.id)
       .in("status", ACTIVE_APPLICATION_STATUSES);
 
-    const { error } = await supabase.from("job_applications").insert({
+    const applicationPayload = {
       user_id: userId,
       vacancy_id: selected.id,
       cover_letter: coverLetter,
@@ -95,10 +95,85 @@ export default function CandidateJobs() {
       department_snapshot: selected.department,
       location_snapshot: selected.location,
       vacancy_status_snapshot: "active",
-    } as any);
+    };
+    const insertApplication = async (payload: Record<string, any>) => {
+      const { error: insertError } = await supabase.from("job_applications").insert(payload as any);
+      return insertError;
+    };
+
+    const updateExistingApplication = async (payload: Record<string, any>) => {
+      const updatePayload = {
+        ...payload,
+        applied_at: new Date().toISOString(),
+        status_updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        admin_notes: null,
+      };
+      const { error: updateError } = await supabase
+        .from("job_applications")
+        .update(updatePayload as any)
+        .eq("user_id", userId)
+        .eq("vacancy_id", selected.id);
+      return updateError;
+    };
+
+    const { user_id: _snapshotUserId, vacancy_id: _snapshotVacancyId, ...snapshotUpdatePayload } = applicationPayload;
+    const basePayload = {
+      user_id: userId,
+      vacancy_id: selected.id,
+      cover_letter: coverLetter,
+      status: "submitted",
+    };
+    const { user_id: _baseUserId, vacancy_id: _baseVacancyId, ...baseUpdatePayload } = basePayload;
+
+    const error = await insertApplication(applicationPayload);
     if (error) {
-      Swal.fire({ icon: "error", title: "Gagal melamar", text: error.message });
-      return;
+      const isMissingSnapshotColumn = /schema cache|column|position_snapshot|department_snapshot|location_snapshot|vacancy_status_snapshot/i.test(error.message || "");
+      const isDuplicateApplication = /duplicate key|job_applications_user_id_vacancy_id_key|23505/i.test(error.message || "");
+
+      if (isDuplicateApplication) {
+        const updateError = await updateExistingApplication(snapshotUpdatePayload);
+        if (!updateError) {
+          Swal.fire({ icon: "success", title: "Lamaran diperbarui!", text: "Lamaran lama Anda untuk lowongan ini sudah diaktifkan kembali.", timer: 2200 });
+          setSelected(null); setCoverLetter("");
+          load();
+          return;
+        }
+
+        const updateNeedsFallback = /schema cache|column|position_snapshot|department_snapshot|location_snapshot|vacancy_status_snapshot/i.test(updateError.message || "");
+        const fallbackUpdateError = updateNeedsFallback ? await updateExistingApplication(baseUpdatePayload) : updateError;
+        if (!fallbackUpdateError) {
+          Swal.fire({ icon: "success", title: "Lamaran diperbarui!", text: "Lamaran lama Anda untuk lowongan ini sudah diaktifkan kembali.", timer: 2200 });
+          setSelected(null); setCoverLetter("");
+          load();
+          return;
+        }
+
+        Swal.fire({ icon: "error", title: "Gagal melamar", text: fallbackUpdateError.message });
+        return;
+      }
+
+      if (!isMissingSnapshotColumn) {
+        Swal.fire({ icon: "error", title: "Gagal melamar", text: error.message });
+        return;
+      }
+
+      const fallbackError = await insertApplication(basePayload);
+      if (fallbackError) {
+        const fallbackDuplicate = /duplicate key|job_applications_user_id_vacancy_id_key|23505/i.test(fallbackError.message || "");
+        if (fallbackDuplicate) {
+          const fallbackUpdateError = await updateExistingApplication(baseUpdatePayload);
+          if (!fallbackUpdateError) {
+            Swal.fire({ icon: "success", title: "Lamaran diperbarui!", text: "Lamaran lama Anda untuk lowongan ini sudah diaktifkan kembali.", timer: 2200 });
+            setSelected(null); setCoverLetter("");
+            load();
+            return;
+          }
+        }
+        Swal.fire({ icon: "error", title: "Gagal melamar", text: fallbackError.message });
+        return;
+      }
+      console.warn("Kolom snapshot lamaran belum tersedia di database. Lamaran disimpan tanpa snapshot posisi.", error.message);
     }
     Swal.fire({ icon: "success", title: "Lamaran terkirim!", text: "Lihat di menu Lamaran Saya.", timer: 2000 });
     setSelected(null); setCoverLetter("");

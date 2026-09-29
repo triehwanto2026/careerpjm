@@ -50,6 +50,37 @@ const FormSection = ({ title, fields, draft, update }: {
     </div>
   </section>
 );
+
+const ScoreSection = ({ title, description, fields, draft, update, max = 5 }: {
+  title: string;
+  description?: string;
+  fields: Array<[keyof ScreeningReportDraft, string]>;
+  draft: ScreeningReportDraft;
+  update: (key: keyof ScreeningReportDraft, value: string) => void;
+  max?: number;
+}) => (
+  <section className="rounded-xl border border-border bg-card p-4">
+    <div className="mb-4 border-b border-border pb-3">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
+    </div>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {fields.map(([key, label]) => (
+        <label key={key} className="rounded-lg border border-border bg-background p-3">
+          <span className="mb-2 block text-xs font-medium text-muted-foreground">{label}</span>
+          <input
+            type="number"
+            min={0}
+            max={max}
+            value={draft[key]}
+            onChange={(event) => update(key, event.target.value)}
+            className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          />
+        </label>
+      ))}
+    </div>
+  </section>
+);
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import ProfessionalApplicationForm from "@/components/admin/ProfessionalApplicationForm";
@@ -177,6 +208,8 @@ interface ScreeningReportDraft {
   commitmentNotes: string;
   familyNotes: string;
   competencyNotes: string;
+  communicationNotes: string;
+  stabilityNotes: string;
   backgroundNotes: string;
   strengths: string;
   weaknesses: string;
@@ -188,6 +221,18 @@ interface ScreeningReportDraft {
   experienceFitNotes: string;
   competencyFitNotes: string;
   overallFitNotes: string;
+  coreExperienceFitScore: string;
+  coreCommunicationScore: string;
+  coreStabilityScore: string;
+  experienceRelevanceScore: string;
+  taskMasteryScore: string;
+  adaptabilityScore: string;
+  competencyCommunicationScore: string;
+  competencyAccuracyScore: string;
+  competencyProblemSolvingScore: string;
+  motivationScore: string;
+  experienceCompetencyScore: string;
+  backgroundScore: string;
   finalRecommendationNotes: string;
   developmentNotes: string;
   signatureRecruiter: string;
@@ -205,6 +250,8 @@ const defaultScreeningReportDraft: ScreeningReportDraft = {
   commitmentNotes: "Kandidat menyatakan kesiapan mengikuti proses seleksi lanjutan dan menyesuaikan diri dengan kebutuhan pekerjaan.",
   familyNotes: "Lingkungan keluarga dinilai mendukung kandidat untuk bekerja dan berkembang.",
   competencyNotes: "Pengalaman dan kompetensi kandidat perlu divalidasi lebih lanjut melalui interview berbasis perilaku dan studi kasus.",
+  communicationNotes: "Perlu divalidasi saat interview.",
+  stabilityNotes: "Stabilitas kerja dinilai dari riwayat pengalaman dan alasan perpindahan kerja.",
   backgroundNotes: "Tidak terdapat catatan risiko signifikan berdasarkan data awal yang tersedia.",
   strengths: "Dokumen dan profil kandidat tersedia; motivasi kerja cukup baik; pengalaman/pendidikan relevan perlu dikonfirmasi dalam interview.",
   weaknesses: "Area pengembangan perlu divalidasi dari pengalaman kerja, stabilitas, kemampuan komunikasi, dan kesiapan terhadap tuntutan jabatan.",
@@ -216,6 +263,18 @@ const defaultScreeningReportDraft: ScreeningReportDraft = {
   experienceFitNotes: "Pengalaman kandidat perlu dibandingkan dengan tanggung jawab utama posisi yang dilamar.",
   competencyFitNotes: "Kompetensi teknis dan perilaku kerja perlu divalidasi melalui interview berbasis perilaku dan/atau studi kasus.",
   overallFitNotes: "Kesesuaian keseluruhan dinilai dari integrasi profil, dokumen, pengalaman, hasil tes, dan catatan recruiter.",
+  coreExperienceFitScore: "4",
+  coreCommunicationScore: "4",
+  coreStabilityScore: "4",
+  experienceRelevanceScore: "4",
+  taskMasteryScore: "4",
+  adaptabilityScore: "4",
+  competencyCommunicationScore: "4",
+  competencyAccuracyScore: "4",
+  competencyProblemSolvingScore: "4",
+  motivationScore: "90",
+  experienceCompetencyScore: "85",
+  backgroundScore: "90",
   finalRecommendationNotes: "Keputusan akhir perlu mempertimbangkan kebutuhan posisi, kesiapan kandidat, dan risiko pengembangan yang muncul dari hasil screening.",
   developmentNotes: "Rencana pengembangan kandidat dapat disesuaikan dengan area pengembangan yang muncul dari interview dan hasil tes psikologi.",
   signatureRecruiter: "",
@@ -1391,6 +1450,20 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     return Array.from({ length: 5 }, (_, index) => `<span class="${index < value ? "star-on" : "star-off"}">★</span>`).join("");
   };
 
+  const getScoreValue = (value: unknown, fallback: number, max = 5) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.max(0, Math.min(max, numeric));
+  };
+
+  const getScorePercent = (value: unknown, fallback: number) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(numeric)));
+  };
+
+  const weightedPercent = (score: number, weight: number) => Math.round(score * weight);
+
   const getProfileValue = (profile: any, keys: string[], fallback = "-") => {
     const found = keys.map((key) => profile?.[key]).find((value) => value !== undefined && value !== null && String(value).trim() !== "");
     return found === undefined || found === null || String(found).trim() === "" ? fallback : String(found);
@@ -1452,12 +1525,20 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     }));
   };
 
-  const getOverallMatch = (results: CandidateResult[], docsCompletePct: number, recommendation: string) => {
+  const getOverallMatch = (results: CandidateResult[], docsCompletePct: number, recommendation: string, draft: ScreeningReportDraft = reportDraft) => {
     const testAverage = results.length
       ? Math.round(results.reduce((sum, result) => sum + Number(result.score || 0), 0) / results.length)
       : 70;
+    const motivationScore = getScorePercent(draft.motivationScore, 90);
+    const experienceCompetencyScore = getScorePercent(draft.experienceCompetencyScore, 85);
+    const backgroundScore = getScorePercent(draft.backgroundScore, 90);
     const recBoost = recommendation === "sangat_direkomendasikan" ? 8 : recommendation === "direkomendasikan" ? 4 : recommendation === "dipertimbangkan" ? 0 : -12;
-    return Math.max(0, Math.min(100, Math.round((testAverage * 0.45) + (docsCompletePct * 0.2) + 28 + recBoost)));
+    const weighted = weightedPercent(motivationScore, 0.15)
+      + weightedPercent(docsCompletePct, 0.15)
+      + weightedPercent(experienceCompetencyScore, 0.25)
+      + weightedPercent(testAverage, 0.25)
+      + weightedPercent(backgroundScore, 0.2);
+    return Math.max(0, Math.min(100, Math.round(weighted + recBoost)));
   };
 
   const buildTestInterpretationSummary = (result: CandidateResult) => {
@@ -1525,12 +1606,21 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
       dipertimbangkan: "Dipertimbangkan",
       tidak_direkomendasikan: "Tidak Direkomendasikan",
     };
-    const overall = getOverallMatch(results, docsPct, reportDraft.recommendation);
+    const overall = getOverallMatch(results, docsPct, reportDraft.recommendation, reportDraft);
     const reportJob = activeJobs.find((job) => job.id === application.vacancy_id);
     const position = reportJob?.title || selectedJob?.title || profile.current_position || "-";
     const companyAddress = "Jl. Raya Kertajaya Indah No.47, Manyar Sabrangan, Kec. Mulyorejo, Surabaya, Jawa Timur 60116";
     const pjmLogoUrl = `${window.location.origin}/pjmgroup-logo.svg`;
     const checked = (active: boolean) => active ? "☑" : "☐";
+    const coreExperienceFitScore = getScoreValue(reportDraft.coreExperienceFitScore, 4);
+    const coreCommunicationScore = getScoreValue(reportDraft.coreCommunicationScore, 4);
+    const coreStabilityScore = getScoreValue(reportDraft.coreStabilityScore, 4);
+    const experienceRelevanceScore = getScoreValue(reportDraft.experienceRelevanceScore, 4);
+    const taskMasteryScore = getScoreValue(reportDraft.taskMasteryScore, 4);
+    const adaptabilityScore = getScoreValue(reportDraft.adaptabilityScore, 4);
+    const competencyCommunicationScore = getScoreValue(reportDraft.competencyCommunicationScore, 4);
+    const competencyAccuracyScore = getScoreValue(reportDraft.competencyAccuracyScore, 4);
+    const competencyProblemSolvingScore = getScoreValue(reportDraft.competencyProblemSolvingScore, results.length ? 4 : 3);
     const resultRows = results.length ? results.map((result) => {
       const categories = result.categories || {};
       const topDims = Object.entries(categories)
@@ -1565,7 +1655,9 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     }).join("") : `<div class="empty-state">Belum ada hasil tes psikologi untuk kandidat ini.</div>`;
 
     const testScoreAverage = results.length ? Math.round(results.reduce((sum, result) => sum + Number(result.score || 0), 0) / results.length) : 0;
-    const recommendationScore = reportDraft.recommendation === "sangat_direkomendasikan" ? 95 : reportDraft.recommendation === "direkomendasikan" ? 85 : reportDraft.recommendation === "dipertimbangkan" ? 70 : 45;
+    const motivationScore = getScorePercent(reportDraft.motivationScore, 90);
+    const experienceCompetencyScore = getScorePercent(reportDraft.experienceCompetencyScore, 85);
+    const backgroundScore = getScorePercent(reportDraft.backgroundScore, 90);
     const pageTitle = "RECRUITMENT ASSESSMENT REPORT";
 
     return `<!doctype html>
@@ -1727,9 +1819,9 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
         <div class="section-title">E. ASPEK KOMPETENSI</div>
         <div class="box">
           <table><thead><tr><th>Aspek</th><th>Penilaian</th><th>Catatan</th></tr></thead><tbody>
-            <tr><td>Kesesuaian Pengalaman</td><td class="stars">${renderReportStars(4)}</td><td>${escapeReportHtml(reportDraft.competencyNotes)}</td></tr>
-            <tr><td>Komunikasi</td><td class="stars">${renderReportStars(4)}</td><td>Perlu divalidasi saat interview.</td></tr>
-            <tr><td>Stabilitas Kerja</td><td class="stars">${renderReportStars(4)}</td><td>${escapeReportHtml(profile.experience_years || "-")}</td></tr>
+            <tr><td>Kesesuaian Pengalaman</td><td class="stars">${renderReportStars(coreExperienceFitScore)}</td><td>${escapeReportHtml(reportDraft.competencyNotes)}</td></tr>
+            <tr><td>Komunikasi</td><td class="stars">${renderReportStars(coreCommunicationScore)}</td><td>${escapeReportHtml(reportDraft.communicationNotes)}</td></tr>
+            <tr><td>Stabilitas Kerja</td><td class="stars">${renderReportStars(coreStabilityScore)}</td><td>${escapeReportHtml(reportDraft.stabilityNotes || profile.experience_years || "-")}</td></tr>
           </tbody></table>
         </div>
       </div>
@@ -1797,12 +1889,12 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     <div class="box grid-3">
       <div>
         <b>1. Kecocokan Pengalaman</b>
-        <table class="summary-table"><tr><td>Relevansi</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Penguasaan Tugas</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Adaptabilitas</td><td class="stars">${renderReportStars(4)}</td></tr></table>
+        <table class="summary-table"><tr><td>Relevansi</td><td class="stars">${renderReportStars(experienceRelevanceScore)}</td></tr><tr><td>Penguasaan Tugas</td><td class="stars">${renderReportStars(taskMasteryScore)}</td></tr><tr><td>Adaptabilitas</td><td class="stars">${renderReportStars(adaptabilityScore)}</td></tr></table>
         <p class="small">${escapeReportHtml(reportDraft.experienceFitNotes)}</p>
       </div>
       <div>
         <b>2. Kecocokan Kompetensi</b>
-        <table class="summary-table"><tr><td>Komunikasi</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Ketelitian</td><td class="stars">${renderReportStars(4)}</td></tr><tr><td>Problem Solving</td><td class="stars">${renderReportStars(results.length ? 4 : 3)}</td></tr></table>
+        <table class="summary-table"><tr><td>Komunikasi</td><td class="stars">${renderReportStars(competencyCommunicationScore)}</td></tr><tr><td>Ketelitian</td><td class="stars">${renderReportStars(competencyAccuracyScore)}</td></tr><tr><td>Problem Solving</td><td class="stars">${renderReportStars(competencyProblemSolvingScore)}</td></tr></table>
         <p class="small">${escapeReportHtml(reportDraft.competencyFitNotes)}</p>
       </div>
       <div>
@@ -1814,11 +1906,11 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     <div class="section-title">N. REKOMENDASI AKHIR</div>
     <div class="box">
       <table><thead><tr><th>Aspek Penilaian</th><th>Skor</th><th>Bobot</th><th>Skor Akhir</th></tr></thead><tbody>
-        <tr><td>Motivasi</td><td>90%</td><td>15%</td><td>13.5%</td></tr>
-        <tr><td>Administrasi & Kelengkapan</td><td>${docsPct}%</td><td>15%</td><td>${Math.round(docsPct * 0.15)}%</td></tr>
-        <tr><td>Pengalaman & Kompetensi</td><td>85%</td><td>25%</td><td>21%</td></tr>
-        <tr><td>Hasil Tes</td><td>${testScoreAverage || "-"}%</td><td>25%</td><td>${testScoreAverage ? Math.round(testScoreAverage * 0.25) : "-"}%</td></tr>
-        <tr><td>Background Checking</td><td>90%</td><td>20%</td><td>18%</td></tr>
+        <tr><td>Motivasi</td><td>${motivationScore}%</td><td>15%</td><td>${weightedPercent(motivationScore, 0.15)}%</td></tr>
+        <tr><td>Administrasi & Kelengkapan</td><td>${docsPct}%</td><td>15%</td><td>${weightedPercent(docsPct, 0.15)}%</td></tr>
+        <tr><td>Pengalaman & Kompetensi</td><td>${experienceCompetencyScore}%</td><td>25%</td><td>${weightedPercent(experienceCompetencyScore, 0.25)}%</td></tr>
+        <tr><td>Hasil Tes</td><td>${testScoreAverage || "-"}%</td><td>25%</td><td>${testScoreAverage ? weightedPercent(testScoreAverage, 0.25) : "-"}%</td></tr>
+        <tr><td>Background Checking</td><td>${backgroundScore}%</td><td>20%</td><td>${weightedPercent(backgroundScore, 0.2)}%</td></tr>
         <tr><th colspan="3">TOTAL MATCH SCORE</th><th style="font-size:20px">${overall}%</th></tr>
       </tbody></table>
       <div class="signature">
@@ -2031,8 +2123,30 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                 <div className="space-y-4">
                   <FormSection title="Administrasi & Motivasi" fields={[["documentCompletenessNotes", "Catatan Kelengkapan Dokumen"], ["motivationMainSource", "Sumber Motivasi Utama"]]} draft={reportDraft} update={updateReportDraft} />
                   <FormSection title="Motivasi & Komitmen" fields={[["motivationReason", "Alasan Melamar Posisi Ini"], ["companyExpectation", "Harapan terhadap Perusahaan"], ["commitmentNotes", "Kesiapan & Komitmen"]]} draft={reportDraft} update={updateReportDraft} />
-                  <FormSection title="Observasi & Verifikasi" fields={[["familyNotes", "Latar Belakang Keluarga / Lingkungan"], ["competencyNotes", "Catatan Kompetensi dari Pengalaman"], ["backgroundNotes", "Background Checking"]]} draft={reportDraft} update={updateReportDraft} />
+                  <FormSection title="Observasi & Verifikasi" fields={[["familyNotes", "Latar Belakang Keluarga / Lingkungan"], ["competencyNotes", "Catatan Kesesuaian Pengalaman"], ["communicationNotes", "Catatan Komunikasi"], ["stabilityNotes", "Catatan Stabilitas Kerja"], ["backgroundNotes", "Background Checking"]]} draft={reportDraft} update={updateReportDraft} />
+                  <ScoreSection
+                    title="Skor Aspek Kompetensi"
+                    description="Skor 0-5 ini akan tampil sebagai bintang pada bagian E report."
+                    fields={[["coreExperienceFitScore", "Kesesuaian Pengalaman"], ["coreCommunicationScore", "Komunikasi"], ["coreStabilityScore", "Stabilitas Kerja"]]}
+                    draft={reportDraft}
+                    update={updateReportDraft}
+                  />
                   <FormSection title="Analisa Kesesuaian Kandidat" fields={[["experienceFitNotes", "Kecocokan Pengalaman dengan Posisi"], ["competencyFitNotes", "Kecocokan Kompetensi"], ["overallFitNotes", "Kecocokan Overall"]]} draft={reportDraft} update={updateReportDraft} />
+                  <ScoreSection
+                    title="Skor Analisa Kesesuaian Kandidat"
+                    description="Skor 0-5 ini akan tampil sebagai bintang pada bagian M report."
+                    fields={[["experienceRelevanceScore", "Relevansi Pengalaman"], ["taskMasteryScore", "Penguasaan Tugas"], ["adaptabilityScore", "Adaptabilitas"], ["competencyCommunicationScore", "Komunikasi"], ["competencyAccuracyScore", "Ketelitian"], ["competencyProblemSolvingScore", "Problem Solving"]]}
+                    draft={reportDraft}
+                    update={updateReportDraft}
+                  />
+                  <ScoreSection
+                    title="Skor Rekomendasi Akhir"
+                    description="Skor 0-100 ini akan dipakai pada tabel bobot rekomendasi akhir dan total match score."
+                    max={100}
+                    fields={[["motivationScore", "Motivasi"], ["experienceCompetencyScore", "Pengalaman & Kompetensi"], ["backgroundScore", "Background Checking"]]}
+                    draft={reportDraft}
+                    update={updateReportDraft}
+                  />
                   <FormSection title="Kesimpulan & Rekomendasi Akhir" fields={[["strengths", "Kelebihan Kandidat (satu poin per baris)"], ["weaknesses", "Area Pengembangan (satu poin per baris)"], ["recruiterNotes", "Catatan Recruiter"], ["finalRecommendationNotes", "Alasan Rekomendasi Akhir"], ["developmentNotes", "Catatan Pengembangan Kandidat"], ["additionalNotes", "Catatan Tambahan"]]} draft={reportDraft} update={updateReportDraft} />
                   <FormSection title="Tanda Tangan" fields={[["signatureRecruiter", "Nama Recruiter"], ["signatureHrManager", "Nama HR Manager"]]} draft={reportDraft} update={updateReportDraft} />
                 </div>
