@@ -1281,6 +1281,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     { status: 'user_interview', shortLabel: 'User', label: 'Interview User', Icon: UserCog },
     { status: 'offer', shortLabel: 'Offering', label: 'Offering', Icon: Award },
     { status: 'onboarding', aliases: ['onboarding', 'hired'], shortLabel: 'Onboarding', label: 'Onboarding', Icon: CheckCircle },
+    { status: 'rejected', shortLabel: 'Ditolak', label: 'Ditolak', Icon: XCircle },
   ];
 
   const getStageCount = (status: string, aliases?: string[]) => {
@@ -2502,7 +2503,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
 
             {/* Status Summary */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-              {[...recruitmentSteps, { status: 'rejected', shortLabel: 'Ditolak', label: 'Ditolak', Icon: XCircle }].map(({ status, aliases, label, shortLabel, Icon }: any, index) => {
+              {recruitmentSteps.map(({ status, aliases, label, shortLabel, Icon }: any, index) => {
                 const count = getStageCount(status, aliases);
                 return (
                 <div key={status} className="bg-card border border-border rounded-xl p-3">
