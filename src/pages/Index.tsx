@@ -97,21 +97,36 @@ const Index = () => {
   const heroBrand = landingSettings.app_name || landingSettings.landing_header_title || "PJM GROUP Career Management";
   const logoUrl = landingSettings.app_logo_url;
   const heroBackgroundUrl = landingSettings.landing_hero_background_url || "/__l5e/assets-v1/80b11226-9de5-420a-9265-8d649b07e87f/hero-bg.jpg";
-  const aboutVision = landingSettings.landing_about_vision || "Tumbuh bersama untuk masa depan yang lebih baik melalui talenta unggul Indonesia.";
-  const aboutMission = landingSettings.landing_about_mission || "Menyediakan platform rekrutmen yang modern dan efisien.\nMenghubungkan talent terbaik dengan perusahaan yang tepat.\nMendukung pengembangan karir dan profesionalisme.";
+  const aboutVision = landingSettings.landing_about_vision || "Growing Together for a Better Future";
+  const aboutVisionDesc = landingSettings.landing_about_vision_desc || "Bertumbuh bersama untuk masa depan yang lebih baik melalui pengembangan properti yang bernilai, serta perluasan bisnis finansial dan komersial yang memberi manfaat berkelanjutan bagi pelanggan, mitra, karyawan, dan masyarakat.";
+  const aboutMission = landingSettings.landing_about_mission || "Mengembangkan properti dan kawasan yang berkualitas, sesuai kebutuhan pasar, serta menciptakan nilai jangka panjang.\nMengembangkan bisnis finansial dan komersial, termasuk HORECA dan entertainment, secara bertanggung jawab dan saling mendukung dengan bisnis inti.\nMenghadirkan produk, layanan, dan pengalaman pelanggan yang aman, nyaman, inovatif, dan terpercaya.\nMembangun kerja sama yang saling menguntungkan dengan pelanggan, mitra usaha, pemerintah, dan masyarakat.\nMengembangkan sumber daya manusia yang profesional, adaptif, kolaboratif, dan berorientasi pada hasil.\nMenjalankan tata kelola perusahaan yang baik serta melakukan perbaikan berkelanjutan agar pertumbuhan bisnis memberi manfaat bagi semua pihak.";
   const aboutValues = parseJsonValue(landingSettings.landing_about_values_items || "[]");
   const aboutMilestones = parseJsonValue(landingSettings.landing_about_milestones_items || "[]");
   const missionItems = aboutMission.split("\n").map((line) => line.replace(/^[-•]\s*/, "").trim()).filter(Boolean);
   const valuesToShow = (aboutValues.length > 0 ? aboutValues : [
-    { name: "Integritas", description: "Proses seleksi yang jujur, jelas, dan bertanggung jawab." },
-    { name: "Profesionalisme", description: "Standar layanan yang rapi, terukur, dan konsisten." },
-    { name: "Kolaborasi", description: "Membangun hubungan kerja yang saling menguatkan." },
-  ]).slice(0, 4);
+    { name: "M", full: "Modern", description: "Terbuka terhadap inovasi dan pengembangan. Menggunakan gagasan dan cara kerja yang relevan untuk menghasilkan nilai lebih baik." },
+    { name: "A", full: "Adaptif", description: "Cepat menyesuaikan diri terhadap perubahan. Tanggap terhadap perkembangan pasar, kebutuhan pelanggan, dan arah bisnis." },
+    { name: "S", full: "Sinergis", description: "Membangun kolaborasi untuk mencapai tujuan bersama. Bekerja sama lintas tim dan menjalin kemitraan yang produktif." },
+    { name: "Y", full: "Yakin", description: "Percaya diri, konsisten, dan optimis dalam mencapai keberhasilan. Berani mengambil tanggung jawab dan menuntaskan komitmen." },
+    { name: "H", full: "Handal", description: "Profesional, berintegritas, dan dapat dipercaya. Menjaga mutu pekerjaan serta memenuhi janji kepada pelanggan dan mitra." },
+    { name: "U", full: "Unggul", description: "Berorientasi pada kualitas, hasil terbaik, dan perbaikan berkelanjutan. Menetapkan standar tinggi dan terus meningkatkan kinerja." },
+    { name: "R", full: "Responsif", description: "Cepat tanggap, proaktif, dan berorientasi pada solusi. Memahami kebutuhan dan menyelesaikan persoalan secara tepat." },
+  ]).slice(0, 7);
   const milestonesToShow = (aboutMilestones.length > 0 ? aboutMilestones : [
-    { year: "2018", title: "Awal Perjalanan", description: "Membangun fondasi layanan rekrutmen dan asesmen." },
-    { year: "2022", title: "Transformasi Digital", description: "Mengembangkan proses seleksi yang lebih cepat dan terukur." },
-    { year: "2024", title: "Pertumbuhan", description: "Memperluas kesempatan bagi kandidat dan unit bisnis." },
-  ]).slice(0, 4);
+    { year: "1982", title: "Awal Perjalanan", description: "PJM Group memulai perjalanan di bisnis properti melalui keterlibatan dalam pembangunan perumahan RS/RSS di atas lahan seluas dua hektare." },
+    { year: "1984", title: "Tambak Rejo Indah", description: "PJM Group memperoleh kepercayaan untuk mengembangkan proyek perumahan Tambak Rejo Indah di Pasuruan." },
+    { year: "1985", title: "Sarana Tidar", description: "Melalui proyek Sarana Tidar, PJM Group mengembangkan perumahan kelas menengah ke atas di wilayah Malang dan Sidoarjo." },
+    { year: "1997", title: "22 Proyek", description: "PJM Group mencapai tonggak penting dengan pembangunan 22 proyek sekaligus di Jawa Timur." },
+    { year: "2000", title: "Villa Puncak Tidar", description: "PJM Group mengembangkan Villa Puncak Tidar, Malang, sebagai proyek hunian mewah." },
+    { year: "2004", title: "Kolaborasi", description: "PJM Group memulai kolaborasi dengan pengembang properti, termasuk Ciputra Group dan Lippo Group." },
+    { year: "2005", title: "Perluasan Wilayah", description: "PJM Group memperluas jangkauan pengembangan ke Jawa Timur, DKI Jakarta, Jawa Barat, dan DI Yogyakarta." },
+    { year: "2008", title: "Sektor Hiburan", description: "PJM Group berkolaborasi dengan Jatim Park Group dan memperluas portofolio ke sektor hiburan melalui BNS." },
+    { year: "2012", title: "Perhotelan", description: "PJM Group memasuki sektor perhotelan melalui pengembangan Swiss-Belinn Malang bersama mitra usaha." },
+    { year: "2020", title: "Kesehatan & Komersial", description: "PJM Group mengembangkan Intibios Clinic di Surabaya dan meluncurkan Elpico Mall sebagai kawasan komersial." },
+    { year: "2021", title: "Citraland Puncak Tidar", description: "PJM Group bekerja sama dengan Ciputra Group dalam pengembangan Citraland Puncak Tidar, Malang." },
+    { year: "2022", title: "Sakala", description: "PJM Group meluncurkan Sakala, hunian dengan konsep resort style living." },
+    { year: "2024", title: "TERALAND & Ekspansi", description: "PJM Group meluncurkan TERALAND di Menganti dan 221 Lane di MERR Surabaya, serta memperluas bisnis F&B." },
+  ]).slice(0, 13);
 
   if (error) {
     console.error("Error loading jobs:", error);
@@ -248,170 +263,191 @@ const Index = () => {
         )}
       </section>
 
+      {/* Gallery Section */}
+      <section className="container py-16">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold tracking-tight mb-2">Galeri Kegiatan</h2>
+          <p className="text-muted-foreground">Momen proses rekrutmen dan aktivitas perusahaan</p>
+        </div>
+        <Carousel opts={{ align: "start", loop: true }} className="w-full">
+          <CarouselContent>
+            {[
+              { title: "Proses Interview", desc: "Interview kandidat dengan tim HR", img: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=600&fit=crop" },
+              { title: "Assessment Center", desc: "Pelaksanaan tes psikologi", img: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=600&fit=crop" },
+              { title: "Team Building", desc: "Kegiatan bonding tim", img: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop" },
+              { title: "Training Session", desc: "Pelatihan karyawan", img: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=600&fit=crop" },
+              { title: "Office Environment", desc: "Suasana kantor yang nyaman", img: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop" },
+              { title: "Career Fair", desc: "Partisipasi dalam job fair", img: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop" },
+            ].map((item, idx) => (
+              <CarouselItem key={idx} className="md:basis-1/2 lg:basis-1/3">
+                <div className="relative overflow-hidden rounded-xl border border-border bg-card group">
+                  <img src={item.img} alt={item.title} className="h-64 w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <h3 className="text-lg font-bold text-white">{item.title}</h3>
+                    <p className="text-sm text-slate-200">{item.desc}</p>
+                  </div>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="left-4 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
+          <CarouselNext className="right-4 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
+        </Carousel>
+      </section>
+
       {/* About */}
-      <section id="tentang" className="scroll-mt-24 overflow-hidden overflow-x-hidden bg-[#07111f] text-white">
-        <div className="relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(14,165,233,0.28),transparent_30%),radial-gradient(circle_at_82%_8%,rgba(20,184,166,0.24),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%)]" />
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/50 to-transparent" />
-          <div className="container relative py-20 md:py-28">
-            <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
-              <motion.div
-                initial={{ opacity: 0, x: -24 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                className="lg:sticky lg:top-28"
-              >
-                <Badge className="mb-5 rounded-full border-sky-300/30 bg-sky-300/10 px-4 py-1.5 text-sky-200 hover:bg-sky-300/10">
-                  <Globe2 className="mr-1.5 h-3.5 w-3.5" /> Tentang PJM Group
-                </Badge>
-                <h2 className="max-w-xl text-4xl font-black leading-tight tracking-tight md:text-6xl">
-                  Ruang bertemunya talenta, peluang, dan proses seleksi yang lebih manusiawi.
-                </h2>
-                <p className="mt-6 max-w-xl text-base leading-8 text-slate-300">
-                  {heroBrand} mendukung proses rekrutmen yang rapi, informatif, dan terukur. Setiap kandidat dapat menemukan peluang, memahami proses, dan mengikuti asesmen dengan pengalaman yang lebih jelas.
-                </p>
-
-                <div className="mt-8 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.06] p-6 backdrop-blur">
-                  <div className="flex items-center gap-4">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt={heroBrand} className="h-14 w-auto max-w-[180px] rounded-xl bg-white object-contain p-2" />
-                    ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10">
-                        <Building2 className="h-7 w-7 text-sky-300" />
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-200">Career Ecosystem</p>
-                      <p className="mt-1 text-sm text-slate-300">PJM Group Recruitment</p>
-                    </div>
+      <section id="tentang" className="scroll-mt-24 overflow-hidden bg-gradient-to-b from-background via-muted/30 to-background">
+        <div className="container py-16 md:py-24">
+            {/* Brand Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="rounded-2xl border border-border bg-card p-6 md:p-8 mb-12 shadow-sm"
+            >
+              <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
+                {logoUrl ? (
+                  <img src={logoUrl} alt={heroBrand} className="h-16 w-auto max-w-[200px] object-contain" />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center">
+                    <Building2 className="h-8 w-8 text-primary" />
                   </div>
-                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                    {[
-                      { label: "Fair", icon: Shield },
-                      { label: "Insightful", icon: Sparkles },
-                      { label: "Connected", icon: Users },
-                    ].map((item) => (
-                      <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.07] p-4">
-                        <item.icon className="mb-3 h-5 w-5 text-sky-300" />
-                        <p className="text-sm font-semibold">{item.label}</p>
-                      </div>
-                    ))}
-                  </div>
+                )}
+                <div className="text-center md:text-left">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-1">Career Ecosystem</p>
+                  <p className="text-xl font-bold text-foreground">{heroBrand}</p>
+                  <p className="text-sm text-muted-foreground mt-1">PJM Group Recruitment</p>
                 </div>
-              </motion.div>
-
-              <div className="space-y-6">
-                <motion.div
-                  initial={{ opacity: 0, y: 22 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  className="relative overflow-hidden rounded-[32px] border border-sky-300/20 bg-gradient-to-br from-sky-400/20 via-white/[0.08] to-teal-400/10 p-7 md:p-9"
-                >
-                  <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-sky-400/20 blur-3xl" />
-                  <div className="relative">
-                    <div className="mb-8 flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200">Visi</p>
-                        <h3 className="mt-2 text-2xl font-bold">Arah yang kami tuju</h3>
-                      </div>
-                      <Target className="h-9 w-9 text-sky-200" />
-                    </div>
-                    <p className="text-2xl font-bold leading-snug md:text-4xl">{aboutVision}</p>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 22 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  className="rounded-[32px] border border-white/10 bg-white/[0.06] p-6 backdrop-blur"
-                >
-                  <div className="mb-5 flex items-end justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-200">Misi</p>
-                      <h3 className="mt-2 text-2xl font-bold">Cara kami bekerja</h3>
-                    </div>
-                    <CheckCircle2 className="h-7 w-7 text-teal-200" />
-                  </div>
-                  <Carousel opts={{ align: "start", loop: missionItems.length > 1 }} className="w-full overflow-visible px-10 md:px-0">
-                    <CarouselContent className="md:-ml-4 -ml-0">
-                        {(missionItems.length ? missionItems : [aboutMission]).map((mission, idx) => (
-                        <CarouselItem key={idx} className="pl-0 sm:pl-4 w-full max-w-full md:basis-1/2">
-                          <div className="h-full min-h-[190px] rounded-[24px] border border-white/10 bg-[#0f2034] p-6 overflow-hidden">
-                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-300/15 text-sm font-black text-teal-200">
-                              {String(idx + 1).padStart(2, "0")}
-                            </span>
-                            <p className="mt-5 break-words text-sm leading-7 text-slate-200">{mission}</p>
-                          </div>
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious className="left-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-left-4" />
-                    <CarouselNext className="right-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-right-4" />
-                  </Carousel>
-                  <p className="mt-4 text-xs text-slate-400">Geser kanan/kiri untuk melihat seluruh misi.</p>
-                </motion.div>
               </div>
-            </div>
-
-            <div className="mt-10 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)]">
-              <motion.div
-                initial={{ opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="min-w-0 rounded-[28px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur sm:p-6 md:rounded-[32px]"
-              >
-                <div className="mb-5 flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200">Value</p>
-                    <h3 className="mt-2 text-2xl font-bold">Nilai yang terasa dalam proses</h3>
-                  </div>
-                  <Award className="h-7 w-7 text-amber-200" />
-                </div>
-                <Carousel opts={{ align: "start", loop: valuesToShow.length > 1 }} className="w-full overflow-visible px-10 md:px-0">
-                  <CarouselContent className="md:-ml-4 -ml-0 max-w-full">
-                    {valuesToShow.map((value: any, idx: number) => (
-                      <CarouselItem key={idx} className="pl-0 sm:pl-4 w-full max-w-full sm:basis-1/2 lg:basis-1/3">
-                        <div className="h-full min-h-[178px] overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br from-amber-300/16 to-white/[0.05] p-5 sm:p-6">
-                          <Layers3 className="mb-5 h-7 w-7 text-amber-200" />
-                          <p className="text-lg font-bold">{value.name || `Nilai ${idx + 1}`}</p>
-                          <p className="mt-3 break-words text-sm leading-7 text-slate-300">{value.description}</p>
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="left-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-left-4" />
-                  <CarouselNext className="right-0 flex border-white/20 bg-white/10 text-white hover:bg-white/20 md:-right-4" />
-                </Carousel>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="min-w-0 rounded-[28px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur sm:p-6 md:rounded-[32px]"
-              >
-                <div className="mb-6 flex items-center gap-3">
-                  <Clock className="h-6 w-6 text-sky-200" />
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200">Journey</p>
-                    <h3 className="mt-1 text-2xl font-bold">Perjalanan</h3>
-                  </div>
-                </div>
-                <div className="space-y-5">
-                  {milestonesToShow.map((item: any, idx: number) => (
-                    <div key={idx} className="relative min-w-0 pl-8">
-                      <span className="absolute left-0 top-1 flex h-4 w-4 rounded-full bg-sky-300 ring-4 ring-sky-300/15" />
-                      {idx < milestonesToShow.length - 1 && <span className="absolute left-[7px] top-6 h-full w-px bg-white/15" />}
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-200">{item.year}</p>
-                      <p className="mt-1 break-words text-base font-bold">{item.title || item.year}</p>
-                      <p className="mt-1 break-words text-sm leading-6 text-slate-300">{item.description}</p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {[
+                  { label: "Fair", icon: Shield, desc: "Proses yang adil" },
+                  { label: "Insightful", icon: Sparkles, desc: "Data-driven" },
+                  { label: "Connected", icon: Users, desc: "Terhubung" },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-xl border border-border bg-muted/30 p-5 text-center hover:bg-muted/50 transition">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 mx-auto mb-3">
+                      <item.icon className="h-6 w-6 text-primary" />
                     </div>
-                  ))}
+                    <p className="text-base font-semibold text-foreground mb-1">{item.label}</p>
+                    <p className="text-sm text-muted-foreground">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Vision */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-muted/20 p-6 md:p-8 mb-12"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                  <Target className="h-6 w-6 text-primary" />
                 </div>
-              </motion.div>
-            </div>
-          </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Visi</p>
+                  <h3 className="text-lg font-bold text-foreground">Arah yang kami tuju</h3>
+                </div>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-foreground leading-relaxed mb-4">{aboutVision}</p>
+              <p className="text-base text-muted-foreground leading-relaxed">{aboutVisionDesc}</p>
+            </motion.div>
+
+            {/* Mission */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="rounded-2xl border border-border bg-card p-6 md:p-8 mb-12"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                  <CheckCircle2 className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Misi</p>
+                  <h3 className="text-lg font-bold text-foreground">Cara kami bekerja</h3>
+                </div>
+              </div>
+              <div className="space-y-4">
+                {missionItems.map((mission, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{mission}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Values - MASYHUR */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="rounded-2xl border border-border bg-card p-6 md:p-8 mb-12"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                  <Award className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Value</p>
+                  <h3 className="text-lg font-bold text-foreground">Nilai Perusahaan — MASYHUR</h3>
+                </div>
+              </div>
+              <Carousel opts={{ align: "start", loop: true }} className="w-full">
+                <CarouselContent>
+                  {valuesToShow.map((value: any, idx: number) => (
+                    <CarouselItem key={idx} className="sm:basis-1/2 lg:basis-1/3">
+                      <div className="rounded-xl border border-border bg-muted/30 p-5 hover:bg-muted/50 transition h-full">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 mb-4 mx-auto">
+                          <span className="text-2xl font-black text-primary">{value.name}</span>
+                        </div>
+                        <p className="text-lg font-bold text-foreground mb-1 text-center">{value.full}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{value.description}</p>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="left-0 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
+                <CarouselNext className="right-0 top-1/2 -translate-y-1/2 border-border bg-background hover:bg-muted" />
+              </Carousel>
+            </motion.div>
+
+            {/* Journey - Milestones */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="rounded-2xl border border-border bg-card p-6 md:p-8"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                  <Clock className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Journey</p>
+                  <h3 className="text-lg font-bold text-foreground">Milestone PJM Group</h3>
+                </div>
+              </div>
+              <div className="space-y-5 max-h-[500px] overflow-y-auto pr-2">
+                {milestonesToShow.map((item: any, idx: number) => (
+                  <div key={idx} className="relative pl-8">
+                    <span className="absolute left-0 top-2 flex h-3 w-3 rounded-full bg-primary ring-4 ring-primary/20" />
+                    {idx < milestonesToShow.length - 1 && <span className="absolute left-[5px] top-8 h-full w-px bg-border" />}
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-1">{item.year}</p>
+                    <p className="text-base font-bold text-foreground mb-1">{item.title || item.year}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
         </div>
       </section>
 
