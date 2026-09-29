@@ -118,6 +118,8 @@ interface JobApplication {
   user_id: string;
   status: string;
   applied_at: string;
+  status_updated_at?: string;
+  status_history?: Record<string, string> | null;
   activation_code_id?: string | null;
   activation_code?: ActivationCode | null;
   activation_codes?: ActivationCode[];
@@ -915,14 +917,42 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
     window.history.replaceState({}, "", `${window.location.pathname}?${newSearchParams.toString()}`);
   }, [applications, searchParams, showActivationModal]);
 
-  const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
+  const getApplicationStatusHistory = (application: JobApplication) => {
+    const history = application.status_history && typeof application.status_history === "object" ? application.status_history : {};
+    return {
+      submitted: application.applied_at,
+      applied: application.applied_at,
+      screening: application.applied_at,
+      ...history,
+    };
+  };
+
+  const updateApplicationStatus = async (application: JobApplication, newStatus: string) => {
     try {
+      const now = new Date().toISOString();
+      const nextHistory = {
+        ...getApplicationStatusHistory(application),
+        [newStatus]: now,
+      };
+      const updatePayload = {
+        status: newStatus,
+        status_updated_at: now,
+        status_history: nextHistory,
+      };
       const { error } = await supabase
         .from("job_applications")
-        .update({ status: newStatus })
-        .eq("id", applicationId);
+        .update(updatePayload as any)
+        .eq("id", application.id);
 
-      if (error) throw error;
+      if (error && /schema cache|column|status_history/i.test(error.message || "")) {
+        const { error: fallbackError } = await supabase
+          .from("job_applications")
+          .update({ status: newStatus, status_updated_at: now } as any)
+          .eq("id", application.id);
+        if (fallbackError) throw fallbackError;
+      } else if (error) {
+        throw error;
+      }
 
       Swal.fire("Berhasil", "Status lamaran berhasil diperbarui", "success");
       loadApplications(selectedJob!.id);
@@ -1191,15 +1221,18 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
       case 'applied':
         return 'bg-blue-100 text-blue-700';
       case 'screening':
-        return 'bg-yellow-100 text-yellow-700';
+        return 'bg-cyan-100 text-cyan-700';
       case 'psychology_test':
         return 'bg-purple-100 text-purple-700';
+      case 'technical_test':
+        return 'bg-blue-100 text-blue-700';
       case 'hr_interview':
         return 'bg-orange-100 text-orange-700';
       case 'user_interview':
         return 'bg-indigo-100 text-indigo-700';
       case 'offer':
         return 'bg-pink-100 text-pink-700';
+      case 'onboarding':
       case 'hired':
         return 'bg-green-100 text-green-700';
       case 'rejected':
@@ -1212,38 +1245,42 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'submitted':
-        return '1. Lamaran Diterima';
+        return '1. Administrasi';
       case 'candidate_pool':
         return 'Database Kandidat';
       case 'applied':
-        return '1. Lamaran Diterima';
+        return '1. Administrasi';
       case 'screening':
-        return '2. Screening CV';
+        return '1. Administrasi';
       case 'psychology_test':
-        return '3. Tes Psikologi';
+        return '2. Tes Psikologi';
+      case 'technical_test':
+        return '3. Tes Teknikal';
       case 'hr_interview':
-        return '4. Wawancara HR';
+        return '4. Interview HR';
       case 'user_interview':
-        return '5. Wawancara User';
+        return '5. Interview User';
       case 'offer':
-        return '6. Penawaran';
+        return '6. Offering';
+      case 'onboarding':
+        return '7. Onboarding';
       case 'hired':
-        return '7. Diterima';
+        return '7. Onboarding';
       case 'rejected':
-        return '8. Ditolak';
+        return 'Ditolak';
       default:
         return status;
     }
   };
 
   const recruitmentSteps = [
-    { status: 'applied', aliases: ['applied', 'submitted'], shortLabel: 'Lamaran', label: 'Lamaran Diterima', Icon: CheckCircle },
-    { status: 'screening', shortLabel: 'Screening', label: 'Screening CV', Icon: FileText },
-    { status: 'psychology_test', shortLabel: 'Psikotes', label: 'Tes Psikologi', Icon: Brain },
-    { status: 'hr_interview', shortLabel: 'HR', label: 'Wawancara HR', Icon: Users },
-    { status: 'user_interview', shortLabel: 'User', label: 'Wawancara User', Icon: UserCog },
-    { status: 'offer', shortLabel: 'Offer', label: 'Penawaran', Icon: Award },
-    { status: 'hired', shortLabel: 'Diterima', label: 'Diterima', Icon: CheckCircle },
+    { status: 'applied', aliases: ['applied', 'submitted', 'screening'], shortLabel: 'Administrasi', label: 'Administrasi', Icon: FileText },
+    { status: 'psychology_test', shortLabel: 'Psikologi', label: 'Tes Psikologi', Icon: Brain },
+    { status: 'technical_test', shortLabel: 'Teknikal', label: 'Tes Teknikal', Icon: Briefcase },
+    { status: 'hr_interview', shortLabel: 'HR', label: 'Interview HR', Icon: Users },
+    { status: 'user_interview', shortLabel: 'User', label: 'Interview User', Icon: UserCog },
+    { status: 'offer', shortLabel: 'Offering', label: 'Offering', Icon: Award },
+    { status: 'onboarding', aliases: ['onboarding', 'hired'], shortLabel: 'Onboarding', label: 'Onboarding', Icon: CheckCircle },
   ];
 
   const getStageCount = (status: string, aliases?: string[]) => {
@@ -2552,7 +2589,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                           </td>
                           <td className="px-4 py-3">
                             {application.activation_codes && application.activation_codes.length > 0 ? (
-                              <details className="group relative w-[210px]">
+                              <details className="group w-[230px]">
                                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted">
                                   <span>
                                     {application.activation_codes.length} kode tes
@@ -2562,7 +2599,7 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                                   </span>
                                   <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
                                 </summary>
-                                <div className="absolute left-0 top-[calc(100%+6px)] z-20 w-[320px] space-y-2 rounded-xl border border-border bg-card p-2 shadow-xl">
+                                <div className="mt-2 max-h-56 w-full space-y-2 overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-sm">
                                   {application.activation_codes.map((c: ActivationCode) => (
                                     <div key={c.id} className="rounded-lg border border-border bg-background p-3">
                                       <div className="flex items-start justify-between gap-3">
@@ -2627,17 +2664,17 @@ export default function RecruitmentProcess({ mode = "process" }: { mode?: "proce
                               </button>
                               <select
                                 value={application.status}
-                                onChange={(e) => updateApplicationStatus(application.id, e.target.value)}
+                                onChange={(e) => updateApplicationStatus(application, e.target.value)}
                                 className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
                               >
-                                <option value="applied">1. Lamaran Diterima</option>
-                                <option value="screening">2. Screening CV</option>
-                                <option value="psychology_test">3. Tes Psikologi</option>
-                                <option value="hr_interview">4. Wawancara HR</option>
-                                <option value="user_interview">5. Wawancara User</option>
-                                <option value="offer">6. Penawaran</option>
-                                <option value="hired">7. Diterima</option>
-                                <option value="rejected">8. Ditolak</option>
+                                <option value="applied">1. Administrasi</option>
+                                <option value="psychology_test">2. Tes Psikologi</option>
+                                <option value="technical_test">3. Tes Teknikal</option>
+                                <option value="hr_interview">4. Interview HR</option>
+                                <option value="user_interview">5. Interview User</option>
+                                <option value="offer">6. Offering</option>
+                                <option value="onboarding">7. Onboarding</option>
+                                <option value="rejected">Ditolak</option>
                               </select>
                             </div>
                           </td>

@@ -6,11 +6,13 @@ export const ACTIVE_APPLICATION_STATUSES = [
   "screening",
   "test",
   "psychology_test",
+  "technical_test",
   "interview",
   "hr_interview",
   "user_interview",
   "offered",
   "offer",
+  "onboarding",
 ];
 
 export const isPastDeadline = (value?: string | null) => {
