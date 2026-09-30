@@ -29,7 +29,14 @@ const AdminLogin = () => {
       });
 
       if (error || !data || (data as any).error) {
-        const msg = (data as any)?.error || error?.message || "Username atau password salah.";
+        let msg = (data as any)?.error || "Username atau password salah.";
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            if (body?.error) msg = body.error;
+          }
+        } catch { /* ignore */ }
         setLoading(false);
         Swal.fire({
           icon: "error", title: "Login Gagal", text: msg,
