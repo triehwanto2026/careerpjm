@@ -2357,12 +2357,16 @@ export type Database = {
           applied_at: string
           cover_letter: string | null
           created_at: string
+          department_snapshot: string | null
           id: string
+          location_snapshot: string | null
+          position_snapshot: string | null
           status: string
           status_updated_at: string
           updated_at: string
           user_id: string
           vacancy_id: string
+          vacancy_status_snapshot: string | null
         }
         Insert: {
           activation_code_id?: string | null
@@ -2370,12 +2374,16 @@ export type Database = {
           applied_at?: string
           cover_letter?: string | null
           created_at?: string
+          department_snapshot?: string | null
           id?: string
+          location_snapshot?: string | null
+          position_snapshot?: string | null
           status?: string
           status_updated_at?: string
           updated_at?: string
           user_id: string
           vacancy_id: string
+          vacancy_status_snapshot?: string | null
         }
         Update: {
           activation_code_id?: string | null
@@ -2383,12 +2391,16 @@ export type Database = {
           applied_at?: string
           cover_letter?: string | null
           created_at?: string
+          department_snapshot?: string | null
           id?: string
+          location_snapshot?: string | null
+          position_snapshot?: string | null
           status?: string
           status_updated_at?: string
           updated_at?: string
           user_id?: string
           vacancy_id?: string
+          vacancy_status_snapshot?: string | null
         }
         Relationships: [
           {
@@ -2409,13 +2421,13 @@ export type Database = {
           employment_type: string | null
           id: string
           is_active: boolean | null
-          show_salary: boolean
           location: string | null
           max_salary: number | null
           min_salary: number | null
           posted_by: string | null
           requirements: string | null
           responsibilities: string | null
+          show_salary: boolean
           status: string
           title: string
           updated_at: string
@@ -2428,13 +2440,13 @@ export type Database = {
           employment_type?: string | null
           id?: string
           is_active?: boolean | null
-          show_salary?: boolean
           location?: string | null
           max_salary?: number | null
           min_salary?: number | null
           posted_by?: string | null
           requirements?: string | null
           responsibilities?: string | null
+          show_salary?: boolean
           status?: string
           title: string
           updated_at?: string
@@ -2447,13 +2459,13 @@ export type Database = {
           employment_type?: string | null
           id?: string
           is_active?: boolean | null
-          show_salary?: boolean
           location?: string | null
           max_salary?: number | null
           min_salary?: number | null
           posted_by?: string | null
           requirements?: string | null
           responsibilities?: string | null
+          show_salary?: boolean
           status?: string
           title?: string
           updated_at?: string
