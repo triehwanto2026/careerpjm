@@ -10,6 +10,7 @@ interface AppRow {
   status: string;
   applied_at: string;
   status_updated_at: string;
+  status_history?: Record<string, string> | null;
   cover_letter: string;
   admin_notes: string;
   interview_date?: string;
@@ -29,17 +30,20 @@ interface AppRow {
 }
 
 const STATUS_FLOW = [
-  { key: "submitted", label: "1. Lamaran Diterima", color: "blue", icon: CheckCircle2 },
-  { key: "screening", label: "2. Screening CV", color: "cyan", icon: FileCheck },
-  { key: "test", label: "3. Tes Psikologi", color: "violet", icon: ClipboardList },
-  { key: "psychology_test", label: "3. Tes Psikologi", color: "violet", icon: ClipboardList },
-  { key: "hr_interview", label: "4. Wawancara HR", color: "amber", icon: User },
-  { key: "user_interview", label: "5. Wawancara User", color: "orange", icon: Briefcase },
-  { key: "offered", label: "6. Penawaran", color: "green", icon: DollarSign },
-  { key: "offer", label: "6. Penawaran", color: "green", icon: DollarSign },
-  { key: "accepted", label: "7. Diterima", color: "green", icon: CheckCircle2 },
-  { key: "hired", label: "7. Diterima", color: "green", icon: CheckCircle2 },
-  { key: "rejected", label: "8. Ditolak", color: "red", icon: XCircle },
+  { key: "submitted", label: "1. Administrasi", color: "blue", icon: CheckCircle2 },
+  { key: "applied", label: "1. Administrasi", color: "blue", icon: CheckCircle2 },
+  { key: "screening", label: "1. Administrasi", color: "cyan", icon: FileCheck },
+  { key: "test", label: "2. Tes Psikologi", color: "violet", icon: ClipboardList },
+  { key: "psychology_test", label: "2. Tes Psikologi", color: "violet", icon: ClipboardList },
+  { key: "technical_test", label: "3. Tes Teknikal", color: "blue", icon: Briefcase },
+  { key: "hr_interview", label: "4. Interview HR", color: "amber", icon: User },
+  { key: "user_interview", label: "5. Interview User", color: "orange", icon: Briefcase },
+  { key: "offered", label: "6. Offering", color: "green", icon: DollarSign },
+  { key: "offer", label: "6. Offering", color: "green", icon: DollarSign },
+  { key: "accepted", label: "7. Onboarding", color: "green", icon: CheckCircle2 },
+  { key: "hired", label: "7. Onboarding", color: "green", icon: CheckCircle2 },
+  { key: "onboarding", label: "7. Onboarding", color: "green", icon: CheckCircle2 },
+  { key: "rejected", label: "Ditolak", color: "red", icon: XCircle },
   { key: "expired", label: "Kedaluwarsa", color: "gray", icon: AlertCircle },
 ];
 
@@ -125,12 +129,14 @@ const colors: Record<string, string> = {
   screening: "bg-cyan-500/15 text-cyan-500 border-cyan-500/30",
   test: "bg-violet-500/15 text-violet-500 border-violet-500/30",
   psychology_test: "bg-violet-500/15 text-violet-500 border-violet-500/30",
+  technical_test: "bg-blue-500/15 text-blue-500 border-blue-500/30",
   hr_interview: "bg-amber-500/15 text-amber-500 border-amber-500/30",
   user_interview: "bg-orange-500/15 text-orange-500 border-orange-500/30",
   offered: "bg-green-500/15 text-green-500 border-green-500/30",
   offer: "bg-green-500/15 text-green-500 border-green-500/30",
   accepted: "bg-green-500/15 text-green-500 border-green-500/30",
   hired: "bg-green-500/15 text-green-500 border-green-500/30",
+  onboarding: "bg-green-500/15 text-green-500 border-green-500/30",
   rejected: "bg-red-500/15 text-red-500 border-red-500/30",
   expired: "bg-gray-500/15 text-gray-500 border-gray-500/30",
   withdrawn: "bg-gray-500/15 text-gray-500 border-gray-500/30",
@@ -142,12 +148,14 @@ const activeColors: Record<string, string> = {
   screening: "bg-cyan-500/15 text-cyan-500 border-cyan-500/30",
   test: "bg-violet-500/15 text-violet-500 border-violet-500/30",
   psychology_test: "bg-violet-500/15 text-violet-500 border-violet-500/30",
+  technical_test: "bg-blue-500/15 text-blue-500 border-blue-500/30",
   hr_interview: "bg-amber-500/15 text-amber-500 border-amber-500/30",
   user_interview: "bg-orange-500/15 text-orange-500 border-orange-500/30",
   offered: "bg-green-500/15 text-green-500 border-green-500/30",
   offer: "bg-green-500/15 text-green-500 border-green-500/30",
   accepted: "bg-green-500/15 text-green-500 border-green-500/30",
   hired: "bg-green-500/15 text-green-500 border-green-500/30",
+  onboarding: "bg-green-500/15 text-green-500 border-green-500/30",
   rejected: "bg-red-500/15 text-red-500 border-red-500/30",
   expired: "bg-gray-500/15 text-gray-500 border-gray-500/30",
   withdrawn: "bg-gray-500/15 text-gray-500 border-gray-500/30",
@@ -203,7 +211,11 @@ export default function CandidateApplications() {
     return index >= 0 ? index : 0;
   };
   const getStageDate = (a: AppRow, stageKey: string, stageIndex: number, currentIndex: number) => {
+    const history = a.status_history && typeof a.status_history === "object" ? a.status_history : {};
     if (stageKey === "administration") return a.applied_at;
+    const stage = PROCESS_STAGES[stageIndex];
+    const recorded = stage?.aliases.map((alias) => history[alias]).find(Boolean);
+    if (recorded) return recorded;
     if (stageIndex === currentIndex && a.status_updated_at) return a.status_updated_at;
     if (stageKey === "user_interview" && a.interview_date) return a.interview_date;
     if (stageKey === "offering" && a.offer_start_date) return a.offer_start_date;

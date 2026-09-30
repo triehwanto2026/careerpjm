@@ -3,7 +3,7 @@ import {
   Save, Upload, FileText, Trash2, CheckCircle2, AlertCircle, 
   Plus, X, Building2, GraduationCap, Award, Languages, 
   Heart, Users, Briefcase, Car, Calendar, Phone, MapPin,
-  User, FileCheck, Info, DollarSign, ClipboardList, Star, Globe, Link, Edit
+  User, FileCheck, Info, DollarSign, ClipboardList, Star, Globe, Link, ChevronLeft, ChevronRight
 } from "lucide-react";
 import CandidateLayout from "@/components/candidate/CandidateLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -135,7 +135,7 @@ export default function CandidateProfile() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [userId, setUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [immediateFamily, setImmediateFamily] = useState<any[]>([]);
   const [educationHistory, setEducationHistory] = useState<any[]>([]);
@@ -263,7 +263,7 @@ export default function CandidateProfile() {
 
   const handleCancelEdit = () => {
     setProfile({ ...originalProfile });
-    setIsEditing(false);
+    setIsEditing(true);
     // Reload family data to reset to original state
     load();
   };
@@ -450,16 +450,17 @@ export default function CandidateProfile() {
       if (error) {
         console.error('Profile save error:', error);
         Swal.fire({ icon: "error", title: "Gagal menyimpan", text: error.message });
-        return;
+        return false;
       }
       
       console.log('Profile saved successfully');
       Swal.fire({ icon: "success", title: "Profil tersimpan", timer: 1500, showConfirmButton: false });
-      setIsEditing(false); // Exit edit mode after successful save
       load();
+      return true;
     } catch (error) {
       console.error('Save error:', error);
       Swal.fire({ icon: "error", title: "Gagal menyimpan", text: "Terjadi kesalahan saat menyimpan data" });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -534,12 +535,31 @@ export default function CandidateProfile() {
   const [activeTab, setActiveTab] = useState("personal");
   const [progress, setProgress] = useState(0);
 
+  const activeTabIndex = tabs.findIndex((tab) => tab.value === activeTab);
+  const hasPreviousTab = activeTabIndex > 0;
+  const hasNextTab = activeTabIndex >= 0 && activeTabIndex < tabs.length - 1;
+
   
   useEffect(() => { calculateProgress(); }, [profile, docs, familyMembers, immediateFamily, educationHistory]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setTimeout(calculateProgress, 100);
+  };
+
+  const goToPreviousTab = () => {
+    if (!hasPreviousTab) return;
+    handleTabChange(tabs[activeTabIndex - 1].value);
+  };
+
+  const goToNextTab = () => {
+    if (!hasNextTab) return;
+    handleTabChange(tabs[activeTabIndex + 1].value);
+  };
+
+  const saveAndNext = async () => {
+    const saved = await save();
+    if (saved && hasNextTab) goToNextTab();
   };
 
   const handleSubmit = async () => {
@@ -575,8 +595,8 @@ export default function CandidateProfile() {
   return (
     <CandidateLayout>
       <div className="min-h-screen w-full flex flex-col bg-muted/20">
-        {/* Header - Fixed Top */}
-        <div className="border-b border-border bg-background">
+        {/* Header - Sticky Controls */}
+        <div className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
           <div className="mx-auto w-full max-w-[96rem] px-4 py-4 md:px-6 lg:px-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-3">
@@ -588,21 +608,16 @@ export default function CandidateProfile() {
                   <p className="text-sm text-muted-foreground">Lengkapi seluruh data untuk meningkatkan peluang Anda</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {isEditing ? (
-                  <>
-                    <button onClick={handleCancelEdit} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-50">
-                      <X className="h-4 w-4" /> Batal
-                    </button>
-                    <button onClick={save} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
-                      <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={handleEdit} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
-                    <Edit className="h-4 w-4" /> Edit
-                  </button>
-                )}
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={goToPreviousTab} disabled={saving || !hasPreviousTab} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+                  <ChevronLeft className="h-4 w-4" /> Sebelumnya
+                </button>
+                <button onClick={saveAndNext} disabled={saving || !hasNextTab} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+                  {saving ? "Menyimpan..." : "Sesudahnya"} <ChevronRight className="h-4 w-4" />
+                </button>
+                <button onClick={save} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-primary bg-card px-3 text-sm font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50">
+                  <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
+                </button>
                 <button onClick={calculateProgress} className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted">Refresh Progress</button>
               </div>
             </div>
@@ -759,11 +774,11 @@ export default function CandidateProfile() {
                   ) : (
                     <div className="space-y-3">
                       {familyMembers.map((member, index) => (
-                        <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
+                        <div key={index} className="rounded-xl border border-border bg-background/70 p-3 md:p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium">Anggota Keluarga #{index + 1}</h4>
+                            <h4 className="text-sm font-semibold text-foreground">Anggota Keluarga #{index + 1}</h4>
                             {isEditing && (
-                              <button onClick={() => removeFamilyMember(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                              <button onClick={() => removeFamilyMember(index)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10">
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             )}
@@ -844,11 +859,11 @@ export default function CandidateProfile() {
                   ) : (
                     <div className="space-y-3">
                       {immediateFamily.map((member, index) => (
-                        <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
+                        <div key={index} className="rounded-xl border border-border bg-background/70 p-3 md:p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium">Anggota Keluarga Inti #{index + 1}</h4>
+                            <h4 className="text-sm font-semibold text-foreground">Anggota Keluarga Inti #{index + 1}</h4>
                             {isEditing && (
-                              <button onClick={() => removeImmediateFamilyMember(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                              <button onClick={() => removeImmediateFamilyMember(index)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10">
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             )}
@@ -933,11 +948,11 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   educationHistory.map((edu, index) => (
-                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
+                    <div key={index} className="rounded-xl border border-border bg-background/70 p-3 md:p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium">Pendidikan #{index + 1}</h4>
+                        <h4 className="text-sm font-semibold text-foreground">Pendidikan #{index + 1}</h4>
                         {isEditing && (
-                          <button onClick={() => removeEducation(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                          <button onClick={() => removeEducation(index)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -1007,11 +1022,11 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   informalEducation.map((edu, index) => (
-                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
+                    <div key={index} className="rounded-xl border border-border bg-background/70 p-3 md:p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium">Pendidikan Informal #{index + 1}</h4>
+                        <h4 className="text-sm font-semibold text-foreground">Pendidikan Informal #{index + 1}</h4>
                         {isEditing && (
-                          <button onClick={() => removeInformalEducation(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                          <button onClick={() => removeInformalEducation(index)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -1055,11 +1070,11 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   skills.map((skill, index) => (
-                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
+                    <div key={index} className="rounded-xl border border-border bg-background/70 p-3 md:p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium">Keahlian #{index + 1}</h4>
+                        <h4 className="text-sm font-semibold text-foreground">Keahlian #{index + 1}</h4>
                         {isEditing && (
-                          <button onClick={() => removeSkill(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                          <button onClick={() => removeSkill(index)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10" title="Hapus keahlian" aria-label="Hapus keahlian">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -1100,11 +1115,11 @@ export default function CandidateProfile() {
                   </div>
                 ) : (
                   languages.map((language, index) => (
-                    <div key={index} className="rounded-lg border border-border bg-background/70 p-4">
+                    <div key={index} className="rounded-xl border border-border bg-background/70 p-3 md:p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium">Bahasa #{index + 1}</h4>
+                        <h4 className="text-sm font-semibold text-foreground">Bahasa #{index + 1}</h4>
                         {isEditing && (
-                          <button onClick={() => removeLanguage(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                          <button onClick={() => removeLanguage(index)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10" title="Hapus bahasa" aria-label="Hapus bahasa">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -1165,11 +1180,11 @@ export default function CandidateProfile() {
               </div>
             ) : (
               workExperience.map((exp, index) => (
-                <div key={index} className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5 space-y-4">
+                <div key={index} className="rounded-xl border border-border bg-background/70 p-3 md:p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-lg">Pengalaman Kerja #{index + 1}</h3>
+                    <h3 className="text-base font-semibold text-foreground">Pengalaman Kerja #{index + 1}</h3>
                     {isEditing && (
-                      <button onClick={() => removeWorkExperience(index)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                      <button onClick={() => removeWorkExperience(index)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10" title="Hapus pengalaman" aria-label="Hapus pengalaman">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
@@ -1273,7 +1288,7 @@ export default function CandidateProfile() {
                 {DOC_TYPES.map((t) => {
                   const existing = docs.find((d) => d.document_type === t.key);
                   return (
-                    <div key={t.key} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border border-border bg-background/70">
+                    <div key={t.key} className="flex flex-col gap-3 rounded-xl border border-border bg-background/70 p-3 sm:flex-row sm:items-center">
                       <FileText className="h-5 w-5 text-primary flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium">{t.label} {t.required && <span className="text-red-500">*</span>}</div>
@@ -1285,13 +1300,13 @@ export default function CandidateProfile() {
                       </div>
                       <div className="flex items-center gap-2">
                         {isEditing && (
-                          <label className="cursor-pointer flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:brightness-110">
+                          <label className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:brightness-110">
                             <Upload className="h-3.5 w-3.5" /> {existing ? "Ganti" : "Upload"}
                             <input type="file" accept={t.accept} className="hidden" onChange={(e) => e.target.files?.[0] && uploadDoc(t.key, e.target.files[0])} />
                           </label>
                         )}
                         {existing && isEditing && (
-                          <button onClick={() => deleteDoc(existing.id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10">
+                          <button onClick={() => deleteDoc(existing.id)} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10" title="Hapus dokumen" aria-label="Hapus dokumen">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -1362,20 +1377,15 @@ export default function CandidateProfile() {
             dan perusahaan berhak menghentikan proses rekrutmen tanpa tuntutan apapun dari saya.
           </p>
           <div className="flex flex-col sm:flex-row justify-end gap-3">
-            {isEditing ? (
-              <>
-                <button onClick={handleCancelEdit} disabled={saving} className="flex items-center gap-2 bg-muted text-foreground px-6 py-3 rounded-xl font-semibold hover:bg-muted/80 disabled:opacity-50 w-full sm:w-auto">
-                  <X className="h-4 w-4" /> Batal Edit
-                </button>
-                <button onClick={save} disabled={saving} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold hover:brightness-110 disabled:opacity-50 w-full sm:w-auto">
-                  <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
-                </button>
-              </>
-            ) : (
-              <button onClick={handleEdit} disabled={saving} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold hover:brightness-110 disabled:opacity-50 w-full sm:w-auto">
-                <Edit className="h-4 w-4" /> Edit
-              </button>
-            )}
+            <button onClick={goToPreviousTab} disabled={saving || !hasPreviousTab} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 w-full sm:w-auto">
+              <ChevronLeft className="h-4 w-4" /> Sebelumnya
+            </button>
+            <button onClick={saveAndNext} disabled={saving || !hasNextTab} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 w-full sm:w-auto">
+              {saving ? "Menyimpan..." : "Sesudahnya"} <ChevronRight className="h-4 w-4" />
+            </button>
+            <button onClick={save} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl border border-primary bg-card px-6 py-3 font-semibold text-primary hover:bg-primary/10 disabled:opacity-50 w-full sm:w-auto">
+              <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
+            </button>
           </div>
         </section>
         </div>
