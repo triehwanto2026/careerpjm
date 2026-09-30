@@ -51,13 +51,13 @@ Deno.serve(async (req) => {
     ? await query.ilike("email", identifier).maybeSingle()
     : await query.eq("username", identifier).maybeSingle();
 
-  if (!legacy) return json({ error: "Username atau password salah" }, 401);
+  if (!legacy) return json({ error: "Username atau password salah", invalid_credentials: true }, 200);
   if (legacy.is_active === false) return json({ error: "Akun tidak aktif" }, 403);
 
   // Verify legacy SHA-256 password
   const hashed = await sha256Hex(password);
   if (hashed.toLowerCase() !== String(legacy.password_hash || "").toLowerCase()) {
-    return json({ error: "Username atau password salah" }, 401);
+    return json({ error: "Username atau password salah", invalid_credentials: true }, 200);
   }
 
   const email = (legacy.email || `${legacy.username}@admin.local`).toLowerCase();
