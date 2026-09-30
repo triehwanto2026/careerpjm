@@ -254,7 +254,7 @@ export default function CandidateApplications() {
 
   return (
     <CandidateLayout>
-      <div className="min-h-screen bg-muted/20">
+      <div className="min-h-full bg-muted/20">
         <div className="border-b border-border bg-card px-4 py-4">
           <div className="mx-auto flex max-w-[96rem] flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>

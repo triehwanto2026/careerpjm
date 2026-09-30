@@ -412,7 +412,7 @@ export default function CandidateProfile() {
     return totalProgress;
   };
 
-  const save = async () => {
+  const save = async (options?: { showSuccess?: boolean }) => {
     setSaving(true);
     const currentProgress = calculateProgress();
     
@@ -454,7 +454,9 @@ export default function CandidateProfile() {
       }
       
       console.log('Profile saved successfully');
-      Swal.fire({ icon: "success", title: "Profil tersimpan", timer: 1500, showConfirmButton: false });
+      if (options?.showSuccess !== false) {
+        Swal.fire({ icon: "success", title: "Profil tersimpan", timer: 1500, showConfirmButton: false });
+      }
       load();
       return true;
     } catch (error) {
@@ -558,7 +560,7 @@ export default function CandidateProfile() {
   };
 
   const saveAndNext = async () => {
-    const saved = await save();
+    const saved = await save({ showSuccess: false });
     if (saved && hasNextTab) goToNextTab();
   };
 
@@ -594,7 +596,7 @@ export default function CandidateProfile() {
 
   return (
     <CandidateLayout>
-      <div className="min-h-screen w-full flex flex-col bg-muted/20">
+      <div className="min-h-full w-full flex flex-col bg-muted/20">
         {/* Header - Sticky Controls */}
         <div className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
           <div className="mx-auto w-full max-w-[96rem] px-4 py-4 md:px-6 lg:px-8">
@@ -610,12 +612,12 @@ export default function CandidateProfile() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={goToPreviousTab} disabled={saving || !hasPreviousTab} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
-                  <ChevronLeft className="h-4 w-4" /> Sebelumnya
+                  <ChevronLeft className="h-4 w-4" /> Before
                 </button>
-                <button onClick={saveAndNext} disabled={saving || !hasNextTab} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
-                  {saving ? "Menyimpan..." : "Sesudahnya"} <ChevronRight className="h-4 w-4" />
+                <button onClick={saveAndNext} disabled={saving || !hasNextTab} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+                  {saving ? "Menyimpan..." : "Next"} <ChevronRight className="h-4 w-4" />
                 </button>
-                <button onClick={save} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-primary bg-card px-3 text-sm font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50">
+                <button onClick={() => save()} disabled={saving} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-primary bg-card px-3 text-sm font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50">
                   <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
                 </button>
                 <button onClick={calculateProgress} className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-muted">Refresh Progress</button>
@@ -1378,12 +1380,12 @@ export default function CandidateProfile() {
           </p>
           <div className="flex flex-col sm:flex-row justify-end gap-3">
             <button onClick={goToPreviousTab} disabled={saving || !hasPreviousTab} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 w-full sm:w-auto">
-              <ChevronLeft className="h-4 w-4" /> Sebelumnya
+              <ChevronLeft className="h-4 w-4" /> Before
             </button>
-            <button onClick={saveAndNext} disabled={saving || !hasNextTab} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 w-full sm:w-auto">
-              {saving ? "Menyimpan..." : "Sesudahnya"} <ChevronRight className="h-4 w-4" />
+            <button onClick={saveAndNext} disabled={saving || !hasNextTab} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 w-full sm:w-auto">
+              {saving ? "Menyimpan..." : "Next"} <ChevronRight className="h-4 w-4" />
             </button>
-            <button onClick={save} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl border border-primary bg-card px-6 py-3 font-semibold text-primary hover:bg-primary/10 disabled:opacity-50 w-full sm:w-auto">
+            <button onClick={() => save()} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl border border-primary bg-card px-6 py-3 font-semibold text-primary hover:bg-primary/10 disabled:opacity-50 w-full sm:w-auto">
               <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
             </button>
           </div>

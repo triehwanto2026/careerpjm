@@ -287,7 +287,7 @@ export default function CandidateTests() {
 
   return (
     <CandidateLayout>
-      <div className="min-h-screen bg-muted/20">
+      <div className="min-h-full bg-muted/20">
         <div className="border-b border-border bg-card px-4 py-4">
           <div className="mx-auto max-w-[96rem]">
             <h1 className="text-xl font-bold tracking-tight">Tes Psikologi</h1>

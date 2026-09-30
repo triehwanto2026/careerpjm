@@ -173,7 +173,7 @@ export default function CandidateProfileSettings() {
 
   return (
     <CandidateLayout>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-full flex flex-col">
         {/* Header */}
         <div className="bg-card border-b border-border px-4 py-4">
           <div className="max-w-[96rem] mx-auto">

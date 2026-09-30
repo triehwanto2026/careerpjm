@@ -361,7 +361,7 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
             <ThemeToggle />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:p-6 lg:pb-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(7rem+env(safe-area-inset-bottom))] scroll-pb-[calc(7rem+env(safe-area-inset-bottom))] lg:p-6 lg:pb-6 lg:scroll-pb-6">{children}</main>
         
         {/* Mobile Bottom Navigation - Fixed at bottom */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] lg:hidden">
