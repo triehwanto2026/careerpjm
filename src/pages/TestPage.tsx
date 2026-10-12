@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Languages, ChevronLeft, ChevronRight, Send, LogOut, ShieldCheck, Clock } from "lucide-react";
+import { Languages, ChevronLeft, ChevronRight, Send, LogOut, ShieldCheck, Clock, CheckCircle2 } from "lucide-react";
 import Swal from "sweetalert2";
 import TestTimer from "@/components/TestTimer";
 import WebcamPreview, { WebcamHandle } from "@/components/WebcamPreview";
