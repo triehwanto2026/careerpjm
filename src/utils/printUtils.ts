@@ -5,6 +5,7 @@ import { buildIstInterpretation, isIstName } from "@/lib/istScoring";
 import { buildMbtiInterpretation, getMbtiRows, getMbtiType, isMbtiName } from "@/lib/mbtiScoring";
 import { buildPapiCategoriesFromAnswers, buildPapiInterpretation, getPapiRows, isPapiName, getPapiMainFactors } from "@/lib/papiScoring";
 import { buildPersonalityPlusInterpretation } from "@/lib/personalityPlusScoring";
+import { isKraepelinResult } from "@/lib/testResultType";
 
 export interface PrintResult {
   id: string;
@@ -166,7 +167,7 @@ export const generatePrintHTML = (
   const isMbti = isMbtiName(r.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);
   const mbtiRows = isMbti ? getMbtiRows(cats) : [];
   const mbtiType = isMbti ? getMbtiType(cats) : "";
-  const isKraepelin = r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in cats);
+  const isKraepelin = isKraepelinResult(r);
   
   const isPersonalityPlus = r.test_name.toUpperCase().includes("PERSONALITY PLUS") || r.test_name.toUpperCase().includes("TEMPERAMEN");
   const isIst = isIstName(r.test_name) || Object.keys(cats).some((key) => /^SE\s*-|^WA\s*-|^AN\s*-|^GE\s*-/i.test(key));

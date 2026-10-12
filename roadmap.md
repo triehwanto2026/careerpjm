@@ -1,0 +1,2 @@
+- [x] Correct Aptitude/Kraepelin identification in results and printed reports.
+- [x] Verify regression tests and current preview diagnostics (7 tests passed; build OK).
