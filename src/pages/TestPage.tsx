@@ -8,7 +8,6 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadDataUrlAsPhoto } from "@/lib/photoUpload";
 import { getAptitudeFallbackImage } from "@/lib/aptitudeImageFallback";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface DbOption {
   id: string; question_id: string; option_label: string; option_text: string; option_text_en: string | null;
