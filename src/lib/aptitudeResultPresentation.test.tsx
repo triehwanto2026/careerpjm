@@ -28,7 +28,7 @@ describe("Aptitude result presentation", () => {
   it("renders Aptitude rather than a Kraepelin profile in candidate details", () => {
     const html = renderToStaticMarkup(<CandidateTestResultView result={result} answers={[]} />);
     expect(html).toContain(result.interpretation);
-    expect(html).toContain("Verbal");
+    expect(html).toContain("Skor Aptitude");
     expect(html).not.toContain("Kapasitas Kerja");
     expect(html).not.toContain("Kraepelin");
   });
