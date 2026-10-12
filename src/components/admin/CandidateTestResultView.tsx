@@ -1,4 +1,5 @@
 import React from "react";
+import { isKraepelinResult } from "@/lib/testResultType";
 import { PrintResult, PrintAnswer } from "@/utils/printUtils";
 import { buildCfitInterpretation, getCfitIqInfo, getCfitIqInfoFromResult, getCfitProfileRows, getCfitRawScore, isCfitName } from "@/lib/cfitScoring";
 import { buildDiscInterpretation } from "@/lib/discScoring";
@@ -165,7 +166,7 @@ const CandidateTestResultView: React.FC<CandidateTestResultViewProps> = ({ resul
   const catEntries = Object.entries(cats);
   const isDISC = result.test_name.toUpperCase().includes("DISC");
   const isPersonalityPlus = result.test_name === "Personality Plus" || result.test_name.includes("Personality Plus");
-  const isKraepelin = result.test_name === "Kraepelin" || result.test_name.includes("Kraepelin");
+  const isKraepelin = isKraepelinResult(result);
   const isCFIT = isCfitName(result.test_name);
   const isIST = isIstName(result.test_name) || Object.keys(cats).some((key) => /^(SE|WA|AN|GE|RA|ZR|FA|WU|ME)(\s*-|$)/i.test(key));
   const isMBTI = isMbtiName(result.test_name) || ["E", "I", "S", "N", "T", "F", "J", "P"].every((key) => key in cats);

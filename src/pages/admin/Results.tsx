@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { isKraepelinResult } from "@/lib/testResultType";
 import { useLocation } from "react-router-dom";
 import { Search, Eye, Download, Printer, FileText, Trash2 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -324,9 +325,6 @@ const renderPapiWheelSvg = (rows: ReturnType<typeof getPapiRows>) => {
       </div>
     </div>`;
 };
-
-const isKraepelinResult = (r: Pick<ResultRow, "test_name" | "categories">) =>
-  r.test_name.toUpperCase().includes("KRAEPELIN") || ["speed", "accuracy", "stability", "work_capacity"].some((key) => key in (r.categories || {}));
 
 const isPersonalityPlusResult = (r: Pick<ResultRow, "test_name" | "categories">) => {
   const upper = r.test_name.toUpperCase();
