@@ -1,0 +1,2 @@
+- [ ] Correct Aptitude/Kraepelin identification in results and printed reports.
+- [ ] Verify regression tests and current preview diagnostics.
