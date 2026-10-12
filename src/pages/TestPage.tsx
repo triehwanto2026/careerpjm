@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Languages, ChevronLeft, ChevronRight, Send, LogOut, ShieldCheck, Clock } from "lucide-react";
+import { Languages, ChevronLeft, ChevronRight, Send, LogOut, ShieldCheck, Clock, CheckCircle2 } from "lucide-react";
 import Swal from "sweetalert2";
 import TestTimer from "@/components/TestTimer";
 import WebcamPreview, { WebcamHandle } from "@/components/WebcamPreview";
@@ -8,7 +8,6 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadDataUrlAsPhoto } from "@/lib/photoUpload";
 import { getAptitudeFallbackImage } from "@/lib/aptitudeImageFallback";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface DbOption {
   id: string; question_id: string; option_label: string; option_text: string; option_text_en: string | null;
@@ -1596,81 +1595,26 @@ const TestPage = () => {
 
   if (submitted && !submissionResults) return null;
   if (submissionResults) {
-    const hasKraepelin = submissionResults.some((result) => result.kraepelin_metrics);
-    const chartData = submissionResults
-      .flatMap((result) => {
-        if (!result.kraepelin_metrics) return [];
-        return [
-          { name: `${result.instrument_name} - Kecepatan`, value: result.kraepelin_metrics.speed, key: `speed-${result.instrument_id}` },
-          { name: `${result.instrument_name} - Ketelitian`, value: result.kraepelin_metrics.accuracy, key: `accuracy-${result.instrument_id}` },
-          { name: `${result.instrument_name} - Stabilitas`, value: result.kraepelin_metrics.stability, key: `stability-${result.instrument_id}` },
-          { name: `${result.instrument_name} - Kapasitas Kerja`, value: result.kraepelin_metrics.work_capacity, key: `work_capacity-${result.instrument_id}` },
-        ];
-      });
     return (
       <div className="min-h-screen bg-background px-4 py-10">
-        <div className="mx-auto max-w-4xl space-y-6 rounded-3xl border border-border bg-card p-6 shadow-lg">
+        <div className="mx-auto max-w-2xl space-y-6 rounded-3xl border border-border bg-card p-6 shadow-lg">
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold text-foreground">Hasil Tes Selesai</h1>
-                <p className="text-sm text-muted-foreground">Semua jawaban sudah tersimpan. Berikut ringkasan hasil tes Anda.</p>
+              <div className="text-center w-full">
+                <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
+                <h1 className="mt-3 text-2xl font-semibold text-foreground">Pengerjaan Tes Selesai</h1>
+                <p className="text-sm text-muted-foreground">Semua jawaban Anda sudah tersimpan. Terima kasih telah menyelesaikan tes.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate(resultReturnPath || "/", { replace: true });
-                }}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110"
-              >
-                Selesai
-              </button>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {submissionResults.map((result) => (
-                <div key={result.instrument_id} className="rounded-2xl border border-border bg-muted p-4">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">{result.instrument_name}</p>
-                  <p className="text-3xl font-bold text-foreground">{result.score}%</p>
-                  <p className="text-sm text-muted-foreground">Status: {result.status}</p>
-                  {result.kraepelin_metrics && (
-                    <div className="mt-3 space-y-1 text-sm text-foreground">
-                      <p>Kecepatan: {result.kraepelin_metrics.speed}%</p>
-                      <p>Ketelitian: {result.kraepelin_metrics.accuracy}%</p>
-                      <p>Stabilitas: {result.kraepelin_metrics.stability}%</p>
-                      <p>Kapasitas Kerja: {result.kraepelin_metrics.work_capacity}%</p>
-                      {result.kraepelin_metrics.columns_completed !== undefined && (
-                        <>
-                          <p>Kolom selesai: {result.kraepelin_metrics.columns_completed}</p>
-                          <p>Puncak kolom: {result.kraepelin_metrics.peak_column}</p>
-                          <p>Rata-rata kolom: {result.kraepelin_metrics.average_column}</p>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {hasKraepelin && (
-              <div className="rounded-3xl border border-border bg-white p-4 shadow-sm">
-                <h2 className="text-lg font-semibold text-foreground">Grafik Ringkasan Kraepelin</h2>
-                <p className="text-sm text-muted-foreground">Perbandingan skor speed, accuracy, stability, dan work capacity.</p>
-                <div className="h-72 pt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ left: 0, right: 10, top: 10, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={60} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(value: number) => `${value}%`} />
-                      <Bar dataKey="value" fill="#0ea5e9">
-                        {chartData.map((entry) => (
-                          <Cell key={entry.key} fill={entry.key.includes("speed") ? "#0ea5e9" : entry.key.includes("accuracy") ? "#14b8a6" : entry.key.includes("stability") ? "#f59e0b" : "#8b5cf6"} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                navigate(resultReturnPath || "/", { replace: true });
+              }}
+              className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:brightness-110"
+            >
+              Selesai
+            </button>
           </div>
         </div>
       </div>
