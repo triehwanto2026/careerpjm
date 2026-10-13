@@ -1738,82 +1738,65 @@ const TestPage = () => {
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                  Tulis <b>angka satuan</b> dari penjumlahan dua angka yang mengapit kotak. Contoh: 7 + 8 = 15 → tulis <b>5</b>. Kursor akan otomatis berpindah ke bawah setelah Anda mengetik. Jawaban <b>tidak dapat direvisi</b> dan Anda tidak bisa melewati kotak yang kosong.
+                  Jumlahkan dua angka yang disorot, lalu tekan <b>angka satuan</b> hasilnya pada tombol. Contoh: 7 + 8 = 15 → tekan <b>5</b>. Soal akan otomatis bergerak ke soal berikutnya. Jawaban <b>tidak dapat direvisi</b>.
                 </div>
                 {(() => {
-                  // Build vertical number column from question texts "a + b = ?"
                   const parsePair = (txt: string): [number, number] => {
                     const m = txt.match(/(\d+)\s*\+\s*(\d+)/);
                     return m ? [Number(m[1]), Number(m[2])] : [0, 0];
                   };
                   const numbers: number[] = subtestQuestions.map(q => parsePair(q.question_text)[0]);
                   if (subtestQuestions.length > 0) {
-                    const last = parsePair(subtestQuestions[subtestQuestions.length - 1].question_text)[1];
-                    numbers.push(last);
+                    numbers.push(parsePair(subtestQuestions[subtestQuestions.length - 1].question_text)[1]);
                   }
-                  const firstUnanswered = subtestQuestions.findIndex(q => !answers[`${currentTest.id}:${q.id}`]);
+                  const idx = subtestQuestions.findIndex(q => !answers[`${currentTest.id}:${q.id}`]);
+                  const answeredCount = idx === -1 ? subtestQuestions.length : idx;
+                  const q = idx >= 0 ? subtestQuestions[idx] : undefined;
+                  const prevAns = idx > 0 ? (answers[`${currentTest.id}:${subtestQuestions[idx - 1].id}`] as string) : "";
+                  const press = (d: string) => {
+                    if (!q) return;
+                    handleKraepelinAnswer(currentTest.id, q.id, d);
+                    if (!subtestQuestions[idx + 1]) {
+                      const moved = finishCurrentSubtest();
+                      if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
+                    }
+                  };
+                  const cell = (n: number | undefined, active: boolean) => (
+                    <div className={`flex w-20 items-center justify-center rounded-md transition-all duration-300 tabular-nums ${
+                      n === undefined ? "h-16 opacity-0" :
+                      active ? "h-16 border-2 border-primary bg-primary/20 text-3xl font-bold text-foreground" : "h-14 bg-muted/40 text-lg font-semibold text-muted-foreground"
+                    }`}>{n ?? ""}</div>
+                  );
                   return (
-                    <div className="max-h-[65vh] overflow-y-auto rounded-lg border border-border bg-card p-4">
-                      <div className="mx-auto w-fit rounded-md border border-border bg-muted/10 px-6 py-4 font-mono">
-                        {numbers.map((n, i) => {
-                          const q = subtestQuestions[i]; // answer between number i and i+1
-                          const isActive = q && i === firstUnanswered;
-                          const answered = q ? (answers[`${currentTest.id}:${q.id}`] as string) : "";
-                          return (
-                            <div key={i}>
-                              <div className="flex items-center gap-3 py-0.5">
-                                <span className="w-6 text-right text-[10px] text-muted-foreground">{i + 1}</span>
-                                <span className="w-8 text-center text-lg font-bold text-foreground tabular-nums">{n}</span>
-                              </div>
-                              {q && (
-                                <div className="flex items-center gap-3">
-                                  <span className="w-6" />
-                                  <input
-                                    ref={(el) => { kraepelinInputRefs.current[q.id] = el; }}
-                                    type="text"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    maxLength={1}
-                                    disabled={!isActive}
-                                    readOnly={!isActive}
-                                    value={answered || ""}
-                                    autoFocus={isActive}
-                                    onKeyDown={(e) => {
-                                      if (!isActive) { e.preventDefault(); return; }
-                                      if (/^[0-9]$/.test(e.key)) {
-                                        e.preventDefault();
-                                        handleKraepelinAnswer(currentTest.id, q.id, e.key);
-                                        const next = subtestQuestions[i + 1];
-                                        if (next) {
-                                          setTimeout(() => {
-                                            const nextEl = kraepelinInputRefs.current[next.id];
-                                            if (nextEl) { nextEl.focus(); nextEl.select(); }
-                                          }, 0);
-                                        } else {
-                                          const moved = finishCurrentSubtest();
-                                          if (!moved && currentTestIdx < instruments.length - 1) handleNextTestSync();
-                                        }
-                                        return;
-                                      }
-                                      // Block backspace, arrows, tab back — no revision
-                                      if (["Backspace", "Delete", "ArrowUp", "ArrowLeft"].includes(e.key)) {
-                                        e.preventDefault();
-                                      }
-                                    }}
-                                    onChange={() => { /* handled in onKeyDown */ }}
-                                    className={`h-7 w-8 rounded border text-center text-base font-semibold outline-none tabular-nums transition-colors ${
-                                      isActive
-                                        ? "border-primary bg-primary/5 text-primary ring-2 ring-primary/30 animate-pulse"
-                                        : answered
-                                          ? "border-border bg-muted/40 text-muted-foreground"
-                                          : "border-dashed border-border/60 bg-transparent text-transparent"
-                                    }`}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                    <div
+                      tabIndex={0}
+                      autoFocus
+                      onKeyDown={(e) => { if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key); } }}
+                      className="rounded-xl border border-border bg-card p-6 outline-none"
+                    >
+                      <p className="mb-6 text-center text-lg font-bold text-foreground">Soal Dijawab : <span className="text-primary">{answeredCount}</span></p>
+                      <div className="flex flex-col items-center justify-center gap-8 md:flex-row md:gap-12">
+                        <div className="flex items-center gap-6">
+                          <div key={idx} className="flex flex-col gap-1 animate-fade-in">
+                            {cell(idx > 0 ? numbers[idx - 1] : undefined, false)}
+                            {cell(q ? numbers[idx] : undefined, true)}
+                            {cell(q ? numbers[idx + 1] : undefined, true)}
+                            {cell(q && idx + 2 < numbers.length ? numbers[idx + 2] : undefined, false)}
+                          </div>
+                          <span className="text-4xl font-bold text-foreground">=</span>
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="flex h-16 w-20 items-center justify-center rounded-md border-2 border-primary/60 bg-background text-3xl font-bold text-primary" />
+                            <span className="h-8 text-2xl font-bold text-muted-foreground/60">{prevAns}</span>
+                          </div>
+                        </div>
+                        <div className="grid w-64 grid-cols-3 gap-3 rounded-2xl border border-border bg-muted/30 p-4">
+                          {["7","8","9","4","5","6","1","2","3"].map(d => (
+                            <button key={d} type="button" disabled={!q} onClick={() => press(d)}
+                              className="h-14 rounded-xl border border-border bg-background text-xl font-semibold text-foreground shadow-sm transition active:scale-95 hover:border-primary hover:text-primary disabled:opacity-50">{d}</button>
+                          ))}
+                          <button type="button" disabled={!q} onClick={() => press("0")}
+                            className="col-span-3 h-14 rounded-xl border border-border bg-background text-xl font-semibold text-foreground shadow-sm transition active:scale-95 hover:border-primary hover:text-primary disabled:opacity-50">0</button>
+                        </div>
                       </div>
                     </div>
                   );
