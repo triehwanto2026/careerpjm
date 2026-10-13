@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check, BookOpen, RefreshCw, Calculator } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, MoreVertical, ListChecks, Check, BookOpen, RefreshCw, Calculator, X, ChevronLeft, ChevronRight, Languages, ShieldCheck } from "lucide-react";
 import Swal from "sweetalert2";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -183,6 +183,7 @@ const TestInstruments = () => {
   const navigate = useNavigate();
   const [instruments, setInstruments] = useState<InstrumentRow[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [preview, setPreview] = useState<null | { instrument: InstrumentRow; questions: any[]; optionsByQ: Record<string, any[]> }>(null);
   const [loading, setLoading] = useState(true);
   const [installingMsdt, setInstallingMsdt] = useState(false);
 
@@ -269,7 +270,7 @@ const TestInstruments = () => {
   const handlePreview = async (t: InstrumentRow) => {
     setOpenMenu(null);
     const { data: questions } = await supabase.from("test_questions").select("*").eq("instrument_id", t.id).order("question_number");
-    
+
     if (!questions || questions.length === 0) {
       Swal.fire({ icon: "info", title: "Belum Ada Soal", text: "Alat tes ini belum memiliki soal.", ...SWAL_THEME });
       return;
@@ -277,118 +278,13 @@ const TestInstruments = () => {
 
     const questionIds = questions.map((q: any) => q.id);
     const { data: options } = await supabase.from("test_question_options").select("*").in("question_id", questionIds).order("display_order");
-    
+
     const optionsByQ: Record<string, any[]> = {};
     (options || []).forEach((o: any) => {
       (optionsByQ[o.question_id] ||= []).push(o);
     });
 
-    const totalQuestions = questions.length;
-    
-    const html = (questions as any[]).map((q: any) => {
-      const opts = optionsByQ[q.id] || [];
-      
-      // Match TestPage.tsx layout - support multiple question types
-      let optionsHtml = '';
-      
-      if (q.question_type === 'disc_pair') {
-        // DISC layout with M/L columns
-        const discHeader = `
-          <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:8px;margin-bottom:12px;padding:8px 0;border-bottom:1px solid hsla(210,14%,25%)">
-            <span style="font-size:11px;font-weight:700;color:hsl(210,20%,60%);text-transform:uppercase;letter-spacing:0.5px">Pernyataan</span>
-            <span style="font-size:11px;font-weight:700;color:hsl(150,84%,45%);text-align:center;text-transform:uppercase;letter-spacing:0.5px">PALING (M)</span>
-            <span style="font-size:11px;font-weight:700;color:hsl(30,84%,50%);text-align:center;text-transform:uppercase;letter-spacing:0.5px">TIDAK (L)</span>
-          </div>
-        `;
-        
-        const discOptions = opts.map((o: any) => `
-          <div style="display:grid;grid-template-columns:1fr 60px 60px;align-items:center;gap:8px;padding:12px;margin-bottom:8px;border-radius:10px;border:1px solid hsla(210,14%,25%);background:hsla(210,14%,15%,0.6)">
-            <div>
-              <p style="font-weight:500;color:hsl(210,20%,92%);margin:0;line-height:1.5">${o.option_text || ''}</p>
-            </div>
-            <div style="display:flex;justify-content:center">
-              <div style="width:36px;height:36px;border-radius:6px;border:2px solid hsla(210,14%,30%);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:hsl(210,20%,60%)">M</div>
-            </div>
-            <div style="display:flex;justify-content:center">
-              <div style="width:36px;height:36px;border-radius:6px;border:2px solid hsla(210,14%,30%);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:hsl(210,20%,60%)">L</div>
-            </div>
-          </div>
-        `).join('');
-        
-        optionsHtml = discHeader + discOptions;
-      } else {
-        // Standard multiple choice layout
-        optionsHtml = opts.map((o: any) => `
-          <div style="padding:12px 16px;margin:8px 0;background:hsla(210,14%,15%,0.6);border-radius:10px;border:1px solid hsla(210,14%,25%);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:12px;">
-            <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:hsl(210,14%,25%);color:hsl(210,20%,92%);border-radius:6px;font-weight:600;font-size:13px;border:1px solid hsla(210,14%,30%)">${o.option_label || ''}</span>
-            <div style="flex:1">
-              <p style="font-weight:500;color:hsl(210,20%,92%);margin:0;line-height:1.5">${o.option_text || ''}</p>
-              ${o.option_definition ? `<p style="font-size:11px;color:hsl(210,20%,60%);margin:4px 0 0 0;line-height:1.4">${o.option_definition}</p>` : ''}
-            </div>
-            ${o.is_correct ? '<span style="flex-shrink:0;color:hsl(16,84%,56%);font-size:13px;font-weight:600">✓ Benar</span>' : ''}
-          </div>
-        `).join('');
-      }
-
-      return `
-        <div style="margin-bottom:24px;padding:20px;background:hsla(210,14%,10%,0.8);border-radius:16px;border:1px solid hsla(210,14%,25%)">
-          <!-- Header: Test name & Question counter (like TestPage) -->
-          <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid hsla(210,14%,25%)">
-            <span style="font-size:12px;color:hsl(174,72%,46%)">${t.name}</span>
-            <span style="font-size:12px;color:hsl(210,20%,60%);margin-left:8px">· Soal <strong style="color:hsl(210,20%,92%)">${q.question_number}</strong> dari ${totalQuestions}</span>
-          </div>
-          
-          <!-- Category badge (like TestPage) -->
-          ${q.category ? `<span style="display:inline-block;background:hsla(174,72%,46%,0.1);color:hsl(174,72%,46%);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:500;margin-bottom:12px">${q.category}</span>` : ''}
-          
-          <!-- Question text (like TestPage) -->
-          <h3 style="font-size:16px;font-weight:600;color:hsl(210,20%,96%);margin:0 0 12px 0;line-height:1.6">${q.question_text || ''}</h3>
-          ${q.question_text_en ? `<p style="font-size:13px;color:hsl(210,20%,60%);margin:0 0 16px 0;font-style:italic">${q.question_text_en}</p>` : ''}
-          
-          <!-- Images - Same layout as TestPage.tsx -->
-          ${q.question_image ? `
-            <div style="margin:16px 0;padding:16px;background:hsla(210,14%,12%,0.5);border-radius:12px;border:1px dashed hsla(210,14%,30%)">
-              <p style="font-size:11px;color:hsl(210,20%,60%);margin:0 0 12px 0">Soal:</p>
-              <img src="${q.question_image}" alt="Soal" style="max-height:280px;width:auto;border-radius:10px;border:1px solid hsla(210,14%,30%);background:white;display:block">
-            </div>
-          ` : ''}
-          
-          ${q.options_image ? `
-            <div style="margin:16px 0;padding:16px;background:hsla(210,14%,12%,0.5);border-radius:12px;border:1px dashed hsla(210,14%,30%)">
-              <p style="font-size:11px;color:hsl(210,20%,60%);margin:0 0 12px 0">Pilihan jawaban:</p>
-              <img src="${q.options_image}" alt="Pilihan Jawaban" style="max-height:280px;width:auto;border-radius:10px;border:1px solid hsla(210,14%,30%);background:white;display:block">
-            </div>
-          ` : ''}
-          
-          ${!q.question_image && !q.options_image && q.image_url ? `
-            <div style="margin:16px 0">
-              <img src="${q.image_url}" alt="Soal" style="max-height:280px;width:auto;border-radius:10px;border:1px solid hsla(210,14%,30%);background:white;display:block">
-            </div>
-          ` : ''}
-          
-          <!-- Debug info -->
-          <div style="margin-bottom:12px;padding:8px;background:hsla(210,14%,20%,0.5);border-radius:6px;font-size:10px;color:hsl(210,20%,50%)">
-            DEBUG: question_type=${q.question_type || 'null'} | options=${opts.length}
-          </div>
-          
-          <!-- Options section -->
-          <div style="margin-top:16px">
-            ${opts.length === 0 ? '<p style="font-size:13px;color:hsl(210,20%,60%);font-style:italic">Belum ada pilihan jawaban untuk soal ini.</p>' : optionsHtml}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    Swal.fire({
-      title: `Preview Tes`,
-      html: `<div style="text-align:left;max-height:75vh;overflow-y:auto;font-size:13px;padding-right:8px">${html}</div>`,
-      ...SWAL_THEME,
-      width: 800,
-      confirmButtonText: "Tutup Preview",
-      customClass: {
-        htmlContainer: 'preview-modal-container'
-      }
-    });
+    setPreview({ instrument: t, questions, optionsByQ });
   };
 
   const installMsdtQuestions = async (instrument: InstrumentRow) => {
@@ -648,7 +544,354 @@ const TestInstruments = () => {
           ))}
         </div>
       </div>
+      {preview && (
+        <TestPreviewModal
+          instrument={preview.instrument}
+          questions={preview.questions}
+          optionsByQ={preview.optionsByQ}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </AdminLayout>
+  );
+};
+
+interface PreviewProps {
+  instrument: InstrumentRow;
+  questions: any[];
+  optionsByQ: Record<string, any[]>;
+  onClose: () => void;
+}
+
+const TestPreviewModal = ({ instrument, questions, optionsByQ, onClose }: PreviewProps) => {
+  const [idx, setIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [showEnglish, setShowEnglish] = useState(false);
+
+  const isKraepelin = instrument.name.toUpperCase().includes("KRAEPELIN") || instrument.scoring_method === "speed_accuracy";
+  const q = questions[idx];
+  const opts: any[] = q ? (optionsByQ[q.id] || []) : [];
+  const currentAns = q ? answers[q.id] : undefined;
+
+  // Kraepelin: group questions into columns by subtest_code
+  const kraepelinColumns = (() => {
+    if (!isKraepelin) return [] as { code: string; qs: any[] }[];
+    const map = new Map<string, any[]>();
+    questions.forEach((qq: any) => {
+      const code = qq.subtest_code || "K1";
+      if (!map.has(code)) map.set(code, []);
+      map.get(code)!.push(qq);
+    });
+    return Array.from(map.entries()).map(([code, qs]) => ({ code, qs }));
+  })();
+  const [colIdx, setColIdx] = useState(0);
+  const activeColumn = kraepelinColumns[colIdx];
+
+  const parsePair = (txt: string): [number, number] => {
+    const m = String(txt || "").match(/(\d+)\s*\+\s*(\d+)/);
+    return m ? [Number(m[1]), Number(m[2])] : [0, 0];
+  };
+
+  const kraepelinNumbers: number[] = activeColumn
+    ? [...activeColumn.qs.map((qq: any) => parsePair(qq.question_text)[0]), parsePair(activeColumn.qs[activeColumn.qs.length - 1]?.question_text || "")[1]]
+    : [];
+  const kraepelinAnsweredCount = activeColumn ? activeColumn.qs.filter((qq: any) => answers[qq.id]).length : 0;
+  const kraepelinCurrent = activeColumn?.qs[kraepelinAnsweredCount];
+  const kraepelinPrevAns = kraepelinAnsweredCount > 0 ? answers[activeColumn.qs[kraepelinAnsweredCount - 1].id] : "";
+
+  const pressKraepelin = (d: string) => {
+    if (!kraepelinCurrent) return;
+    setAnswers((a) => ({ ...a, [kraepelinCurrent.id]: d }));
+  };
+
+  const handleDiscPick = (part: "M" | "L", optId: string) => {
+    if (!q) return;
+    const parts: Record<string, string> = { M: "", L: "" };
+    (currentAns || "").split("|").forEach((p) => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+    if (parts[part] === optId) parts[part] = ""; else parts[part] = optId;
+    // ensure M and L differ
+    if (part === "M" && parts.L === optId) parts.L = "";
+    if (part === "L" && parts.M === optId) parts.M = "";
+    const val = Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join("|");
+    setAnswers((a) => ({ ...a, [q.id]: val }));
+  };
+
+  const handleMultiPick = (optId: string) => {
+    if (!q) return;
+    const picked = new Set((currentAns || "").split("+").filter(Boolean));
+    if (picked.has(optId)) picked.delete(optId);
+    else { if (picked.size >= 2) return; picked.add(optId); }
+    setAnswers((a) => ({ ...a, [q.id]: Array.from(picked).join("+") }));
+  };
+
+  const cell = (n: number | undefined, active: boolean) => (
+    <div className={`flex w-20 items-center justify-center rounded-md transition-all duration-300 tabular-nums ${
+      n === undefined ? "h-16 opacity-0" :
+      active ? "h-16 border-2 border-primary bg-primary/20 text-3xl font-bold text-foreground" : "h-14 bg-muted/40 text-lg font-semibold text-muted-foreground"
+    }`}>{n ?? ""}</div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+      {/* Header — mirrors candidate test header */}
+      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <span className="hidden text-sm font-semibold text-foreground sm:inline">PsyTest</span>
+            <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">Mode Preview</span>
+          </div>
+          <div className="flex items-center gap-2 md:gap-3">
+            <span className="rounded-lg border border-border bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">{instrument.duration_minutes} menit</span>
+            <button onClick={() => setShowEnglish(!showEnglish)}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${showEnglish ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}>
+              <Languages className="h-3.5 w-3.5" /><span className="hidden sm:inline">EN</span>
+            </button>
+            <button onClick={onClose}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-medium text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors">
+              <X className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tutup</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-y-auto p-4 md:flex-row md:p-6">
+        {/* Sidebar — progress + question grid */}
+        <aside className="flex flex-row gap-4 md:w-64 md:flex-col md:gap-5">
+          <div className="flex flex-1 flex-col gap-4">
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-muted-foreground"><span>Progres</span><span>{Object.keys(answers).length}/{questions.length}</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${(Object.keys(answers).length / questions.length) * 100}%` }} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tes</p>
+              <div className="w-full rounded-lg border border-primary bg-primary/10 p-2.5 text-left">
+                <p className="text-xs font-semibold text-primary">{instrument.name}</p>
+                <p className="text-[10px] text-muted-foreground">{Object.keys(answers).length}/{questions.length} soal</p>
+              </div>
+            </div>
+            {!isKraepelin && (
+              <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
+                {questions.map((qq: any, i: number) => (
+                  <button key={qq.id} onClick={() => setIdx(i)}
+                    className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-all ${i === idx ? "bg-primary text-primary-foreground" : answers[qq.id] ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+            {isKraepelin && kraepelinColumns.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
+                {kraepelinColumns.map((c, i) => (
+                  <button key={c.code} onClick={() => setColIdx(i)}
+                    className={`flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-xs font-medium transition-all ${i === colIdx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                    {c.code.replace(/^K/i, "")}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Main question card */}
+        <main className="flex flex-1 flex-col">
+          <div className="glass flex-1 rounded-2xl p-5 glow-border md:p-8">
+            <div className="mb-5 flex items-center justify-between text-sm text-muted-foreground">
+              <span><span className="font-semibold text-primary">{instrument.name}</span> · Soal <span className="font-semibold text-foreground">{idx + 1}</span> dari {questions.length}</span>
+            </div>
+
+            {isKraepelin && activeColumn ? (
+              <div className="animate-fade-in space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kolom Kraepelin</p>
+                    <h3 className="text-xl font-bold text-foreground">{activeColumn.code.replace(/^K/i, "Kolom ")}</h3>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                  Jumlahkan dua angka yang disorot, lalu tekan <b>angka satuan</b> hasilnya pada tombol. Contoh: 7 + 8 = 15 → tekan <b>5</b>. Soal akan otomatis bergerak ke soal berikutnya. Jawaban <b>tidak dapat direvisi</b>.
+                </div>
+                <div
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (/^[0-9]$/.test(e.key)) { e.preventDefault(); pressKraepelin(e.key); } }}
+                  className="rounded-xl border border-border bg-card p-6 outline-none"
+                >
+                  <p className="mb-6 text-center text-lg font-bold text-foreground">Soal Dijawab : <span className="text-primary">{kraepelinAnsweredCount}</span></p>
+                  <div className="flex flex-col items-center justify-center gap-8 md:flex-row md:gap-12">
+                    <div className="flex items-center gap-6">
+                      <div key={kraepelinAnsweredCount} className="flex flex-col gap-1 animate-fade-in">
+                        {cell(kraepelinAnsweredCount > 0 ? kraepelinNumbers[kraepelinAnsweredCount - 1] : undefined, false)}
+                        {cell(kraepelinCurrent ? kraepelinNumbers[kraepelinAnsweredCount] : undefined, true)}
+                        {cell(kraepelinCurrent ? kraepelinNumbers[kraepelinAnsweredCount + 1] : undefined, true)}
+                        {cell(kraepelinCurrent && kraepelinAnsweredCount + 2 < kraepelinNumbers.length ? kraepelinNumbers[kraepelinAnsweredCount + 2] : undefined, false)}
+                      </div>
+                      <span className="text-4xl font-bold text-foreground">=</span>
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex h-16 w-20 items-center justify-center rounded-md border-2 border-primary/60 bg-background text-3xl font-bold text-primary" />
+                        <span className="h-8 text-2xl font-bold text-muted-foreground/60">{kraepelinPrevAns}</span>
+                      </div>
+                    </div>
+                    <div className="grid w-64 grid-cols-3 gap-3 rounded-2xl border border-border bg-muted/30 p-4">
+                      {["7","8","9","4","5","6","1","2","3"].map((d) => (
+                        <button key={d} type="button" disabled={!kraepelinCurrent} onClick={() => pressKraepelin(d)}
+                          className="h-14 rounded-xl border border-border bg-background text-xl font-semibold text-foreground shadow-sm transition active:scale-95 hover:border-primary hover:text-primary disabled:opacity-50">{d}</button>
+                      ))}
+                      <button type="button" disabled={!kraepelinCurrent} onClick={() => pressKraepelin("0")}
+                        className="col-span-3 h-14 rounded-xl border border-border bg-background text-xl font-semibold text-foreground shadow-sm transition active:scale-95 hover:border-primary hover:text-primary disabled:opacity-50">0</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : q ? (
+              <div className="animate-fade-in space-y-5">
+                {q.category && (
+                  <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{q.category}</span>
+                )}
+                <h3 className="text-lg font-semibold leading-relaxed text-foreground">{q.question_text}</h3>
+                {showEnglish && q.question_text_en && (
+                  <p className="text-sm italic text-muted-foreground">{q.question_text_en}</p>
+                )}
+                {q.question_image && (
+                  <div className="space-y-2 rounded border border-dashed border-border p-2">
+                    <p className="text-xs text-muted-foreground">Gambar 1 - Soal:</p>
+                    <img src={q.question_image} alt="Soal" className="max-h-72 w-auto rounded-lg border border-border bg-white" />
+                  </div>
+                )}
+                {q.options_image && (
+                  <div className="space-y-2 rounded border border-dashed border-border p-2">
+                    <p className="text-xs text-muted-foreground">Gambar 2 - Pilihan Jawaban:</p>
+                    <img src={q.options_image} alt="Pilihan Jawaban" className="max-h-72 w-auto rounded-lg border border-border bg-white" />
+                  </div>
+                )}
+                {!q.question_image && !q.options_image && q.image_url && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Gambar Soal:</p>
+                    <img src={q.image_url} alt="Soal" className="max-h-72 w-auto rounded-lg border border-border bg-white" />
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {q.question_type === "numeric" ? (
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Jawaban angka</label>
+                      <input
+                        type="text" inputMode="numeric" pattern="[0-9]*"
+                        value={currentAns || ""}
+                        onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                        className="h-14 w-full max-w-xs rounded-lg border border-border bg-muted px-4 text-center text-3xl font-bold tracking-widest text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="0"
+                      />
+                    </div>
+                  ) : q.question_type === "essay" || q.question_type === "text" ? (
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Jawaban esai</label>
+                      <textarea
+                        rows={4}
+                        value={currentAns || ""}
+                        onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                        className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Tulis jawaban Anda di sini"
+                      />
+                    </div>
+                  ) : opts.length === 0 ? (
+                    <p className="text-sm italic text-muted-foreground">Belum ada pilihan jawaban untuk soal ini.</p>
+                  ) : q.question_type === "disc_pair" ? (
+                    <div>
+                      <div className="mb-3 grid grid-cols-[1fr_60px_60px] gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        <span>Pernyataan</span>
+                        <span className="text-center text-emerald-500">PALING (M)</span>
+                        <span className="text-center text-amber-500">TIDAK (L)</span>
+                      </div>
+                      {(() => {
+                        const parts: Record<string, string> = { M: "", L: "" };
+                        (currentAns || "").split("|").forEach((p) => { const [k, v] = p.split(":"); if (k && v) parts[k] = v; });
+                        return opts.map((opt: any) => {
+                          const isM = parts.M === opt.id;
+                          const isL = parts.L === opt.id;
+                          return (
+                            <div key={opt.id} className={`mb-2 grid grid-cols-[1fr_60px_60px] items-center gap-2 rounded-lg border p-3 transition-all ${isM ? "border-emerald-500/60 bg-emerald-500/5" : isL ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-card hover:bg-muted/40"}`}>
+                              <div>
+                                <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
+                                {showEnglish && opt.option_text_en && <span className="mt-0.5 block text-xs italic text-muted-foreground">{opt.option_text_en}</span>}
+                              </div>
+                              <button type="button" onClick={() => handleDiscPick("M", opt.id)}
+                                className={`mx-auto h-9 w-9 rounded-md border-2 text-sm font-bold transition-all ${isM ? "border-emerald-500 bg-emerald-500 text-white" : "border-border hover:border-emerald-500/60"}`}>{isM ? "✓" : ""}</button>
+                              <button type="button" onClick={() => handleDiscPick("L", opt.id)}
+                                className={`mx-auto h-9 w-9 rounded-md border-2 text-sm font-bold transition-all ${isL ? "border-amber-500 bg-amber-500 text-white" : "border-border hover:border-amber-500/60"}`}>{isL ? "✓" : ""}</button>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  ) : q.question_type === "multi_choice" ? (
+                    <>
+                      <p className="text-xs font-medium text-amber-400">Pilih 2 jawaban yang benar.</p>
+                      {opts.map((opt: any) => {
+                        const picked = new Set((currentAns || "").split("+").filter(Boolean));
+                        const isSelected = picked.has(opt.id);
+                        return (
+                          <button key={opt.id} onClick={() => handleMultiPick(opt.id)}
+                            className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
+                            <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{isSelected ? "✓" : opt.option_label}</span>
+                            <div className="flex-1">
+                              {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
+                              <span className="text-sm font-medium text-foreground">{opt.option_label}. {opt.option_text}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    opts.map((opt: any) => {
+                      const isSelected = currentAns === opt.id;
+                      return (
+                        <button key={opt.id} onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt.id }))}
+                          className={`group flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-all ${isSelected ? "border-primary bg-primary/10 glow-border" : "border-border bg-card hover:border-primary/40 hover:bg-muted"}`}>
+                          <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 text-muted-foreground group-hover:border-primary/60"}`}>{opt.option_label}</span>
+                          <div className="flex-1">
+                            {opt.image_url && <img src={opt.image_url} alt={opt.option_label} className="mb-2 max-h-32 rounded border border-border bg-white" loading="lazy" />}
+                            <span className="text-sm font-medium text-foreground">{opt.option_text}</span>
+                            {showEnglish && opt.option_text_en && <span className="mt-0.5 block text-xs italic text-muted-foreground">{opt.option_text_en}</span>}
+                            {opt.option_definition && <span className="mt-1 block text-xs text-muted-foreground">{opt.option_definition}</span>}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Footer navigation */}
+          <div className="mt-4 flex items-center justify-between">
+            <button
+              onClick={() => (isKraepelin ? setColIdx((c) => Math.max(0, c - 1)) : setIdx((i) => Math.max(0, i - 1)))}
+              disabled={isKraepelin ? colIdx === 0 : idx === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30">
+              <ChevronLeft className="h-4 w-4" />Sebelumnya
+            </button>
+            {isKraepelin ? (
+              <button
+                onClick={() => setColIdx((c) => Math.min(kraepelinColumns.length - 1, c + 1))}
+                disabled={colIdx >= kraepelinColumns.length - 1}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-40">
+                Kolom Berikutnya<ChevronRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setIdx((i) => Math.min(questions.length - 1, i + 1))}
+                disabled={idx >= questions.length - 1}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-40">
+                Selanjutnya<ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 };
 
