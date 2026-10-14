@@ -2984,7 +2984,7 @@ const Results = () => {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Soal</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tanggal</th>
                 <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
-                <th className="sticky right-0 z-20 whitespace-nowrap border-l border-border bg-muted px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
+                <th className="md:sticky md:right-0 md:z-20 whitespace-nowrap border-l border-border bg-muted px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody>
