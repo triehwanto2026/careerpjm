@@ -2973,10 +2973,10 @@ const Results = () => {
           </button>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
+              <tr className="border-b border-border bg-muted">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nama Kandidat</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Posisi</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tes</th>
@@ -2984,7 +2984,7 @@ const Results = () => {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Soal</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tanggal</th>
                 <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
-                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
+                <th className="sticky right-0 z-20 whitespace-nowrap border-l border-border bg-muted px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -3018,19 +3018,23 @@ const Results = () => {
                       {status.label}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => handleSelectResult(r)} className="rounded-lg border border-sky-400/40 bg-sky-500/15 p-2.5 text-sky-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-sky-500 hover:text-white hover:shadow-sky-500/20" title="Lihat Detail">
-                        <Eye className="h-5 w-5" />
+                  <td className="sticky right-0 z-10 border-b border-l border-border/50 bg-card px-3 py-3 align-middle">
+                    <div className="flex flex-nowrap items-center justify-center gap-1.5">
+                      <button onClick={() => handleSelectResult(r)} aria-label="Lihat Detail" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-sky-400/60 bg-sky-500/20 px-2.5 py-2 text-sm font-semibold text-sky-300 shadow-sm ring-1 ring-inset ring-sky-400/20 transition-all hover:-translate-y-0.5 hover:bg-sky-500 hover:text-white hover:shadow-sky-500/20" title="Lihat Detail">
+                        <Eye className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
+                        <span className="hidden xl:inline">Detail</span>
                       </button>
-                      <button onClick={() => { setSelectedResult(r); handlePrint(); }} className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 p-2.5 text-emerald-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-500 hover:text-white hover:shadow-emerald-500/20" title="Cetak Laporan">
-                        <Printer className="h-5 w-5" />
+                      <button onClick={() => { setSelectedResult(r); handlePrint(); }} aria-label="Cetak Laporan" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-2.5 py-2 text-sm font-semibold text-emerald-300 shadow-sm ring-1 ring-inset ring-emerald-400/20 transition-all hover:-translate-y-0.5 hover:bg-emerald-500 hover:text-white hover:shadow-emerald-500/20" title="Cetak Laporan">
+                        <Printer className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
+                        <span className="hidden xl:inline">Cetak</span>
                       </button>
-                      <button onClick={() => handleDeleteResult(r)} className="rounded-lg border border-rose-400/40 bg-rose-500/15 p-2.5 text-rose-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white hover:shadow-rose-500/20" title="Hapus Hasil Tes">
-                        <Trash2 className="h-5 w-5" />
+                      <button onClick={() => handleDeleteResult(r)} aria-label="Hapus Hasil Tes" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-rose-400/60 bg-rose-500/20 px-2.5 py-2 text-sm font-semibold text-rose-300 shadow-sm ring-1 ring-inset ring-rose-400/20 transition-all hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white hover:shadow-rose-500/20" title="Hapus Hasil Tes">
+                        <Trash2 className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
+                        <span className="hidden xl:inline">Hapus</span>
                       </button>
                     </div>
                   </td>
+
                 </tr>
                 );
               })}
