@@ -2973,10 +2973,10 @@ const Results = () => {
           </button>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
+              <tr className="border-b border-border bg-muted">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nama Kandidat</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Posisi</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tes</th>
@@ -2984,7 +2984,7 @@ const Results = () => {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Soal</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Tanggal</th>
                 <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
-                <th className="whitespace-nowrap px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
+                <th className="sticky right-0 z-20 whitespace-nowrap border-l border-border bg-muted px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -3018,7 +3018,7 @@ const Results = () => {
                       {status.label}
                     </span>
                   </td>
-                  <td className="px-3 py-3 align-middle">
+                  <td className="sticky right-0 z-10 border-b border-l border-border/50 bg-card px-3 py-3 align-middle">
                     <div className="flex flex-nowrap items-center justify-center gap-1.5">
                       <button onClick={() => handleSelectResult(r)} aria-label="Lihat Detail" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-sky-400/60 bg-sky-500/20 px-2.5 py-2 text-sm font-semibold text-sky-300 shadow-sm ring-1 ring-inset ring-sky-400/20 transition-all hover:-translate-y-0.5 hover:bg-sky-500 hover:text-white hover:shadow-sky-500/20" title="Lihat Detail">
                         <Eye className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
