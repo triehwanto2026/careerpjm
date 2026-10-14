@@ -3019,7 +3019,7 @@ const Results = () => {
                     </span>
                   </td>
                   <td className="px-3 py-3 align-middle">
-                    <div className="flex flex-wrap items-center justify-center gap-2">
+                    <div className="flex flex-nowrap items-center justify-center gap-1.5">
                       <button onClick={() => handleSelectResult(r)} aria-label="Lihat Detail" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-sky-400/60 bg-sky-500/20 px-2.5 py-2 text-sm font-semibold text-sky-300 shadow-sm ring-1 ring-inset ring-sky-400/20 transition-all hover:-translate-y-0.5 hover:bg-sky-500 hover:text-white hover:shadow-sky-500/20" title="Lihat Detail">
                         <Eye className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
                         <span className="hidden xl:inline">Detail</span>
