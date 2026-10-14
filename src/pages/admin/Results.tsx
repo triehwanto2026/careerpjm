@@ -3018,7 +3018,7 @@ const Results = () => {
                       {status.label}
                     </span>
                   </td>
-                  <td className="sticky right-0 z-10 border-b border-l border-border/50 bg-card px-3 py-3 align-middle">
+                  <td className="md:sticky md:right-0 md:z-10 border-b border-l border-border/50 bg-card px-3 py-3 align-middle">
                     <div className="flex flex-nowrap items-center justify-center gap-2">
                       <button onClick={() => handleSelectResult(r)} aria-label="Lihat Detail" className="inline-flex h-11 w-12 items-center justify-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-500/50 ring-1 ring-inset ring-white/25 transition-all hover:-translate-y-0.5 hover:bg-sky-400 hover:shadow-xl hover:shadow-sky-500/70 active:translate-y-0" title="Lihat Detail">
                         <Eye className="h-[26px] w-[26px] shrink-0" strokeWidth={2.4} />
