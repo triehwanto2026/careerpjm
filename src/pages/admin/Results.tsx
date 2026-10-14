@@ -3019,18 +3019,15 @@ const Results = () => {
                     </span>
                   </td>
                   <td className="sticky right-0 z-10 border-b border-l border-border/50 bg-card px-3 py-3 align-middle">
-                    <div className="flex flex-nowrap items-center justify-center gap-1.5">
-                      <button onClick={() => handleSelectResult(r)} aria-label="Lihat Detail" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-sky-400/60 bg-sky-500/20 px-2.5 py-2 text-sm font-semibold text-sky-300 shadow-sm ring-1 ring-inset ring-sky-400/20 transition-all hover:-translate-y-0.5 hover:bg-sky-500 hover:text-white hover:shadow-sky-500/20" title="Lihat Detail">
-                        <Eye className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
-                        <span className="hidden xl:inline">Detail</span>
+                    <div className="flex flex-nowrap items-center justify-center gap-2">
+                      <button onClick={() => handleSelectResult(r)} aria-label="Lihat Detail" className="inline-flex h-11 w-12 items-center justify-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-500/50 ring-1 ring-inset ring-white/25 transition-all hover:-translate-y-0.5 hover:bg-sky-400 hover:shadow-xl hover:shadow-sky-500/70 active:translate-y-0" title="Lihat Detail">
+                        <Eye className="h-[26px] w-[26px] shrink-0" strokeWidth={2.4} />
                       </button>
-                      <button onClick={() => { setSelectedResult(r); handlePrint(); }} aria-label="Cetak Laporan" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-2.5 py-2 text-sm font-semibold text-emerald-300 shadow-sm ring-1 ring-inset ring-emerald-400/20 transition-all hover:-translate-y-0.5 hover:bg-emerald-500 hover:text-white hover:shadow-emerald-500/20" title="Cetak Laporan">
-                        <Printer className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
-                        <span className="hidden xl:inline">Cetak</span>
+                      <button onClick={() => { setSelectedResult(r); handlePrint(); }} aria-label="Cetak Laporan" className="inline-flex h-11 w-12 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/50 ring-1 ring-inset ring-white/25 transition-all hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-xl hover:shadow-emerald-500/70 active:translate-y-0" title="Cetak Laporan">
+                        <Printer className="h-[26px] w-[26px] shrink-0" strokeWidth={2.4} />
                       </button>
-                      <button onClick={() => handleDeleteResult(r)} aria-label="Hapus Hasil Tes" className="inline-flex min-h-[44px] min-w-[48px] items-center justify-center gap-2 rounded-lg border border-rose-400/60 bg-rose-500/20 px-2.5 py-2 text-sm font-semibold text-rose-300 shadow-sm ring-1 ring-inset ring-rose-400/20 transition-all hover:-translate-y-0.5 hover:bg-rose-500 hover:text-white hover:shadow-rose-500/20" title="Hapus Hasil Tes">
-                        <Trash2 className="h-[24px] w-[24px] shrink-0" strokeWidth={2.4} />
-                        <span className="hidden xl:inline">Hapus</span>
+                      <button onClick={() => handleDeleteResult(r)} aria-label="Hapus Hasil Tes" className="inline-flex h-11 w-12 items-center justify-center rounded-xl bg-rose-500 text-white shadow-lg shadow-rose-500/50 ring-1 ring-inset ring-white/25 transition-all hover:-translate-y-0.5 hover:bg-rose-400 hover:shadow-xl hover:shadow-rose-500/70 active:translate-y-0" title="Hapus Hasil Tes">
+                        <Trash2 className="h-[26px] w-[26px] shrink-0" strokeWidth={2.4} />
                       </button>
                     </div>
                   </td>
