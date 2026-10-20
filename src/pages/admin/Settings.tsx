@@ -552,10 +552,23 @@ const Settings = () => {
     setBackupLoading(false);
   };
 
+  // Pastikan sesi masih segar sebelum memanggil fungsi admin (token bisa kedaluwarsa)
+  const getFreshAdminToken = async (): Promise<string> => {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    const token = refreshed.session?.access_token
+      || (await supabase.auth.getSession()).data.session?.access_token;
+    if (!token) throw new Error("Sesi login sudah berakhir. Silakan keluar lalu masuk kembali.");
+    return token;
+  };
+
   const handleSchemaBackup = async () => {
     setSchemaBackupLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-db-backup", { body: {} });
+      const token = await getFreshAdminToken();
+      const { data, error } = await supabase.functions.invoke("admin-db-backup", {
+        body: {},
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (error) throw new Error(error.message || "Backup gagal");
       if (data?.error) throw new Error(data.error);
       if (!data?.sql) throw new Error("Server tidak mengembalikan file backup");
