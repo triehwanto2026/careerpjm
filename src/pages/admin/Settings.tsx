@@ -1443,6 +1443,75 @@ const Settings = () => {
                     </div>
                   </div>
 
+                  {/* Structure + User Data Backup Section */}
+                  <div className="border border-border rounded-lg p-6 bg-muted/30">
+                    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <Database className="h-5 w-5 text-primary" />
+                      Backup Struktur + Data User
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Backup struktur seluruh tabel (CREATE TABLE) tanpa data operasional. Data yang ikut disalin hanya data login/user dari Manajemen User (admin_roles, admin_users, user_roles). Hasilnya file SQL PostgreSQL yang bisa di-restore lewat tombol di bawah.
+                    </p>
+                    <div className="grid gap-4 rounded-lg border border-border bg-background p-4">
+                      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Struktur:</span> semua tabel database (kolom, tipe data, primary key, relasi).
+                        </div>
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Data:</span> hanya admin_roles, admin_users, user_roles.
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={handleSchemaBackup}
+                          disabled={schemaBackupLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {schemaBackupLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
+                              Backup...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" />
+                              Backup Database (Struktur + User)
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="border-t border-border pt-4 mt-2">
+                        <h4 className="text-sm font-semibold mb-3">Restore Database dari File</h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Upload file PostgreSQL (.sql) atau JSON (.json) — isi database akan berubah mengikuti isi file. Ukuran file tidak dibatasi.
+                        </p>
+                        <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 mb-4">
+                          <p className="text-xs text-destructive font-semibold">
+                            Tindakan ini menimpa database produksi. Pastikan sudah punya backup terbaru sebelum restore.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleSchemaRestore}
+                          disabled={schemaRestoreLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {schemaRestoreLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive-foreground" />
+                              Restore...
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-4 w-4" />
+                              Restore Database (.sql / .json)
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Test Data Backup & Restore Section */}
                   <div className="border border-border rounded-lg p-6 bg-muted/30">
                     <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
