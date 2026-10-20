@@ -176,6 +176,8 @@ const Settings = () => {
   const [includeTestImages, setIncludeTestImages] = useState(false);
   const [testDeleteBeforeRestore, setTestDeleteBeforeRestore] = useState(true);
   const [testRestoreStorage, setTestRestoreStorage] = useState(true);
+  const [schemaBackupLoading, setSchemaBackupLoading] = useState(false);
+  const [schemaRestoreLoading, setSchemaRestoreLoading] = useState(false);
 
   const categories = [
     { id: "branding", name: "Branding", icon: Palette, description: "Logo, warna, header, footer" },
@@ -548,6 +550,119 @@ const Settings = () => {
       });
     }
     setBackupLoading(false);
+  };
+
+  const handleSchemaBackup = async () => {
+    setSchemaBackupLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-db-backup", { body: {} });
+      if (error) throw new Error(error.message || "Backup gagal");
+      if (data?.error) throw new Error(data.error);
+      if (!data?.sql) throw new Error("Server tidak mengembalikan file backup");
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      downloadTextFile(`backup-struktur-user-${timestamp}.sql`, data.sql, "text/plain");
+
+      await Swal.fire({
+        icon: "success",
+        title: "Backup Berhasil",
+        html: `<div style="text-align:left;font-size:13px;">
+          <div><b>${data.tables}</b> struktur tabel diekspor.</div>
+          <div>Data yang disertakan hanya data login/user: <b>${(data.data_tables || []).join(", ")}</b>.</div>
+        </div>`,
+        ...SWAL_THEME,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Schema backup error:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Backup Gagal",
+        text: `Terjadi kesalahan: ${errMsg}`,
+        ...SWAL_THEME,
+      });
+    }
+    setSchemaBackupLoading(false);
+  };
+
+  const handleSchemaRestore = async () => {
+    const { value: file } = await Swal.fire({
+      icon: "question",
+      title: "Restore Database dari File",
+      text: "Pilih file backup PostgreSQL (.sql) atau JSON (.json). Ukuran file tidak dibatasi.",
+      input: "file",
+      inputAttributes: {
+        accept: ".sql,.json,application/json,text/plain",
+        "aria-label": "Upload file backup database",
+      },
+      showCancelButton: true,
+      confirmButtonText: "Restore",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "hsl(0, 72%, 51%)",
+      ...SWAL_THEME,
+    });
+
+    if (!file || !(file instanceof File)) return;
+
+    const isSql = /\.sql$/i.test(file.name);
+    const isJson = /\.json$/i.test(file.name);
+    if (!isSql && !isJson) {
+      await Swal.fire({ icon: "error", title: "Format Tidak Didukung", text: "Gunakan file .sql atau .json", ...SWAL_THEME });
+      return;
+    }
+
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    const confirmation = await Swal.fire({
+      icon: "warning",
+      title: "Konfirmasi Restore Database",
+      html: `<div style="text-align:left;font-size:13px;">
+        <div><b>File:</b> ${file.name} (${sizeMb} MB)</div>
+        <div><b>Format:</b> ${isSql ? "PostgreSQL SQL" : "JSON"}</div>
+        <br>
+        <div class="text-destructive font-semibold">PERINGATAN: Isi database akan berubah mengikuti isi file yang di-upload. Data yang tidak ada di file bisa hilang!</div>
+      </div>`,
+      showCancelButton: true,
+      confirmButtonText: "Ya, Restore",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "hsl(0, 72%, 51%)",
+      ...SWAL_THEME,
+    });
+
+    if (!confirmation.isConfirmed) return;
+
+    setSchemaRestoreLoading(true);
+    try {
+      const content = await file.text();
+      const { data, error } = await supabase.functions.invoke("admin-db-restore", {
+        body: { format: isSql ? "sql" : "json", content },
+      });
+      if (error) throw new Error(error.message || "Restore gagal");
+      if (data?.error) throw new Error(data.error);
+
+      const summaryHtml = data?.summary
+        ? Object.entries(data.summary).map(([table, count]) => `<div>• <b>${table}</b>: ${count} baris</div>`).join("")
+        : "";
+
+      await Swal.fire({
+        icon: "success",
+        title: "Restore Berhasil",
+        html: `<div style="text-align:left;font-size:13px;">
+          <div>${data?.message || "Database berhasil di-restore."}</div>
+          ${summaryHtml ? `<br>${summaryHtml}` : ""}
+        </div>`,
+        ...SWAL_THEME,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Schema restore error:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Restore Gagal",
+        text: `Terjadi kesalahan: ${errMsg}`,
+        ...SWAL_THEME,
+      });
+    }
+    setSchemaRestoreLoading(false);
   };
 
   const handleTestBackup = async () => {
@@ -1325,6 +1440,75 @@ const Settings = () => {
                           </>
                         )}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Structure + User Data Backup Section */}
+                  <div className="border border-border rounded-lg p-6 bg-muted/30">
+                    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <Database className="h-5 w-5 text-primary" />
+                      Backup Struktur + Data User
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Backup struktur seluruh tabel (CREATE TABLE) tanpa data operasional. Data yang ikut disalin hanya data login/user dari Manajemen User (admin_roles, admin_users, user_roles). Hasilnya file SQL PostgreSQL yang bisa di-restore lewat tombol di bawah.
+                    </p>
+                    <div className="grid gap-4 rounded-lg border border-border bg-background p-4">
+                      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Struktur:</span> semua tabel database (kolom, tipe data, primary key, relasi).
+                        </div>
+                        <div className="rounded-md bg-muted p-3">
+                          <span className="font-medium text-foreground">Data:</span> hanya admin_roles, admin_users, user_roles.
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={handleSchemaBackup}
+                          disabled={schemaBackupLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {schemaBackupLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
+                              Backup...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" />
+                              Backup Database (Struktur + User)
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="border-t border-border pt-4 mt-2">
+                        <h4 className="text-sm font-semibold mb-3">Restore Database dari File</h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Upload file PostgreSQL (.sql) atau JSON (.json) — isi database akan berubah mengikuti isi file. Ukuran file tidak dibatasi.
+                        </p>
+                        <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 mb-4">
+                          <p className="text-xs text-destructive font-semibold">
+                            Tindakan ini menimpa database produksi. Pastikan sudah punya backup terbaru sebelum restore.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleSchemaRestore}
+                          disabled={schemaRestoreLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {schemaRestoreLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive-foreground" />
+                              Restore...
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-4 w-4" />
+                              Restore Database (.sql / .json)
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
