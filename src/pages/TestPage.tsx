@@ -933,10 +933,10 @@ const TestPage = () => {
       title = "Petunjuk Personality Plus";
       html = `
         <div style="text-align:left;line-height:1.6">
-          <p style="margin:0 0 12px;color:hsl(210,20%,75%)">Pilih pernyataan/kata yang paling menggambarkan diri Anda dalam kehidupan sehari-hari.</p>
+          <p style="margin:0 0 12px;color:hsl(210,20%,75%)">Pilih satu pilihan pada setiap nomor yang paling sering menggambarkan diri Anda saat ini. Jika tidak ada yang sepenuhnya sesuai, pilih yang paling mendekati. Jika beberapa pilihan sesuai, pilih yang paling mewakili diri Anda.</p>
           <ul style="margin:0;padding-left:20px;color:hsl(210,20%,75%)">
-            <li>Jawab sesuai kecenderungan alami, bukan yang dianggap paling baik.</li>
             <li>Tidak ada jawaban benar atau salah.</li>
+            <li>Penjelasan Indonesia berikut merupakan penyederhanaan untuk membantu pemahaman, bukan terjemahan instrumen yang sudah tervalidasi.</li>
             <li>Waktu berjalan setelah tombol OK ditekan.</li>
           </ul>
         </div>`;
