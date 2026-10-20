@@ -646,8 +646,10 @@ const Settings = () => {
     setSchemaRestoreLoading(true);
     try {
       const content = await file.text();
+      const token = await getFreshAdminToken();
       const { data, error } = await supabase.functions.invoke("admin-db-restore", {
         body: { format: isSql ? "sql" : "json", content },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (error) throw new Error(error.message || "Restore gagal");
       if (data?.error) throw new Error(data.error);
