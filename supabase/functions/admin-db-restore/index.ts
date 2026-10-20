@@ -34,10 +34,13 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data: userData, error: userError } = await admin.auth.getUser(token);
-    if (userError || !userData?.user) return json({ error: "Sesi tidak valid" }, 401);
+    // Verifikasi JWT secara lokal (getClaims) — lebih tahan terhadap token
+    // yang baru saja di-refresh dibanding getUser yang memanggil server auth.
+    const { data: claimsData, error: claimsError } = await admin.auth.getClaims(token);
+    const userId = claimsData?.claims?.sub as string | undefined;
+    if (claimsError || !userId) return json({ error: "Sesi tidak valid. Silakan masuk ulang." }, 401);
 
-    const { data: isAdmin, error: roleError } = await admin.rpc("is_any_admin", { _user_id: userData.user.id });
+    const { data: isAdmin, error: roleError } = await admin.rpc("is_any_admin", { _user_id: userId });
     if (roleError || !isAdmin) return json({ error: "Akses ditolak. Hanya admin." }, 403);
 
     const body = await req.json();
