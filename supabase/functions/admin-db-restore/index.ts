@@ -1,5 +1,8 @@
+// ============= Full file contents =============
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.103.0";
 import postgres from "npm:postgres@3.4.5";
+import { convertMysqlToPostgres } from "../_shared/mysqlToPostgres.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +60,17 @@ Deno.serve(async (req) => {
         return json({ success: true, message: "Database berhasil di-restore dari file SQL" });
       }
 
+      if (format === "mysql") {
+        // Konversi dump MySQL menjadi PostgreSQL lalu jalankan
+        const converted = convertMysqlToPostgres(content);
+        console.log("admin-db-restore: converting MySQL dump,", converted.length, "chars");
+        await sql.unsafe(converted);
+        return json({
+          success: true,
+          message: "Database berhasil di-restore dari file MySQL (dikonversi otomatis ke format database aplikasi)",
+        });
+      }
+
       if (format === "json") {
         const parsed = JSON.parse(content);
         const database = parsed.database && typeof parsed.database === "object" ? parsed.database : parsed;
@@ -88,7 +102,7 @@ Deno.serve(async (req) => {
         return json({ success: true, message: "Database berhasil di-restore dari file JSON", summary });
       }
 
-      return json({ error: "Format tidak didukung. Gunakan sql atau json." }, 400);
+      return json({ error: "Format tidak didukung. Gunakan sql, mysql, atau json." }, 400);
     } finally {
       await sql.end({ timeout: 5 }).catch(() => {});
     }
