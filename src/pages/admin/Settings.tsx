@@ -1477,7 +1477,7 @@ const Settings = () => {
                       Backup Struktur + Data User
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Backup struktur seluruh tabel (CREATE TABLE) tanpa data operasional. Data yang ikut disalin hanya data login/user dari Manajemen User (admin_roles, admin_users, user_roles). Hasilnya file SQL PostgreSQL yang bisa di-restore lewat tombol di bawah.
+                      Backup struktur seluruh tabel (CREATE TABLE) tanpa data operasional. Data yang ikut disalin hanya data login/user dari Manajemen User (admin_roles, admin_users, user_roles). Tersedia dua format: SQL PostgreSQL (untuk restore di aplikasi ini) dan SQL MySQL (bisa di-import langsung ke MySQL/phpMyAdmin, dan juga bisa di-restore lewat tombol di bawah).
                     </p>
                     <div className="grid gap-4 rounded-lg border border-border bg-background p-4">
                       <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
@@ -1490,7 +1490,7 @@ const Settings = () => {
                       </div>
                       <div className="flex flex-wrap gap-3">
                         <button
-                          onClick={handleSchemaBackup}
+                          onClick={() => handleSchemaBackup("postgres")}
                           disabled={schemaBackupLoading}
                           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -1503,6 +1503,23 @@ const Settings = () => {
                             <>
                               <Download className="h-4 w-4" />
                               Backup Database (Struktur + User)
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleSchemaBackup("mysql")}
+                          disabled={schemaBackupLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {schemaBackupLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                              Backup...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" />
+                              Backup MySQL (Struktur + User)
                             </>
                           )}
                         </button>
