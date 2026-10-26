@@ -79,7 +79,7 @@ function mysqlDefault(col: any, autoInc: boolean, type: string): string {
 
 function mysqlLiteral(value: unknown): string {
   if (value === null || value === undefined) return "NULL";
-  if (typeof value === "boolean") return value ? "1" : "0";
+  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (typeof value === "number") return Number.isFinite(value) ? String(value) : "NULL";
   if (typeof value === "bigint") return String(value);
   if (value instanceof Uint8Array) return "NULL";
