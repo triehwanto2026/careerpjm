@@ -1528,7 +1528,7 @@ const Settings = () => {
                       <div className="border-t border-border pt-4 mt-2">
                         <h4 className="text-sm font-semibold mb-3">Restore Database dari File</h4>
                         <p className="text-xs text-muted-foreground mb-3">
-                          Upload file PostgreSQL (.sql) atau JSON (.json) — isi database akan berubah mengikuti isi file. Ukuran file tidak dibatasi.
+                          Upload file PostgreSQL (.sql), MySQL (.sql), atau JSON (.json) — isi database akan berubah mengikuti isi file. File MySQL dikonversi otomatis ke format database aplikasi. Ukuran file tidak dibatasi.
                         </p>
                         <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 mb-4">
                           <p className="text-xs text-destructive font-semibold">
