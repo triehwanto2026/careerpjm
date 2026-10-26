@@ -561,12 +561,12 @@ const Settings = () => {
     return token;
   };
 
-  const handleSchemaBackup = async () => {
+  const handleSchemaBackup = async (format: "postgres" | "mysql" = "postgres") => {
     setSchemaBackupLoading(true);
     try {
       const token = await getFreshAdminToken();
       const { data, error } = await supabase.functions.invoke("admin-db-backup", {
-        body: {},
+        body: { format },
         headers: { Authorization: `Bearer ${token}` },
       });
       if (error) throw new Error(error.message || "Backup gagal");
@@ -574,14 +574,18 @@ const Settings = () => {
       if (!data?.sql) throw new Error("Server tidak mengembalikan file backup");
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      downloadTextFile(`backup-struktur-user-${timestamp}.sql`, data.sql, "text/plain");
+      const fileName = format === "mysql"
+        ? `backup-struktur-user-mysql-${timestamp}.sql`
+        : `backup-struktur-user-${timestamp}.sql`;
+      downloadTextFile(fileName, data.sql, "text/plain");
 
       await Swal.fire({
         icon: "success",
         title: "Backup Berhasil",
         html: `<div style="text-align:left;font-size:13px;">
-          <div><b>${data.tables}</b> struktur tabel diekspor.</div>
+          <div><b>${data.tables}</b> struktur tabel diekspor (${format === "mysql" ? "format MySQL" : "format PostgreSQL"}).</div>
           <div>Data yang disertakan hanya data login/user: <b>${(data.data_tables || []).join(", ")}</b>.</div>
+          ${format === "mysql" ? "<div>File ini bisa di-import langsung ke MySQL (phpMyAdmin / MySQL Workbench) dan juga bisa di-restore lewat tombol di bawah.</div>" : ""}
         </div>`,
         ...SWAL_THEME,
       });
