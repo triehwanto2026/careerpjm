@@ -606,7 +606,7 @@ const Settings = () => {
     const { value: file } = await Swal.fire({
       icon: "question",
       title: "Restore Database dari File",
-      text: "Pilih file backup PostgreSQL (.sql) atau JSON (.json). Ukuran file tidak dibatasi.",
+      text: "Pilih file backup PostgreSQL (.sql), MySQL (.sql), atau JSON (.json). Ukuran file tidak dibatasi.",
       input: "file",
       inputAttributes: {
         accept: ".sql,.json,application/json,text/plain",
@@ -628,13 +628,22 @@ const Settings = () => {
       return;
     }
 
+    const content = await file.text();
+    const looksMysql = !isJson && /AUTO_INCREMENT|ENGINE\s*=|`/.test(content);
+    const restoreFormat = isJson ? "json" : looksMysql ? "mysql" : "sql";
+    const formatLabel = isJson
+      ? "JSON"
+      : looksMysql
+        ? "MySQL SQL (dikonversi otomatis ke format database aplikasi)"
+        : "PostgreSQL SQL";
+
     const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
     const confirmation = await Swal.fire({
       icon: "warning",
       title: "Konfirmasi Restore Database",
       html: `<div style="text-align:left;font-size:13px;">
         <div><b>File:</b> ${file.name} (${sizeMb} MB)</div>
-        <div><b>Format:</b> ${isSql ? "PostgreSQL SQL" : "JSON"}</div>
+        <div><b>Format:</b> ${formatLabel}</div>
         <br>
         <div class="text-destructive font-semibold">PERINGATAN: Isi database akan berubah mengikuti isi file yang di-upload. Data yang tidak ada di file bisa hilang!</div>
       </div>`,
@@ -649,10 +658,9 @@ const Settings = () => {
 
     setSchemaRestoreLoading(true);
     try {
-      const content = await file.text();
       const token = await getFreshAdminToken();
       const { data, error } = await supabase.functions.invoke("admin-db-restore", {
-        body: { format: isSql ? "sql" : "json", content },
+        body: { format: restoreFormat, content },
         headers: { Authorization: `Bearer ${token}` },
       });
       if (error) throw new Error(error.message || "Restore gagal");
