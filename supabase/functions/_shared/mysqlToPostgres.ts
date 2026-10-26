@@ -8,23 +8,24 @@ const pgQ = (ident: string) => `"${ident.replace(/"/g, '""')}"`;
 export function splitStatements(input: string): string[] {
   const out: string[] = [];
   let cur = "";
-  let inS = false, inD = false, inB = false, inLine = false, inBlock = false;
+  let inS = false, inD = false, inB = false;
+  let inLine = false, inHash = false, inBlock = false;
   for (let i = 0; i < input.length; i++) {
     const ch = input[i];
     const next = input[i + 1] ?? "";
-    if (inLine) {
-      cur += ch;
-      if (ch === "\n") inLine = false;
+    // Komentar dibuang sepenuhnya (jangan menempel ke statement berikutnya)
+    if (inLine || inHash) {
+      if (ch === "\n") { inLine = false; inHash = false; cur += "\n"; }
       continue;
     }
     if (inBlock) {
-      cur += ch;
-      if (ch === "*" && next === "/") { cur += next; i++; inBlock = false; }
+      if (ch === "*" && next === "/") { i++; inBlock = false; }
       continue;
     }
     if (!inS && !inD && !inB) {
-      if (ch === "-" && next === "-") { inLine = true; cur += ch; continue; }
-      if (ch === "/" && next === "*") { inBlock = true; cur += ch; continue; }
+      if (ch === "-" && next === "-") { inLine = true; i++; continue; }
+      if (ch === "#") { inHash = true; continue; }
+      if (ch === "/" && next === "*") { inBlock = true; i++; continue; }
     }
     if (inS) {
       cur += ch;
